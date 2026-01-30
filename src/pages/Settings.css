@@ -1,0 +1,154 @@
+/* Settings page styles */
+
+.settings-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.settings-header {
+  margin-bottom: 2rem;
+}
+
+.settings-header h1 {
+  margin: 0.5rem 0;
+}
+
+.back-link {
+  color: var(--link-color, #0066cc);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.settings-section {
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.settings-section h2 {
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.section-header h2 {
+  margin: 0;
+}
+
+.add-button {
+  background: var(--primary-color, #0066cc);
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.add-button:hover:not(:disabled) {
+  background: var(--primary-hover, #0052a3);
+}
+
+.add-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error-message {
+  background: var(--error-bg, #fee);
+  color: var(--error-color, #c00);
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.loading {
+  color: var(--text-muted, #666);
+  font-style: italic;
+}
+
+.empty-state {
+  color: var(--text-muted, #666);
+  text-align: center;
+  padding: 2rem;
+}
+
+.instance-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.instance-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color, #eee);
+}
+
+.instance-item:last-child {
+  border-bottom: none;
+}
+
+.instance-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.instance-name {
+  font-weight: 600;
+}
+
+.instance-url {
+  color: var(--text-muted, #666);
+  font-size: 0.9rem;
+}
+
+.instance-meta {
+  color: var(--text-muted, #888);
+  font-size: 0.8rem;
+}
+
+.token-warning {
+  color: var(--warning-color, #f90);
+}
+
+.delete-button {
+  background: none;
+  border: none;
+  color: var(--error-color, #c00);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  line-height: 1;
+  border-radius: 4px;
+}
+
+.delete-button:hover {
+  background: var(--error-bg, #fee);
+}
+
+.coming-soon {
+  color: var(--text-muted, #666);
+  font-style: italic;
+}

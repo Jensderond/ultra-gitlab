@@ -36,6 +36,9 @@ import type {
   ApprovalResponse,
 } from '../types';
 
+// Re-export types used by consumers
+export type { SetupInstanceResponse, GitLabInstanceWithStatus } from './tauri';
+
 // ============================================================================
 // Instance Management
 // ============================================================================

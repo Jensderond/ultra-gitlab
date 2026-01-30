@@ -1,50 +1,65 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+/**
+ * Main application component with routing.
+ */
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Settings from './pages/Settings';
+import './App.css';
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
-
+/**
+ * Placeholder component for MR list page.
+ * Will be implemented in Phase 3 (User Story 1).
+ */
+function MRListPage() {
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    <div className="page">
+      <h1>Merge Requests</h1>
+      <p>MR list will be displayed here.</p>
+    </div>
+  );
+}
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+/**
+ * Placeholder component for MR detail page.
+ * Will be implemented in Phase 3 (User Story 1).
+ */
+function MRDetailPage() {
+  return (
+    <div className="page">
+      <h1>Merge Request Detail</h1>
+      <p>Diff viewer will be displayed here.</p>
+    </div>
+  );
+}
+
+/**
+ * Main application component.
+ *
+ * Provides routing for:
+ * - / - Redirect to /mrs
+ * - /mrs - List of merge requests
+ * - /mrs/:id - Merge request detail/diff view
+ * - /settings - Settings and GitLab instance management
+ */
+function App() {
+  return (
+    <BrowserRouter>
+      <div className="app">
+        <Routes>
+          {/* Redirect root to MR list */}
+          <Route path="/" element={<Navigate to="/mrs" replace />} />
+
+          {/* MR list page */}
+          <Route path="/mrs" element={<MRListPage />} />
+
+          {/* MR detail page */}
+          <Route path="/mrs/:id" element={<MRDetailPage />} />
+
+          {/* Settings page */}
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
       </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+    </BrowserRouter>
   );
 }
 

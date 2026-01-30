@@ -82,9 +82,9 @@
 
 ### App Shell
 
-- [ ] T028 Create basic App component with routing in src/App.tsx
-- [ ] T029 Create Settings page component for GitLab instance setup in src/pages/Settings.tsx
-- [ ] T030 Create instance setup form with URL/token inputs in src/components/InstanceSetup/InstanceSetup.tsx
+- [x] T028 Create basic App component with routing in src/App.tsx
+- [x] T029 Create Settings page component for GitLab instance setup in src/pages/Settings.tsx
+- [x] T030 Create instance setup form with URL/token inputs in src/components/InstanceSetup/InstanceSetup.tsx
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 

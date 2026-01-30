@@ -190,3 +190,30 @@
 - High-level service wrappers add business logic on top of raw Tauri calls
 
 ---
+
+## 2026-01-30 - T028, T029, T030
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created App.tsx with react-router-dom v7 routing
+- Created Settings page with instance management UI
+- Created InstanceSetup form component with validation
+- Added placeholder pages for MRList and MRDetail
+
+### Files Changed
+- src/App.tsx (updated with routing)
+- src/pages/Settings.tsx (new)
+- src/pages/Settings.css (new)
+- src/components/InstanceSetup/InstanceSetup.tsx (new)
+- src/components/InstanceSetup/InstanceSetup.css (new)
+- src/components/InstanceSetup/index.ts (new)
+- src/services/gitlab.ts (added type re-exports)
+- specs/001-local-mr-review/tasks.md (marked T028-T030 complete)
+
+### Learnings for Future Iterations
+- Use react-router-dom v7 with BrowserRouter, Routes, Route, Navigate
+- Re-export types from service wrappers for component consumers
+- Keep CSS separate for each component/page
+
+---
