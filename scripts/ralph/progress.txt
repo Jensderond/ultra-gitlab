@@ -113,3 +113,28 @@ Feature: Local-First GitLab MR Review
 
 ---
 
+## 2026-01-30 - T005
+**Workflow**: Speckit
+**Feature**: Local-First GitLab MR Review (001-local-mr-review)
+
+### Implemented
+- Created Rust module structure with mod.rs files:
+  - src-tauri/src/commands/mod.rs - IPC command handlers
+  - src-tauri/src/models/mod.rs - Data models for SQLite and IPC
+  - src-tauri/src/services/mod.rs - Business logic services
+  - src-tauri/src/db/mod.rs - Database layer with get_db_path helper
+- Registered all modules in lib.rs with doc comments
+
+### Files Changed
+- src-tauri/src/lib.rs
+- src-tauri/src/commands/mod.rs (new)
+- src-tauri/src/models/mod.rs (new)
+- src-tauri/src/services/mod.rs (new)
+- src-tauri/src/db/mod.rs (new)
+
+### Learnings for Future Iterations
+- Each mod.rs includes commented placeholders for submodules to be added later
+- db/mod.rs includes get_db_path helper for consistent database location
+
+---
+

@@ -1,3 +1,13 @@
+//! Ultra GitLab - Local-first GitLab MR review application.
+//!
+//! This is the main library for the Tauri backend, exposing IPC commands
+//! to the React frontend.
+
+pub mod commands;
+pub mod db;
+pub mod models;
+pub mod services;
+
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
