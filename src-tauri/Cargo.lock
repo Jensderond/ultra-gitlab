@@ -4900,6 +4900,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-opener",
  "tauri-plugin-store",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tree-sitter",

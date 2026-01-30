@@ -1,0 +1,43 @@
+## Codebase Patterns
+<!-- Consolidated learnings - check this FIRST before starting work -->
+
+### Architecture
+- Database layer is in `src-tauri/src/db/` with pool.rs for connection management and mod.rs for initialization/migrations
+- SQL migrations are stored in `src-tauri/src/db/migrations/` as .sql files
+- Migration tracking uses a `_migrations` table in SQLite
+
+### Conventions
+- Use `Path` instead of `PathBuf` for function parameters per Clippy recommendation
+- SQL statements in migrations must be parsed carefully - semicolons inside parentheses (e.g., `strftime('%s', 'now')`) don't end statements
+- All database tests use `tempfile` crate for isolated test databases
+
+### Gotchas
+- SQLite doesn't support executing multiple statements in a single query - must split and execute individually
+- When splitting SQL by `;`, need to track parenthesis depth to avoid splitting inside DEFAULT expressions
+
+---
+
+## 2026-01-30 - T006, T007, T008
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created SQLite migration file with all 7 tables from data-model.md:
+  - gitlab_instances, merge_requests, diffs, diff_files, comments, sync_queue, sync_log
+- Implemented database initialization with migration runner in db/mod.rs
+- Created SQLite connection pool with WAL mode in db/pool.rs
+- Added tests for database initialization and idempotent migrations
+
+### Files Changed
+- src-tauri/src/db/migrations/0001_initial_schema.sql (new)
+- src-tauri/src/db/mod.rs (updated)
+- src-tauri/src/db/pool.rs (new)
+- src-tauri/Cargo.toml (added tempfile dev dependency)
+- specs/001-local-mr-review/tasks.md (marked T006-T008 complete)
+
+### Learnings for Future Iterations
+- SQLite migration parsing requires tracking parenthesis depth to handle DEFAULT expressions with semicolons
+- Clippy prefers `&Path` over `&PathBuf` for function parameters
+- Tests use tempfile::tempdir() for isolated database testing
+
+---

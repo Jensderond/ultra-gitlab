@@ -39,9 +39,9 @@
 
 ### Database Layer
 
-- [ ] T006 Create SQLite migration file in src-tauri/src/db/migrations/0001_initial_schema.sql with all tables from data-model.md
-- [ ] T007 Implement database initialization and migration runner in src-tauri/src/db/mod.rs
-- [ ] T008 Implement SQLite connection pool with WAL mode in src-tauri/src/db/pool.rs
+- [x] T006 Create SQLite migration file in src-tauri/src/db/migrations/0001_initial_schema.sql with all tables from data-model.md
+- [x] T007 Implement database initialization and migration runner in src-tauri/src/db/mod.rs
+- [x] T008 Implement SQLite connection pool with WAL mode in src-tauri/src/db/pool.rs
 
 ### Rust Models
 
