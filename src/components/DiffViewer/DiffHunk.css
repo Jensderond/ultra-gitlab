@@ -1,0 +1,27 @@
+/* Diff Hunk Styles */
+
+.diff-hunk {
+  border-bottom: 1px solid var(--border-color, #e1e4e8);
+}
+
+.diff-hunk:last-child {
+  border-bottom: none;
+}
+
+.diff-hunk-header {
+  padding: 8px 12px;
+  background-color: var(--hunk-header-bg, #f1f8ff);
+  color: var(--text-secondary, #586069);
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border-color, #e1e4e8);
+}
+
+.hunk-range {
+  color: var(--hunk-header-text, #0366d6);
+  font-weight: 500;
+}
+
+.diff-hunk-lines {
+  /* Lines container */
+}

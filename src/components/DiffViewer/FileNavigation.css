@@ -1,0 +1,125 @@
+/* File Navigation Styles */
+
+.file-navigation {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--bg-primary, #fff);
+  border-right: 1px solid var(--border-color, #e1e4e8);
+}
+
+.file-nav-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color, #e1e4e8);
+  background-color: var(--bg-secondary, #f6f8fa);
+}
+
+.file-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary, #586069);
+}
+
+.file-nav-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.file-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-color-light, #eaecef);
+  transition: background-color 0.1s ease;
+}
+
+.file-nav-item:hover {
+  background-color: var(--hover-bg, #f6f8fa);
+}
+
+.file-nav-item.selected {
+  background-color: var(--selected-bg, #e8f4fd);
+  border-left: 3px solid var(--accent-color, #0366d6);
+  padding-left: 9px;
+}
+
+.file-nav-item.focused {
+  box-shadow: inset 0 0 0 2px var(--focus-ring, rgba(3, 102, 214, 0.3));
+}
+
+.file-nav-item:focus {
+  outline: none;
+}
+
+.file-change-indicator {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 3px;
+}
+
+.change-added {
+  background-color: var(--diff-add-bg, #e6ffec);
+  color: var(--diff-add-text, #22863a);
+}
+
+.change-deleted {
+  background-color: var(--diff-remove-bg, #ffebe9);
+  color: var(--diff-remove-text, #cb2431);
+}
+
+.change-modified {
+  background-color: var(--warning-bg, #fff8c5);
+  color: var(--warning-text, #735c0f);
+}
+
+.change-renamed {
+  background-color: var(--info-bg, #ddf4ff);
+  color: var(--info-text, #0969da);
+}
+
+.file-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary, #24292f);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-dir {
+  font-size: 10px;
+  color: var(--text-tertiary, #8b949e);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-stats {
+  display: flex;
+  gap: 4px;
+  font-size: 10px;
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+}
+
+.stat-add {
+  color: var(--diff-add-text, #22863a);
+}
+
+.stat-del {
+  color: var(--diff-remove-text, #cb2431);
+}

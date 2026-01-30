@@ -5,20 +5,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Settings from './pages/Settings';
 import MRListPage from './pages/MRListPage';
+import MRDetailPage from './pages/MRDetailPage';
 import './App.css';
-
-/**
- * Placeholder component for MR detail page.
- * Will be implemented in T052 (User Story 1).
- */
-function MRDetailPage() {
-  return (
-    <div className="page">
-      <h1>Merge Request Detail</h1>
-      <p>Diff viewer will be displayed here.</p>
-    </div>
-  );
-}
 
 /**
  * Main application component.

@@ -121,14 +121,14 @@
 
 ### Frontend - Diff Viewer (US1)
 
-- [ ] T045 [P] [US1] Create DiffViewer container component in src/components/DiffViewer/DiffViewer.tsx
-- [ ] T046 [P] [US1] Create DiffLine component with syntax token rendering in src/components/DiffViewer/DiffLine.tsx
-- [ ] T047 [P] [US1] Create DiffHunk component for grouping lines in src/components/DiffViewer/DiffHunk.tsx
-- [ ] T048 [US1] Implement virtual scrolling with react-window in DiffViewer.tsx
-- [ ] T049 [US1] Create FileNavigation component for switching files in src/components/DiffViewer/FileNavigation.tsx
-- [ ] T050 [US1] Add unified/split view toggle in DiffViewer.tsx
-- [ ] T051 [US1] Create syntax highlighting CSS classes in src/styles/syntax.css
-- [ ] T052 [US1] Create MR detail page with diff viewer in src/pages/MRDetailPage.tsx
+- [x] T045 [P] [US1] Create DiffViewer container component in src/components/DiffViewer/DiffViewer.tsx
+- [x] T046 [P] [US1] Create DiffLine component with syntax token rendering in src/components/DiffViewer/DiffLine.tsx
+- [x] T047 [P] [US1] Create DiffHunk component for grouping lines in src/components/DiffViewer/DiffHunk.tsx
+- [x] T048 [US1] Implement virtual scrolling with react-window in DiffViewer.tsx
+- [x] T049 [US1] Create FileNavigation component for switching files in src/components/DiffViewer/FileNavigation.tsx
+- [x] T050 [US1] Add unified/split view toggle in DiffViewer.tsx
+- [x] T051 [US1] Create syntax highlighting CSS classes in src/styles/syntax.css
+- [x] T052 [US1] Create MR detail page with diff viewer in src/pages/MRDetailPage.tsx
 
 ### Basic Keyboard Navigation (US1)
 
