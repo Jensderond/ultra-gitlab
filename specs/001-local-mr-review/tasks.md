@@ -54,7 +54,7 @@
 
 ### Error Handling
 
-- [ ] T015 Create application error types with Serialize impl in src-tauri/src/error.rs
+- [x] T015 Create application error types with Serialize impl in src-tauri/src/error.rs
 
 ### GitLab API Client
 

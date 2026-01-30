@@ -73,3 +73,24 @@
 - SQLx FromRow requires field names to match column names exactly
 
 ---
+
+## 2026-01-30 - T015
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created AppError enum with all error variants needed for Tauri IPC
+- Added Serialize impl using tagged enum format for frontend consumption
+- Added From impls for sqlx::Error, reqwest::Error, serde_json::Error, and DbError
+- Added builder methods for each error variant with optional context
+
+### Files Changed
+- src-tauri/src/error.rs (new)
+- src-tauri/src/lib.rs (added error module)
+- specs/001-local-mr-review/tasks.md (marked T015 complete)
+
+### Learnings for Future Iterations
+- Use `#[serde(tag = "type", content = "details")]` for tagged enum serialization
+- Use `#[serde(skip_serializing_if = "Option::is_none")]` to omit optional fields when None
+
+---
