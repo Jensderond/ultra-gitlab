@@ -700,3 +700,143 @@
 - OnceLock + RwLock pattern for in-memory settings cache
 
 ---
+
+## 2026-01-30 - T105, T106, T107, T108, T109
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created CommandPalette container with fuzzy search:
+  - Overlay with animated slide-in
+  - Search input with real-time filtering
+  - Grouped commands by category
+  - Keyboard navigation (up/down arrows, Enter, Escape)
+  - Scroll into view for selected item
+- Created CommandItem component:
+  - Displays label, description, and keyboard shortcut
+  - Shortcut key formatting (Cmd → ⌘, etc.)
+- Created command registry:
+  - All available actions defined with categories
+  - CommandId enum for programmatic access
+  - createCommands() helper for binding actions
+- Added global keyboard shortcuts in App.tsx:
+  - Cmd+P to open command palette
+  - Cmd+, to open settings
+  - Cmd+R to trigger sync
+
+### Files Changed
+- src/components/CommandPalette/CommandPalette.tsx (new)
+- src/components/CommandPalette/CommandPalette.css (new)
+- src/components/CommandPalette/CommandItem.tsx (new)
+- src/components/CommandPalette/CommandItem.css (new)
+- src/components/CommandPalette/index.ts (new)
+- src/commands/registry.ts (new)
+- src/App.tsx (added command palette, global shortcuts)
+- specs/001-local-mr-review/tasks.md (marked T105-T109 complete)
+
+### Learnings for Future Iterations
+- Command palette opens in AppContent (not App) to have access to router hooks
+- Use useLocation() to determine current context for available commands
+- Fuzzy search scores: exact match (100), starts with (90), contains (70), fuzzy char match (0-60)
+- manualSync() is exported from storage.ts, not triggerSync
+
+---
+
+## 2026-01-30 - T110, T111, T112
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created KeyboardHelp overlay component:
+  - Shows all shortcuts organized by category
+  - Escape or '?' to close
+  - Click outside to close
+- Created shortcuts config in src/config/shortcuts.ts:
+  - ShortcutDefinition type with id, description, key, category, context
+  - All default shortcuts defined
+  - Helper functions: getShortcutsForContext, getShortcutsByCategory, formatKey
+- Added '?' global shortcut in App.tsx:
+  - Opens keyboard help overlay
+  - Added ShowKeyboardHelp to command palette actions
+
+### Files Changed
+- src/components/KeyboardHelp/KeyboardHelp.tsx (new)
+- src/components/KeyboardHelp/KeyboardHelp.css (new)
+- src/components/KeyboardHelp/index.ts (new)
+- src/config/shortcuts.ts (new)
+- src/App.tsx (added keyboard help integration)
+- specs/001-local-mr-review/tasks.md (marked T110-T112 complete)
+
+### Learnings for Future Iterations
+- Category ordering matters for display - use explicit array order
+- formatKey() converts modifier keys to symbols (Cmd → ⌘)
+- Escape and '?' both close the help overlay for convenience
+
+---
+
+## 2026-01-30 - T113, T114, T115
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created useCustomShortcuts hook:
+  - Loads/saves custom bindings from settings
+  - Merges with default shortcuts
+  - Provides setBinding, resetBinding, resetAllBindings functions
+  - isKeyInUse conflict detection
+- Created shortcut editor UI in Settings:
+  - Groups shortcuts by category
+  - Click-to-edit with key capture
+  - Shows custom bindings with highlight
+  - Individual reset and reset-all buttons
+- Persistence via saveSettings({ keyboardShortcuts })
+
+### Files Changed
+- src/hooks/useCustomShortcuts.ts (new)
+- src/pages/Settings.tsx (added ShortcutEditor component)
+- src/pages/Settings.css (added shortcut editor styles)
+- specs/001-local-mr-review/tasks.md (marked T113-T115 complete)
+
+### Learnings for Future Iterations
+- Key capture via onKeyDown with preventDefault
+- Build key string from metaKey/ctrlKey/altKey/shiftKey + key
+- Conflict detection before saving with isKeyInUse helper
+- Optimistic updates with rollback on error
+
+---
+
+## 2026-01-30 - T116, T117, T118, T119
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Added ] / [ change navigation in DiffViewer:
+  - Finds all add/remove lines (changes)
+  - Navigates between them with wrap-around
+  - Also added 'd' to toggle unified/split view
+- Added 'a' shortcut for approve in MRDetailPage:
+  - ApprovalButton now uses forwardRef + useImperativeHandle
+  - Exposes toggle() method via ApprovalButtonRef
+  - MRDetailPage uses ref to call toggle on 'a' key
+- Enhanced 'c' shortcut (already existed from T074):
+  - Now properly ignores when typing in inputs
+- Escape handling already exists in components:
+  - CommandPalette, KeyboardHelp close on Escape
+  - DiffViewer cancels comment on Escape
+  - MRDetailPage goes back on Escape
+
+**Checkpoint Complete**: User Story 4 - Keyboard-Driven Navigation
+
+### Files Changed
+- src/components/DiffViewer/DiffViewer.tsx (added ]/[/d shortcuts)
+- src/components/Approval/ApprovalButton.tsx (forwardRef + toggle)
+- src/components/Approval/index.ts (export ApprovalButtonRef)
+- src/pages/MRDetailPage.tsx (added 'a' shortcut, updated hints)
+- specs/001-local-mr-review/tasks.md (marked T116-T119 complete)
+
+### Learnings for Future Iterations
+- forwardRef + useImperativeHandle for exposing methods to parent
+- Change positions can be memoized from diffContent hunks
+- Wrap-around navigation: if out of bounds, wrap to other end
+
+---
