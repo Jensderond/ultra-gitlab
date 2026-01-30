@@ -133,21 +133,98 @@ export default function DiffViewer({
     setSelectedLine(lineIndex);
   }, []);
 
-  // Handle 'c' key to add comment
+  // Find all change positions (added/removed lines)
+  const changePositions = useMemo(() => {
+    if (!diffContent) return [];
+    const positions: { hunk: number; line: number }[] = [];
+    diffContent.diffHunks.forEach((hunk, hunkIdx) => {
+      hunk.lines.forEach((line, lineIdx) => {
+        if (line.type === 'add' || line.type === 'remove') {
+          positions.push({ hunk: hunkIdx, line: lineIdx });
+        }
+      });
+    });
+    return positions;
+  }, [diffContent]);
+
+  // Navigate to next/prev change
+  const navigateToChange = useCallback((direction: 1 | -1) => {
+    if (changePositions.length === 0) return;
+
+    // Find current position in change list
+    let currentIndex = -1;
+    if (selectedHunk !== null && selectedLine !== null) {
+      currentIndex = changePositions.findIndex(
+        (pos) => pos.hunk === selectedHunk && pos.line === selectedLine
+      );
+    }
+
+    // Calculate next position
+    let nextIndex: number;
+    if (currentIndex === -1) {
+      // No selection - start from beginning or end
+      nextIndex = direction === 1 ? 0 : changePositions.length - 1;
+    } else {
+      nextIndex = currentIndex + direction;
+      // Wrap around
+      if (nextIndex < 0) nextIndex = changePositions.length - 1;
+      if (nextIndex >= changePositions.length) nextIndex = 0;
+    }
+
+    const nextPos = changePositions[nextIndex];
+    setSelectedHunk(nextPos.hunk);
+    setSelectedLine(nextPos.line);
+  }, [changePositions, selectedHunk, selectedLine]);
+
+  // Handle keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      // Ignore if typing in an input
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      // 'c' key to add comment at selected line
       if (e.key === 'c' && selectedHunk !== null && selectedLine !== null && !addingCommentAt) {
         e.preventDefault();
         setAddingCommentAt({ hunk: selectedHunk, line: selectedLine });
+        return;
       }
+
+      // Escape to cancel comment
       if (e.key === 'Escape' && addingCommentAt) {
         setAddingCommentAt(null);
+        return;
+      }
+
+      // ']' for next change
+      if (e.key === ']' && !addingCommentAt) {
+        e.preventDefault();
+        navigateToChange(1);
+        return;
+      }
+
+      // '[' for previous change
+      if (e.key === '[' && !addingCommentAt) {
+        e.preventDefault();
+        navigateToChange(-1);
+        return;
+      }
+
+      // 'd' to toggle view mode
+      if (e.key === 'd' && !addingCommentAt && onViewModeChange) {
+        e.preventDefault();
+        onViewModeChange(viewMode === 'unified' ? 'split' : 'unified');
+        return;
       }
     }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedHunk, selectedLine, addingCommentAt]);
+  }, [selectedHunk, selectedLine, addingCommentAt, navigateToChange, viewMode, onViewModeChange]);
 
   // Add comment handler
   const handleAddComment = useCallback(async (body: string) => {

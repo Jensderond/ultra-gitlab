@@ -5,9 +5,14 @@
  * while the action is queued for sync to GitLab.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { invoke } from '../../services/tauri';
 import './ApprovalButton.css';
+
+/** Methods exposed via ref */
+export interface ApprovalButtonRef {
+  toggle: () => void;
+}
 
 interface ApprovalButtonProps {
   /** Merge request ID */
@@ -31,7 +36,7 @@ interface ApprovalButtonProps {
 /**
  * Approval button component.
  */
-export default function ApprovalButton({
+const ApprovalButton = forwardRef<ApprovalButtonRef, ApprovalButtonProps>(function ApprovalButton({
   mrId,
   projectId,
   mrIid,
@@ -40,7 +45,7 @@ export default function ApprovalButton({
   approvalsRequired,
   hasApproved = false,
   onApprovalChange,
-}: ApprovalButtonProps) {
+}, ref) {
   const [isApproved, setIsApproved] = useState(hasApproved);
   const [count, setCount] = useState(approvalsCount);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,6 +85,11 @@ export default function ApprovalButton({
       setIsSubmitting(false);
     }
   }, [isApproved, count, isSubmitting, mrId, projectId, mrIid, onApprovalChange]);
+
+  // Expose toggle method via ref
+  useImperativeHandle(ref, () => ({
+    toggle: handleClick,
+  }), [handleClick]);
 
   // Determine button state
   const isFullyApproved = count >= approvalsRequired;
@@ -123,4 +133,6 @@ export default function ApprovalButton({
       {error && <div className="approval-error">{error}</div>}
     </div>
   );
-}
+});
+
+export default ApprovalButton;

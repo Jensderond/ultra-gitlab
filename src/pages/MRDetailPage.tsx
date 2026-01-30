@@ -4,10 +4,10 @@
  * Displays a merge request with file navigation and diff viewer.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DiffViewer, FileNavigation } from '../components/DiffViewer';
-import { ApprovalButton } from '../components/Approval';
+import { ApprovalButton, type ApprovalButtonRef } from '../components/Approval';
 import { getMergeRequestById, getMergeRequestFiles } from '../services/gitlab';
 import type { MergeRequest, DiffFileSummary } from '../types';
 import './MRDetailPage.css';
@@ -20,6 +20,7 @@ export default function MRDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const mrId = parseInt(id || '0', 10);
+  const approvalButtonRef = useRef<ApprovalButtonRef>(null);
 
   const [mr, setMr] = useState<MergeRequest | null>(null);
   const [files, setFiles] = useState<DiffFileSummary[]>([]);
@@ -110,6 +111,11 @@ export default function MRDetailPage() {
           // Previous file
           navigateFile(-1);
           break;
+        case 'a':
+          // Approve/unapprove MR
+          e.preventDefault();
+          approvalButtonRef.current?.toggle();
+          break;
         case 'Escape':
           // Go back to list
           navigate('/mrs');
@@ -160,6 +166,7 @@ export default function MRDetailPage() {
         </div>
         <div className="mr-detail-actions">
           <ApprovalButton
+            ref={approvalButtonRef}
             mrId={mrId}
             projectId={mr.projectId}
             mrIid={mr.iid}
@@ -201,8 +208,10 @@ export default function MRDetailPage() {
 
       <footer className="mr-detail-footer">
         <span className="keyboard-hint">
-          <kbd>n</kbd>/<kbd>p</kbd> next/prev file &middot;{' '}
-          <kbd>Esc</kbd> back to list &middot;{' '}
+          <kbd>n</kbd>/<kbd>p</kbd> file &middot;{' '}
+          <kbd>]</kbd>/<kbd>[</kbd> change &middot;{' '}
+          <kbd>a</kbd> approve &middot;{' '}
+          <kbd>c</kbd> comment &middot;{' '}
           <kbd>?</kbd> help
         </span>
       </footer>

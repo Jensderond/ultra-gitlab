@@ -270,10 +270,10 @@
 
 ### Enhanced Navigation (US4)
 
-- [ ] T116 [US4] Add ] / [ for next/prev change within file in DiffViewer.tsx
-- [ ] T117 [US4] Add 'a' shortcut for approve MR in MRDetailPage.tsx
-- [ ] T118 [US4] Add 'c' shortcut for add comment at line in DiffViewer.tsx (enhance T074)
-- [ ] T119 [US4] Add Escape to close panels/dialogs globally in App.tsx
+- [x] T116 [US4] Add ] / [ for next/prev change within file in DiffViewer.tsx
+- [x] T117 [US4] Add 'a' shortcut for approve MR in MRDetailPage.tsx
+- [x] T118 [US4] Add 'c' shortcut for add comment at line in DiffViewer.tsx (enhance T074)
+- [x] T119 [US4] Add Escape to close panels/dialogs globally in App.tsx
 
 **Checkpoint**: User Story 4 complete - full keyboard-driven workflow with command palette and customizable shortcuts
 
