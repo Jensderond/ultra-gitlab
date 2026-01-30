@@ -69,10 +69,10 @@
 
 ### Authentication Commands
 
-- [ ] T021 Implement setup_gitlab_instance command in src-tauri/src/commands/auth.rs
-- [ ] T022 Implement get_gitlab_instances command in src-tauri/src/commands/auth.rs
-- [ ] T023 Implement delete_gitlab_instance command in src-tauri/src/commands/auth.rs
-- [ ] T024 Register auth commands in src-tauri/src/lib.rs
+- [x] T021 Implement setup_gitlab_instance command in src-tauri/src/commands/auth.rs
+- [x] T022 Implement get_gitlab_instances command in src-tauri/src/commands/auth.rs
+- [x] T023 Implement delete_gitlab_instance command in src-tauri/src/commands/auth.rs
+- [x] T024 Register auth commands in src-tauri/src/lib.rs
 
 ### Frontend Services
 

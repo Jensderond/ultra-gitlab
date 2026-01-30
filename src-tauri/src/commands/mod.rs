@@ -9,10 +9,14 @@
 //! - `sync`: Background synchronization control
 //! - `settings`: Application settings management
 
+pub mod auth;
+
 // Submodules will be added as they are implemented:
-// pub mod auth;
 // pub mod mr;
 // pub mod comments;
 // pub mod approval;
 // pub mod sync;
 // pub mod settings;
+
+// Re-export commands for registration in lib.rs
+pub use auth::{delete_gitlab_instance, get_gitlab_instances, setup_gitlab_instance};

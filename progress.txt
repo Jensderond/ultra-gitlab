@@ -141,3 +141,28 @@
 - SERVICE_NAME constant used across all credential operations for consistency
 
 ---
+
+## 2026-01-30 - T021, T022, T023, T024
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created setup_gitlab_instance command: validates token, stores in keychain, inserts to DB
+- Created get_gitlab_instances command: lists all instances with token status
+- Created delete_gitlab_instance command: removes from keychain and DB (with cascade)
+- Registered all auth commands in lib.rs with proper database setup
+- Database pool is initialized in Tauri setup hook and managed via app state
+
+### Files Changed
+- src-tauri/src/commands/auth.rs (new)
+- src-tauri/src/commands/mod.rs (updated with auth exports)
+- src-tauri/src/lib.rs (database init and command registration)
+- specs/001-local-mr-review/tasks.md (marked T021-T024 complete)
+
+### Learnings for Future Iterations
+- Use `tauri::Manager` trait for `app.path()` and `app.manage()` methods
+- Use `tauri::async_runtime::block_on` for async init in setup hook
+- Use `State<'_, DbPool>` to access managed database pool in commands
+- ON CONFLICT with RETURNING works for upsert in SQLite
+
+---
