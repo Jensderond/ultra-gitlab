@@ -5,6 +5,8 @@
 - Database layer is in `src-tauri/src/db/` with pool.rs for connection management and mod.rs for initialization/migrations
 - SQL migrations are stored in `src-tauri/src/db/migrations/` as .sql files
 - Migration tracking uses a `_migrations` table in SQLite
+- Models are in `src-tauri/src/models/` with one file per entity and mod.rs for re-exports
+- All models derive `Serialize`, `Deserialize`, and `FromRow` for Tauri IPC and SQLx compatibility
 
 ### Conventions
 - Use `Path` instead of `PathBuf` for function parameters per Clippy recommendation
@@ -39,5 +41,35 @@
 - SQLite migration parsing requires tracking parenthesis depth to handle DEFAULT expressions with semicolons
 - Clippy prefers `&Path` over `&PathBuf` for function parameters
 - Tests use tempfile::tempdir() for isolated database testing
+
+---
+
+## 2026-01-30 - T009, T010, T011, T012, T013, T014
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created all Rust model files matching data-model.md entities:
+  - GitLabInstance with URL normalization
+  - MergeRequest with state/approval enums and JSON field parsing
+  - Diff and DiffFile with change type handling
+  - Comment with inline/reply/general classification
+  - SyncAction and SyncLog with status enums and retry logic
+- All models derive Serialize (for Tauri IPC) and FromRow (for SQLx)
+- Added comprehensive unit tests for all models
+
+### Files Changed
+- src-tauri/src/models/gitlab_instance.rs (new)
+- src-tauri/src/models/merge_request.rs (new)
+- src-tauri/src/models/diff.rs (new)
+- src-tauri/src/models/comment.rs (new)
+- src-tauri/src/models/sync_action.rs (new)
+- src-tauri/src/models/mod.rs (updated with exports)
+- specs/001-local-mr-review/tasks.md (marked T009-T014 complete)
+
+### Learnings for Future Iterations
+- Model enums use `From<&str>` trait for parsing database strings
+- JSON fields (labels, reviewers) are stored as strings and parsed on demand
+- SQLx FromRow requires field names to match column names exactly
 
 ---

@@ -45,12 +45,12 @@
 
 ### Rust Models
 
-- [ ] T009 [P] Create GitLabInstance model in src-tauri/src/models/gitlab_instance.rs
-- [ ] T010 [P] Create MergeRequest model in src-tauri/src/models/merge_request.rs
-- [ ] T011 [P] Create Diff and DiffFile models in src-tauri/src/models/diff.rs
-- [ ] T012 [P] Create Comment model in src-tauri/src/models/comment.rs
-- [ ] T013 [P] Create SyncAction and SyncLog models in src-tauri/src/models/sync_action.rs
-- [ ] T014 Export all models from src-tauri/src/models/mod.rs
+- [x] T009 [P] Create GitLabInstance model in src-tauri/src/models/gitlab_instance.rs
+- [x] T010 [P] Create MergeRequest model in src-tauri/src/models/merge_request.rs
+- [x] T011 [P] Create Diff and DiffFile models in src-tauri/src/models/diff.rs
+- [x] T012 [P] Create Comment model in src-tauri/src/models/comment.rs
+- [x] T013 [P] Create SyncAction and SyncLog models in src-tauri/src/models/sync_action.rs
+- [x] T014 Export all models from src-tauri/src/models/mod.rs
 
 ### Error Handling
 

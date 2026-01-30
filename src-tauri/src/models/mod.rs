@@ -5,16 +5,15 @@
 //!
 //! All models derive Serialize for Tauri IPC and FromRow for SQLx database queries.
 
-// Submodules will be added as they are implemented:
-// pub mod gitlab_instance;
-// pub mod merge_request;
-// pub mod diff;
-// pub mod comment;
-// pub mod sync_action;
+pub mod comment;
+pub mod diff;
+pub mod gitlab_instance;
+pub mod merge_request;
+pub mod sync_action;
 
-// Re-exports for convenient access:
-// pub use gitlab_instance::GitLabInstance;
-// pub use merge_request::MergeRequest;
-// pub use diff::{Diff, DiffFile};
-// pub use comment::Comment;
-// pub use sync_action::{SyncAction, SyncLog};
+// Re-exports for convenient access
+pub use comment::{Comment, LineType, NewComment};
+pub use diff::{ChangeType, Diff, DiffFile};
+pub use gitlab_instance::{GitLabInstance, NewGitLabInstance};
+pub use merge_request::{ApprovalStatus, MergeRequest, MergeRequestState};
+pub use sync_action::{ActionType, LogStatus, SyncAction, SyncLog, SyncStatus};
