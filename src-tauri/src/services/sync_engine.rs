@@ -30,6 +30,12 @@ pub const DEFAULT_SYNC_INTERVAL_SECS: u64 = 300;
 /// Maximum number of log entries to keep.
 const MAX_LOG_ENTRIES: i64 = 50;
 
+/// Cache size warning threshold in bytes (400MB - warn before hitting 500MB limit).
+const CACHE_SIZE_WARNING_BYTES: i64 = 400 * 1024 * 1024;
+
+/// Cache size hard limit in bytes (500MB per spec).
+const CACHE_SIZE_LIMIT_BYTES: i64 = 500 * 1024 * 1024;
+
 /// Get the current Unix timestamp.
 fn now() -> i64 {
     SystemTime::now()
@@ -85,6 +91,12 @@ pub struct SyncStatus {
 
     /// Number of MRs synced in last run.
     pub last_sync_mr_count: i64,
+
+    /// Current cache size in bytes.
+    pub cache_size_bytes: i64,
+
+    /// Whether the cache is approaching the size limit.
+    pub cache_size_warning: bool,
 }
 
 /// Sync log entry matching the sync_log table.
@@ -168,6 +180,8 @@ impl SyncEngine {
                 pending_actions: 0,
                 failed_actions: 0,
                 last_sync_mr_count: 0,
+                cache_size_bytes: 0,
+                cache_size_warning: false,
             })),
             is_running: Arc::new(AtomicBool::new(false)),
             command_tx: None,
@@ -234,6 +248,8 @@ impl SyncEngine {
                 pending_actions: 0,
                 failed_actions: 0,
                 last_sync_mr_count: 0,
+                cache_size_bytes: 0,
+                cache_size_warning: false,
             })),
             is_running: Arc::new(AtomicBool::new(true)),
             command_tx: Some(tx),
@@ -343,6 +359,20 @@ impl SyncEngine {
             let (pending, failed) = sync_queue::get_action_counts(&self.pool).await?;
             status.pending_actions = pending;
             status.failed_actions = failed;
+
+            // Check cache size
+            let cache_size = self.get_cache_size().await.unwrap_or(0);
+            status.cache_size_bytes = cache_size;
+            status.cache_size_warning = cache_size >= CACHE_SIZE_WARNING_BYTES;
+
+            // Log warning if approaching limit
+            if status.cache_size_warning {
+                result.errors.push(format!(
+                    "Cache size warning: {:.1}MB of {:.0}MB limit",
+                    cache_size as f64 / 1024.0 / 1024.0,
+                    CACHE_SIZE_LIMIT_BYTES as f64 / 1024.0 / 1024.0
+                ));
+            }
         }
 
         // Log the sync operation
@@ -895,6 +925,19 @@ impl SyncEngine {
 
         Ok(entries)
     }
+
+    /// Get the current cache (database) size in bytes.
+    ///
+    /// Uses SQLite's page_count * page_size to calculate the database file size.
+    async fn get_cache_size(&self) -> Result<i64, AppError> {
+        let result: (i64, i64) = sqlx::query_as(
+            "SELECT page_count, page_size FROM pragma_page_count(), pragma_page_size()",
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(result.0 * result.1)
+    }
 }
 
 /// Database row for GitLab instance.
@@ -948,6 +991,8 @@ mod tests {
             pending_actions: 0,
             failed_actions: 0,
             last_sync_mr_count: 0,
+            cache_size_bytes: 0,
+            cache_size_warning: false,
         };
 
         assert!(!status.is_syncing);

@@ -224,6 +224,8 @@ export interface SyncStatusResponse {
   pendingActions: number;
   failedActions: number;
   recentLogs: SyncLogEntry[];
+  cacheSizeBytes: number;
+  cacheSizeWarning: boolean;
 }
 
 // ============================================================================
