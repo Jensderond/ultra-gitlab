@@ -9,7 +9,10 @@ pub mod error;
 pub mod models;
 pub mod services;
 
-use commands::{delete_gitlab_instance, get_gitlab_instances, setup_gitlab_instance};
+use commands::{
+    delete_gitlab_instance, get_diff_content, get_diff_file, get_gitlab_instances,
+    get_merge_request_detail, get_merge_requests, setup_gitlab_instance,
+};
 use tauri::Manager;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -49,6 +52,10 @@ pub fn run() {
             setup_gitlab_instance,
             get_gitlab_instances,
             delete_gitlab_instance,
+            get_merge_requests,
+            get_merge_request_detail,
+            get_diff_content,
+            get_diff_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

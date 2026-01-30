@@ -98,11 +98,11 @@
 
 ### Backend Implementation (US1)
 
-- [ ] T031 [US1] Implement get_merge_requests command with filtering in src-tauri/src/commands/mr.rs
-- [ ] T032 [US1] Implement get_merge_request_detail command in src-tauri/src/commands/mr.rs
-- [ ] T033 [US1] Implement get_diff_content command in src-tauri/src/commands/mr.rs
-- [ ] T034 [US1] Implement get_diff_file command with syntax highlighting tokens in src-tauri/src/commands/mr.rs
-- [ ] T035 [US1] Register MR commands in src-tauri/src/lib.rs
+- [x] T031 [US1] Implement get_merge_requests command with filtering in src-tauri/src/commands/mr.rs
+- [x] T032 [US1] Implement get_merge_request_detail command in src-tauri/src/commands/mr.rs
+- [x] T033 [US1] Implement get_diff_content command in src-tauri/src/commands/mr.rs
+- [x] T034 [US1] Implement get_diff_file command with syntax highlighting tokens in src-tauri/src/commands/mr.rs
+- [x] T035 [US1] Register MR commands in src-tauri/src/lib.rs
 
 ### Tree-sitter Syntax Highlighting (US1)
 
