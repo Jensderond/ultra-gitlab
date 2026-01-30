@@ -426,3 +426,33 @@
 - Retry logic: increment retry_count on failure, mark as permanently failed after MAX_RETRIES
 
 ---
+
+## 2026-01-30 - T061, T062, T063, T064, T065
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created comments.rs with 5 Tauri commands:
+  - get_comments: List all comments for an MR with sync status
+  - get_file_comments: Get inline comments for a specific file
+  - add_comment: Add comment with optimistic insert and sync queue
+  - reply_to_comment: Reply to discussion thread
+  - resolve_discussion: Resolve/unresolve discussion with optimistic update
+- Optimistic updates: comments inserted immediately with is_local=true
+- Sync status tracking: comments show pending/synced/failed status
+- Local IDs use negative timestamps to avoid GitLab ID conflicts
+- Registered all 5 commands in lib.rs
+
+### Files Changed
+- src-tauri/src/commands/comments.rs (new)
+- src-tauri/src/commands/mod.rs (added comments module)
+- src-tauri/src/lib.rs (registered comment commands)
+- src-tauri/src/services/sync_processor.rs (fixed test import)
+- specs/001-local-mr-review/tasks.md (marked T061-T065 complete)
+
+### Learnings for Future Iterations
+- Use negative timestamps for local IDs (generate_local_id = -now())
+- Inline comments need to inherit file_path/line info from parent comment for replies
+- Sync status lookup uses local_reference_id to find related sync_queue entries
+
+---

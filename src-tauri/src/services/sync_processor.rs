@@ -273,6 +273,7 @@ pub async fn retry_failed_actions(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::services::sync_queue::CommentPayload;
 
     #[test]
     fn test_parse_approval_payload() {

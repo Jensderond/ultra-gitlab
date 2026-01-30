@@ -10,8 +10,9 @@ pub mod models;
 pub mod services;
 
 use commands::{
-    delete_gitlab_instance, get_diff_content, get_diff_file, get_gitlab_instances,
-    get_merge_request_detail, get_merge_requests, setup_gitlab_instance,
+    add_comment, delete_gitlab_instance, get_comments, get_diff_content, get_diff_file,
+    get_file_comments, get_gitlab_instances, get_merge_request_detail, get_merge_requests,
+    reply_to_comment, resolve_discussion, setup_gitlab_instance,
 };
 use tauri::Manager;
 
@@ -56,6 +57,11 @@ pub fn run() {
             get_merge_request_detail,
             get_diff_content,
             get_diff_file,
+            get_comments,
+            get_file_comments,
+            add_comment,
+            reply_to_comment,
+            resolve_discussion,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

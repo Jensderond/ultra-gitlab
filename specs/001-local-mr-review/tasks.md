@@ -156,11 +156,11 @@
 
 ### Backend - Comment Commands (US2)
 
-- [ ] T061 [US2] Implement get_comments command in src-tauri/src/commands/comments.rs
-- [ ] T062 [US2] Implement add_comment command with optimistic insert in src-tauri/src/commands/comments.rs
-- [ ] T063 [US2] Implement reply_to_comment command in src-tauri/src/commands/comments.rs
-- [ ] T064 [US2] Implement resolve_discussion command in src-tauri/src/commands/comments.rs
-- [ ] T065 [US2] Register comment commands in src-tauri/src/lib.rs
+- [x] T061 [US2] Implement get_comments command in src-tauri/src/commands/comments.rs
+- [x] T062 [US2] Implement add_comment command with optimistic insert in src-tauri/src/commands/comments.rs
+- [x] T063 [US2] Implement reply_to_comment command in src-tauri/src/commands/comments.rs
+- [x] T064 [US2] Implement resolve_discussion command in src-tauri/src/commands/comments.rs
+- [x] T065 [US2] Register comment commands in src-tauri/src/lib.rs
 
 ### Backend - Approval Commands (US2)
 
