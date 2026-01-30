@@ -43,6 +43,9 @@ tokio = { version = "1", features = ["sync", "time"] }
 # Date/Time
 chrono = { version = "0.4", features = ["serde"] }
 
+# Secure Credential Storage (OS keychain)
+keyring = "3"
+
 [dev-dependencies]
 tempfile = "3"
 

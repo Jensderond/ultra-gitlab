@@ -64,8 +64,8 @@
 
 ### Credential Storage
 
-- [ ] T019 Configure tauri-plugin-keyring in src-tauri/src/lib.rs
-- [ ] T020 Implement credential storage service in src-tauri/src/services/credentials.rs
+- [x] T019 Configure tauri-plugin-keyring in src-tauri/src/lib.rs
+- [x] T020 Implement credential storage service in src-tauri/src/services/credentials.rs
 
 ### Authentication Commands
 

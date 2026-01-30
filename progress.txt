@@ -118,3 +118,26 @@
 - Use `#[derive(Serialize)]` with `#[serde(skip_serializing_if = "Option::is_none")]` for optional query params
 
 ---
+
+## 2026-01-30 - T019, T020
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Added `keyring` crate v3 for cross-platform credential storage
+- Created CredentialService with store/get/delete/has_token operations
+- Uses OS keychain (Keychain on macOS, Credential Manager on Windows, Secret Service on Linux)
+- URL normalization for consistent account identifiers
+
+### Files Changed
+- src-tauri/Cargo.toml (added keyring dependency)
+- src-tauri/src/services/credentials.rs (new)
+- src-tauri/src/services/mod.rs (added credentials export)
+- specs/001-local-mr-review/tasks.md (marked T019-T020 complete)
+
+### Learnings for Future Iterations
+- Use `keyring` crate (not a Tauri plugin) for OS keychain access
+- keyring::Error::NoEntry for missing credentials - handle for idempotent operations
+- SERVICE_NAME constant used across all credential operations for consistency
+
+---
