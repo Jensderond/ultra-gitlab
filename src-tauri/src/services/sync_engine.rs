@@ -403,6 +403,18 @@ impl SyncEngine {
             base_url: instance.url.clone(),
             token,
             timeout_secs: 30,
+        })
+        .map_err(|e| {
+            // Enrich auth errors with instance info
+            if e.is_authentication_expired() {
+                AppError::authentication_expired_for_instance(
+                    "GitLab token expired or revoked. Please re-authenticate.",
+                    instance.id,
+                    &instance.url,
+                )
+            } else {
+                e
+            }
         })?;
 
         let mut result = SyncResult {
@@ -414,13 +426,21 @@ impl SyncEngine {
         };
 
         // Fetch MRs based on scope
-        let mrs = self
-            .fetch_mrs_for_instance(&client, &config)
-            .await
-            .unwrap_or_else(|e| {
+        let mrs = match self.fetch_mrs_for_instance(&client, &config).await {
+            Ok(mrs) => mrs,
+            Err(e) => {
+                // If auth expired, propagate the error with instance info
+                if e.is_authentication_expired() {
+                    return Err(AppError::authentication_expired_for_instance(
+                        "GitLab token expired or revoked. Please re-authenticate.",
+                        instance.id,
+                        &instance.url,
+                    ));
+                }
                 result.errors.push(format!("Failed to fetch MRs: {}", e));
                 Vec::new()
-            });
+            }
+        };
 
         // Process each MR
         for mr in &mrs {

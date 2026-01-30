@@ -303,6 +303,12 @@ export interface ActionSyncedPayload {
   gitlabId?: number;
 }
 
+export interface AuthExpiredPayload {
+  instanceId: number;
+  instanceUrl: string;
+  message: string;
+}
+
 // ============================================================================
 // Error Types
 // ============================================================================

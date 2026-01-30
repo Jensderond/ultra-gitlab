@@ -7,7 +7,8 @@ use crate::error::AppError;
 use crate::services::gitlab_client::{GitLabClient, GitLabClientConfig};
 use crate::services::sync_engine::{SyncConfig, SyncEngine, SyncLogEntry};
 use crate::services::sync_events::{
-    ActionSyncedPayload, SyncPhase, SyncProgressPayload, ACTION_SYNCED_EVENT, SYNC_PROGRESS_EVENT,
+    ActionSyncedPayload, AuthExpiredPayload, SyncPhase, SyncProgressPayload, ACTION_SYNCED_EVENT,
+    AUTH_EXPIRED_EVENT, SYNC_PROGRESS_EVENT,
 };
 use crate::services::sync_processor;
 use crate::services::sync_queue;
@@ -125,6 +126,22 @@ pub async fn trigger_sync(
             result
         }
         Err(e) => {
+            // Check if this is an authentication expired error
+            if e.is_authentication_expired() {
+                // Emit auth-expired event so frontend can prompt re-auth
+                let _ = app.emit(
+                    AUTH_EXPIRED_EVENT,
+                    AuthExpiredPayload {
+                        instance_id: e.get_expired_instance_id().unwrap_or(0),
+                        instance_url: e
+                            .get_expired_instance_url()
+                            .unwrap_or("Unknown")
+                            .to_string(),
+                        message: "Your GitLab token has expired or been revoked. Please re-authenticate.".to_string(),
+                    },
+                );
+            }
+
             // Emit sync failed event
             let _ = app.emit(
                 SYNC_PROGRESS_EVENT,
@@ -232,6 +249,9 @@ pub async fn retry_failed_actions(
         });
     };
 
+    // Clone URL for potential use in error handling
+    let url_for_error = url.clone();
+
     // Get token from keychain
     let token = CredentialService::get_token(&url)?;
 
@@ -255,7 +275,24 @@ pub async fn retry_failed_actions(
     );
 
     // Retry failed actions
-    let results = sync_processor::retry_failed_actions(&client, pool.inner()).await?;
+    let results = match sync_processor::retry_failed_actions(&client, pool.inner()).await {
+        Ok(results) => results,
+        Err(e) => {
+            // Check if this is an authentication expired error
+            if e.is_authentication_expired() {
+                // Emit auth-expired event
+                let _ = app.emit(
+                    AUTH_EXPIRED_EVENT,
+                    AuthExpiredPayload {
+                        instance_id: e.get_expired_instance_id().unwrap_or(0),
+                        instance_url: e.get_expired_instance_url().unwrap_or(&url_for_error).to_string(),
+                        message: "Your GitLab token has expired or been revoked. Please re-authenticate.".to_string(),
+                    },
+                );
+            }
+            return Err(e);
+        }
+    };
 
     let retried_count = results.len() as i64;
     let success_count = results.iter().filter(|r| r.success).count() as i64;

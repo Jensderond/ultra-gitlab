@@ -288,7 +288,7 @@
 - [x] T120 Implement cache size warning when approaching limit in sync_engine.rs
 - [x] T121 Implement progressive diff loading for large diffs (>10k lines) in DiffViewer.tsx
 - [x] T122 Handle sync conflicts when MR is merged/closed during local action in sync_processor.rs
-- [ ] T123 Handle authentication expiry with re-auth prompt in gitlab_client.rs
+- [x] T123 Handle authentication expiry with re-auth prompt in gitlab_client.rs
 
 ### Performance Validation
 

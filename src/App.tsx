@@ -4,14 +4,24 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import Settings from './pages/Settings';
 import MRListPage from './pages/MRListPage';
 import MRDetailPage from './pages/MRDetailPage';
 import { CommandPalette, type Command } from './components/CommandPalette';
 import { KeyboardHelp } from './components/KeyboardHelp';
+import { ReAuthPrompt } from './components/ReAuthPrompt';
 import { CommandId, commandDefinitions } from './commands/registry';
 import { manualSync } from './services/storage';
+import type { AuthExpiredPayload } from './types';
 import './App.css';
+
+/** Auth expired state for re-auth prompt */
+interface AuthExpiredState {
+  instanceId: number;
+  instanceUrl: string;
+  message: string;
+}
 
 /**
  * App content with command palette and keyboard help.
@@ -22,6 +32,34 @@ function AppContent() {
   const location = useLocation();
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
+  const [authExpired, setAuthExpired] = useState<AuthExpiredState | null>(null);
+
+  // Listen for auth-expired events from the backend
+  useEffect(() => {
+    let unlisten: UnlistenFn | undefined;
+
+    listen<AuthExpiredPayload>('auth-expired', (event) => {
+      const payload = event.payload;
+      setAuthExpired({
+        instanceId: payload.instanceId,
+        instanceUrl: payload.instanceUrl,
+        message: payload.message,
+      });
+    }).then((fn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, []);
+
+  // Clear auth expired state
+  const dismissAuthExpired = useCallback(() => {
+    setAuthExpired(null);
+  }, []);
 
   // Open command palette with Cmd+P (or Ctrl+P on Windows/Linux)
   useEffect(() => {
@@ -150,6 +188,15 @@ function AppContent() {
         isOpen={keyboardHelpOpen}
         onClose={closeKeyboardHelp}
       />
+
+      {authExpired && (
+        <ReAuthPrompt
+          instanceId={authExpired.instanceId}
+          instanceUrl={authExpired.instanceUrl}
+          message={authExpired.message}
+          onDismiss={dismissAuthExpired}
+        />
+      )}
     </div>
   );
 }

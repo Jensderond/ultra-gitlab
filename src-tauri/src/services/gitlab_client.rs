@@ -257,9 +257,13 @@ impl GitLabClient {
                 .json::<T>()
                 .await
                 .map_err(|e| AppError::internal(format!("Failed to parse response: {}", e)))
+        } else if status == StatusCode::UNAUTHORIZED {
+            // 401 Unauthorized - token is expired or revoked
+            Err(AppError::authentication_expired(
+                "GitLab token expired or revoked. Please re-authenticate.",
+            ))
         } else {
             let message = match status {
-                StatusCode::UNAUTHORIZED => "Invalid or expired token",
                 StatusCode::FORBIDDEN => "Access denied",
                 StatusCode::NOT_FOUND => "Resource not found",
                 StatusCode::TOO_MANY_REQUESTS => "Rate limit exceeded",

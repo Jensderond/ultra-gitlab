@@ -17,6 +17,10 @@ pub const MR_UPDATED_EVENT: &str = "mr-updated";
 /// Emitted when a local action is successfully synced to GitLab.
 pub const ACTION_SYNCED_EVENT: &str = "action-synced";
 
+/// Event: auth-expired
+/// Emitted when authentication fails due to an expired or revoked token.
+pub const AUTH_EXPIRED_EVENT: &str = "auth-expired";
+
 /// Payload for sync-progress events.
 #[derive(Debug, Clone, Serialize)]
 pub struct SyncProgressPayload {
@@ -121,4 +125,17 @@ pub struct ActionSyncedPayload {
 
     /// Local reference ID (e.g., comment ID).
     pub local_reference_id: Option<i64>,
+}
+
+/// Payload for auth-expired events.
+#[derive(Debug, Clone, Serialize)]
+pub struct AuthExpiredPayload {
+    /// The GitLab instance ID with the expired token.
+    pub instance_id: i64,
+
+    /// The URL of the GitLab instance.
+    pub instance_url: String,
+
+    /// User-friendly message explaining the issue.
+    pub message: String,
 }

@@ -38,6 +38,16 @@ pub enum AppError {
     #[error("Authentication error: {message}")]
     Authentication { message: String },
 
+    /// Authentication token expired or revoked - requires re-authentication.
+    #[error("Token expired: {message}")]
+    AuthenticationExpired {
+        message: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        instance_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        instance_url: Option<String>,
+    },
+
     /// Credential storage operation failed.
     #[error("Credential storage error: {message}")]
     CredentialStorage { message: String },
@@ -121,6 +131,49 @@ impl AppError {
     pub fn authentication(message: impl Into<String>) -> Self {
         Self::Authentication {
             message: message.into(),
+        }
+    }
+
+    /// Create an authentication expired error.
+    pub fn authentication_expired(message: impl Into<String>) -> Self {
+        Self::AuthenticationExpired {
+            message: message.into(),
+            instance_id: None,
+            instance_url: None,
+        }
+    }
+
+    /// Create an authentication expired error with instance details.
+    pub fn authentication_expired_for_instance(
+        message: impl Into<String>,
+        instance_id: i64,
+        instance_url: impl Into<String>,
+    ) -> Self {
+        Self::AuthenticationExpired {
+            message: message.into(),
+            instance_id: Some(instance_id),
+            instance_url: Some(instance_url.into()),
+        }
+    }
+
+    /// Check if this is an authentication expired error.
+    pub fn is_authentication_expired(&self) -> bool {
+        matches!(self, Self::AuthenticationExpired { .. })
+    }
+
+    /// Get the instance ID if this is an authentication expired error.
+    pub fn get_expired_instance_id(&self) -> Option<i64> {
+        match self {
+            Self::AuthenticationExpired { instance_id, .. } => *instance_id,
+            _ => None,
+        }
+    }
+
+    /// Get the instance URL if this is an authentication expired error.
+    pub fn get_expired_instance_url(&self) -> Option<&str> {
+        match self {
+            Self::AuthenticationExpired { instance_url, .. } => instance_url.as_deref(),
+            _ => None,
         }
     }
 
