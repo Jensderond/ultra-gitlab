@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DiffViewer, FileNavigation } from '../components/DiffViewer';
+import { ApprovalButton } from '../components/Approval';
 import { getMergeRequestById, getMergeRequestFiles } from '../services/gitlab';
 import type { MergeRequest, DiffFileSummary } from '../types';
 import './MRDetailPage.css';
@@ -156,6 +157,16 @@ export default function MRDetailPage() {
           <span className="mr-branches">
             {mr.sourceBranch} → {mr.targetBranch}
           </span>
+        </div>
+        <div className="mr-detail-actions">
+          <ApprovalButton
+            mrId={mrId}
+            projectId={mr.projectId}
+            mrIid={mr.iid}
+            approvalStatus={mr.approvalStatus}
+            approvalsCount={mr.approvalsCount ?? 0}
+            approvalsRequired={mr.approvalsRequired ?? 1}
+          />
         </div>
       </header>
 

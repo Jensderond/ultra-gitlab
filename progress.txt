@@ -559,3 +559,32 @@
 - DiffHunk renders InlineComment below each line with comments
 
 ---
+
+## 2026-01-30 - T076, T077, T078
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created ApprovalButton component with:
+  - Optimistic state updates (UI updates immediately)
+  - Rollback on error
+  - Approve/unapprove toggle
+  - Approval count display (X/Y required)
+  - Changes requested badge
+  - Error display
+- Added ApprovalButton to MRDetailPage header
+- Integrated with approve_mr/unapprove_mr backend commands
+
+### Files Changed
+- src/components/Approval/ApprovalButton.tsx (new)
+- src/components/Approval/ApprovalButton.css (new)
+- src/components/Approval/index.ts (new)
+- src/pages/MRDetailPage.tsx (added ApprovalButton)
+- specs/001-local-mr-review/tasks.md (marked T076-T078 complete)
+
+### Learnings for Future Iterations
+- Optimistic updates: update local state first, then call API
+- Rollback pattern: restore previous state on error
+- Use hasApproved to track current user's approval status
+
+---

@@ -180,9 +180,9 @@
 
 ### Frontend - Approval (US2)
 
-- [ ] T076 [P] [US2] Create ApprovalButton component in src/components/Approval/ApprovalButton.tsx
-- [ ] T077 [US2] Implement optimistic approval state update in ApprovalButton.tsx
-- [ ] T078 [US2] Add approval button to MR detail header in MRDetailPage.tsx
+- [x] T076 [P] [US2] Create ApprovalButton component in src/components/Approval/ApprovalButton.tsx
+- [x] T077 [US2] Implement optimistic approval state update in ApprovalButton.tsx
+- [x] T078 [US2] Add approval button to MR detail header in MRDetailPage.tsx
 
 ### Sync Status Display (US2)
 
