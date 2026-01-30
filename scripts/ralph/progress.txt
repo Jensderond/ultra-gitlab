@@ -93,3 +93,23 @@ Feature: Local-First GitLab MR Review
 
 ---
 
+## 2026-01-30 - T004
+**Workflow**: Speckit
+**Feature**: Local-First GitLab MR Review (001-local-mr-review)
+
+### Implemented
+- Configured Tauri capabilities for store plugin (replacing keyring):
+  - Added "store:default" permission to src-tauri/capabilities/default.json
+  - Registered tauri_plugin_store in src-tauri/src/lib.rs
+- Note: Task originally specified keyring.json but using store plugin instead
+
+### Files Changed
+- src-tauri/capabilities/default.json
+- src-tauri/src/lib.rs
+
+### Learnings for Future Iterations
+- Tauri 2 plugins require both: capability permissions AND plugin registration in lib.rs
+- Store plugin uses `tauri_plugin_store::Builder::new().build()` pattern
+
+---
+
