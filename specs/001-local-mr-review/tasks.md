@@ -164,9 +164,9 @@
 
 ### Backend - Approval Commands (US2)
 
-- [ ] T066 [US2] Implement approve_mr command with optimistic update in src-tauri/src/commands/approval.rs
-- [ ] T067 [US2] Implement unapprove_mr command in src-tauri/src/commands/approval.rs
-- [ ] T068 [US2] Register approval commands in src-tauri/src/lib.rs
+- [x] T066 [US2] Implement approve_mr command with optimistic update in src-tauri/src/commands/approval.rs
+- [x] T067 [US2] Implement unapprove_mr command in src-tauri/src/commands/approval.rs
+- [x] T068 [US2] Register approval commands in src-tauri/src/lib.rs
 
 ### Frontend - Comments (US2)
 

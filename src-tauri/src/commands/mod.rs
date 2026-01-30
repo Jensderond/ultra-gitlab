@@ -9,16 +9,17 @@
 //! - `sync`: Background synchronization control
 //! - `settings`: Application settings management
 
+pub mod approval;
 pub mod auth;
 pub mod comments;
 pub mod mr;
 
 // Submodules will be added as they are implemented:
-// pub mod approval;
 // pub mod sync;
 // pub mod settings;
 
 // Re-export commands for registration in lib.rs
+pub use approval::{approve_mr, get_approval_status, unapprove_mr};
 pub use auth::{delete_gitlab_instance, get_gitlab_instances, setup_gitlab_instance};
 pub use comments::{add_comment, get_comments, get_file_comments, reply_to_comment, resolve_discussion};
 pub use mr::{get_diff_content, get_diff_file, get_merge_request_detail, get_merge_requests};

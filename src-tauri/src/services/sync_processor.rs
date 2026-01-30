@@ -134,8 +134,28 @@ pub async fn process_action(
     }
 }
 
-/// Process an approval action.
+/// Extended approval payload that can include action type.
+#[derive(Debug, Clone, Deserialize)]
+struct ApprovalPayloadExt {
+    pub project_id: i64,
+    pub mr_iid: i64,
+    #[serde(default)]
+    pub action: Option<String>,
+}
+
+/// Process an approval action (approve or unapprove).
 async fn process_approval(client: &GitLabClient, action: &SyncAction) -> Result<(), AppError> {
+    // Try parsing as extended payload first (with action field)
+    let payload: ApprovalPayloadExt = serde_json::from_str(&action.payload)?;
+
+    // Check if this is an unapprove action
+    if payload.action.as_deref() == Some("unapprove") {
+        return client
+            .unapprove_merge_request(payload.project_id, payload.mr_iid)
+            .await;
+    }
+
+    // Regular approve
     let payload: ApprovalPayload = serde_json::from_str(&action.payload)?;
 
     client

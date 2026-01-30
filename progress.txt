@@ -456,3 +456,31 @@
 - Sync status lookup uses local_reference_id to find related sync_queue entries
 
 ---
+
+## 2026-01-30 - T066, T067, T068
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created approval.rs with 3 Tauri commands:
+  - approve_mr: Approve MR with optimistic count increment
+  - unapprove_mr: Remove approval with optimistic count decrement
+  - get_approval_status: Get current approval status for MR
+- Optimistic updates: approvals_count and approval_status updated immediately
+- Sync queue integration: actions queued for GitLab sync
+- Updated sync_processor to handle unapprove via payload action field
+- Registered all 3 commands in lib.rs
+
+### Files Changed
+- src-tauri/src/commands/approval.rs (new)
+- src-tauri/src/commands/mod.rs (added approval module)
+- src-tauri/src/lib.rs (registered approval commands)
+- src-tauri/src/services/sync_processor.rs (handle unapprove)
+- specs/001-local-mr-review/tasks.md (marked T066-T068 complete)
+
+### Learnings for Future Iterations
+- Unapprove handled by checking payload.action field in sync_processor
+- Approval status computed based on approvals_count >= approvals_required
+- Use MAX() in SQL to prevent negative approvals_count on unapprove
+
+---
