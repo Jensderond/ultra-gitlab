@@ -626,3 +626,77 @@
 - Compact mode useful for header/footer placement
 
 ---
+
+## 2026-01-30 - T082-T104
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created sync_engine.rs with comprehensive background sync:
+  - Background sync scheduler with configurable interval
+  - MR fetch logic with author/reviewer scope filters
+  - Diff and comments fetch during sync
+  - Sync queue processing (push pending actions to GitLab)
+  - Sync logging to sync_log table
+  - MR purge on merge/close per FR-005a
+- Created sync_events.rs with Tauri event types:
+  - sync-progress events for sync operation updates
+  - mr-updated events when MRs change
+  - action-synced events when actions complete
+- Extended sync.rs commands:
+  - trigger_sync command with progress events
+  - get_sync_status command with log entries
+  - retry_failed_actions command with action-synced events
+  - discard_failed_action command
+  - get_sync_config/update_sync_config commands
+- Created settings.rs commands:
+  - get_settings/update_settings for app settings
+  - get_sync_settings/update_sync_settings convenience commands
+  - Settings persisted via tauri-plugin-store
+- Created SyncStatusBar component:
+  - Last sync time display
+  - Sync-in-progress indicator
+  - New MRs notification badge
+  - Manual sync trigger (Cmd+R)
+  - Expandable log panel toggle
+- Created SyncLogPanel component:
+  - Recent sync operations display
+  - Operation status and duration
+  - Expandable detail view
+- Updated useSyncStatus hook:
+  - Tauri event subscriptions for reactive updates
+  - Full sync status including logs
+  - New MRs count tracking
+- Updated Settings page with sync interval configuration:
+  - Sync interval dropdown (1-30 minutes)
+  - Sync scope checkboxes (authored/reviewing)
+  - Settings auto-save on change
+
+**Checkpoint Complete**: User Story 3 - Background Sync of New MRs
+
+### Files Changed
+- src-tauri/src/services/sync_engine.rs (new)
+- src-tauri/src/services/sync_events.rs (new)
+- src-tauri/src/services/mod.rs (added exports)
+- src-tauri/src/commands/sync.rs (extended with new commands)
+- src-tauri/src/commands/settings.rs (new)
+- src-tauri/src/commands/mod.rs (added settings module)
+- src-tauri/src/lib.rs (registered new commands)
+- src/hooks/useSyncStatus.ts (updated with Tauri events)
+- src/components/SyncStatus/SyncStatusBar.tsx (new)
+- src/components/SyncStatus/SyncStatusBar.css (new)
+- src/components/SyncStatus/SyncLogPanel.tsx (new)
+- src/components/SyncStatus/SyncLogPanel.css (new)
+- src/components/SyncStatus/index.ts (updated exports)
+- src/pages/Settings.tsx (added sync settings UI)
+- src/pages/Settings.css (added sync settings styles)
+- specs/001-local-mr-review/tasks.md (marked T082-T104 complete)
+
+### Learnings for Future Iterations
+- SyncEngine can run as one-shot or background task via start_background()
+- Tauri events emitted from commands for real-time UI updates
+- Settings persisted via tauri-plugin-store with "settings.json"
+- ISO timestamps parsed with chrono::DateTime::parse_from_rfc3339()
+- OnceLock + RwLock pattern for in-memory settings cache
+
+---

@@ -1,0 +1,197 @@
+/**
+ * Sync status bar styles.
+ */
+
+.sync-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-top: 1px solid var(--border-color, #e0e0e0);
+  font-size: 12px;
+  gap: 16px;
+}
+
+.sync-status-left,
+.sync-status-center,
+.sync-status-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sync-status-center {
+  flex: 1;
+  justify-content: center;
+}
+
+/* Sync status indicator */
+.sync-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary, #666);
+}
+
+.sync-status.syncing {
+  color: var(--primary-color, #1976d2);
+}
+
+.sync-status.error {
+  color: var(--error-color, #d32f2f);
+  cursor: help;
+}
+
+.sync-icon {
+  font-size: 14px;
+}
+
+.error-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: var(--error-color, #d32f2f);
+  color: white;
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 10px;
+}
+
+.sync-mr-count {
+  color: var(--text-tertiary, #999);
+}
+
+/* Sync spinner */
+.sync-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* New MRs badge */
+.new-mrs-badge {
+  padding: 4px 12px;
+  background: var(--primary-color, #1976d2);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.new-mrs-badge:hover {
+  background: var(--primary-dark, #1565c0);
+}
+
+/* Pending actions */
+.pending-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pending-badge,
+.failed-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+.pending-badge {
+  background: var(--warning-light, #fff3e0);
+  color: var(--warning-color, #f57c00);
+}
+
+.failed-badge {
+  background: var(--error-light, #ffebee);
+  color: var(--error-color, #d32f2f);
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.failed-badge:hover {
+  background: var(--error-color, #d32f2f);
+  color: white;
+}
+
+/* Sync button */
+.sync-button {
+  padding: 4px 12px;
+  background: var(--bg-tertiary, #e0e0e0);
+  border: 1px solid var(--border-color, #ccc);
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sync-button:hover:not(:disabled) {
+  background: var(--primary-color, #1976d2);
+  border-color: var(--primary-color, #1976d2);
+  color: white;
+}
+
+.sync-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Log toggle button */
+.log-toggle {
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary, #666);
+  cursor: pointer;
+  font-size: 10px;
+  transition: color 0.2s;
+}
+
+.log-toggle:hover {
+  color: var(--text-primary, #333);
+}
+
+/* Dark theme support */
+.dark-theme .sync-status-bar {
+  background: var(--bg-secondary, #1e1e1e);
+  border-top-color: var(--border-color, #333);
+}
+
+.dark-theme .sync-status {
+  color: var(--text-secondary, #aaa);
+}
+
+.dark-theme .sync-button {
+  background: var(--bg-tertiary, #333);
+  border-color: var(--border-color, #444);
+  color: var(--text-primary, #eee);
+}
+
+.dark-theme .sync-button:hover:not(:disabled) {
+  background: var(--primary-color, #2196f3);
+  border-color: var(--primary-color, #2196f3);
+}
+
+.dark-theme .log-toggle {
+  color: var(--text-secondary, #888);
+}
+
+.dark-theme .log-toggle:hover {
+  color: var(--text-primary, #eee);
+}

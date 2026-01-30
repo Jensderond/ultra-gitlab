@@ -13,14 +13,16 @@ pub mod approval;
 pub mod auth;
 pub mod comments;
 pub mod mr;
+pub mod settings;
 pub mod sync;
-
-// Submodules will be added as they are implemented:
-// pub mod settings;
 
 // Re-export commands for registration in lib.rs
 pub use approval::{approve_mr, get_approval_status, unapprove_mr};
 pub use auth::{delete_gitlab_instance, get_gitlab_instances, setup_gitlab_instance};
 pub use comments::{add_comment, get_comments, get_file_comments, reply_to_comment, resolve_discussion};
 pub use mr::{get_diff_content, get_diff_file, get_merge_request_detail, get_merge_requests};
-pub use sync::get_action_counts;
+pub use settings::{get_settings, get_sync_settings, update_settings, update_sync_settings};
+pub use sync::{
+    discard_failed_action, get_action_counts, get_sync_config, get_sync_status,
+    retry_failed_actions, trigger_sync, update_sync_config,
+};

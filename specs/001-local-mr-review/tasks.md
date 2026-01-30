@@ -202,41 +202,41 @@
 
 ### Backend - Sync Engine (US3)
 
-- [ ] T082 [US3] Implement background sync scheduler in src-tauri/src/services/sync_engine.rs
-- [ ] T083 [US3] Add MR fetch logic with scope filter (author/reviewer) in sync_engine.rs
-- [ ] T084 [US3] Implement diff and comments fetch during sync in sync_engine.rs
-- [ ] T085 [US3] Implement sync queue processing (push pending actions) in sync_engine.rs
-- [ ] T086 [US3] Add sync logging to sync_log table in sync_engine.rs
-- [ ] T087 [US3] Implement MR purge on merge/close (FR-005a) in sync_engine.rs
+- [x] T082 [US3] Implement background sync scheduler in src-tauri/src/services/sync_engine.rs
+- [x] T083 [US3] Add MR fetch logic with scope filter (author/reviewer) in sync_engine.rs
+- [x] T084 [US3] Implement diff and comments fetch during sync in sync_engine.rs
+- [x] T085 [US3] Implement sync queue processing (push pending actions) in sync_engine.rs
+- [x] T086 [US3] Add sync logging to sync_log table in sync_engine.rs
+- [x] T087 [US3] Implement MR purge on merge/close (FR-005a) in sync_engine.rs
 
 ### Backend - Sync Commands (US3)
 
-- [ ] T088 [US3] Implement trigger_sync command in src-tauri/src/commands/sync.rs
-- [ ] T089 [US3] Implement get_sync_status command in src-tauri/src/commands/sync.rs
-- [ ] T090 [US3] Implement retry_failed_actions command in src-tauri/src/commands/sync.rs
-- [ ] T091 [US3] Implement discard_failed_action command in src-tauri/src/commands/sync.rs
-- [ ] T092 [US3] Register sync commands in src-tauri/src/lib.rs
+- [x] T088 [US3] Implement trigger_sync command in src-tauri/src/commands/sync.rs
+- [x] T089 [US3] Implement get_sync_status command in src-tauri/src/commands/sync.rs
+- [x] T090 [US3] Implement retry_failed_actions command in src-tauri/src/commands/sync.rs
+- [x] T091 [US3] Implement discard_failed_action command in src-tauri/src/commands/sync.rs
+- [x] T092 [US3] Register sync commands in src-tauri/src/lib.rs
 
 ### Backend - Tauri Events (US3)
 
-- [ ] T093 [US3] Emit sync-progress events during sync operations in sync_engine.rs
-- [ ] T094 [US3] Emit mr-updated events when MRs change in sync_engine.rs
-- [ ] T095 [US3] Emit action-synced events when actions complete in sync_processor.rs
+- [x] T093 [US3] Emit sync-progress events during sync operations in sync_engine.rs
+- [x] T094 [US3] Emit mr-updated events when MRs change in sync_engine.rs
+- [x] T095 [US3] Emit action-synced events when actions complete in sync_processor.rs
 
 ### Frontend - Sync Status (US3)
 
-- [ ] T096 [P] [US3] Create SyncStatusBar component in src/components/SyncStatus/SyncStatusBar.tsx
-- [ ] T097 [P] [US3] Create SyncLogPanel expandable detail view in src/components/SyncStatus/SyncLogPanel.tsx
-- [ ] T098 [US3] Subscribe to Tauri sync events in useSyncStatus hook
-- [ ] T099 [US3] Display last sync time and sync-in-progress indicator in SyncStatusBar.tsx
-- [ ] T100 [US3] Show new/updated MR notification badge in SyncStatusBar.tsx
-- [ ] T101 [US3] Add manual sync trigger button (Cmd+R shortcut) in SyncStatusBar.tsx
+- [x] T096 [P] [US3] Create SyncStatusBar component in src/components/SyncStatus/SyncStatusBar.tsx
+- [x] T097 [P] [US3] Create SyncLogPanel expandable detail view in src/components/SyncStatus/SyncLogPanel.tsx
+- [x] T098 [US3] Subscribe to Tauri sync events in useSyncStatus hook
+- [x] T099 [US3] Display last sync time and sync-in-progress indicator in SyncStatusBar.tsx
+- [x] T100 [US3] Show new/updated MR notification badge in SyncStatusBar.tsx
+- [x] T101 [US3] Add manual sync trigger button (Cmd+R shortcut) in SyncStatusBar.tsx
 
 ### Settings - Sync Configuration (US3)
 
-- [ ] T102 [US3] Implement get_settings and update_settings commands in src-tauri/src/commands/settings.rs
-- [ ] T103 [US3] Register settings commands in src-tauri/src/lib.rs
-- [ ] T104 [US3] Add sync interval configuration to Settings page in Settings.tsx
+- [x] T102 [US3] Implement get_settings and update_settings commands in src-tauri/src/commands/settings.rs
+- [x] T103 [US3] Register settings commands in src-tauri/src/lib.rs
+- [x] T104 [US3] Add sync interval configuration to Settings page in Settings.tsx
 
 **Checkpoint**: User Story 3 complete - app syncs MRs in background, shows status, handles push of local actions
 

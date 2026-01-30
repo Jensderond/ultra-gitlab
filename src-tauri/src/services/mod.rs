@@ -8,12 +8,16 @@
 pub mod credentials;
 pub mod gitlab_client;
 pub mod highlighter;
+pub mod sync_engine;
+pub mod sync_events;
 pub mod sync_processor;
 pub mod sync_queue;
-
-// Submodules will be added as they are implemented:
-// pub mod sync_engine;
 
 pub use credentials::CredentialService;
 pub use gitlab_client::GitLabClient;
 pub use highlighter::SyntaxHighlighter;
+pub use sync_engine::{SyncConfig, SyncEngine, SyncLogEntry, SyncResult, SyncStatus};
+pub use sync_events::{
+    ActionSyncedPayload, MrUpdateType, MrUpdatedPayload, SyncPhase, SyncProgressPayload,
+    ACTION_SYNCED_EVENT, MR_UPDATED_EVENT, SYNC_PROGRESS_EVENT,
+};
