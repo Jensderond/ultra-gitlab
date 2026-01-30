@@ -264,9 +264,9 @@
 
 ### Shortcut Customization (US4)
 
-- [ ] T113 [US4] Create shortcut editor UI in Settings page in Settings.tsx
-- [ ] T114 [US4] Implement shortcut persistence via update_settings command
-- [ ] T115 [US4] Create useCustomShortcuts hook for reading user shortcuts in src/hooks/useCustomShortcuts.ts
+- [x] T113 [US4] Create shortcut editor UI in Settings page in Settings.tsx
+- [x] T114 [US4] Implement shortcut persistence via update_settings command
+- [x] T115 [US4] Create useCustomShortcuts hook for reading user shortcuts in src/hooks/useCustomShortcuts.ts
 
 ### Enhanced Navigation (US4)
 
