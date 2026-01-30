@@ -258,9 +258,9 @@
 
 ### Keyboard Help (US4)
 
-- [ ] T110 [P] [US4] Create KeyboardHelp overlay component in src/components/KeyboardHelp/KeyboardHelp.tsx
-- [ ] T111 [US4] Define default keyboard shortcuts in src/config/shortcuts.ts
-- [ ] T112 [US4] Add '?' shortcut to show keyboard help in App.tsx
+- [x] T110 [P] [US4] Create KeyboardHelp overlay component in src/components/KeyboardHelp/KeyboardHelp.tsx
+- [x] T111 [US4] Define default keyboard shortcuts in src/config/shortcuts.ts
+- [x] T112 [US4] Add '?' shortcut to show keyboard help in App.tsx
 
 ### Shortcut Customization (US4)
 

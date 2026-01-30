@@ -8,18 +8,20 @@ import Settings from './pages/Settings';
 import MRListPage from './pages/MRListPage';
 import MRDetailPage from './pages/MRDetailPage';
 import { CommandPalette, type Command } from './components/CommandPalette';
+import { KeyboardHelp } from './components/KeyboardHelp';
 import { CommandId, commandDefinitions } from './commands/registry';
 import { manualSync } from './services/storage';
 import './App.css';
 
 /**
- * App content with command palette.
+ * App content with command palette and keyboard help.
  * Separated from App to have access to router hooks.
  */
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
 
   // Open command palette with Cmd+P (or Ctrl+P on Windows/Linux)
   useEffect(() => {
@@ -52,6 +54,13 @@ function AppContent() {
         manualSync().catch(console.error);
         return;
       }
+
+      // '?' to show keyboard help (but not Shift+/ which is also '?')
+      if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setKeyboardHelpOpen(true);
+        return;
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown);
@@ -61,6 +70,11 @@ function AppContent() {
   // Close command palette
   const closeCommandPalette = useCallback(() => {
     setCommandPaletteOpen(false);
+  }, []);
+
+  // Close keyboard help
+  const closeKeyboardHelp = useCallback(() => {
+    setKeyboardHelpOpen(false);
   }, []);
 
   // Create commands with bound actions based on current context
@@ -75,6 +89,7 @@ function AppContent() {
       [CommandId.GoToSettings]: () => navigate('/settings'),
       [CommandId.OpenSettings]: () => navigate('/settings'),
       [CommandId.OpenCommandPalette]: () => setCommandPaletteOpen(true),
+      [CommandId.ShowKeyboardHelp]: () => setKeyboardHelpOpen(true),
 
       // Sync commands always available
       [CommandId.TriggerSync]: () => {
@@ -129,6 +144,11 @@ function AppContent() {
         isOpen={commandPaletteOpen}
         onClose={closeCommandPalette}
         commands={commands}
+      />
+
+      <KeyboardHelp
+        isOpen={keyboardHelpOpen}
+        onClose={closeKeyboardHelp}
       />
     </div>
   );
