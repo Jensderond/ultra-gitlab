@@ -936,3 +936,77 @@
 - Discard stale actions immediately instead of retrying forever
 
 ---
+
+## 2026-01-30 - T123
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Added AuthenticationExpired error variant with optional instance_id and instance_url
+- Updated GitLab client to return AuthenticationExpired for 401 Unauthorized responses
+- Added auth-expired Tauri event with AuthExpiredPayload struct
+- Updated sync commands to detect auth errors and emit auth-expired events
+- Enhanced sync_engine to propagate auth errors with instance info
+- Created ReAuthPrompt modal component:
+  - Shield icon with warning colors
+  - Clear messaging about token expiry
+  - Instance URL display
+  - "Go to Settings" primary action
+  - Dismiss option
+  - Hint text about generating new token
+  - Dark theme support
+- Added auth-expired event listener in App.tsx
+- Updated frontend types with AuthExpiredPayload interface
+
+### Files Changed
+- src-tauri/src/error.rs (added AuthenticationExpired variant and helpers)
+- src-tauri/src/services/gitlab_client.rs (detect 401 and return auth expired)
+- src-tauri/src/services/sync_events.rs (added AUTH_EXPIRED_EVENT and payload)
+- src-tauri/src/services/sync_engine.rs (propagate auth errors with instance info)
+- src-tauri/src/commands/sync.rs (emit auth-expired events on failure)
+- src/types/index.ts (added AuthExpiredPayload)
+- src/App.tsx (listen for auth-expired, show ReAuthPrompt)
+- src/components/ReAuthPrompt/ReAuthPrompt.tsx (new)
+- src/components/ReAuthPrompt/ReAuthPrompt.css (new)
+- src/components/ReAuthPrompt/index.ts (new)
+- specs/001-local-mr-review/tasks.md (marked T123 complete)
+
+### Learnings for Future Iterations
+- thiserror's #[error(...)] macro can't use Option<String> directly in format - simplify message
+- Clone URL before moving into struct to use in error handling later
+- Use dedicated event types for specific error conditions (auth expiry vs generic errors)
+- Modal overlays need both click-outside-to-dismiss and explicit dismiss button
+
+---
+
+## 2026-01-30 - T124, T125, T127
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- T124: Added performance logging to MRList with 200ms target indicator
+- T125: Added performance logging to DiffViewer with 100ms target indicator
+- T127: Added tree-sitter grammars for 6 additional languages:
+  - Java (.java)
+  - C (.c, .h)
+  - C++ (.cpp, .cc, .cxx, .hpp, .hxx)
+  - Ruby (.rb)
+  - PHP (.php)
+  - Swift (.swift)
+  - Note: Kotlin disabled due to tree-sitter-kotlin using incompatible API
+
+### Files Changed
+- src/components/MRList/MRList.tsx (added performance logging)
+- src/components/DiffViewer/DiffViewer.tsx (added performance logging)
+- src-tauri/Cargo.toml (added language grammar dependencies)
+- src-tauri/src/services/highlighter.rs (added 7 new language configs + tests)
+- specs/001-local-mr-review/tasks.md (marked T124, T125, T127 complete)
+
+### Learnings for Future Iterations
+- tree-sitter-c and tree-sitter-cpp use HIGHLIGHT_QUERY (singular), not HIGHLIGHTS_QUERY
+- tree-sitter-kotlin 0.3.x uses tree-sitter 0.20 API, incompatible with 0.26
+- Some languages use language() function vs LANGUAGE constant
+- Use performance.now() for accurate timing measurements
+- Log with pass/fail indicator for easy scanning in console
+
+---
