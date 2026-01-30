@@ -36,3 +36,7 @@ src-tauri/     # Rust backend
 ## Tauri IPC
 
 Use `@tauri-apps/api` for frontend-to-backend communication via `invoke()`.
+
+When doing tests make sure to actually use the real credentials so you can fetch merge requests!
+
+TEST CREDENTIALS can be fetched from credentials.md (not in git)

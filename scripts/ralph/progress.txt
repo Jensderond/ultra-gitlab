@@ -1,0 +1,48 @@
+# Ralph Progress Log
+Started: Thu Jan 30 2026
+Feature: Local-First GitLab MR Review
+---
+
+## Codebase Patterns
+<!-- Consolidated learnings - check this FIRST before starting work -->
+
+### Architecture
+- **Frontend**: React 19, TypeScript, Vite 7 in `src/`
+- **Backend**: Tauri 2 (Rust) in `src-tauri/`
+- **Package Manager**: Bun
+
+### Conventions
+- Use `@tauri-apps/api` `invoke()` for frontend-to-backend IPC
+- Use `bun run tauri dev` for full app development
+- Use `bun run dev` for frontend-only development
+
+### Gotchas
+- `tauri-plugin-store` is used for settings persistence (alternative to custom keyring since tauri-plugin-keyring may not be available for Tauri 2)
+- tree-sitter and tree-sitter-highlight versions must match (0.24)
+- reqwest uses `rustls-tls` (not native-tls) to avoid OpenSSL dependency issues on macOS
+
+---
+
+## 2026-01-30 - T001
+**Workflow**: Speckit
+**Feature**: Local-First GitLab MR Review (001-local-mr-review)
+
+### Implemented
+- Added all Rust dependencies to src-tauri/Cargo.toml:
+  - sqlx 0.8 with runtime-tokio and sqlite features
+  - reqwest 0.12 with json and rustls-tls features
+  - tree-sitter 0.24 and tree-sitter-highlight 0.24
+  - thiserror 2 for error handling
+  - tokio 1 with sync and time features
+  - chrono 0.4 with serde feature
+  - tauri-plugin-store 2 for settings storage
+
+### Files Changed
+- src-tauri/Cargo.toml
+
+### Learnings for Future Iterations
+- Cargo check passed; all dependencies compatible with Tauri 2.9.5
+- 573 packages locked; first build fetches many transitive dependencies
+
+---
+
