@@ -166,3 +166,27 @@
 - ON CONFLICT with RETURNING works for upsert in SQLite
 
 ---
+
+## 2026-01-30 - T025, T026, T027
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created typed Tauri invoke wrapper (tauri.ts) with error handling
+- Created GitLab service wrapper (gitlab.ts) with high-level operations
+- Created storage service wrapper (storage.ts) for sync and settings
+- Added index.ts for convenient re-exports
+
+### Files Changed
+- src/services/tauri.ts (new)
+- src/services/gitlab.ts (new)
+- src/services/storage.ts (new)
+- src/services/index.ts (new)
+- specs/001-local-mr-review/tasks.md (marked T025-T027 complete)
+
+### Learnings for Future Iterations
+- Import from @tauri-apps/api/core for invoke in Tauri 2
+- Wrap invoke calls with proper error parsing for consistent error handling
+- High-level service wrappers add business logic on top of raw Tauri calls
+
+---

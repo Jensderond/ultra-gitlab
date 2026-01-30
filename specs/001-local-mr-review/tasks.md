@@ -76,9 +76,9 @@
 
 ### Frontend Services
 
-- [ ] T025 [P] Create Tauri invoke wrapper with types in src/services/tauri.ts
-- [ ] T026 [P] Create GitLab service wrapper in src/services/gitlab.ts
-- [ ] T027 [P] Create storage service wrapper in src/services/storage.ts
+- [x] T025 [P] Create Tauri invoke wrapper with types in src/services/tauri.ts
+- [x] T026 [P] Create GitLab service wrapper in src/services/gitlab.ts
+- [x] T027 [P] Create storage service wrapper in src/services/storage.ts
 
 ### App Shell
 
