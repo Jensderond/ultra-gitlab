@@ -303,7 +303,7 @@
 ### Final Integration
 
 - [x] T128 Run quickstart.md verification checklist
-- [ ] T129 Test complete offline workflow (no network after initial sync)
+- [x] T129 Test complete offline workflow (no network after initial sync)
 - [ ] T130 Test optimistic update rollback on sync failure
 
 ---
