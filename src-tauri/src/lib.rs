@@ -11,11 +11,11 @@ pub mod services;
 
 use commands::{
     add_comment, approve_mr, delete_gitlab_instance, discard_failed_action, get_action_counts,
-    get_approval_status, get_comments, get_diff_content, get_diff_file, get_file_comments,
-    get_gitlab_instances, get_merge_request_detail, get_merge_requests, get_settings,
-    get_sync_config, get_sync_settings, get_sync_status, reply_to_comment, resolve_discussion,
-    retry_failed_actions, setup_gitlab_instance, trigger_sync, unapprove_mr, update_settings,
-    update_sync_config, update_sync_settings,
+    get_approval_status, get_comments, get_diff_content, get_diff_file, get_diff_file_metadata,
+    get_diff_hunks, get_file_comments, get_gitlab_instances, get_merge_request_detail,
+    get_merge_requests, get_settings, get_sync_config, get_sync_settings, get_sync_status,
+    reply_to_comment, resolve_discussion, retry_failed_actions, setup_gitlab_instance,
+    trigger_sync, unapprove_mr, update_settings, update_sync_config, update_sync_settings,
 };
 use tauri::Manager;
 
@@ -60,6 +60,8 @@ pub fn run() {
             get_merge_request_detail,
             get_diff_content,
             get_diff_file,
+            get_diff_file_metadata,
+            get_diff_hunks,
             get_comments,
             get_file_comments,
             add_comment,

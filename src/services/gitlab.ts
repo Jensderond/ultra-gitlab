@@ -13,6 +13,8 @@ import {
   getMergeRequest,
   getDiffFiles,
   getDiffFileContent,
+  getDiffFileMetadata,
+  getDiffHunks,
   getComments,
   addComment,
   replyToComment,
@@ -28,6 +30,8 @@ import type {
   MRFilter,
   DiffFile,
   DiffFileContent,
+  DiffFileMetadata,
+  DiffHunksResponse,
   Comment,
   AddCommentRequest,
   AddCommentResponse,
@@ -129,6 +133,38 @@ export async function getFileDiff(
   filePath: string
 ): Promise<DiffFileContent> {
   return getDiffFileContent(mrId, filePath);
+}
+
+/**
+ * Get metadata about a diff file for progressive loading.
+ *
+ * @param mrId - The merge request ID
+ * @param filePath - The file path
+ * @returns Metadata including hunk count and whether it's a large diff
+ */
+export async function getFileDiffMetadata(
+  mrId: number,
+  filePath: string
+): Promise<DiffFileMetadata> {
+  return getDiffFileMetadata(mrId, filePath);
+}
+
+/**
+ * Get a range of hunks for progressive loading of large diffs.
+ *
+ * @param mrId - The merge request ID
+ * @param filePath - The file path
+ * @param start - Starting hunk index
+ * @param count - Number of hunks to fetch
+ * @returns The requested hunks with pagination info
+ */
+export async function getFileDiffHunks(
+  mrId: number,
+  filePath: string,
+  start: number,
+  count: number
+): Promise<DiffHunksResponse> {
+  return getDiffHunks(mrId, filePath, start, count);
 }
 
 // ============================================================================

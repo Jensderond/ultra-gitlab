@@ -13,6 +13,8 @@ import type {
   MRFilter,
   DiffFile,
   DiffFileContent,
+  DiffFileMetadata,
+  DiffHunksResponse,
   Comment,
   AddCommentRequest,
   AddCommentResponse,
@@ -134,7 +136,29 @@ export async function getDiffFileContent(
   mrId: number,
   filePath: string
 ): Promise<DiffFileContent> {
-  return invoke<DiffFileContent>('get_diff_file_content', { mrId, filePath });
+  return invoke<DiffFileContent>('get_diff_file', { mrId, filePath });
+}
+
+/**
+ * Get metadata about a diff file for progressive loading.
+ */
+export async function getDiffFileMetadata(
+  mrId: number,
+  filePath: string
+): Promise<DiffFileMetadata> {
+  return invoke<DiffFileMetadata>('get_diff_file_metadata', { mrId, filePath });
+}
+
+/**
+ * Get a range of diff hunks for progressive loading.
+ */
+export async function getDiffHunks(
+  mrId: number,
+  filePath: string,
+  start: number,
+  count: number
+): Promise<DiffHunksResponse> {
+  return invoke<DiffHunksResponse>('get_diff_hunks', { mrId, filePath, start, count });
 }
 
 // ============================================================================

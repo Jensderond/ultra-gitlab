@@ -863,3 +863,39 @@
 - Use constants for thresholds (CACHE_SIZE_WARNING_BYTES, CACHE_SIZE_LIMIT_BYTES)
 
 ---
+
+## 2026-01-30 - T121
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Added progressive diff loading for large diffs (>10k lines):
+  - New `get_diff_file_metadata` command returns hunk count, line count, and isLarge flag
+  - New `get_diff_hunks` command returns paginated hunks for on-demand loading
+  - LARGE_DIFF_THRESHOLD constant set to 10,000 lines
+- Updated DiffViewer.tsx for progressive loading:
+  - Checks metadata first to detect large diffs
+  - For large diffs, initializes with null placeholders for all hunks
+  - Loads hunks progressively as user scrolls (HUNK_BATCH_SIZE=20, HUNK_PREFETCH_BUFFER=10)
+  - Shows loading placeholder with animation for unloaded hunks
+  - Displays "Large diff (X lines)" indicator in header
+- Added CSS styles for loading placeholders and large diff indicator
+
+### Files Changed
+- src-tauri/src/commands/mr.rs (added get_diff_file_metadata, get_diff_hunks)
+- src-tauri/src/commands/mod.rs (added exports)
+- src-tauri/src/lib.rs (registered new commands)
+- src/types/index.ts (added DiffFileMetadata, DiffHunksResponse)
+- src/services/tauri.ts (added getDiffFileMetadata, getDiffHunks)
+- src/services/gitlab.ts (added getFileDiffMetadata, getFileDiffHunks)
+- src/components/DiffViewer/DiffViewer.tsx (progressive loading implementation)
+- src/components/DiffViewer/DiffViewer.css (loading placeholder styles)
+- specs/001-local-mr-review/tasks.md (marked T121 complete)
+
+### Learnings for Future Iterations
+- react-window v2 uses standard HTML onScroll, not custom scrollOffset callback
+- Use Set<number> to track loading and loaded hunk indices for efficient lookup
+- Estimate visible hunks from scroll position when hunks have variable heights
+- Initialize with null placeholders for progressive loading arrays
+
+---

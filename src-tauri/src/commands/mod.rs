@@ -20,7 +20,7 @@ pub mod sync;
 pub use approval::{approve_mr, get_approval_status, unapprove_mr};
 pub use auth::{delete_gitlab_instance, get_gitlab_instances, setup_gitlab_instance};
 pub use comments::{add_comment, get_comments, get_file_comments, reply_to_comment, resolve_discussion};
-pub use mr::{get_diff_content, get_diff_file, get_merge_request_detail, get_merge_requests};
+pub use mr::{get_diff_content, get_diff_file, get_diff_file_metadata, get_diff_hunks, get_merge_request_detail, get_merge_requests};
 pub use settings::{get_settings, get_sync_settings, update_settings, update_sync_settings};
 pub use sync::{
     discard_failed_action, get_action_counts, get_sync_config, get_sync_status,

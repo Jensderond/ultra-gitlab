@@ -75,3 +75,52 @@
 .diff-viewer-error {
   color: var(--error-text, #cf222e);
 }
+
+/* Header layout */
+.diff-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Large diff indicator */
+.diff-large-indicator {
+  font-size: 11px;
+  color: var(--warning-text, #9a6700);
+  background-color: var(--warning-bg, #fff8c5);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* Loading placeholder for progressive loading */
+.diff-hunk-loading {
+  border-bottom: 1px solid var(--border-color, #e1e4e8);
+}
+
+.diff-hunk-loading .diff-hunk-header {
+  padding: 8px 12px;
+  background-color: var(--bg-secondary, #f6f8fa);
+  color: var(--text-muted, #8b949e);
+  font-style: italic;
+}
+
+.diff-hunk-placeholder {
+  height: 160px;
+  background: repeating-linear-gradient(
+    0deg,
+    var(--bg-primary, #fff),
+    var(--bg-primary, #fff) 19px,
+    var(--border-light, #f0f0f0) 20px
+  );
+  animation: diff-placeholder-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes diff-placeholder-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}

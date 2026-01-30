@@ -434,6 +434,32 @@ pub struct DiffFileResponse {
     pub diff_hunks: Vec<DiffHunk>,
 }
 
+/// Metadata about a diff file for progressive loading.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffFileMetadata {
+    pub file_path: String,
+    pub hunk_count: usize,
+    pub total_lines: usize,
+    pub additions: i64,
+    pub deletions: i64,
+    pub is_large: bool,
+}
+
+/// Threshold for considering a diff "large" (lines).
+const LARGE_DIFF_THRESHOLD: usize = 10_000;
+
+/// Response for get_diff_hunks command.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffHunksResponse {
+    pub file_path: String,
+    pub hunks: Vec<DiffHunk>,
+    pub start_index: usize,
+    pub total_hunks: usize,
+    pub has_more: bool,
+}
+
 /// Get diff content for a specific file with syntax highlighting.
 ///
 /// # Arguments
@@ -477,6 +503,114 @@ pub async fn get_diff_file(
         old_content: None, // Would require fetching from git or storing separately
         new_content: None,
         diff_hunks: hunks,
+    })
+}
+
+/// Get metadata about a diff file without parsing all content.
+///
+/// Used for progressive loading to determine if a diff is large
+/// and how many hunks need to be loaded.
+///
+/// # Arguments
+/// * `mr_id` - The MR ID
+/// * `file_path` - The file path to get metadata for
+///
+/// # Returns
+/// Metadata including hunk count, total lines, and whether it's a large diff.
+#[tauri::command]
+pub async fn get_diff_file_metadata(
+    pool: State<'_, DbPool>,
+    mr_id: i64,
+    file_path: String,
+) -> Result<DiffFileMetadata, AppError> {
+    // Get the diff file
+    let file: Option<DiffFile> = sqlx::query_as(
+        r#"
+        SELECT id, mr_id, old_path, new_path, change_type,
+               additions, deletions, file_position, diff_content
+        FROM diff_files
+        WHERE mr_id = $1 AND new_path = $2
+        "#,
+    )
+    .bind(mr_id)
+    .bind(&file_path)
+    .fetch_optional(pool.inner())
+    .await?;
+
+    let file =
+        file.ok_or_else(|| AppError::not_found(format!("DiffFile for path: {}", file_path)))?;
+
+    // Parse just to count hunks and lines
+    let diff_content = file.diff_content.unwrap_or_default();
+    let hunks = parse_unified_diff(&diff_content);
+
+    let total_lines: usize = hunks.iter().map(|h| h.lines.len()).sum();
+    let hunk_count = hunks.len();
+    let is_large = total_lines > LARGE_DIFF_THRESHOLD;
+
+    Ok(DiffFileMetadata {
+        file_path: file.new_path,
+        hunk_count,
+        total_lines,
+        additions: file.additions,
+        deletions: file.deletions,
+        is_large,
+    })
+}
+
+/// Get a range of diff hunks for progressive loading.
+///
+/// Used for large diffs to load hunks on demand as the user scrolls.
+///
+/// # Arguments
+/// * `mr_id` - The MR ID
+/// * `file_path` - The file path
+/// * `start` - Starting hunk index (0-based)
+/// * `count` - Number of hunks to fetch
+///
+/// # Returns
+/// The requested hunks with pagination info.
+#[tauri::command]
+pub async fn get_diff_hunks(
+    pool: State<'_, DbPool>,
+    mr_id: i64,
+    file_path: String,
+    start: usize,
+    count: usize,
+) -> Result<DiffHunksResponse, AppError> {
+    // Get the diff file
+    let file: Option<DiffFile> = sqlx::query_as(
+        r#"
+        SELECT id, mr_id, old_path, new_path, change_type,
+               additions, deletions, file_position, diff_content
+        FROM diff_files
+        WHERE mr_id = $1 AND new_path = $2
+        "#,
+    )
+    .bind(mr_id)
+    .bind(&file_path)
+    .fetch_optional(pool.inner())
+    .await?;
+
+    let file =
+        file.ok_or_else(|| AppError::not_found(format!("DiffFile for path: {}", file_path)))?;
+
+    // Parse all hunks (we need to parse the full diff to extract a range)
+    let diff_content = file.diff_content.unwrap_or_default();
+    let all_hunks = parse_unified_diff(&diff_content);
+    let total_hunks = all_hunks.len();
+
+    // Extract the requested range
+    let end = (start + count).min(total_hunks);
+    let hunks: Vec<DiffHunk> = all_hunks.into_iter().skip(start).take(end - start).collect();
+    let has_more = end < total_hunks;
+
+    Ok(DiffHunksResponse {
+        file_path: file.new_path,
+        hunks,
+        start_index: start,
+        total_hunks,
+        has_more,
     })
 }
 

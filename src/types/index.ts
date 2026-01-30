@@ -137,6 +137,24 @@ export interface HighlightToken {
   class: string;
 }
 
+// Progressive diff loading types
+export interface DiffFileMetadata {
+  filePath: string;
+  hunkCount: number;
+  totalLines: number;
+  additions: number;
+  deletions: number;
+  isLarge: boolean;
+}
+
+export interface DiffHunksResponse {
+  filePath: string;
+  hunks: DiffHunk[];
+  startIndex: number;
+  totalHunks: number;
+  hasMore: boolean;
+}
+
 // ============================================================================
 // Comment
 // ============================================================================

@@ -3,12 +3,15 @@
  *
  * Displays syntax-highlighted diffs with virtual scrolling
  * for performance with large files. Supports inline comments.
+ *
+ * For large diffs (>10k lines), uses progressive loading to
+ * fetch hunks on-demand as the user scrolls.
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { List, type RowComponentProps } from 'react-window';
-import type { DiffFileContent, DiffHunk as DiffHunkType, Comment } from '../../types';
-import { getFileDiff } from '../../services/gitlab';
+import type { DiffFileContent, DiffHunk as DiffHunkType, DiffFileMetadata, Comment } from '../../types';
+import { getFileDiff, getFileDiffMetadata, getFileDiffHunks } from '../../services/gitlab';
 import { invoke } from '../../services/tauri';
 import DiffHunk from './DiffHunk';
 import './DiffViewer.css';
@@ -39,6 +42,12 @@ interface DiffViewerProps {
 const LINE_HEIGHT = 20;
 const HUNK_HEADER_HEIGHT = 36;
 
+/** Number of hunks to load at a time for progressive loading */
+const HUNK_BATCH_SIZE = 20;
+
+/** Buffer of hunks to load ahead of visible area */
+const HUNK_PREFETCH_BUFFER = 10;
+
 /**
  * Calculate the height of a hunk including its lines.
  */
@@ -46,21 +55,40 @@ function getHunkHeight(hunk: DiffHunkType): number {
   return HUNK_HEADER_HEIGHT + hunk.lines.length * LINE_HEIGHT;
 }
 
+/** Placeholder height for not-yet-loaded hunks (estimated) */
+const ESTIMATED_HUNK_HEIGHT = 200;
+
 /**
  * Props passed to the row component.
  */
 interface HunkRowProps {
-  hunks: DiffHunkType[];
+  hunks: (DiffHunkType | null)[];
   selectedHunk: number | null;
   selectedLine: number | null;
   onLineClick: (hunkIndex: number, lineIndex: number) => void;
+  loadingHunks: Set<number>;
 }
 
 /**
  * Row component for virtual list rendering.
  */
-function HunkRow({ index, style, hunks, selectedHunk, selectedLine, onLineClick }: RowComponentProps<HunkRowProps>) {
+function HunkRow({ index, style, hunks, selectedHunk, selectedLine, onLineClick, loadingHunks }: RowComponentProps<HunkRowProps>) {
   const hunk = hunks[index];
+
+  // Show loading state for not-yet-loaded hunks
+  if (hunk === null) {
+    return (
+      <div style={style} className="diff-hunk-loading">
+        <div className="diff-hunk-header">
+          <span className="hunk-range">
+            {loadingHunks.has(index) ? 'Loading...' : 'Scroll to load'}
+          </span>
+        </div>
+        <div className="diff-hunk-placeholder" />
+      </div>
+    );
+  }
+
   return (
     <div style={style}>
       <DiffHunk
@@ -89,6 +117,7 @@ export default function DiffViewer({
   startSha,
 }: DiffViewerProps) {
   const [diffContent, setDiffContent] = useState<DiffFileContent | null>(null);
+  const [metadata, setMetadata] = useState<DiffFileMetadata | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedHunk, setSelectedHunk] = useState<number | null>(null);
@@ -97,14 +126,39 @@ export default function DiffViewer({
   const [addingCommentAt, setAddingCommentAt] = useState<{ hunk: number; line: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load diff content
+  // Progressive loading state
+  const [isLargeDiff, setIsLargeDiff] = useState(false);
+  const [hunks, setHunks] = useState<(DiffHunkType | null)[]>([]);
+  const [loadingHunks, setLoadingHunks] = useState<Set<number>>(new Set());
+  const [loadedRanges, setLoadedRanges] = useState<Set<number>>(new Set());
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Load diff content - either all at once or progressively
   useEffect(() => {
     async function loadDiff() {
       try {
         setLoading(true);
         setError(null);
-        const content = await getFileDiff(mrId, filePath);
-        setDiffContent(content);
+        setIsLargeDiff(false);
+        setHunks([]);
+        setLoadedRanges(new Set());
+
+        // First, get metadata to check if this is a large diff
+        const meta = await getFileDiffMetadata(mrId, filePath);
+        setMetadata(meta);
+
+        if (meta.isLarge) {
+          // Large diff - use progressive loading
+          setIsLargeDiff(true);
+          // Initialize with null placeholders for all hunks
+          setHunks(new Array(meta.hunkCount).fill(null));
+          // Load the first batch
+          await loadHunkRange(0, HUNK_BATCH_SIZE);
+        } else {
+          // Normal diff - load all at once
+          const content = await getFileDiff(mrId, filePath);
+          setDiffContent(content);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load diff');
       } finally {
@@ -113,6 +167,80 @@ export default function DiffViewer({
     }
     loadDiff();
   }, [mrId, filePath]);
+
+  // Load a range of hunks for progressive loading
+  const loadHunkRange = useCallback(async (start: number, count: number) => {
+    // Skip if already loaded or currently loading
+    const rangesToLoad: number[] = [];
+    for (let i = start; i < start + count; i++) {
+      if (!loadedRanges.has(i) && !loadingHunks.has(i)) {
+        rangesToLoad.push(i);
+      }
+    }
+
+    if (rangesToLoad.length === 0) return;
+
+    // Mark as loading
+    setLoadingHunks(prev => {
+      const next = new Set(prev);
+      rangesToLoad.forEach(i => next.add(i));
+      return next;
+    });
+
+    try {
+      // Calculate the actual range to fetch (contiguous)
+      const actualStart = Math.min(...rangesToLoad);
+      const actualEnd = Math.max(...rangesToLoad) + 1;
+      const actualCount = actualEnd - actualStart;
+
+      const response = await getFileDiffHunks(mrId, filePath, actualStart, actualCount);
+
+      // Update hunks array with loaded data
+      setHunks(prev => {
+        const next = [...prev];
+        response.hunks.forEach((hunk, i) => {
+          next[response.startIndex + i] = hunk;
+        });
+        return next;
+      });
+
+      // Mark as loaded
+      setLoadedRanges(prev => {
+        const next = new Set(prev);
+        for (let i = response.startIndex; i < response.startIndex + response.hunks.length; i++) {
+          next.add(i);
+        }
+        return next;
+      });
+    } catch (err) {
+      console.error('Failed to load hunks:', err);
+    } finally {
+      // Clear loading state
+      setLoadingHunks(prev => {
+        const next = new Set(prev);
+        rangesToLoad.forEach(i => next.delete(i));
+        return next;
+      });
+    }
+  }, [mrId, filePath, loadedRanges, loadingHunks]);
+
+  // Handle scroll for progressive loading
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (!isLargeDiff || !metadata) return;
+
+    const scrollOffset = e.currentTarget.scrollTop;
+
+    // Estimate which hunks are visible based on scroll position
+    // This is approximate since hunks have variable heights
+    const estimatedVisibleStart = Math.floor(scrollOffset / ESTIMATED_HUNK_HEIGHT);
+    const estimatedVisibleEnd = estimatedVisibleStart + 10; // Assume ~10 hunks visible
+
+    // Load a range around the visible area
+    const loadStart = Math.max(0, estimatedVisibleStart - HUNK_PREFETCH_BUFFER);
+    const loadEnd = Math.min(metadata.hunkCount, estimatedVisibleEnd + HUNK_PREFETCH_BUFFER);
+
+    loadHunkRange(loadStart, loadEnd - loadStart);
+  }, [isLargeDiff, metadata, loadHunkRange]);
 
   // Load comments for this file
   useEffect(() => {
@@ -133,11 +261,19 @@ export default function DiffViewer({
     setSelectedLine(lineIndex);
   }, []);
 
+  // Get the effective hunks (from diffContent or progressive loading)
+  const effectiveHunks = useMemo(() => {
+    if (isLargeDiff) {
+      return hunks;
+    }
+    return diffContent?.diffHunks ?? [];
+  }, [isLargeDiff, hunks, diffContent]);
+
   // Find all change positions (added/removed lines)
   const changePositions = useMemo(() => {
-    if (!diffContent) return [];
     const positions: { hunk: number; line: number }[] = [];
-    diffContent.diffHunks.forEach((hunk, hunkIdx) => {
+    effectiveHunks.forEach((hunk, hunkIdx) => {
+      if (hunk === null) return; // Skip unloaded hunks
       hunk.lines.forEach((line, lineIdx) => {
         if (line.type === 'add' || line.type === 'remove') {
           positions.push({ hunk: hunkIdx, line: lineIdx });
@@ -145,7 +281,7 @@ export default function DiffViewer({
       });
     });
     return positions;
-  }, [diffContent]);
+  }, [effectiveHunks]);
 
   // Navigate to next/prev change
   const navigateToChange = useCallback((direction: 1 | -1) => {
@@ -228,9 +364,11 @@ export default function DiffViewer({
 
   // Add comment handler
   const handleAddComment = useCallback(async (body: string) => {
-    if (!addingCommentAt || !diffContent || !currentUser) return;
+    if (!addingCommentAt || !currentUser) return;
 
-    const hunk = diffContent.diffHunks[addingCommentAt.hunk];
+    // Get the hunk and line
+    const hunk = effectiveHunks[addingCommentAt.hunk];
+    if (!hunk) return;
     const line = hunk.lines[addingCommentAt.line];
 
     try {
@@ -261,7 +399,7 @@ export default function DiffViewer({
     } finally {
       setIsSubmitting(false);
     }
-  }, [addingCommentAt, diffContent, mrId, projectId, mrIid, filePath, currentUser, baseSha, headSha, startSha]);
+  }, [addingCommentAt, effectiveHunks, mrId, projectId, mrIid, filePath, currentUser, baseSha, headSha, startSha]);
 
   // Group comments by line number
   const commentsByLine = useMemo(() => {
@@ -280,10 +418,14 @@ export default function DiffViewer({
   // Get item size for virtual scrolling
   const getRowHeight = useCallback(
     (index: number) => {
-      if (!diffContent) return 0;
-      return getHunkHeight(diffContent.diffHunks[index]);
+      const hunk = effectiveHunks[index];
+      if (hunk === null) {
+        // Unloaded hunk - use estimated height
+        return ESTIMATED_HUNK_HEIGHT;
+      }
+      return getHunkHeight(hunk);
     },
-    [diffContent]
+    [effectiveHunks]
   );
 
   // Loading state
@@ -305,7 +447,7 @@ export default function DiffViewer({
   }
 
   // No content
-  if (!diffContent || diffContent.diffHunks.length === 0) {
+  if (effectiveHunks.length === 0) {
     return (
       <div className="diff-viewer">
         <div className="diff-viewer-empty">No changes in this file</div>
@@ -314,62 +456,86 @@ export default function DiffViewer({
   }
 
   // Calculate total height for small diffs (no virtual scrolling needed)
-  const totalHeight = diffContent.diffHunks.reduce(
-    (sum, hunk) => sum + getHunkHeight(hunk),
+  const totalHeight = effectiveHunks.reduce(
+    (sum, hunk) => sum + (hunk === null ? ESTIMATED_HUNK_HEIGHT : getHunkHeight(hunk)),
     0
   );
-  const useVirtualScrolling = totalHeight > 2000;
+  const useVirtualScrolling = totalHeight > 2000 || isLargeDiff;
 
   return (
     <div className="diff-viewer">
       <div className="diff-viewer-header">
         <span className="diff-file-path">{filePath}</span>
-        <div className="diff-view-toggle">
-          <button
-            className={viewMode === 'unified' ? 'active' : ''}
-            onClick={() => onViewModeChange?.('unified')}
-          >
-            Unified
-          </button>
-          <button
-            className={viewMode === 'split' ? 'active' : ''}
-            onClick={() => onViewModeChange?.('split')}
-          >
-            Split
-          </button>
+        <div className="diff-header-right">
+          {isLargeDiff && metadata && (
+            <span className="diff-large-indicator">
+              Large diff ({metadata.totalLines.toLocaleString()} lines)
+            </span>
+          )}
+          <div className="diff-view-toggle">
+            <button
+              className={viewMode === 'unified' ? 'active' : ''}
+              onClick={() => onViewModeChange?.('unified')}
+            >
+              Unified
+            </button>
+            <button
+              className={viewMode === 'split' ? 'active' : ''}
+              onClick={() => onViewModeChange?.('split')}
+            >
+              Split
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="diff-viewer-content">
+      <div
+        className="diff-viewer-content"
+        ref={containerRef}
+        onScroll={isLargeDiff ? handleScroll : undefined}
+      >
         {useVirtualScrolling ? (
           <List
             defaultHeight={600}
             rowComponent={HunkRow}
-            rowCount={diffContent.diffHunks.length}
+            rowCount={effectiveHunks.length}
             rowHeight={getRowHeight}
             rowProps={{
-              hunks: diffContent.diffHunks,
+              hunks: effectiveHunks,
               selectedHunk,
               selectedLine,
               onLineClick: handleLineClick,
+              loadingHunks,
             }}
             overscanCount={2}
           />
         ) : (
-          diffContent.diffHunks.map((hunk, index) => (
-            <DiffHunk
-              key={index}
-              hunk={hunk}
-              hunkIndex={index}
-              selectedLineIndex={selectedHunk === index ? selectedLine ?? undefined : undefined}
-              onLineClick={handleLineClick}
-              commentsByLine={commentsByLine}
-              addingCommentAtLine={addingCommentAt?.hunk === index ? addingCommentAt.line : undefined}
-              onSubmitComment={handleAddComment}
-              onCancelComment={() => setAddingCommentAt(null)}
-              isSubmitting={isSubmitting}
-            />
-          ))
+          effectiveHunks.map((hunk, index) => {
+            if (hunk === null) {
+              return (
+                <div key={index} className="diff-hunk-loading">
+                  <div className="diff-hunk-header">
+                    <span className="hunk-range">Loading...</span>
+                  </div>
+                  <div className="diff-hunk-placeholder" />
+                </div>
+              );
+            }
+            return (
+              <DiffHunk
+                key={index}
+                hunk={hunk}
+                hunkIndex={index}
+                selectedLineIndex={selectedHunk === index ? selectedLine ?? undefined : undefined}
+                onLineClick={handleLineClick}
+                commentsByLine={commentsByLine}
+                addingCommentAtLine={addingCommentAt?.hunk === index ? addingCommentAt.line : undefined}
+                onSubmitComment={handleAddComment}
+                onCancelComment={() => setAddingCommentAt(null)}
+                isSubmitting={isSubmitting}
+              />
+            );
+          })
         )}
       </div>
     </div>
