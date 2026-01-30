@@ -94,3 +94,27 @@
 - Use `#[serde(skip_serializing_if = "Option::is_none")]` to omit optional fields when None
 
 ---
+
+## 2026-01-30 - T016, T017, T018
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created GitLabClient with reqwest for GitLab API v4
+- Added PRIVATE-TOKEN header authentication
+- Implemented pagination parsing from X-Page, X-Total-Pages headers
+- Added get_all_pages helper for fetching complete paginated results
+- Created API types: GitLabMergeRequest, GitLabDiffVersion, GitLabDiscussion, etc.
+- Implemented MR listing, diff fetching, discussions, approvals, and comments
+
+### Files Changed
+- src-tauri/src/services/gitlab_client.rs (new)
+- src-tauri/src/services/mod.rs (updated with gitlab_client export)
+- specs/001-local-mr-review/tasks.md (marked T016-T018 complete)
+
+### Learnings for Future Iterations
+- GitLab pagination uses X-Page, X-Per-Page, X-Total, X-Total-Pages, X-Next-Page headers
+- Can't define structs inside impl blocks in Rust - move them outside
+- Use `#[derive(Serialize)]` with `#[serde(skip_serializing_if = "Option::is_none")]` for optional query params
+
+---

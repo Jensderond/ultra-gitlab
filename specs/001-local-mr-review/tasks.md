@@ -58,9 +58,9 @@
 
 ### GitLab API Client
 
-- [ ] T016 Implement GitLab API client with reqwest in src-tauri/src/services/gitlab_client.rs
-- [ ] T017 Add authentication header handling (PRIVATE-TOKEN) in gitlab_client.rs
-- [ ] T018 Implement pagination handling for GitLab API responses in gitlab_client.rs
+- [x] T016 Implement GitLab API client with reqwest in src-tauri/src/services/gitlab_client.rs
+- [x] T017 Add authentication header handling (PRIVATE-TOKEN) in gitlab_client.rs
+- [x] T018 Implement pagination handling for GitLab API responses in gitlab_client.rs
 
 ### Credential Storage
 
