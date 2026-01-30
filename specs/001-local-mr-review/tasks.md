@@ -298,7 +298,7 @@
 
 ### Additional Language Grammars
 
-- [ ] T127 [P] Add tree-sitter grammars for additional languages (java, c, cpp, ruby, php, swift, kotlin)
+- [x] T127 [P] Add tree-sitter grammars for additional languages (java, c, cpp, ruby, php, swift - kotlin pending compatible crate)
 
 ### Final Integration
 
