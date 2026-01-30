@@ -10,8 +10,8 @@ pub mod models;
 pub mod services;
 
 use commands::{
-    add_comment, approve_mr, delete_gitlab_instance, get_approval_status, get_comments,
-    get_diff_content, get_diff_file, get_file_comments, get_gitlab_instances,
+    add_comment, approve_mr, delete_gitlab_instance, get_action_counts, get_approval_status,
+    get_comments, get_diff_content, get_diff_file, get_file_comments, get_gitlab_instances,
     get_merge_request_detail, get_merge_requests, reply_to_comment, resolve_discussion,
     setup_gitlab_instance, unapprove_mr,
 };
@@ -66,6 +66,7 @@ pub fn run() {
             approve_mr,
             unapprove_mr,
             get_approval_status,
+            get_action_counts,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

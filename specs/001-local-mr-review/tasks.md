@@ -186,9 +186,9 @@
 
 ### Sync Status Display (US2)
 
-- [ ] T079 [US2] Create useSyncStatus hook in src/hooks/useSyncStatus.ts
-- [ ] T080 [US2] Create PendingActionsIndicator component in src/components/SyncStatus/PendingActionsIndicator.tsx
-- [ ] T081 [US2] Add failed action retry button in PendingActionsIndicator.tsx
+- [x] T079 [US2] Create useSyncStatus hook in src/hooks/useSyncStatus.ts
+- [x] T080 [US2] Create PendingActionsIndicator component in src/components/SyncStatus/PendingActionsIndicator.tsx
+- [x] T081 [US2] Add failed action retry button in PendingActionsIndicator.tsx
 
 **Checkpoint**: User Story 2 complete - can approve MRs and add comments with instant feedback, actions queue for sync
 

@@ -588,3 +588,41 @@
 - Use hasApproved to track current user's approval status
 
 ---
+
+## 2026-01-30 - T079, T080, T081
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created useSyncStatus hook for tracking sync state:
+  - Polls for action counts (pending/failed)
+  - Provides triggerSync, retryAction, discardAction functions
+  - Configurable poll interval
+- Created PendingActionsIndicator component:
+  - Shows pending/failed action counts
+  - Compact mode for header placement
+  - Expandable panel with Sync Now / Retry All buttons
+  - Spinner animation while syncing
+- Created get_action_counts command in sync.rs:
+  - Wraps sync_queue::get_action_counts
+  - Returns ActionCountsResponse { pending, failed }
+- Registered command in lib.rs
+
+**Checkpoint Complete**: User Story 2 - Approve and Comment with Optimistic Updates
+
+### Files Changed
+- src/hooks/useSyncStatus.ts (new)
+- src/components/SyncStatus/PendingActionsIndicator.tsx (new)
+- src/components/SyncStatus/PendingActionsIndicator.css (new)
+- src/components/SyncStatus/index.ts (new)
+- src-tauri/src/commands/sync.rs (new)
+- src-tauri/src/commands/mod.rs (added sync module)
+- src-tauri/src/lib.rs (registered get_action_counts)
+- specs/001-local-mr-review/tasks.md (marked T079-T081 complete)
+
+### Learnings for Future Iterations
+- Use polling for sync status (Tauri events not yet implemented)
+- Silently ignore errors for missing commands during development
+- Compact mode useful for header/footer placement
+
+---
