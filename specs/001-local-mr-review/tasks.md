@@ -149,10 +149,10 @@
 
 ### Backend - Sync Queue (US2)
 
-- [ ] T057 [US2] Implement sync queue persistence in src-tauri/src/services/sync_queue.rs
-- [ ] T058 [US2] Add enqueue_action function for adding actions to queue in sync_queue.rs
-- [ ] T059 [US2] Add get_pending_actions function in sync_queue.rs
-- [ ] T060 [US2] Implement sync processor for pushing actions to GitLab in src-tauri/src/services/sync_processor.rs
+- [x] T057 [US2] Implement sync queue persistence in src-tauri/src/services/sync_queue.rs
+- [x] T058 [US2] Add enqueue_action function for adding actions to queue in sync_queue.rs
+- [x] T059 [US2] Add get_pending_actions function in sync_queue.rs
+- [x] T060 [US2] Implement sync processor for pushing actions to GitLab in src-tauri/src/services/sync_processor.rs
 
 ### Backend - Comment Commands (US2)
 

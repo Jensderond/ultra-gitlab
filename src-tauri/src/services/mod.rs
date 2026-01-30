@@ -8,10 +8,10 @@
 pub mod credentials;
 pub mod gitlab_client;
 pub mod highlighter;
+pub mod sync_processor;
+pub mod sync_queue;
 
 // Submodules will be added as they are implemented:
-// pub mod sync_queue;
-// pub mod sync_processor;
 // pub mod sync_engine;
 
 pub use credentials::CredentialService;

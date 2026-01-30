@@ -217,3 +217,212 @@
 - Keep CSS separate for each component/page
 
 ---
+
+## 2026-01-30 - T031, T032, T033, T034, T035
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created mr.rs with 4 MR reading commands:
+  - get_merge_requests: List cached MRs with filtering (state, search)
+  - get_merge_request_detail: MR with diff summary and pending actions count
+  - get_diff_content: Unified diff content for MR or specific file
+  - get_diff_file: Parsed diff hunks with line numbers for rendering
+- Added unified diff parser for hunk extraction
+- Registered all commands in lib.rs
+
+### Files Changed
+- src-tauri/src/commands/mr.rs (new)
+- src-tauri/src/commands/mod.rs (added mr module)
+- src-tauri/src/lib.rs (registered MR commands)
+- specs/001-local-mr-review/tasks.md (marked T031-T035 complete)
+
+### Learnings for Future Iterations
+- When using `From<T>` impl with borrowed methods, call borrowing methods first before consuming fields
+- Use `is_none_or()` instead of `map_or(true, ...)` per Clippy
+- Unified diff parsing: hunk header format is `@@ -old_start,count +new_start,count @@`
+- Syntax highlighting tokens placeholder in DiffLine - actual highlighting will come in T037-T039
+
+---
+
+## 2026-01-30 - T036, T037, T038, T039
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Added tree-sitter language grammars to Cargo.toml for JS, TS, Python, Rust, Go
+- Updated tree-sitter from 0.24 to 0.26 for grammar compatibility
+- Created SyntaxHighlighter service with:
+  - LazyLock-based configuration caching
+  - Language detection from file extensions
+  - tokenize() and tokenize_line() functions returning HighlightToken arrays
+- Added comprehensive tests for all supported languages
+
+### Files Changed
+- src-tauri/Cargo.toml (added tree-sitter grammars, updated versions)
+- src-tauri/Cargo.lock (dependency updates)
+- src-tauri/src/services/highlighter.rs (new)
+- src-tauri/src/services/mod.rs (added highlighter export)
+- specs/001-local-mr-review/tasks.md (marked T036-T039 complete)
+
+### Learnings for Future Iterations
+- tree-sitter-highlight version must match language grammar ABI versions
+- Language grammars have "version 15" which requires tree-sitter 0.26+
+- JavaScript uses `HIGHLIGHT_QUERY` (singular), other languages use `HIGHLIGHTS_QUERY`
+- HighlightConfiguration doesn't implement Clone - can't share refs easily
+- Use match statement for extension -> config lookup instead of HashMap for non-Clone types
+
+---
+
+## 2026-01-30 - T040, T041, T042, T043, T044
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created MRList container component with filtering:
+  - State filter (opened/merged/closed/all)
+  - Scope filter (authored/reviewing/all)
+  - Search text filter
+- Created MRListItem component with:
+  - State badge (open/merged/closed)
+  - Relative time display
+  - Approval status indicator
+  - Labels display with overflow
+- Created MRListPage with:
+  - Instance selector dropdown
+  - Keyboard navigation hints in footer
+  - j/k navigation for list items
+- Integrated MRListPage into App routing
+
+### Files Changed
+- src/components/MRList/MRList.tsx (new)
+- src/components/MRList/MRList.css (new)
+- src/components/MRList/MRListItem.tsx (new)
+- src/components/MRList/MRListItem.css (new)
+- src/components/MRList/index.ts (new)
+- src/pages/MRListPage.tsx (new)
+- src/pages/MRListPage.css (new)
+- src/App.tsx (replaced placeholder with real page)
+- specs/001-local-mr-review/tasks.md (marked T040-T044 complete)
+
+### Learnings for Future Iterations
+- Use CSS variables for theming (--bg-primary, --text-secondary, etc.)
+- Keep kbd element styling consistent across keyboard hints
+- Format relative time as "Xm ago", "Xh ago", "Xd ago" for readability
+- Route paths should be consistent (use /mrs/:id not /mr/:id)
+
+---
+
+## 2026-01-30 - T045, T046, T047, T048, T049, T050, T051, T052
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created DiffViewer container with virtual scrolling:
+  - Uses react-window v2 List component with rowComponent API
+  - Conditionally enables virtual scrolling for large diffs (>2000px total)
+  - Supports unified/split view toggle
+- Created DiffLine with syntax highlighting:
+  - Renders line number gutter with old/new line numbers
+  - Applies syntax highlighting via hl-{token} CSS classes
+  - Supports add/remove/context line types with color coding
+- Created DiffHunk for grouping related lines
+- Created FileNavigation sidebar:
+  - Shows file list with change type indicators (A/M/D/R)
+  - Displays additions/deletions per file
+  - Supports keyboard focus
+- Created syntax.css with comprehensive highlighting:
+  - Light theme colors for all token types
+  - Dark theme overrides via .dark-theme class
+- Created MRDetailPage:
+  - File sidebar + diff viewer layout
+  - n/p keyboard shortcuts for file navigation
+  - Esc to return to list
+
+### Files Changed
+- src/components/DiffViewer/DiffViewer.tsx (new)
+- src/components/DiffViewer/DiffViewer.css (new)
+- src/components/DiffViewer/DiffLine.tsx (new)
+- src/components/DiffViewer/DiffLine.css (new)
+- src/components/DiffViewer/DiffHunk.tsx (new)
+- src/components/DiffViewer/DiffHunk.css (new)
+- src/components/DiffViewer/FileNavigation.tsx (new)
+- src/components/DiffViewer/FileNavigation.css (new)
+- src/components/DiffViewer/index.ts (new)
+- src/pages/MRDetailPage.tsx (new)
+- src/pages/MRDetailPage.css (new)
+- src/styles/syntax.css (new)
+- src/App.tsx (updated to use real MRDetailPage)
+- specs/001-local-mr-review/tasks.md (marked T045-T052 complete)
+
+### Learnings for Future Iterations
+- react-window v2 uses rowComponent/rowProps API instead of children render prop
+- Use RowComponentProps<Props> type for virtual list row components
+- Syntax highlighting classes use hl- prefix to avoid conflicts
+- Dark theme handled via parent .dark-theme class selector
+
+---
+
+## 2026-01-30 - T053, T054, T055, T056
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created useKeyboardNav hook in src/hooks/:
+  - j/k and arrow keys for list navigation
+  - Enter to select focused item
+  - Automatically clamps focus index to item count
+- Created useFileNav hook for n/p file navigation
+- Updated MRListPage to use useKeyboardNav:
+  - Loads MR list separately for keyboard selection
+  - Uses ref to access current MRs in callback
+  - Enter now correctly opens focused MR
+
+**Checkpoint Complete**: User Story 1 - Browse and Review MRs Offline-Fast
+
+### Files Changed
+- src/hooks/useKeyboardNav.ts (new)
+- src/pages/MRListPage.tsx (updated to use hook)
+- specs/001-local-mr-review/tasks.md (marked T053-T056 complete)
+
+### Learnings for Future Iterations
+- Use useRef to access current state in callbacks that are memoized
+- Hook must handle case where itemCount changes
+- Keep enabled flag to disable navigation when loading
+
+---
+
+## 2026-01-30 - T057, T058, T059, T060
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created sync_queue.rs service with:
+  - enqueue_action() for adding actions to the queue
+  - get_pending_actions() for fetching pending actions
+  - get_retryable_actions() for fetching failed actions that can be retried
+  - mark_syncing/mark_synced/mark_failed for status updates
+  - retry_action/delete_action for managing actions
+  - get_action_counts() for UI status display
+  - Payload structs for Approval, Comment, Reply, Resolve actions
+- Created sync_processor.rs service with:
+  - process_action() for executing a single sync action
+  - process_pending_actions() for batch processing
+  - retry_failed_actions() for retrying failed actions
+  - Support for all action types: approve, comment, reply, resolve, unresolve
+  - Inline comment support with position (file_path, old_line, new_line, SHA info)
+- Added add_inline_comment method to GitLabClient for inline diff comments
+
+### Files Changed
+- src-tauri/src/services/sync_queue.rs (new)
+- src-tauri/src/services/sync_processor.rs (new)
+- src-tauri/src/services/gitlab_client.rs (added add_inline_comment)
+- src-tauri/src/services/mod.rs (added exports)
+- specs/001-local-mr-review/tasks.md (marked T057-T060 complete)
+
+### Learnings for Future Iterations
+- Inline comments in GitLab require position object with base_sha, head_sha, start_sha
+- Use db::initialize() in tests (run_migrations is private)
+- Retry logic: increment retry_count on failure, mark as permanently failed after MAX_RETRIES
+
+---

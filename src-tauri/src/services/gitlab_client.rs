@@ -477,6 +477,64 @@ impl GitLabClient {
         self.handle_response(response, &endpoint).await
     }
 
+    /// Add an inline comment to a merge request at a specific line.
+    ///
+    /// This creates a new discussion thread at the specified position.
+    pub async fn add_inline_comment(
+        &self,
+        project_id: i64,
+        mr_iid: i64,
+        body: &str,
+        file_path: &str,
+        old_line: Option<i64>,
+        new_line: Option<i64>,
+        base_sha: &str,
+        head_sha: &str,
+        start_sha: &str,
+    ) -> Result<GitLabDiscussion, AppError> {
+        let endpoint = format!(
+            "/projects/{}/merge_requests/{}/discussions",
+            project_id, mr_iid
+        );
+        let url = self.api_url(&endpoint);
+
+        #[derive(Serialize)]
+        struct Position<'a> {
+            base_sha: &'a str,
+            head_sha: &'a str,
+            start_sha: &'a str,
+            position_type: &'a str,
+            new_path: &'a str,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            old_line: Option<i64>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            new_line: Option<i64>,
+        }
+
+        #[derive(Serialize)]
+        struct Body<'a> {
+            body: &'a str,
+            position: Position<'a>,
+        }
+
+        let request_body = Body {
+            body,
+            position: Position {
+                base_sha,
+                head_sha,
+                start_sha,
+                position_type: "text",
+                new_path: file_path,
+                old_line,
+                new_line,
+            },
+        };
+
+        let response = self.client.post(&url).json(&request_body).send().await?;
+
+        self.handle_response(response, &endpoint).await
+    }
+
     /// Reply to a discussion.
     pub async fn reply_to_discussion(
         &self,
