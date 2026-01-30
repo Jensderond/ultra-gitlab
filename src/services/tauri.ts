@@ -53,8 +53,9 @@ function parseError(error: unknown): Error {
 
 /**
  * Type-safe invoke wrapper with error handling.
+ * Exported for custom commands not covered by typed wrappers.
  */
-async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+export async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   try {
     return await tauriInvoke<T>(cmd, args);
   } catch (error) {

@@ -170,13 +170,13 @@
 
 ### Frontend - Comments (US2)
 
-- [ ] T069 [P] [US2] Create CommentPanel container in src/components/CommentPanel/CommentPanel.tsx
-- [ ] T070 [P] [US2] Create CommentThread component in src/components/CommentPanel/CommentThread.tsx
-- [ ] T071 [P] [US2] Create CommentInput component in src/components/CommentPanel/CommentInput.tsx
+- [x] T069 [P] [US2] Create CommentPanel container in src/components/CommentPanel/CommentPanel.tsx
+- [x] T070 [P] [US2] Create CommentThread component in src/components/CommentPanel/CommentThread.tsx
+- [x] T071 [P] [US2] Create CommentInput component in src/components/CommentPanel/CommentInput.tsx
 - [ ] T072 [US2] Create InlineComment component for diff annotations in src/components/CommentPanel/InlineComment.tsx
 - [ ] T073 [US2] Integrate inline comments into DiffLine.tsx showing comments at line positions
 - [ ] T074 [US2] Implement add comment at current line (triggered by 'c' key) in DiffViewer.tsx
-- [ ] T075 [US2] Add sync status indicator (pending/synced/failed) to comments in CommentThread.tsx
+- [x] T075 [US2] Add sync status indicator (pending/synced/failed) to comments in CommentThread.tsx
 
 ### Frontend - Approval (US2)
 

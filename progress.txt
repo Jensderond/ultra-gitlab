@@ -484,3 +484,43 @@
 - Use MAX() in SQL to prevent negative approvals_count on unapprove
 
 ---
+
+## 2026-01-30 - T069, T070, T071, T075
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created CommentPanel container component:
+  - Fetches and displays all comments for an MR
+  - Groups comments by discussion ID for threading
+  - Supports adding general comments and replies
+  - Handles resolve/unresolve of discussions
+- Created CommentThread component:
+  - Displays discussion thread with root comment and replies
+  - Shows sync status badges (pending/failed)
+  - Visual distinction for local (pending) comments
+  - Resolve/unresolve button
+- Created CommentInput component:
+  - Textarea with Cmd+Enter to submit
+  - Escape to cancel
+  - Disabled state while submitting
+- Added sync status indicator to CommentThread (T075)
+- Exported invoke function from tauri.ts for custom commands
+
+### Files Changed
+- src/components/CommentPanel/CommentPanel.tsx (new)
+- src/components/CommentPanel/CommentPanel.css (new)
+- src/components/CommentPanel/CommentThread.tsx (new)
+- src/components/CommentPanel/CommentThread.css (new)
+- src/components/CommentPanel/CommentInput.tsx (new)
+- src/components/CommentPanel/CommentInput.css (new)
+- src/components/CommentPanel/index.ts (new)
+- src/services/tauri.ts (export invoke)
+- specs/001-local-mr-review/tasks.md (marked T069-T071, T075 complete)
+
+### Learnings for Future Iterations
+- Group comments by discussionId for threading
+- Local comments have is_local=true and need sync status from syncStatus field
+- Use Cmd+Enter for submit, Escape for cancel (standard pattern)
+
+---
