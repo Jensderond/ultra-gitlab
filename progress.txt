@@ -1010,3 +1010,42 @@
 - Log with pass/fail indicator for easy scanning in console
 
 ---
+
+## 2026-01-30 - T126
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created diagnostics module for memory and performance verification (SC-008)
+- Added `sysinfo` crate for cross-platform process memory measurement
+- Created Tauri commands:
+  - get_memory_stats: Process and system memory usage
+  - get_cache_stats: MR count, diff files, comments, DB size
+  - get_diagnostics_report: Combined memory and cache stats
+  - generate_test_data: Creates 100 MRs with realistic diffs/comments
+  - clear_test_data: Removes test data (IDs >= 1,000,000)
+- Created integration test (memory_verification.rs):
+  - Populates 100 MRs with 1000 diff files and 500 comments
+  - Measures memory usage: ~13.27 MB (well under 500MB target)
+  - ✅ SC-008 PASS: Memory stays under 500MB limit
+- Added TypeScript types and service functions for diagnostics
+
+### Files Changed
+- src-tauri/Cargo.toml (added sysinfo dependency)
+- src-tauri/Cargo.lock (updated)
+- src-tauri/src/commands/diagnostics.rs (new)
+- src-tauri/src/commands/mod.rs (added diagnostics module)
+- src-tauri/src/lib.rs (registered diagnostics commands)
+- src-tauri/tests/memory_verification.rs (new)
+- src/types/index.ts (added diagnostics types)
+- src/services/tauri.ts (added diagnostics functions)
+- specs/001-local-mr-review/tasks.md (marked T126 complete)
+
+### Learnings for Future Iterations
+- Use `sysinfo` crate v0.32+ for process memory measurement
+- Tauri State<T> uses pool.inner() not pool.get().await
+- Integration tests go in src-tauri/tests/ directory
+- Test data should use high IDs (>= 1,000,000) to avoid conflicts
+- SQLite database size: page_count * page_size via pragma
+
+---
