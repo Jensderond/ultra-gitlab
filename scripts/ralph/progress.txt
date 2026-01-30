@@ -46,3 +46,25 @@ Feature: Local-First GitLab MR Review
 
 ---
 
+## 2026-01-30 - T002
+**Workflow**: Speckit
+**Feature**: Local-First GitLab MR Review (001-local-mr-review)
+
+### Implemented
+- Added frontend dependencies via bun:
+  - react-window 2.2.5 for virtual scrolling in diff viewer
+  - @tauri-apps/plugin-store 2.4.2 for settings/credential persistence
+  - react-router-dom 7.13.0 for page routing
+  - @types/react-window for TypeScript support
+- Note: tauri-plugin-keyring-api not available for Tauri 2; using plugin-store instead
+
+### Files Changed
+- package.json
+- bun.lock
+
+### Learnings for Future Iterations
+- For Tauri 2, use `@tauri-apps/plugin-store` not keyring for secure storage on frontend
+- react-window v2 has native TypeScript support but @types/react-window still recommended
+
+---
+

@@ -24,7 +24,7 @@
 **Purpose**: Project initialization, dependencies, and basic structure
 
 - [x] T001 Add Rust dependencies to src-tauri/Cargo.toml (sqlx, reqwest, tree-sitter, thiserror, serde, tokio)
-- [ ] T002 Add frontend dependencies via bun (tauri-plugin-keyring-api, react-window)
+- [x] T002 Add frontend dependencies via bun (tauri-plugin-keyring-api, react-window)
 - [ ] T003 [P] Create TypeScript types in src/types/index.ts matching data model entities
 - [ ] T004 [P] Configure Tauri capabilities for keyring in src-tauri/capabilities/keyring.json
 - [ ] T005 [P] Create Rust module structure: src-tauri/src/commands/mod.rs, models/mod.rs, services/mod.rs, db/mod.rs
