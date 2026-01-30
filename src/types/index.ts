@@ -159,7 +159,7 @@ export interface DiffHunksResponse {
 // Comment
 // ============================================================================
 
-export type SyncStatus = 'synced' | 'pending' | 'failed';
+export type SyncStatus = 'synced' | 'pending' | 'failed' | 'discarded';
 
 export interface Comment {
   id: number;
@@ -213,7 +213,7 @@ export interface ResolveDiscussionRequest {
 // ============================================================================
 
 export type ActionType = 'approve' | 'comment' | 'reply' | 'resolve' | 'unresolve';
-export type ActionStatus = 'pending' | 'syncing' | 'synced' | 'failed';
+export type ActionStatus = 'pending' | 'syncing' | 'synced' | 'failed' | 'discarded';
 
 export interface SyncAction {
   id: number;

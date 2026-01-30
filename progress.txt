@@ -899,3 +899,40 @@
 - Initialize with null placeholders for progressive loading arrays
 
 ---
+
+## 2026-01-30 - T122
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Added conflict detection for stale MR actions in sync_processor.rs:
+  - Detects 404 Not Found (MR deleted)
+  - Detects 405 Method Not Allowed (MR merged/closed)
+  - Detects 403 Forbidden with "merged"/"closed" keywords
+  - Detects 400 Bad Request for invalid comment positions (line deleted)
+- Added new `discarded` status to SyncStatus enum in sync_action.rs
+- Added `mark_discarded` function in sync_queue.rs for discarding stale actions
+- Created migration 0002_add_discarded_status.sql to update CHECK constraint
+- Updated migration runner to support multiple migrations dynamically
+- Updated ProcessResult to include `discarded` field for tracking
+- Added DiscardReason enum with human-readable messages
+- Updated frontend types to include 'discarded' in ActionStatus and SyncStatus
+
+### Files Changed
+- src-tauri/src/models/sync_action.rs (added Discarded status)
+- src-tauri/src/services/sync_queue.rs (added mark_discarded)
+- src-tauri/src/services/sync_processor.rs (conflict detection logic)
+- src-tauri/src/db/migrations/0002_add_discarded_status.sql (new)
+- src-tauri/src/db/mod.rs (generalized migration runner)
+- src-tauri/Cargo.toml (added log crate)
+- src/types/index.ts (added discarded to ActionStatus and SyncStatus)
+- specs/001-local-mr-review/tasks.md (marked T122 complete)
+
+### Learnings for Future Iterations
+- SQLite CHECK constraints require table recreation to modify - use new migration
+- Migration runner should be dynamic with a list of (name, sql) tuples
+- GitLab returns 405 for actions on merged/closed MRs (not 403)
+- Use `log::info!` for informational logging - add `log` crate to Cargo.toml
+- Discard stale actions immediately instead of retrying forever
+
+---

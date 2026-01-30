@@ -290,6 +290,25 @@ pub async fn delete_action(pool: &DbPool, action_id: i64) -> Result<(), AppError
     Ok(())
 }
 
+/// Mark action as discarded because the MR is no longer actionable.
+///
+/// This is used when the MR has been merged, closed, or deleted on GitLab
+/// while local actions were pending.
+///
+/// # Arguments
+/// * `pool` - Database connection pool
+/// * `action_id` - Action ID to update
+/// * `reason` - Reason for discarding (e.g., "MR was merged", "MR not found")
+pub async fn mark_discarded(pool: &DbPool, action_id: i64, reason: &str) -> Result<(), AppError> {
+    sqlx::query("UPDATE sync_queue SET status = 'discarded', last_error = ? WHERE id = ?")
+        .bind(reason)
+        .bind(action_id)
+        .execute(pool)
+        .await?;
+
+    Ok(())
+}
+
 /// Get counts of actions by status.
 ///
 /// # Arguments
@@ -585,5 +604,84 @@ mod tests {
 
         let pending = get_pending_actions(&pool).await.unwrap();
         assert_eq!(pending.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_mark_discarded() {
+        let pool = setup_test_db().await;
+
+        let action = enqueue_action(
+            &pool,
+            EnqueueInput {
+                mr_id: 1,
+                action_type: ActionType::Approve,
+                payload: "{}".to_string(),
+                local_reference_id: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        // Discard the action
+        mark_discarded(&pool, action.id, "MR was merged").await.unwrap();
+
+        // Should not appear in pending actions
+        let pending = get_pending_actions(&pool).await.unwrap();
+        assert_eq!(pending.len(), 0);
+
+        // Should not appear in retryable actions
+        let retryable = get_retryable_actions(&pool).await.unwrap();
+        assert_eq!(retryable.len(), 0);
+
+        // Should have the correct status and error message in the database
+        let row = sqlx::query("SELECT status, last_error FROM sync_queue WHERE id = ?")
+            .bind(action.id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+
+        let status: String = row.get("status");
+        let last_error: String = row.get("last_error");
+
+        assert_eq!(status, "discarded");
+        assert_eq!(last_error, "MR was merged");
+    }
+
+    #[tokio::test]
+    async fn test_action_counts_excludes_discarded() {
+        let pool = setup_test_db().await;
+
+        // Create one pending and one discarded action
+        let action1 = enqueue_action(
+            &pool,
+            EnqueueInput {
+                mr_id: 1,
+                action_type: ActionType::Comment,
+                payload: "{}".to_string(),
+                local_reference_id: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        enqueue_action(
+            &pool,
+            EnqueueInput {
+                mr_id: 1,
+                action_type: ActionType::Approve,
+                payload: "{}".to_string(),
+                local_reference_id: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        // Discard the first action
+        mark_discarded(&pool, action1.id, "MR was closed").await.unwrap();
+
+        // Only the pending action should be counted
+        let (pending, failed) = get_action_counts(&pool).await.unwrap();
+        assert_eq!(pending, 1);
+        assert_eq!(failed, 0);
     }
 }

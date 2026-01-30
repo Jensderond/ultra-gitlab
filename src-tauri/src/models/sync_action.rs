@@ -47,6 +47,8 @@ pub enum SyncStatus {
     Syncing,
     Synced,
     Failed,
+    /// Action was discarded because the MR is no longer actionable (merged/closed/deleted).
+    Discarded,
 }
 
 impl From<&str> for SyncStatus {
@@ -56,6 +58,7 @@ impl From<&str> for SyncStatus {
             "syncing" => Self::Syncing,
             "synced" => Self::Synced,
             "failed" => Self::Failed,
+            "discarded" => Self::Discarded,
             _ => Self::Pending,
         }
     }
@@ -68,6 +71,7 @@ impl std::fmt::Display for SyncStatus {
             Self::Syncing => write!(f, "syncing"),
             Self::Synced => write!(f, "synced"),
             Self::Failed => write!(f, "failed"),
+            Self::Discarded => write!(f, "discarded"),
         }
     }
 }
@@ -207,6 +211,16 @@ mod tests {
         assert_eq!(SyncStatus::from("SYNCING"), SyncStatus::Syncing);
         assert_eq!(SyncStatus::from("synced"), SyncStatus::Synced);
         assert_eq!(SyncStatus::from("failed"), SyncStatus::Failed);
+        assert_eq!(SyncStatus::from("discarded"), SyncStatus::Discarded);
+    }
+
+    #[test]
+    fn test_sync_status_display() {
+        assert_eq!(SyncStatus::Pending.to_string(), "pending");
+        assert_eq!(SyncStatus::Syncing.to_string(), "syncing");
+        assert_eq!(SyncStatus::Synced.to_string(), "synced");
+        assert_eq!(SyncStatus::Failed.to_string(), "failed");
+        assert_eq!(SyncStatus::Discarded.to_string(), "discarded");
     }
 
     #[test]

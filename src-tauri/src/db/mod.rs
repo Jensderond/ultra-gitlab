@@ -54,6 +54,12 @@ pub async fn initialize(db_path: &Path) -> Result<pool::DbPool, DbError> {
     Ok(pool)
 }
 
+/// Available migrations in order.
+const MIGRATIONS: &[(&str, &str)] = &[
+    ("0001_initial_schema", include_str!("migrations/0001_initial_schema.sql")),
+    ("0002_add_discarded_status", include_str!("migrations/0002_add_discarded_status.sql")),
+];
+
 /// Run all pending database migrations.
 async fn run_migrations(pool: &pool::DbPool) -> Result<(), DbError> {
     // Get a connection from the pool
@@ -72,26 +78,27 @@ async fn run_migrations(pool: &pool::DbPool) -> Result<(), DbError> {
     .execute(&mut *conn)
     .await?;
 
-    // Check if initial migration has been applied
-    let applied: Option<(i64,)> = sqlx::query_as(
-        "SELECT id FROM _migrations WHERE name = '0001_initial_schema'",
-    )
-    .fetch_optional(&mut *conn)
-    .await?;
+    // Run each migration if not already applied
+    for (name, sql) in MIGRATIONS {
+        let applied: Option<(i64,)> = sqlx::query_as(
+            "SELECT id FROM _migrations WHERE name = ?",
+        )
+        .bind(*name)
+        .fetch_optional(&mut *conn)
+        .await?;
 
-    if applied.is_none() {
-        // Run the initial schema migration
-        let migration_sql = include_str!("migrations/0001_initial_schema.sql");
+        if applied.is_none() {
+            // Parse and run SQL statements
+            for statement in parse_sql_statements(sql) {
+                sqlx::query(&statement).execute(&mut *conn).await?;
+            }
 
-        // Parse SQL statements properly, handling semicolons inside parentheses
-        for statement in parse_sql_statements(migration_sql) {
-            sqlx::query(&statement).execute(&mut *conn).await?;
+            // Record the migration
+            sqlx::query("INSERT INTO _migrations (name) VALUES (?)")
+                .bind(*name)
+                .execute(&mut *conn)
+                .await?;
         }
-
-        // Record the migration
-        sqlx::query("INSERT INTO _migrations (name) VALUES ('0001_initial_schema')")
-            .execute(&mut *conn)
-            .await?;
     }
 
     Ok(())
@@ -204,11 +211,11 @@ mod tests {
         let _pool1 = initialize(&db_path).await.unwrap();
         let pool2 = initialize(&db_path).await.unwrap();
 
-        // Should still have exactly one migration record
+        // Should still have exactly the right number of migrations
         let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM _migrations")
             .fetch_one(&pool2)
             .await
             .unwrap();
-        assert_eq!(count.0, 1);
+        assert_eq!(count.0, MIGRATIONS.len() as i64);
     }
 }
