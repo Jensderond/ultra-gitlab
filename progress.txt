@@ -840,3 +840,26 @@
 - Wrap-around navigation: if out of bounds, wrap to other end
 
 ---
+
+## 2026-01-30 - T120
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Added cache size warning to SyncStatus:
+  - cache_size_bytes: Current database size in bytes
+  - cache_size_warning: True when >= 400MB (approaching 500MB limit)
+- Calculate cache size using SQLite's page_count * page_size
+- Warning logged during sync when threshold exceeded
+- Updated frontend TypeScript types
+
+### Files Changed
+- src-tauri/src/services/sync_engine.rs (added cache size check)
+- src/types/index.ts (added cacheSizeBytes, cacheSizeWarning)
+- specs/001-local-mr-review/tasks.md (marked T120 complete)
+
+### Learnings for Future Iterations
+- SQLite database size: page_count * page_size via pragma functions
+- Use constants for thresholds (CACHE_SIZE_WARNING_BYTES, CACHE_SIZE_LIMIT_BYTES)
+
+---
