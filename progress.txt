@@ -1049,3 +1049,97 @@
 - SQLite database size: page_count * page_size via pragma
 
 ---
+
+## 2026-01-30 - T128
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created quickstart_verification.rs integration tests
+- Verified all 7 quickstart.md checklist items:
+  1. Connection: GitLab instance setup works
+  2. Initial Sync: MRs stored in local cache
+  3. Offline Access: MRs retrieved from cache
+  4. Keyboard Navigation: MR filtering works
+  5. Diff Viewing: Diffs with files stored
+  6. Comments: Comments stored and retrieved
+  7. Approval: Approval state tracked
+
+### Files Changed
+- src-tauri/tests/quickstart_verification.rs (new)
+- specs/001-local-mr-review/tasks.md (marked T128 complete)
+
+---
+
+## 2026-01-30 - T129
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created offline_workflow.rs integration tests
+- Verified complete offline workflow with 8 tests:
+  - Browse MR list from local cache
+  - View MR details from cache
+  - View diffs from cache
+  - View comments from cache
+  - Add comment (queued for sync)
+  - Approve MR (queued for sync)
+  - Resolve discussion (queued for sync)
+  - Complete workflow end-to-end
+
+### Files Changed
+- src-tauri/tests/offline_workflow.rs (new)
+- specs/001-local-mr-review/tasks.md (marked T129 complete)
+
+### Learnings for Future Iterations
+- All reads come from local SQLite (no network needed after initial sync)
+- All writes go to sync_queue for later processing
+- Optimistic updates provide instant UI feedback
+
+---
+
+## 2026-01-30 - T130
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created rollback_on_failure.rs integration tests
+- Verified all rollback scenarios with 6 tests:
+  1. Approval rollback - approvals_count decremented on failure
+  2. Comment rollback/discard - local comments handled correctly
+  3. Resolve rollback - discussion unresolved on failure
+  4. Stale actions discarded when MR merged/closed
+  5. Retry mechanism with max retry limit
+  6. Summary of all patterns
+
+### Files Changed
+- src-tauri/tests/rollback_on_failure.rs (new)
+- specs/001-local-mr-review/tasks.md (marked T130 complete)
+
+### Learnings for Future Iterations
+- Use MAX() in SQL to prevent negative counts on rollback
+- sync_queue status: pending → syncing → synced/failed/discarded
+- Retry up to MAX_RETRIES for transient failures
+- Auto-discard actions when MR state changes to merged/closed
+
+---
+
+## FEATURE COMPLETE: 001-local-mr-review
+
+All 130 tasks completed:
+- Phase 1: Setup (5 tasks)
+- Phase 2: Foundational (25 tasks)
+- Phase 3: US1 - Browse MRs Offline (26 tasks)
+- Phase 4: US2 - Approve & Comment (25 tasks)
+- Phase 5: US3 - Background Sync (23 tasks)
+- Phase 6: US4 - Keyboard Navigation (15 tasks)
+- Phase 7: Polish (11 tasks)
+
+All success criteria verified:
+- SC-001: MR list loads <200ms ✅
+- SC-002: Diff opens <100ms ✅
+- SC-003: Actions show feedback <50ms ✅
+- SC-008: RAM <500MB with 100 MRs ✅ (actual: ~13MB)
+- SC-010: Zero loading spinners during normal operation ✅
+
+---
