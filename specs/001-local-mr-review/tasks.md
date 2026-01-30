@@ -113,11 +113,11 @@
 
 ### Frontend - MR List (US1)
 
-- [ ] T040 [P] [US1] Create MRList container component in src/components/MRList/MRList.tsx
-- [ ] T041 [P] [US1] Create MRListItem component in src/components/MRList/MRListItem.tsx
-- [ ] T042 [US1] Implement MR list fetching from local storage via invoke in MRList.tsx
-- [ ] T043 [US1] Add MR filtering (state, scope) controls in MRList.tsx
-- [ ] T044 [US1] Create MR list page with layout in src/pages/MRListPage.tsx
+- [x] T040 [P] [US1] Create MRList container component in src/components/MRList/MRList.tsx
+- [x] T041 [P] [US1] Create MRListItem component in src/components/MRList/MRListItem.tsx
+- [x] T042 [US1] Implement MR list fetching from local storage via invoke in MRList.tsx
+- [x] T043 [US1] Add MR filtering (state, scope) controls in MRList.tsx
+- [x] T044 [US1] Create MR list page with layout in src/pages/MRListPage.tsx
 
 ### Frontend - Diff Viewer (US1)
 

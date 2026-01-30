@@ -4,24 +4,12 @@
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Settings from './pages/Settings';
+import MRListPage from './pages/MRListPage';
 import './App.css';
 
 /**
- * Placeholder component for MR list page.
- * Will be implemented in Phase 3 (User Story 1).
- */
-function MRListPage() {
-  return (
-    <div className="page">
-      <h1>Merge Requests</h1>
-      <p>MR list will be displayed here.</p>
-    </div>
-  );
-}
-
-/**
  * Placeholder component for MR detail page.
- * Will be implemented in Phase 3 (User Story 1).
+ * Will be implemented in T052 (User Story 1).
  */
 function MRDetailPage() {
   return (
