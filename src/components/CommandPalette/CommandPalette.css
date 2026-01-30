@@ -1,0 +1,208 @@
+/**
+ * Command Palette styles.
+ */
+
+.command-palette-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 15vh;
+  z-index: 1000;
+  animation: overlay-fade-in 0.15s ease-out;
+}
+
+@keyframes overlay-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.command-palette {
+  width: 100%;
+  max-width: 560px;
+  background: var(--bg-primary, #ffffff);
+  border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  animation: palette-slide-in 0.15s ease-out;
+}
+
+@keyframes palette-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.command-palette-input-wrapper {
+  padding: 12px;
+  border-bottom: 1px solid var(--border-color, #e1e5e9);
+}
+
+.command-palette-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary, #1a1a1a);
+  outline: none;
+}
+
+.command-palette-input::placeholder {
+  color: var(--text-tertiary, #8c8c8c);
+}
+
+.command-palette-list {
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.command-palette-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-secondary, #666666);
+}
+
+.command-group {
+  border-bottom: 1px solid var(--border-color, #e1e5e9);
+}
+
+.command-group:last-child {
+  border-bottom: none;
+}
+
+.command-group-header {
+  padding: 8px 12px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary, #8c8c8c);
+}
+
+.command-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.command-item:hover,
+.command-item.selected {
+  background: var(--bg-hover, #f5f5f5);
+}
+
+.command-item.selected {
+  background: var(--bg-selected, #e8f0fe);
+}
+
+.command-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.command-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, #1a1a1a);
+}
+
+.command-description {
+  font-size: 12px;
+  color: var(--text-secondary, #666666);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.command-shortcut {
+  display: flex;
+  gap: 4px;
+  font-family: var(--font-mono, 'SF Mono', 'Monaco', 'Consolas', monospace);
+  font-size: 11px;
+  color: var(--text-tertiary, #8c8c8c);
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+.command-palette-footer {
+  display: flex;
+  gap: 16px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-color, #e1e5e9);
+  background: var(--bg-secondary, #f8f9fa);
+}
+
+.command-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-tertiary, #8c8c8c);
+}
+
+.command-hint kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-family: var(--font-mono, 'SF Mono', 'Monaco', 'Consolas', monospace);
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-color, #d0d0d0);
+  border-radius: 3px;
+  box-shadow: 0 1px 0 var(--border-color, #d0d0d0);
+}
+
+/* Dark theme overrides */
+.dark-theme .command-palette {
+  background: var(--bg-primary, #1e1e1e);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.dark-theme .command-palette-input-wrapper {
+  border-bottom-color: var(--border-color, #3d3d3d);
+}
+
+.dark-theme .command-palette-input {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.dark-theme .command-palette-input::placeholder {
+  color: var(--text-tertiary, #808080);
+}
+
+.dark-theme .command-item.selected {
+  background: var(--bg-selected, #2d4a6e);
+}
+
+.dark-theme .command-palette-footer {
+  background: var(--bg-secondary, #252526);
+  border-top-color: var(--border-color, #3d3d3d);
+}
+
+.dark-theme .command-hint kbd {
+  background: var(--bg-tertiary, #2d2d2d);
+  border-color: var(--border-color, #4d4d4d);
+  box-shadow: 0 1px 0 var(--border-color, #4d4d4d);
+}

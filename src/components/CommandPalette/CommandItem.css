@@ -1,0 +1,86 @@
+/**
+ * CommandItem component styles.
+ */
+
+.command-item-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.command-item-wrapper:hover,
+.command-item-wrapper.selected {
+  background: var(--bg-hover, #f5f5f5);
+}
+
+.command-item-wrapper.selected {
+  background: var(--bg-selected, #e8f0fe);
+}
+
+.command-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.command-item-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, #1a1a1a);
+}
+
+.command-item-description {
+  font-size: 12px;
+  color: var(--text-secondary, #666666);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.command-item-shortcut {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+.command-item-shortcut kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-family: var(--font-mono, 'SF Mono', 'Monaco', 'Consolas', monospace);
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-color, #d0d0d0);
+  border-radius: 3px;
+  box-shadow: 0 1px 0 var(--border-color, #d0d0d0);
+  color: var(--text-secondary, #666666);
+}
+
+/* Dark theme overrides */
+.dark-theme .command-item-wrapper.selected {
+  background: var(--bg-selected, #2d4a6e);
+}
+
+.dark-theme .command-item-label {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.dark-theme .command-item-description {
+  color: var(--text-secondary, #a0a0a0);
+}
+
+.dark-theme .command-item-shortcut kbd {
+  background: var(--bg-tertiary, #2d2d2d);
+  border-color: var(--border-color, #4d4d4d);
+  box-shadow: 0 1px 0 var(--border-color, #4d4d4d);
+  color: var(--text-secondary, #a0a0a0);
+}

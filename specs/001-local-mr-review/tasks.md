@@ -250,11 +250,11 @@
 
 ### Command Palette (US4)
 
-- [ ] T105 [P] [US4] Create CommandPalette container in src/components/CommandPalette/CommandPalette.tsx
-- [ ] T106 [P] [US4] Create CommandItem component in src/components/CommandPalette/CommandItem.tsx
-- [ ] T107 [US4] Define command registry with all available actions in src/commands/registry.ts
-- [ ] T108 [US4] Implement fuzzy search for commands in CommandPalette.tsx
-- [ ] T109 [US4] Add Cmd+P shortcut to open command palette in App.tsx
+- [x] T105 [P] [US4] Create CommandPalette container in src/components/CommandPalette/CommandPalette.tsx
+- [x] T106 [P] [US4] Create CommandItem component in src/components/CommandPalette/CommandItem.tsx
+- [x] T107 [US4] Define command registry with all available actions in src/commands/registry.ts
+- [x] T108 [US4] Implement fuzzy search for commands in CommandPalette.tsx
+- [x] T109 [US4] Add Cmd+P shortcut to open command palette in App.tsx
 
 ### Keyboard Help (US4)
 
