@@ -4,11 +4,12 @@
  * Main page for viewing the list of merge requests.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MRList } from '../components/MRList';
-import { listInstances, type GitLabInstanceWithStatus } from '../services/gitlab';
+import { listInstances, listMergeRequests, type GitLabInstanceWithStatus } from '../services/gitlab';
 import type { MergeRequest } from '../types';
+import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import './MRListPage.css';
 
 /**
@@ -18,9 +19,12 @@ export default function MRListPage() {
   const navigate = useNavigate();
   const [instances, setInstances] = useState<GitLabInstanceWithStatus[]>([]);
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
-  const [selectedMrId, setSelectedMrId] = useState<number | null>(null);
-  const [focusIndex, setFocusIndex] = useState(0);
+  const [mrs, setMrs] = useState<MergeRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const mrsRef = useRef<MergeRequest[]>([]);
+
+  // Keep ref in sync with state for keyboard handler
+  mrsRef.current = mrs;
 
   // Load instances on mount
   useEffect(() => {
@@ -42,44 +46,46 @@ export default function MRListPage() {
     loadInstances();
   }, [selectedInstanceId]);
 
-  // Handle MR selection - navigate to detail
-  const handleSelectMR = useCallback(
-    (mr: MergeRequest) => {
-      setSelectedMrId(mr.id);
-      navigate(`/mrs/${mr.id}`);
+  // Load MRs when instance changes (for keyboard navigation to work)
+  useEffect(() => {
+    if (!selectedInstanceId) return;
+
+    async function loadMRs() {
+      try {
+        const data = await listMergeRequests(selectedInstanceId!, { state: 'opened' });
+        setMrs(data);
+      } catch (error) {
+        console.error('Failed to load MRs:', error);
+      }
+    }
+    loadMRs();
+  }, [selectedInstanceId]);
+
+  // Handle Enter to open selected MR
+  const handleSelectByIndex = useCallback(
+    (index: number) => {
+      const mr = mrsRef.current[index];
+      if (mr) {
+        navigate(`/mrs/${mr.id}`);
+      }
     },
     [navigate]
   );
 
-  // Keyboard navigation
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      // Ignore if typing in an input
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      ) {
-        return;
-      }
+  // Keyboard navigation hook
+  const { focusIndex, setFocusIndex } = useKeyboardNav({
+    itemCount: mrs.length,
+    onSelect: handleSelectByIndex,
+    enabled: !loading && mrs.length > 0,
+  });
 
-      switch (e.key) {
-        case 'j':
-          // Move focus down
-          setFocusIndex((prev) => prev + 1);
-          break;
-        case 'k':
-          // Move focus up
-          setFocusIndex((prev) => Math.max(0, prev - 1));
-          break;
-        case 'Enter':
-          // Open selected MR - handled by MRList component
-          break;
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  // Handle MR click from list
+  const handleSelectMR = useCallback(
+    (mr: MergeRequest) => {
+      navigate(`/mrs/${mr.id}`);
+    },
+    [navigate]
+  );
 
   // Loading state
   if (loading) {
@@ -128,7 +134,6 @@ export default function MRListPage() {
         {selectedInstanceId && (
           <MRList
             instanceId={selectedInstanceId}
-            selectedMrId={selectedMrId ?? undefined}
             onSelect={handleSelectMR}
             focusIndex={focusIndex}
             onFocusChange={setFocusIndex}

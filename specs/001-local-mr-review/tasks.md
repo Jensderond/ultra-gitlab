@@ -132,10 +132,10 @@
 
 ### Basic Keyboard Navigation (US1)
 
-- [ ] T053 [US1] Create useKeyboardNav hook in src/hooks/useKeyboardNav.ts
-- [ ] T054 [US1] Implement j/k navigation in MR list via useKeyboardNav
-- [ ] T055 [US1] Implement Enter to open selected MR in MRListPage.tsx
-- [ ] T056 [US1] Implement n/p for next/prev file in diff view in MRDetailPage.tsx
+- [x] T053 [US1] Create useKeyboardNav hook in src/hooks/useKeyboardNav.ts
+- [x] T054 [US1] Implement j/k navigation in MR list via useKeyboardNav
+- [x] T055 [US1] Implement Enter to open selected MR in MRListPage.tsx
+- [x] T056 [US1] Implement n/p for next/prev file in diff view in MRDetailPage.tsx
 
 **Checkpoint**: User Story 1 complete - can browse cached MRs and view syntax-highlighted diffs offline with keyboard navigation
 
