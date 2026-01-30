@@ -1,0 +1,116 @@
+.inline-comment-container {
+  margin: 4px 0;
+  padding: 8px 12px;
+  background: var(--bg-primary, #fff);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+}
+
+.inline-comment-thread {
+  margin-bottom: 12px;
+}
+
+.inline-comment-thread:last-child {
+  margin-bottom: 0;
+}
+
+.inline-comment-thread.is-resolved {
+  opacity: 0.6;
+}
+
+.inline-comment-item {
+  margin-bottom: 8px;
+}
+
+.inline-comment-item:last-child {
+  margin-bottom: 0;
+}
+
+.inline-comment-item.is-local {
+  border-left: 2px solid var(--accent-color, #1a73e8);
+  padding-left: 8px;
+  margin-left: -8px;
+}
+
+.inline-comment-reply {
+  padding-left: 16px;
+  border-left: 2px solid var(--border-color, #e0e0e0);
+  margin-left: 8px;
+}
+
+.inline-comment-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.inline-comment-author {
+  font-weight: 600;
+  color: var(--text-primary, #333);
+}
+
+.inline-comment-time {
+  color: var(--text-tertiary, #999);
+}
+
+.inline-comment-sync {
+  padding: 1px 4px;
+  font-size: 10px;
+  border-radius: 3px;
+}
+
+.inline-comment-sync.sync-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.inline-comment-sync.sync-failed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.inline-comment-body {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-primary, #333);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.inline-comment-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color, #eee);
+}
+
+.inline-comment-action {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-color, #1a73e8);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.inline-comment-action:hover {
+  text-decoration: underline;
+}
+
+.inline-comment-standalone {
+  padding: 8px;
+  background: var(--bg-secondary, #f9f9f9);
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.inline-comment-standalone:last-child {
+  margin-bottom: 0;
+}
+
+.inline-comment-new {
+  margin-top: 8px;
+}

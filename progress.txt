@@ -524,3 +524,38 @@
 - Use Cmd+Enter for submit, Escape for cancel (standard pattern)
 
 ---
+
+## 2026-01-30 - T072, T073, T074
+**Workflow**: Speckit
+**Feature**: 001-local-mr-review
+
+### Implemented
+- Created InlineComment component for displaying comments at line positions
+- Integrated inline comments into DiffHunk:
+  - Comments displayed below each line based on newLineNumber/oldLineNumber
+  - Comment input form shown when adding new comment
+- Added 'c' key to add comment at selected line in DiffViewer:
+  - Tracks selected hunk and line
+  - Shows inline comment input when 'c' pressed
+  - Submits comment with file position info
+- Updated DiffViewer props for comment support:
+  - projectId, mrIid for API calls
+  - currentUser for authoring
+  - baseSha, headSha, startSha for inline comment positions
+- Updated MRDetailPage to pass new DiffViewer props
+
+### Files Changed
+- src/components/CommentPanel/InlineComment.tsx (new)
+- src/components/CommentPanel/InlineComment.css (new)
+- src/components/CommentPanel/index.ts (added export)
+- src/components/DiffViewer/DiffViewer.tsx (inline comment integration)
+- src/components/DiffViewer/DiffHunk.tsx (render inline comments)
+- src/pages/MRDetailPage.tsx (pass new DiffViewer props)
+- specs/001-local-mr-review/tasks.md (marked T072-T074 complete)
+
+### Learnings for Future Iterations
+- Comments grouped by line number using newLineNumber ?? oldLineNumber
+- Use useMemo for expensive comment grouping operations
+- DiffHunk renders InlineComment below each line with comments
+
+---

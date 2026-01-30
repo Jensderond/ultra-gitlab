@@ -173,7 +173,10 @@ export default function MRDetailPage() {
           {selectedFile ? (
             <DiffViewer
               mrId={mrId}
+              projectId={mr.projectId}
+              mrIid={mr.iid}
               filePath={selectedFile}
+              currentUser="" // TODO: Get from settings/auth
               viewMode={viewMode}
               onViewModeChange={setViewMode}
             />
