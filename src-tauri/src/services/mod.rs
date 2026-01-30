@@ -7,12 +7,13 @@
 
 pub mod credentials;
 pub mod gitlab_client;
+pub mod highlighter;
 
 // Submodules will be added as they are implemented:
 // pub mod sync_queue;
 // pub mod sync_processor;
 // pub mod sync_engine;
-// pub mod highlighter;
 
 pub use credentials::CredentialService;
 pub use gitlab_client::GitLabClient;
+pub use highlighter::SyntaxHighlighter;

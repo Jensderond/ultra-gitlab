@@ -106,10 +106,10 @@
 
 ### Tree-sitter Syntax Highlighting (US1)
 
-- [ ] T036 [P] [US1] Add tree-sitter language grammars to Cargo.toml (javascript, typescript, python, rust, go)
-- [ ] T037 [US1] Implement syntax highlighter service in src-tauri/src/services/highlighter.rs
-- [ ] T038 [US1] Create highlight configuration loader with caching in highlighter.rs
-- [ ] T039 [US1] Implement tokenize function returning HighlightToken array in highlighter.rs
+- [x] T036 [P] [US1] Add tree-sitter language grammars to Cargo.toml (javascript, typescript, python, rust, go)
+- [x] T037 [US1] Implement syntax highlighter service in src-tauri/src/services/highlighter.rs
+- [x] T038 [US1] Create highlight configuration loader with caching in highlighter.rs
+- [x] T039 [US1] Implement tokenize function returning HighlightToken array in highlighter.rs
 
 ### Frontend - MR List (US1)
 
