@@ -10,9 +10,10 @@ pub mod models;
 pub mod services;
 
 use commands::{
-    add_comment, approve_mr, delete_gitlab_instance, discard_failed_action, get_action_counts,
-    get_approval_status, get_comments, get_diff_content, get_diff_file, get_diff_file_metadata,
-    get_diff_hunks, get_file_comments, get_gitlab_instances, get_merge_request_detail,
+    add_comment, approve_mr, clear_test_data, delete_gitlab_instance, discard_failed_action,
+    generate_test_data, get_action_counts, get_approval_status, get_cache_stats, get_comments,
+    get_diagnostics_report, get_diff_content, get_diff_file, get_diff_file_metadata, get_diff_hunks,
+    get_file_comments, get_gitlab_instances, get_memory_stats, get_merge_request_detail,
     get_merge_requests, get_settings, get_sync_config, get_sync_settings, get_sync_status,
     reply_to_comment, resolve_discussion, retry_failed_actions, setup_gitlab_instance,
     trigger_sync, unapprove_mr, update_settings, update_sync_config, update_sync_settings,
@@ -81,6 +82,12 @@ pub fn run() {
             update_settings,
             get_sync_settings,
             update_sync_settings,
+            // Diagnostics (memory and performance verification)
+            get_memory_stats,
+            get_cache_stats,
+            get_diagnostics_report,
+            generate_test_data,
+            clear_test_data,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

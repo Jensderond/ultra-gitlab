@@ -24,6 +24,10 @@ import type {
   SyncStatusResponse,
   Settings,
   SettingsUpdate,
+  MemoryStats,
+  CacheStats,
+  DiagnosticsReport,
+  TestDataResult,
 } from '../types';
 
 // ============================================================================
@@ -259,4 +263,44 @@ export async function getSettings(): Promise<Settings> {
  */
 export async function updateSettings(update: SettingsUpdate): Promise<Settings> {
   return invoke<Settings>('update_settings', { update });
+}
+
+// ============================================================================
+// Diagnostics Commands (Memory and Performance Verification)
+// ============================================================================
+
+/**
+ * Get current memory usage statistics.
+ */
+export async function getMemoryStats(): Promise<MemoryStats> {
+  return invoke<MemoryStats>('get_memory_stats');
+}
+
+/**
+ * Get database cache statistics.
+ */
+export async function getCacheStats(): Promise<CacheStats> {
+  return invoke<CacheStats>('get_cache_stats');
+}
+
+/**
+ * Get a full diagnostics report.
+ */
+export async function getDiagnosticsReport(): Promise<DiagnosticsReport> {
+  return invoke<DiagnosticsReport>('get_diagnostics_report');
+}
+
+/**
+ * Generate test data for memory verification.
+ * Creates realistic test MRs with diffs and comments.
+ */
+export async function generateTestData(mrCount?: number): Promise<TestDataResult> {
+  return invoke<TestDataResult>('generate_test_data', { mrCount });
+}
+
+/**
+ * Clear all test data (MRs with IDs >= 1,000,000).
+ */
+export async function clearTestData(): Promise<number> {
+  return invoke<number>('clear_test_data');
 }

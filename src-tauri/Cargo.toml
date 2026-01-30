@@ -54,6 +54,9 @@ thiserror = "2"
 # Logging
 log = "0.4"
 
+# System Information (memory, CPU)
+sysinfo = "0.32"
+
 # Async Runtime
 tokio = { version = "1", features = ["sync", "time"] }
 

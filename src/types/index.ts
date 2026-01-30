@@ -310,6 +310,40 @@ export interface AuthExpiredPayload {
 }
 
 // ============================================================================
+// Diagnostics (Memory and Performance Verification)
+// ============================================================================
+
+export interface MemoryStats {
+  processMemoryBytes: number;
+  processMemoryMb: number;
+  systemTotalBytes: number;
+  systemUsedBytes: number;
+  underTarget: boolean;
+  targetBytes: number;
+}
+
+export interface CacheStats {
+  mrCount: number;
+  diffFileCount: number;
+  commentCount: number;
+  dbSizeBytes: number;
+  dbSizeMb: number;
+}
+
+export interface DiagnosticsReport {
+  memory: MemoryStats;
+  cache: CacheStats;
+  timestamp: number;
+}
+
+export interface TestDataResult {
+  mrsGenerated: number;
+  diffFilesGenerated: number;
+  commentsGenerated: number;
+  durationMs: number;
+}
+
+// ============================================================================
 // Error Types
 // ============================================================================
 
