@@ -68,3 +68,28 @@ Feature: Local-First GitLab MR Review
 
 ---
 
+## 2026-01-30 - T003
+**Workflow**: Speckit
+**Feature**: Local-First GitLab MR Review (001-local-mr-review)
+
+### Implemented
+- Created comprehensive TypeScript types in src/types/index.ts matching data model entities:
+  - GitLabInstance types for instance configuration
+  - MergeRequest and related filter/response types
+  - Diff types (DiffFile, DiffHunk, DiffLine, HighlightToken)
+  - Comment types with sync status tracking
+  - SyncAction and SyncLog types
+  - Settings and Theme types
+  - Tauri event payload types (SyncProgress, MRUpdated, ActionSynced)
+  - Error types matching IPC error codes
+
+### Files Changed
+- src/types/index.ts (new)
+
+### Learnings for Future Iterations
+- Types are organized by entity category with clear section headers
+- All types use proper discriminated unions (e.g., MRState, ActionType)
+- Optional fields use TypeScript's `| null` pattern to match Rust's Option<T>
+
+---
+
