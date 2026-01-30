@@ -292,8 +292,8 @@
 
 ### Performance Validation
 
-- [ ] T124 Add performance logging for MR list load time (<200ms target) in MRList.tsx
-- [ ] T125 Add performance logging for diff open time (<100ms target) in DiffViewer.tsx
+- [x] T124 Add performance logging for MR list load time (<200ms target) in MRList.tsx
+- [x] T125 Add performance logging for diff open time (<100ms target) in DiffViewer.tsx
 - [ ] T126 Verify RAM usage with 100 cached MRs stays under 500MB
 
 ### Additional Language Grammars

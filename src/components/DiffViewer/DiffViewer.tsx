@@ -133,9 +133,14 @@ export default function DiffViewer({
   const [loadedRanges, setLoadedRanges] = useState<Set<number>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Performance target: <100ms for diff open (per spec)
+  const PERF_TARGET_MS = 100;
+
   // Load diff content - either all at once or progressively
   useEffect(() => {
     async function loadDiff() {
+      const startTime = performance.now();
+
       try {
         setLoading(true);
         setError(null);
@@ -154,13 +159,36 @@ export default function DiffViewer({
           setHunks(new Array(meta.hunkCount).fill(null));
           // Load the first batch
           await loadHunkRange(0, HUNK_BATCH_SIZE);
+
+          // Log performance for progressive load (first batch)
+          const duration = performance.now() - startTime;
+          const isWithinTarget = duration < PERF_TARGET_MS;
+          console.log(
+            `[Performance] Diff open (progressive): ${duration.toFixed(1)}ms (${meta.totalLines} lines, ${meta.hunkCount} hunks) ${
+              isWithinTarget ? '✓' : `⚠ exceeds ${PERF_TARGET_MS}ms target`
+            }`
+          );
         } else {
           // Normal diff - load all at once
           const content = await getFileDiff(mrId, filePath);
           setDiffContent(content);
+
+          // Log performance
+          const duration = performance.now() - startTime;
+          const lineCount = content.diffHunks.reduce((acc, h) => acc + h.lines.length, 0);
+          const isWithinTarget = duration < PERF_TARGET_MS;
+          console.log(
+            `[Performance] Diff open: ${duration.toFixed(1)}ms (${lineCount} lines) ${
+              isWithinTarget ? '✓' : `⚠ exceeds ${PERF_TARGET_MS}ms target`
+            }`
+          );
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load diff');
+
+        // Log performance even on error
+        const duration = performance.now() - startTime;
+        console.log(`[Performance] Diff open failed: ${duration.toFixed(1)}ms`);
       } finally {
         setLoading(false);
       }

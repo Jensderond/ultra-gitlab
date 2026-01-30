@@ -43,8 +43,13 @@ export default function MRList({
   const [scopeFilter, setScopeFilter] = useState<FilterScope>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Performance target: <200ms for list load (per spec)
+  const PERF_TARGET_MS = 200;
+
   // Load merge requests
   const loadMRs = useCallback(async () => {
+    const startTime = performance.now();
+
     try {
       setLoading(true);
       setError(null);
@@ -62,8 +67,21 @@ export default function MRList({
 
       const data = await listMergeRequests(instanceId, filter);
       setMrs(data);
+
+      // Log performance
+      const duration = performance.now() - startTime;
+      const isWithinTarget = duration < PERF_TARGET_MS;
+      console.log(
+        `[Performance] MR list load: ${duration.toFixed(1)}ms (${data.length} items) ${
+          isWithinTarget ? '✓' : `⚠ exceeds ${PERF_TARGET_MS}ms target`
+        }`
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load merge requests');
+
+      // Log performance even on error
+      const duration = performance.now() - startTime;
+      console.log(`[Performance] MR list load failed: ${duration.toFixed(1)}ms`);
     } finally {
       setLoading(false);
     }
