@@ -164,7 +164,7 @@ export const defaultShortcuts: ShortcutDefinition[] = [
   {
     id: 'toggle-view-mode',
     description: 'Toggle unified/split view',
-    defaultKey: 'd',
+    defaultKey: 'x',
     category: 'diff',
     context: 'diff-viewer',
   },

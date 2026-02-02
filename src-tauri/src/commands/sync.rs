@@ -12,7 +12,7 @@ use crate::services::sync_events::{
 };
 use crate::services::sync_processor;
 use crate::services::sync_queue;
-use crate::services::CredentialService;
+
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
@@ -235,13 +235,13 @@ pub async fn retry_failed_actions(
 ) -> Result<RetryActionsResponse, AppError> {
     // Get the first GitLab instance to create a client
     // In a real app, we'd need to retry actions per-instance
-    let instance = sqlx::query_as::<_, (i64, String)>(
-        "SELECT id, url FROM gitlab_instances ORDER BY id LIMIT 1",
+    let instance = sqlx::query_as::<_, (i64, String, Option<String>)>(
+        "SELECT id, url, token FROM gitlab_instances ORDER BY id LIMIT 1",
     )
     .fetch_optional(pool.inner())
     .await?;
 
-    let Some((_, url)) = instance else {
+    let Some((instance_id, url, token)) = instance else {
         return Ok(RetryActionsResponse {
             retried_count: 0,
             success_count: 0,
@@ -252,8 +252,14 @@ pub async fn retry_failed_actions(
     // Clone URL for potential use in error handling
     let url_for_error = url.clone();
 
-    // Get token from keychain
-    let token = CredentialService::get_token(&url)?;
+    // Get token from DB
+    let token = token.ok_or_else(|| {
+        AppError::authentication_expired_for_instance(
+            "GitLab token missing. Please re-authenticate.",
+            instance_id,
+            &url,
+        )
+    })?;
 
     // Create GitLab client
     let client = GitLabClient::new(GitLabClientConfig {

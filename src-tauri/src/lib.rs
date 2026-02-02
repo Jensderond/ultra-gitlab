@@ -12,7 +12,7 @@ pub mod services;
 use commands::{
     add_comment, approve_mr, clear_test_data, delete_gitlab_instance, discard_failed_action,
     generate_test_data, get_action_counts, get_approval_status, get_cache_stats, get_comments,
-    get_diagnostics_report, get_diff_content, get_diff_file, get_diff_file_metadata, get_diff_hunks,
+    get_diagnostics_report, get_diff_content, get_diff_file, get_diff_file_metadata, get_diff_files, get_diff_hunks,
     get_file_comments, get_gitlab_instances, get_memory_stats, get_merge_request_detail,
     get_merge_requests, get_settings, get_sync_config, get_sync_settings, get_sync_status,
     reply_to_comment, resolve_discussion, retry_failed_actions, setup_gitlab_instance,
@@ -40,6 +40,8 @@ pub fn run() {
 
             let db_path = db::get_db_path(&app_data_dir);
 
+            println!("Database path: {}", db_path.display());
+
             // Run async initialization in a blocking context
             let pool = tauri::async_runtime::block_on(async {
                 db::initialize(&db_path)
@@ -60,6 +62,7 @@ pub fn run() {
             get_merge_requests,
             get_merge_request_detail,
             get_diff_content,
+            get_diff_files,
             get_diff_file,
             get_diff_file_metadata,
             get_diff_hunks,

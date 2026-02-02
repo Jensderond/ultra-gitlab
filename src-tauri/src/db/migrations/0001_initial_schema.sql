@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS gitlab_instances (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     url TEXT NOT NULL UNIQUE,
     name TEXT,
+    token TEXT,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
 );
 

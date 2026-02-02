@@ -67,12 +67,13 @@ interface HunkRowProps {
   selectedLine: number | null;
   onLineClick: (hunkIndex: number, lineIndex: number) => void;
   loadingHunks: Set<number>;
+  viewMode: 'unified' | 'split';
 }
 
 /**
  * Row component for virtual list rendering.
  */
-function HunkRow({ index, style, hunks, selectedHunk, selectedLine, onLineClick, loadingHunks }: RowComponentProps<HunkRowProps>) {
+function HunkRow({ index, style, hunks, selectedHunk, selectedLine, onLineClick, loadingHunks, viewMode }: RowComponentProps<HunkRowProps>) {
   const hunk = hunks[index];
 
   // Show loading state for not-yet-loaded hunks
@@ -96,6 +97,7 @@ function HunkRow({ index, style, hunks, selectedHunk, selectedLine, onLineClick,
         hunkIndex={index}
         selectedLineIndex={selectedHunk === index ? selectedLine ?? undefined : undefined}
         onLineClick={onLineClick}
+        viewMode={viewMode}
       />
     </div>
   );
@@ -378,8 +380,8 @@ export default function DiffViewer({
         return;
       }
 
-      // 'd' to toggle view mode
-      if (e.key === 'd' && !addingCommentAt && onViewModeChange) {
+      // 'x' to toggle view mode
+      if (e.key === 'x' && !addingCommentAt && onViewModeChange) {
         e.preventDefault();
         onViewModeChange(viewMode === 'unified' ? 'split' : 'unified');
         return;
@@ -534,6 +536,7 @@ export default function DiffViewer({
               selectedLine,
               onLineClick: handleLineClick,
               loadingHunks,
+              viewMode,
             }}
             overscanCount={2}
           />
@@ -561,6 +564,7 @@ export default function DiffViewer({
                 onSubmitComment={handleAddComment}
                 onCancelComment={() => setAddingCommentAt(null)}
                 isSubmitting={isSubmitting}
+                viewMode={viewMode}
               />
             );
           })

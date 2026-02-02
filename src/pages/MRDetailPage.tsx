@@ -111,6 +111,11 @@ export default function MRDetailPage() {
           // Previous file
           navigateFile(-1);
           break;
+        case 'x':
+          // Toggle unified/split view
+          e.preventDefault();
+          setViewMode(viewMode === 'unified' ? 'split' : 'unified');
+          break;
         case 'a':
           // Approve/unapprove MR
           e.preventDefault();
@@ -125,7 +130,7 @@ export default function MRDetailPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [navigateFile, navigate]);
+  }, [navigateFile, navigate, viewMode]);
 
   // Loading state
   if (loading) {
@@ -210,6 +215,7 @@ export default function MRDetailPage() {
         <span className="keyboard-hint">
           <kbd>n</kbd>/<kbd>p</kbd> file &middot;{' '}
           <kbd>]</kbd>/<kbd>[</kbd> change &middot;{' '}
+          <kbd>x</kbd> split/unified &middot;{' '}
           <kbd>a</kbd> approve &middot;{' '}
           <kbd>c</kbd> comment &middot;{' '}
           <kbd>?</kbd> help

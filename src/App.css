@@ -1,24 +1,97 @@
-.logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
-}
+/* Dark mode only theme */
 
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafb);
-}
 :root {
+  /* Font */
   font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
   font-size: 16px;
   line-height: 24px;
   font-weight: 400;
-
-  color: #0f0f0f;
-  background-color: #f6f6f6;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
+
+  /* Core colors */
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #21262d;
+  --bg-hover: #30363d;
+  --bg-selected: #1f3a5f;
+
+  /* Text colors */
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-tertiary: #6e7681;
+  --text-muted: #6e7681;
+
+  /* Border colors */
+  --border-color: #30363d;
+  --border-color-light: #21262d;
+  --border-light: #21262d;
+
+  /* Accent colors */
+  --accent-color: #58a6ff;
+  --accent-hover: #79c0ff;
+  --accent-bg: #1f3a5f;
+  --primary-color: #58a6ff;
+  --primary-hover: #79c0ff;
+  --primary-dark: #388bfd;
+
+  /* Focus */
+  --focus-ring: rgba(88, 166, 255, 0.4);
+
+  /* Link colors */
+  --link-color: #58a6ff;
+
+  /* Status colors */
+  --error-color: #f85149;
+  --error-bg: rgba(248, 81, 73, 0.15);
+  --error-text: #f85149;
+  --error-light: rgba(248, 81, 73, 0.15);
+  --success-color: #3fb950;
+  --success-bg: rgba(63, 185, 80, 0.15);
+  --warning-color: #d29922;
+  --warning-bg: rgba(210, 153, 34, 0.15);
+  --warning-text: #d29922;
+  --warning-light: rgba(210, 153, 34, 0.15);
+  --info-bg: rgba(88, 166, 255, 0.15);
+  --info-text: #58a6ff;
+
+  /* Diff colors */
+  --diff-add-bg: rgba(63, 185, 80, 0.15);
+  --diff-add-hover: rgba(63, 185, 80, 0.25);
+  --diff-add-gutter: rgba(63, 185, 80, 0.25);
+  --diff-add-text: #3fb950;
+  --diff-remove-bg: rgba(248, 81, 73, 0.15);
+  --diff-remove-hover: rgba(248, 81, 73, 0.25);
+  --diff-remove-gutter: rgba(248, 81, 73, 0.25);
+  --diff-remove-text: #f85149;
+  --gutter-bg: #161b22;
+  --hunk-header-bg: rgba(88, 166, 255, 0.1);
+  --hunk-header-text: #58a6ff;
+
+  /* Labels */
+  --label-bg: rgba(88, 166, 255, 0.2);
+  --label-text: #79c0ff;
+
+  /* Card */
+  --card-bg: #161b22;
+
+  /* Input */
+  --input-bg: #0d1117;
+  --disabled-bg: #21262d;
+  --code-bg: #21262d;
+
+  /* Apply to body */
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+}
+
+/* Add dark-theme class to body for components that still check for it */
+body {
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
 }
 
 .container {
@@ -37,6 +110,14 @@
   transition: 0.75s;
 }
 
+.logo.vite:hover {
+  filter: drop-shadow(0 0 2em #747bff);
+}
+
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafb);
+}
+
 .logo.tauri:hover {
   filter: drop-shadow(0 0 2em #24c8db);
 }
@@ -48,12 +129,12 @@
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--link-color);
   text-decoration: inherit;
 }
 
 a:hover {
-  color: #535bf2;
+  color: #24c8db;
 }
 
 h1 {
@@ -63,15 +144,16 @@ h1 {
 input,
 button {
   border-radius: 8px;
-  border: 1px solid transparent;
+  border: 1px solid var(--border-color);
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
+  color: var(--text-primary);
+  background-color: var(--bg-secondary);
   transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.3);
+  outline: none;
 }
 
 button {
@@ -79,38 +161,36 @@ button {
 }
 
 button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
+  border-color: var(--accent-color);
 }
 
-input,
-button {
-  outline: none;
+button:active {
+  border-color: var(--accent-color);
+  background-color: var(--bg-tertiary);
 }
 
 #greet-input {
   margin-right: 5px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
-  }
+/* Settings section styles */
+.settings-section {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
 
-  a:hover {
-    color: #24c8db;
-  }
+.setting-row > label {
+  color: var(--text-secondary);
+}
 
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
-  }
-  button:active {
-    background-color: #0f0f0f69;
-  }
+.shortcut-editor-item {
+  background-color: var(--bg-tertiary);
+}
+
+.shortcut-description {
+  color: var(--text-primary);
+}
+
+.shortcut-key-display {
+  color: var(--text-primary);
 }

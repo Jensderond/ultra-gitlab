@@ -15,6 +15,8 @@ interface DiffLineProps {
   selected?: boolean;
   /** Click handler for line selection */
   onClick?: () => void;
+  /** Which side of split view this line is on (undefined = unified view) */
+  splitSide?: 'left' | 'right';
 }
 
 /**
@@ -72,12 +74,13 @@ function getLineTypeClass(type: string): string {
 /**
  * Single diff line component.
  */
-export default function DiffLine({ line, selected, onClick }: DiffLineProps) {
+export default function DiffLine({ line, selected, onClick, splitSide }: DiffLineProps) {
   const typeClass = getLineTypeClass(line.type);
+  const splitClass = splitSide ? `diff-line-split diff-line-split-${splitSide}` : '';
 
   return (
     <div
-      className={`diff-line ${typeClass} ${selected ? 'selected' : ''}`}
+      className={`diff-line ${typeClass} ${selected ? 'selected' : ''} ${splitClass}`}
       onClick={onClick}
       role="button"
       tabIndex={0}
@@ -88,15 +91,32 @@ export default function DiffLine({ line, selected, onClick }: DiffLineProps) {
       }}
     >
       <span className="diff-line-gutter">
-        <span className="line-number old-line">
-          {line.oldLineNumber !== null ? line.oldLineNumber : ''}
-        </span>
-        <span className="line-number new-line">
-          {line.newLineNumber !== null ? line.newLineNumber : ''}
-        </span>
-        <span className="line-prefix">
-          {line.type === 'add' ? '+' : line.type === 'remove' ? '-' : ' '}
-        </span>
+        {splitSide ? (
+          // Split view: show only relevant line number
+          <>
+            <span className="line-number">
+              {splitSide === 'left'
+                ? (line.oldLineNumber !== null ? line.oldLineNumber : '')
+                : (line.newLineNumber !== null ? line.newLineNumber : '')}
+            </span>
+            <span className="line-prefix">
+              {line.type === 'add' ? '+' : line.type === 'remove' ? '-' : ' '}
+            </span>
+          </>
+        ) : (
+          // Unified view: show both line numbers
+          <>
+            <span className="line-number old-line">
+              {line.oldLineNumber !== null ? line.oldLineNumber : ''}
+            </span>
+            <span className="line-number new-line">
+              {line.newLineNumber !== null ? line.newLineNumber : ''}
+            </span>
+            <span className="line-prefix">
+              {line.type === 'add' ? '+' : line.type === 'remove' ? '-' : ' '}
+            </span>
+          </>
+        )}
       </span>
       <span className="diff-line-content">
         <code>{renderHighlightedContent(line.content, line.tokens)}</code>

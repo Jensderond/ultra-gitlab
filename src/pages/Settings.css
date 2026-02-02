@@ -31,8 +31,8 @@
 }
 
 .settings-section {
-  background: var(--card-bg, #fff);
-  border: 1px solid var(--border-color, #ddd);
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 1.5rem;
 }
@@ -173,12 +173,12 @@
 
 .setting-row select {
   padding: 0.5rem;
-  border: 1px solid var(--border-color, #ccc);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 0.9rem;
   max-width: 200px;
-  background: var(--input-bg, #fff);
-  color: var(--text-primary, #333);
+  background: var(--input-bg);
+  color: var(--text-primary);
 }
 
 .setting-row select:disabled {
@@ -250,18 +250,18 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.5rem 0.75rem;
-  background: var(--bg-secondary, #f8f9fa);
+  background: var(--bg-secondary);
   border-radius: 4px;
   min-height: 36px;
 }
 
 .shortcut-editor-item.editing {
-  background: var(--bg-selected, #e8f0fe);
+  background: var(--bg-selected);
 }
 
 .shortcut-description {
   font-size: 0.9rem;
-  color: var(--text-primary, #333);
+  color: var(--text-primary);
 }
 
 .shortcut-display-controls {
@@ -279,8 +279,8 @@
   padding: 0 8px;
   font-size: 11px;
   font-family: var(--font-mono, 'SF Mono', 'Monaco', 'Consolas', monospace);
-  background: var(--bg-primary, #fff);
-  border: 1px solid var(--border-color, #d0d0d0);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   cursor: pointer;
   transition: border-color 0.1s;
@@ -291,8 +291,8 @@
 }
 
 .shortcut-key-display.custom {
-  background: var(--accent-bg, #e8f0fe);
-  border-color: var(--primary-color, #0066cc);
+  background: var(--accent-bg);
+  border-color: var(--primary-color);
 }
 
 .shortcut-reset-button {
@@ -307,8 +307,8 @@
 }
 
 .shortcut-reset-button:hover:not(:disabled) {
-  background: var(--bg-hover, #eee);
-  color: var(--text-primary, #333);
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .shortcut-reset-button:disabled {
@@ -327,7 +327,7 @@
 }
 
 .reset-all-button:hover:not(:disabled) {
-  background: var(--bg-hover, #f0f0f0);
+  background: var(--bg-hover);
 }
 
 .reset-all-button:disabled {

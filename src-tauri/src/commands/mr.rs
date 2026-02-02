@@ -460,6 +460,34 @@ pub struct DiffHunksResponse {
     pub has_more: bool,
 }
 
+/// Get diff files for a merge request.
+///
+/// # Arguments
+/// * `mr_id` - The MR ID
+///
+/// # Returns
+/// List of diff files.
+#[tauri::command]
+pub async fn get_diff_files(
+    pool: State<'_, DbPool>,
+    mr_id: i64,
+) -> Result<Vec<DiffFile>, AppError> {
+    let diff_files: Vec<DiffFile> = sqlx::query_as(
+        r#"
+        SELECT id, mr_id, old_path, new_path, change_type,
+               additions, deletions, file_position, diff_content
+        FROM diff_files
+        WHERE mr_id = $1
+        ORDER BY file_position
+        "#,
+    )
+    .bind(mr_id)
+    .fetch_all(pool.inner())
+    .await?;
+
+    Ok(diff_files)
+}
+
 /// Get diff content for a specific file with syntax highlighting.
 ///
 /// # Arguments

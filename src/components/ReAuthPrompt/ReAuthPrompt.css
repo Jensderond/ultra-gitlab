@@ -39,12 +39,12 @@
 }
 
 .reauth-prompt-modal {
-  background: var(--bg-primary, #ffffff);
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 24px;
   max-width: 420px;
   width: 90%;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
   text-align: center;
   animation: slideUp 0.2s ease-out;
 }
@@ -67,21 +67,21 @@
   width: 72px;
   height: 72px;
   margin: 0 auto 16px;
-  background-color: rgba(251, 191, 36, 0.15);
+  background-color: var(--warning-bg);
   border-radius: 50%;
-  color: #f59e0b;
+  color: var(--warning-color);
 }
 
 .reauth-prompt-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
   margin: 0 0 12px;
 }
 
 .reauth-prompt-message {
   font-size: 0.9rem;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary);
   margin: 0 0 16px;
   line-height: 1.5;
 }
@@ -92,18 +92,18 @@
   justify-content: center;
   gap: 8px;
   padding: 8px 12px;
-  background-color: var(--bg-secondary, #f3f4f6);
+  background-color: var(--bg-secondary);
   border-radius: 6px;
   margin-bottom: 20px;
   font-size: 0.85rem;
 }
 
 .reauth-prompt-instance-label {
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary);
 }
 
 .reauth-prompt-instance-url {
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
   font-family: monospace;
   word-break: break-all;
 }
@@ -126,62 +126,27 @@
 }
 
 .reauth-prompt-button.primary {
-  background-color: #3b82f6;
+  background-color: var(--accent-color);
   color: white;
 }
 
 .reauth-prompt-button.primary:hover {
-  background-color: #2563eb;
+  background-color: var(--accent-hover);
 }
 
 .reauth-prompt-button.secondary {
-  background-color: var(--bg-secondary, #f3f4f6);
-  color: var(--text-secondary, #6b7280);
-  border: 1px solid var(--border-color, #e5e7eb);
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
 }
 
 .reauth-prompt-button.secondary:hover {
-  background-color: var(--bg-hover, #e5e7eb);
+  background-color: var(--bg-hover);
 }
 
 .reauth-prompt-hint {
   font-size: 0.8rem;
-  color: var(--text-muted, #9ca3af);
+  color: var(--text-muted);
   margin: 0;
   line-height: 1.4;
-}
-
-/* Dark theme */
-.dark-theme .reauth-prompt-modal {
-  background: #1f2937;
-}
-
-.dark-theme .reauth-prompt-title {
-  color: #f9fafb;
-}
-
-.dark-theme .reauth-prompt-message {
-  color: #9ca3af;
-}
-
-.dark-theme .reauth-prompt-instance {
-  background-color: #374151;
-}
-
-.dark-theme .reauth-prompt-instance-url {
-  color: #f3f4f6;
-}
-
-.dark-theme .reauth-prompt-button.secondary {
-  background-color: #374151;
-  color: #d1d5db;
-  border-color: #4b5563;
-}
-
-.dark-theme .reauth-prompt-button.secondary:hover {
-  background-color: #4b5563;
-}
-
-.dark-theme .reauth-prompt-hint {
-  color: #6b7280;
 }

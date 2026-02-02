@@ -103,6 +103,21 @@ pub struct MergeRequestsQuery {
     /// Number of items per page (max 100).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub per_page: Option<u32>,
+
+    /// Filter WIP/Draft MRs: `yes` or `no`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "wip")]
+    pub draft: Option<String>,
+
+    /// Exclude MRs by author username (negative filter).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "not[author_username]")]
+    pub not_author_username: Option<String>,
+
+    /// Exclude MRs approved by usernames (negative filter).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "not[approved_by_usernames][]")]
+    pub not_approved_by_usernames: Option<String>,
 }
 
 /// GitLab merge request from API.

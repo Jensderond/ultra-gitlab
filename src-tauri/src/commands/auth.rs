@@ -6,7 +6,6 @@
 use crate::db::pool::DbPool;
 use crate::error::AppError;
 use crate::models::GitLabInstance;
-use crate::services::credentials::CredentialService;
 use crate::services::gitlab_client::{GitLabClient, GitLabClientConfig};
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -23,6 +22,7 @@ pub struct SetupInstanceResponse {
 
 /// Input for setup_gitlab_instance command.
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SetupInstanceInput {
     /// GitLab instance URL.
     pub url: String,
@@ -62,21 +62,18 @@ pub async fn setup_gitlab_instance(
 
     let user = client.validate_token().await?;
 
-    // Store the token in the keychain
-    CredentialService::store_token(&url, &input.token)?;
-
-    // Insert the instance into the database
     let now = chrono::Utc::now().timestamp();
     let result = sqlx::query_as::<_, GitLabInstance>(
         r#"
-        INSERT INTO gitlab_instances (url, name, created_at)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (url) DO UPDATE SET name = $2
-        RETURNING id, url, name, created_at
+        INSERT INTO gitlab_instances (url, name, token, created_at)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (url) DO UPDATE SET name = $2, token = $3
+        RETURNING id, url, name, token, created_at
         "#,
     )
     .bind(&url)
     .bind(&input.name)
+    .bind(&input.token)
     .bind(now)
     .fetch_one(pool.inner())
     .await?;
@@ -85,6 +82,20 @@ pub async fn setup_gitlab_instance(
         instance: result,
         username: user.username,
     })
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitLabInstanceWithStatus {
+    #[serde(flatten)]
+    pub instance: GitLabInstance,
+
+    /// Whether a token is stored for this instance.
+    pub has_token: bool,
+
+    /// Error message if token check failed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_error: Option<String>,
 }
 
 /// Get all configured GitLab instances.
@@ -96,30 +107,22 @@ pub async fn get_gitlab_instances(
     pool: State<'_, DbPool>,
 ) -> Result<Vec<GitLabInstanceWithStatus>, AppError> {
     let instances: Vec<GitLabInstance> =
-        sqlx::query_as("SELECT id, url, name, created_at FROM gitlab_instances ORDER BY created_at DESC")
+        sqlx::query_as("SELECT id, url, name, token, created_at FROM gitlab_instances ORDER BY created_at DESC")
             .fetch_all(pool.inner())
             .await?;
 
     let mut results = Vec::with_capacity(instances.len());
     for instance in instances {
-        let has_token = CredentialService::has_token(&instance.url).unwrap_or(false);
+        let has_token = instance.token.is_some();
+
         results.push(GitLabInstanceWithStatus {
             instance,
             has_token,
+            token_error: None,
         });
     }
 
     Ok(results)
-}
-
-/// GitLab instance with token status.
-#[derive(Debug, Serialize)]
-pub struct GitLabInstanceWithStatus {
-    #[serde(flatten)]
-    pub instance: GitLabInstance,
-
-    /// Whether a token is stored for this instance.
-    pub has_token: bool,
 }
 
 /// Delete a GitLab instance.
@@ -135,19 +138,7 @@ pub async fn delete_gitlab_instance(
     pool: State<'_, DbPool>,
     instance_id: i64,
 ) -> Result<(), AppError> {
-    // First, get the instance URL for keychain cleanup
-    let instance: Option<GitLabInstance> =
-        sqlx::query_as("SELECT id, url, name, created_at FROM gitlab_instances WHERE id = $1")
-            .bind(instance_id)
-            .fetch_optional(pool.inner())
-            .await?;
 
-    let instance = instance.ok_or_else(|| {
-        AppError::not_found_with_id("GitLabInstance", instance_id.to_string())
-    })?;
-
-    // Delete the token from keychain (idempotent)
-    CredentialService::delete_token(&instance.url)?;
 
     // Delete the instance from database (cascades to related records)
     sqlx::query("DELETE FROM gitlab_instances WHERE id = $1")
@@ -158,13 +149,7 @@ pub async fn delete_gitlab_instance(
     Ok(())
 }
 
-/// Get the token for a GitLab instance.
-///
-/// This is an internal helper, not exposed directly to the frontend.
-/// Used by other commands that need to make API calls.
-pub fn get_instance_token(url: &str) -> Result<String, AppError> {
-    CredentialService::get_token(url)
-}
+
 
 #[cfg(test)]
 mod tests {

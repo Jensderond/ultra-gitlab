@@ -5,6 +5,7 @@ use sqlx::FromRow;
 
 /// Represents a configured GitLab server connection.
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct GitLabInstance {
     /// Local database ID.
     pub id: i64,
@@ -14,6 +15,9 @@ pub struct GitLabInstance {
 
     /// Display name for the instance (optional).
     pub name: Option<String>,
+
+    /// Personal access token (stored in DB).
+    pub token: Option<String>,
 
     /// Unix timestamp of creation.
     pub created_at: i64,

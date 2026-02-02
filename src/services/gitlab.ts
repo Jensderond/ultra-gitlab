@@ -37,7 +37,6 @@ import type {
   AddCommentResponse,
   ReplyToCommentRequest,
   ResolveDiscussionRequest,
-  ApprovalResponse,
 } from '../types';
 
 // Re-export types used by consumers
@@ -265,9 +264,8 @@ export async function setDiscussionResolved(
  * Approve a merge request.
  *
  * @param mrId - The merge request ID
- * @returns The approval response with sync action ID
  */
-export async function approve(mrId: number): Promise<ApprovalResponse> {
+export async function approve(mrId: number): Promise<void> {
   return approveMR(mrId);
 }
 
@@ -275,9 +273,8 @@ export async function approve(mrId: number): Promise<ApprovalResponse> {
  * Remove approval from a merge request.
  *
  * @param mrId - The merge request ID
- * @returns The unapproval response
  */
-export async function unapprove(mrId: number): Promise<ApprovalResponse> {
+export async function unapprove(mrId: number): Promise<void> {
   return unapproveMR(mrId);
 }
 

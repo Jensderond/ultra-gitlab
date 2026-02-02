@@ -11,17 +11,17 @@
   padding: 8px 16px;
   font-size: 13px;
   font-weight: 500;
-  border: 1px solid var(--border-color, #ddd);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  background: var(--bg-primary, #fff);
-  color: var(--text-primary, #333);
+  background: var(--bg-primary);
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .approval-button:hover:not(:disabled) {
-  border-color: var(--accent-color, #1a73e8);
-  background: var(--bg-secondary, #f9f9f9);
+  border-color: var(--accent-color);
+  background: var(--bg-secondary);
 }
 
 .approval-button:disabled {
@@ -30,13 +30,13 @@
 }
 
 .approval-button.approved {
-  background: #dcfce7;
-  border-color: #22c55e;
-  color: #166534;
+  background: rgba(63, 185, 80, 0.15);
+  border-color: #3fb950;
+  color: #3fb950;
 }
 
 .approval-button.approved:hover:not(:disabled) {
-  background: #bbf7d0;
+  background: rgba(63, 185, 80, 0.25);
 }
 
 .approval-icon {
@@ -52,23 +52,23 @@
 .approval-count {
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-secondary, #666);
+  color: var(--text-secondary);
 }
 
 .approval-count.complete {
-  color: #22c55e;
+  color: #3fb950;
 }
 
 .approval-changes {
   font-size: 12px;
   padding: 2px 8px;
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--warning-bg);
+  color: var(--warning-color);
   border-radius: 4px;
 }
 
 .approval-error {
   font-size: 12px;
-  color: #dc2626;
+  color: var(--error-color);
   margin-top: 4px;
 }

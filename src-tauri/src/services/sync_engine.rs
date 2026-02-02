@@ -16,7 +16,6 @@ use crate::services::gitlab_client::{
 };
 use crate::services::sync_processor::{self, ProcessResult};
 use crate::services::sync_queue;
-use crate::services::CredentialService;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -64,7 +63,7 @@ impl Default for SyncConfig {
     fn default() -> Self {
         Self {
             interval_secs: DEFAULT_SYNC_INTERVAL_SECS,
-            sync_authored: true,
+            sync_authored: false, // Don't sync own MRs by default
             sync_reviewing: true,
             max_mrs_per_sync: 100,
         }
@@ -395,8 +394,14 @@ impl SyncEngine {
     async fn sync_instance(&self, instance: &GitLabInstanceRow) -> Result<SyncResult, AppError> {
         let config = self.config.read().await;
 
-        // Get token from keychain
-        let token = CredentialService::get_token(&instance.url)?;
+        // Get token from DB
+        let token = instance.token.clone().ok_or_else(|| {
+            AppError::authentication_expired_for_instance(
+                "GitLab token missing. Please re-authenticate.",
+                instance.id,
+                &instance.url,
+            )
+        })?;
 
         // Create GitLab client
         let client = GitLabClient::new(GitLabClientConfig {
@@ -509,7 +514,11 @@ impl SyncEngine {
         if config.sync_reviewing {
             let query = MergeRequestsQuery {
                 state: Some("opened".to_string()),
+                scope: Some("all".to_string()),
                 reviewer_username: Some(current_user.username.clone()),
+                draft: Some("no".to_string()), // Exclude draft/WIP MRs
+                not_author_username: Some(current_user.username.clone()), // Exclude own MRs
+                not_approved_by_usernames: Some(current_user.username.clone()), // Exclude already approved
                 per_page: Some(100),
                 ..Default::default()
             };
@@ -886,7 +895,7 @@ impl SyncEngine {
     /// Get all GitLab instances from the database.
     async fn get_gitlab_instances(&self) -> Result<Vec<GitLabInstanceRow>, AppError> {
         let instances = sqlx::query_as::<_, GitLabInstanceRow>(
-            "SELECT id, url, name FROM gitlab_instances ORDER BY id",
+            "SELECT id, url, name, token FROM gitlab_instances ORDER BY id",
         )
         .fetch_all(&self.pool)
         .await?;
@@ -967,6 +976,7 @@ struct GitLabInstanceRow {
     url: String,
     #[allow(dead_code)]
     name: Option<String>,
+    token: Option<String>,
 }
 
 /// Parse ISO 8601 timestamp to Unix timestamp.
@@ -984,7 +994,7 @@ mod tests {
     fn test_default_config() {
         let config = SyncConfig::default();
         assert_eq!(config.interval_secs, DEFAULT_SYNC_INTERVAL_SECS);
-        assert!(config.sync_authored);
+        assert!(!config.sync_authored); // Don't sync own MRs by default
         assert!(config.sync_reviewing);
         assert_eq!(config.max_mrs_per_sync, 100);
     }

@@ -1,7 +1,7 @@
 /* Diff Hunk Styles */
 
 .diff-hunk {
-  border-bottom: 1px solid var(--border-color, #e1e4e8);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .diff-hunk:last-child {
@@ -10,18 +10,66 @@
 
 .diff-hunk-header {
   padding: 8px 12px;
-  background-color: var(--hunk-header-bg, #f1f8ff);
-  color: var(--text-secondary, #586069);
+  background-color: var(--hunk-header-bg);
+  color: var(--text-secondary);
   font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
   font-size: 12px;
-  border-bottom: 1px solid var(--border-color, #e1e4e8);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .hunk-range {
-  color: var(--hunk-header-text, #0366d6);
+  color: var(--hunk-header-text);
   font-weight: 500;
 }
 
 .diff-hunk-lines {
   /* Lines container */
+}
+
+/* Split view styles */
+.diff-hunk-split .diff-hunk-lines-split {
+  /* Container for split rows */
+}
+
+.diff-split-row {
+  display: flex;
+}
+
+.diff-split-side {
+  flex: 0 0 50%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.diff-split-left {
+  border-right: 1px solid var(--border-color);
+}
+
+.diff-split-side .diff-line {
+  display: flex;
+  width: 100%;
+}
+
+.diff-split-side .diff-line-empty {
+  height: 20px;
+  width: 100%;
+  background-color: var(--bg-tertiary, #f0f0f0);
+}
+
+/* Split view line adjustments */
+.diff-line-split .diff-line-gutter {
+  flex-shrink: 0;
+}
+
+.diff-line-split .line-number {
+  width: 50px;
+  border-right: 1px solid var(--border-color);
+}
+
+/* In split view, wrap long lines */
+.diff-line-split .diff-line-content {
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow: hidden;
 }

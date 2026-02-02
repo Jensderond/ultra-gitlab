@@ -68,6 +68,7 @@ impl std::fmt::Display for ChangeType {
 
 /// Individual file change within an MR (for navigation).
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct DiffFile {
     /// Local ID.
     pub id: i64,

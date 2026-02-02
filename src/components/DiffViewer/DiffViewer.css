@@ -4,8 +4,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: var(--bg-primary, #fff);
-  border: 1px solid var(--border-color, #e1e4e8);
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -15,20 +15,20 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background-color: var(--bg-secondary, #f6f8fa);
-  border-bottom: 1px solid var(--border-color, #e1e4e8);
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .diff-file-path {
   font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
   font-size: 12px;
   font-weight: 500;
-  color: var(--text-primary, #24292f);
+  color: var(--text-primary);
 }
 
 .diff-view-toggle {
   display: flex;
-  border: 1px solid var(--border-color, #e1e4e8);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -37,22 +37,22 @@
   padding: 4px 10px;
   font-size: 11px;
   border: none;
-  background-color: var(--bg-primary, #fff);
-  color: var(--text-secondary, #586069);
+  background-color: var(--bg-primary);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: background-color 0.1s ease;
 }
 
 .diff-view-toggle button:not(:last-child) {
-  border-right: 1px solid var(--border-color, #e1e4e8);
+  border-right: 1px solid var(--border-color);
 }
 
 .diff-view-toggle button:hover {
-  background-color: var(--hover-bg, #f6f8fa);
+  background-color: var(--bg-hover);
 }
 
 .diff-view-toggle button.active {
-  background-color: var(--accent-color, #0366d6);
+  background-color: var(--accent-color);
   color: white;
 }
 
@@ -68,12 +68,12 @@
   align-items: center;
   justify-content: center;
   height: 200px;
-  color: var(--text-secondary, #586069);
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .diff-viewer-error {
-  color: var(--error-text, #cf222e);
+  color: var(--error-text);
 }
 
 /* Header layout */
@@ -86,8 +86,8 @@
 /* Large diff indicator */
 .diff-large-indicator {
   font-size: 11px;
-  color: var(--warning-text, #9a6700);
-  background-color: var(--warning-bg, #fff8c5);
+  color: var(--warning-text);
+  background-color: var(--warning-bg);
   padding: 2px 8px;
   border-radius: 4px;
   font-weight: 500;
@@ -95,13 +95,13 @@
 
 /* Loading placeholder for progressive loading */
 .diff-hunk-loading {
-  border-bottom: 1px solid var(--border-color, #e1e4e8);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .diff-hunk-loading .diff-hunk-header {
   padding: 8px 12px;
-  background-color: var(--bg-secondary, #f6f8fa);
-  color: var(--text-muted, #8b949e);
+  background-color: var(--bg-secondary);
+  color: var(--text-muted);
   font-style: italic;
 }
 
@@ -109,9 +109,9 @@
   height: 160px;
   background: repeating-linear-gradient(
     0deg,
-    var(--bg-primary, #fff),
-    var(--bg-primary, #fff) 19px,
-    var(--border-light, #f0f0f0) 20px
+    var(--bg-primary),
+    var(--bg-primary) 19px,
+    var(--border-light) 20px
   );
   animation: diff-placeholder-pulse 1.5s ease-in-out infinite;
 }

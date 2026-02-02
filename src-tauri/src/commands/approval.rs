@@ -7,20 +7,7 @@ use crate::db::pool::DbPool;
 use crate::error::AppError;
 use crate::models::sync_action::ActionType;
 use crate::services::sync_queue::{self, ApprovalPayload, EnqueueInput};
-use serde::Deserialize;
 use tauri::State;
-
-/// Input for approve_mr command.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApproveInput {
-    /// Merge request ID (local database ID).
-    pub mr_id: i64,
-    /// GitLab project ID.
-    pub project_id: i64,
-    /// MR IID within the project.
-    pub mr_iid: i64,
-}
 
 /// Approve a merge request.
 ///
@@ -28,25 +15,22 @@ pub struct ApproveInput {
 /// and queued for synchronization to GitLab.
 ///
 /// # Arguments
-/// * `input` - Approval details
+/// * `mr_id` - Merge request ID (local database ID)
 ///
 /// # Returns
 /// Success or error
 #[tauri::command]
-pub async fn approve_mr(pool: State<'_, DbPool>, input: ApproveInput) -> Result<(), AppError> {
-    // Verify MR exists
-    let mr_exists = sqlx::query("SELECT 1 FROM merge_requests WHERE id = ?")
-        .bind(input.mr_id)
+pub async fn approve_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppError> {
+    // Get MR details (project_id and iid) from database
+    let mr_row = sqlx::query("SELECT project_id, iid FROM merge_requests WHERE id = ?")
+        .bind(mr_id)
         .fetch_optional(pool.inner())
         .await?
-        .is_some();
+        .ok_or_else(|| AppError::not_found_with_id("MergeRequest", mr_id.to_string()))?;
 
-    if !mr_exists {
-        return Err(AppError::not_found_with_id(
-            "MergeRequest",
-            input.mr_id.to_string(),
-        ));
-    }
+    use sqlx::Row;
+    let project_id: i64 = mr_row.get("project_id");
+    let mr_iid: i64 = mr_row.get("iid");
 
     // Update approval status optimistically
     // Increment approvals_count and update approval_status
@@ -62,21 +46,21 @@ pub async fn approve_mr(pool: State<'_, DbPool>, input: ApproveInput) -> Result<
         WHERE id = ?
         "#,
     )
-    .bind(input.mr_id)
+    .bind(mr_id)
     .execute(pool.inner())
     .await?;
 
     // Build payload for sync queue
     let payload = serde_json::to_string(&ApprovalPayload {
-        project_id: input.project_id,
-        mr_iid: input.mr_iid,
+        project_id,
+        mr_iid,
     })?;
 
     // Queue for sync
     sync_queue::enqueue_action(
         pool.inner(),
         EnqueueInput {
-            mr_id: input.mr_id,
+            mr_id,
             action_type: ActionType::Approve,
             payload,
             local_reference_id: None,
@@ -85,18 +69,6 @@ pub async fn approve_mr(pool: State<'_, DbPool>, input: ApproveInput) -> Result<
     .await?;
 
     Ok(())
-}
-
-/// Input for unapprove_mr command.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UnapproveInput {
-    /// Merge request ID (local database ID).
-    pub mr_id: i64,
-    /// GitLab project ID.
-    pub project_id: i64,
-    /// MR IID within the project.
-    pub mr_iid: i64,
 }
 
 /// Unapprove a merge request (remove your approval).
@@ -108,25 +80,22 @@ pub struct UnapproveInput {
 /// We'll need to add this to the GitLab client.
 ///
 /// # Arguments
-/// * `input` - Unapproval details
+/// * `mr_id` - Merge request ID (local database ID)
 ///
 /// # Returns
 /// Success or error
 #[tauri::command]
-pub async fn unapprove_mr(pool: State<'_, DbPool>, input: UnapproveInput) -> Result<(), AppError> {
-    // Verify MR exists
-    let mr_exists = sqlx::query("SELECT 1 FROM merge_requests WHERE id = ?")
-        .bind(input.mr_id)
+pub async fn unapprove_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppError> {
+    // Get MR details (project_id and iid) from database
+    let mr_row = sqlx::query("SELECT project_id, iid FROM merge_requests WHERE id = ?")
+        .bind(mr_id)
         .fetch_optional(pool.inner())
         .await?
-        .is_some();
+        .ok_or_else(|| AppError::not_found_with_id("MergeRequest", mr_id.to_string()))?;
 
-    if !mr_exists {
-        return Err(AppError::not_found_with_id(
-            "MergeRequest",
-            input.mr_id.to_string(),
-        ));
-    }
+    use sqlx::Row;
+    let project_id: i64 = mr_row.get("project_id");
+    let mr_iid: i64 = mr_row.get("iid");
 
     // Update approval status optimistically
     // Decrement approvals_count (but not below 0) and update approval_status
@@ -142,15 +111,15 @@ pub async fn unapprove_mr(pool: State<'_, DbPool>, input: UnapproveInput) -> Res
         WHERE id = ?
         "#,
     )
-    .bind(input.mr_id)
+    .bind(mr_id)
     .execute(pool.inner())
     .await?;
 
     // Build payload for sync queue
     // For unapprove, we'll use a special action type marker in the payload
     let payload = serde_json::to_string(&serde_json::json!({
-        "project_id": input.project_id,
-        "mr_iid": input.mr_iid,
+        "project_id": project_id,
+        "mr_iid": mr_iid,
         "action": "unapprove"
     }))?;
 
@@ -161,7 +130,7 @@ pub async fn unapprove_mr(pool: State<'_, DbPool>, input: UnapproveInput) -> Res
     sync_queue::enqueue_action(
         pool.inner(),
         EnqueueInput {
-            mr_id: input.mr_id,
+            mr_id,
             action_type: ActionType::Approve, // Will check payload.action in processor
             payload,
             local_reference_id: None,
@@ -221,11 +190,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_approve_input_deserialize() {
-        let json = r#"{"mrId": 1, "projectId": 42, "mrIid": 123}"#;
-        let input: ApproveInput = serde_json::from_str(json).unwrap();
-        assert_eq!(input.mr_id, 1);
-        assert_eq!(input.project_id, 42);
-        assert_eq!(input.mr_iid, 123);
+    fn test_approval_status_serialize() {
+        let status = ApprovalStatus {
+            status: Some("approved".to_string()),
+            approvals_count: 2,
+            approvals_required: 1,
+        };
+        let json = serde_json::to_string(&status).unwrap();
+        assert!(json.contains("\"approvalsCount\":2"));
+        assert!(json.contains("\"approvalsRequired\":1"));
     }
 }

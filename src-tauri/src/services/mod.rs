@@ -5,7 +5,6 @@
 //!
 //! Services are designed to be testable and independent of Tauri-specific code.
 
-pub mod credentials;
 pub mod gitlab_client;
 pub mod highlighter;
 pub mod sync_engine;
@@ -13,7 +12,6 @@ pub mod sync_events;
 pub mod sync_processor;
 pub mod sync_queue;
 
-pub use credentials::CredentialService;
 pub use gitlab_client::GitLabClient;
 pub use highlighter::SyntaxHighlighter;
 pub use sync_engine::{SyncConfig, SyncEngine, SyncLogEntry, SyncResult, SyncStatus};
