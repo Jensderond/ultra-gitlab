@@ -67,13 +67,9 @@ const ApprovalButton = forwardRef<ApprovalButtonRef, ApprovalButtonProps>(functi
 
     try {
       if (newApproved) {
-        await invoke('approve_mr', {
-          input: { mrId, projectId, mrIid },
-        });
+        await invoke('approve_mr', { mrId });
       } else {
-        await invoke('unapprove_mr', {
-          input: { mrId, projectId, mrIid },
-        });
+        await invoke('unapprove_mr', { mrId });
       }
     } catch (err) {
       // Rollback on error

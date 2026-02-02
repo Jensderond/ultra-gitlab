@@ -101,7 +101,7 @@ export async function getGitLabInstances(): Promise<GitLabInstanceWithStatus[]> 
  * Delete a GitLab instance.
  */
 export async function deleteGitLabInstance(instanceId: number): Promise<void> {
-  return invoke<void>('delete_gitlab_instance', { instance_id: instanceId });
+  return invoke<void>('delete_gitlab_instance', { instanceId });
 }
 
 // ============================================================================
@@ -115,14 +115,14 @@ export async function getMergeRequests(
   instanceId: number,
   filter?: MRFilter
 ): Promise<MergeRequest[]> {
-  return invoke<MergeRequest[]>('get_merge_requests', { instance_id: instanceId, filter });
+  return invoke<MergeRequest[]>('get_merge_requests', { instanceId, filter });
 }
 
 /**
  * Get a single merge request by ID.
  */
 export async function getMergeRequest(mrId: number): Promise<MergeRequest> {
-  const response = await invoke<{ mr: MergeRequest }>('get_merge_request_detail', { mr_id: mrId });
+  const response = await invoke<{ mr: MergeRequest }>('get_merge_request_detail', { mrId });
   return response.mr;
 }
 
@@ -130,7 +130,7 @@ export async function getMergeRequest(mrId: number): Promise<MergeRequest> {
  * Get diff files for a merge request.
  */
 export async function getDiffFiles(mrId: number): Promise<DiffFile[]> {
-  return invoke<DiffFile[]>('get_diff_files', { mr_id: mrId });
+  return invoke<DiffFile[]>('get_diff_files', { mrId });
 }
 
 /**
@@ -140,7 +140,7 @@ export async function getDiffFileContent(
   mrId: number,
   filePath: string
 ): Promise<DiffFileContent> {
-  return invoke<DiffFileContent>('get_diff_file', { mr_id: mrId, file_path: filePath });
+  return invoke<DiffFileContent>('get_diff_file', { mrId, filePath });
 }
 
 /**
@@ -150,7 +150,7 @@ export async function getDiffFileMetadata(
   mrId: number,
   filePath: string
 ): Promise<DiffFileMetadata> {
-  return invoke<DiffFileMetadata>('get_diff_file_metadata', { mr_id: mrId, file_path: filePath });
+  return invoke<DiffFileMetadata>('get_diff_file_metadata', { mrId, filePath });
 }
 
 /**
@@ -162,7 +162,7 @@ export async function getDiffHunks(
   start: number,
   count: number
 ): Promise<DiffHunksResponse> {
-  return invoke<DiffHunksResponse>('get_diff_hunks', { mr_id: mrId, file_path: filePath, start, count });
+  return invoke<DiffHunksResponse>('get_diff_hunks', { mrId, filePath, start, count });
 }
 
 // ============================================================================
@@ -173,28 +173,28 @@ export async function getDiffHunks(
  * Get comments for a merge request.
  */
 export async function getComments(mrId: number): Promise<Comment[]> {
-  return invoke<Comment[]>('get_comments', { mr_id: mrId });
+  return invoke<Comment[]>('get_comments', { mrId });
 }
 
 /**
  * Add a new comment to a merge request.
  */
 export async function addComment(request: AddCommentRequest): Promise<AddCommentResponse> {
-  return invoke<AddCommentResponse>('add_comment', { request });
+  return invoke<AddCommentResponse>('add_comment', { input: request });
 }
 
 /**
  * Reply to an existing discussion.
  */
 export async function replyToComment(request: ReplyToCommentRequest): Promise<AddCommentResponse> {
-  return invoke<AddCommentResponse>('reply_to_comment', { request });
+  return invoke<AddCommentResponse>('reply_to_comment', { input: request });
 }
 
 /**
  * Resolve or unresolve a discussion.
  */
 export async function resolveDiscussion(request: ResolveDiscussionRequest): Promise<void> {
-  return invoke<void>('resolve_discussion', { request });
+  return invoke<void>('resolve_discussion', { input: request });
 }
 
 // ============================================================================
@@ -205,14 +205,14 @@ export async function resolveDiscussion(request: ResolveDiscussionRequest): Prom
  * Approve a merge request.
  */
 export async function approveMR(mrId: number): Promise<void> {
-  return invoke<void>('approve_mr', { mr_id: mrId });
+  return invoke<void>('approve_mr', { mrId });
 }
 
 /**
  * Unapprove a merge request.
  */
 export async function unapproveMR(mrId: number): Promise<void> {
-  return invoke<void>('unapprove_mr', { mr_id: mrId });
+  return invoke<void>('unapprove_mr', { mrId });
 }
 
 // ============================================================================
@@ -237,14 +237,14 @@ export async function getSyncStatus(): Promise<SyncStatusResponse> {
  * Retry a failed sync action.
  */
 export async function retryFailedAction(actionId: number): Promise<void> {
-  return invoke<void>('retry_failed_action', { action_id: actionId });
+  return invoke<void>('retry_failed_action', { actionId });
 }
 
 /**
  * Discard a failed sync action.
  */
 export async function discardFailedAction(actionId: number): Promise<void> {
-  return invoke<void>('discard_failed_action', { action_id: actionId });
+  return invoke<void>('discard_failed_action', { actionId });
 }
 
 // ============================================================================
@@ -295,7 +295,7 @@ export async function getDiagnosticsReport(): Promise<DiagnosticsReport> {
  * Creates realistic test MRs with diffs and comments.
  */
 export async function generateTestData(mrCount?: number): Promise<TestDataResult> {
-  return invoke<TestDataResult>('generate_test_data', { mr_count: mrCount });
+  return invoke<TestDataResult>('generate_test_data', { mrCount });
 }
 
 /**
