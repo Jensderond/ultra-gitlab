@@ -5,7 +5,8 @@
 
 use crate::db::pool::DbPool;
 use crate::error::AppError;
-use crate::models::{Diff, DiffFile, MergeRequest};
+use crate::models::{Diff, DiffFile, GitLabInstance, MergeRequest};
+use crate::services::gitlab_client::{GitLabClient, GitLabClientConfig};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -745,6 +746,58 @@ fn parse_range(s: &str) -> Option<(i64, i64)> {
     } else {
         Some((s.parse().ok()?, 1))
     }
+}
+
+/// Get raw file content from GitLab at a specific SHA.
+///
+/// This fetches the raw file content from the repository at a specific commit.
+/// Used by Monaco editor to display the original and modified file content.
+///
+/// # Arguments
+/// * `instance_id` - The GitLab instance ID
+/// * `project_id` - The GitLab project ID
+/// * `file_path` - The path to the file in the repository
+/// * `sha` - The commit SHA to fetch the file at
+///
+/// # Returns
+/// The raw file content as a string. Returns empty string for deleted/new files (404).
+#[tauri::command]
+pub async fn get_file_content(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+    file_path: String,
+    sha: String,
+) -> Result<String, AppError> {
+    // Get the GitLab instance to retrieve the token
+    let instance: Option<GitLabInstance> = sqlx::query_as(
+        r#"
+        SELECT id, url, name, token, created_at
+        FROM gitlab_instances
+        WHERE id = $1
+        "#,
+    )
+    .bind(instance_id)
+    .fetch_optional(pool.inner())
+    .await?;
+
+    let instance = instance.ok_or_else(|| {
+        AppError::not_found_with_id("GitLabInstance", instance_id.to_string())
+    })?;
+
+    let token = instance.token.ok_or_else(|| {
+        AppError::authentication("No token configured for GitLab instance")
+    })?;
+
+    // Create the GitLab client
+    let client = GitLabClient::new(GitLabClientConfig {
+        base_url: instance.url,
+        token,
+        timeout_secs: 30,
+    })?;
+
+    // Fetch the file content
+    client.get_file_content(project_id, &file_path, &sha).await
 }
 
 #[cfg(test)]

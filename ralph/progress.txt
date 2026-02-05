@@ -18,6 +18,37 @@
 
 ---
 
+## 2026-02-05 - US-007
+**Workflow**: PRD
+**Feature**: Monaco Editor Integration
+
+### Implemented
+- Added `get_file_content` method to GitLabClient in services/gitlab_client.rs
+- Method fetches raw file content from GitLab API at a specific SHA
+- URL-encodes file paths as required by GitLab API
+- Returns empty string for 404 (deleted/new files) instead of erroring
+- Added `get_file_content` Tauri command to commands/mr.rs
+- Command accepts instance_id, project_id, file_path, and sha parameters
+- Retrieves GitLab token from database and creates client
+- Registered command in lib.rs
+- Added urlencoding v2 dependency to Cargo.toml
+
+### Files Changed
+- src-tauri/Cargo.toml (added urlencoding dependency)
+- src-tauri/src/services/gitlab_client.rs (added get_file_content method)
+- src-tauri/src/commands/mr.rs (added get_file_content command)
+- src-tauri/src/commands/mod.rs (added export)
+- src-tauri/src/lib.rs (imported and registered command)
+- ralph/prd.json (marked US-007 as passing)
+
+### Learnings for Future Iterations
+- GitLab file API requires URL-encoded file paths (use urlencoding crate)
+- API endpoint: GET /projects/:id/repository/files/:file_path/raw?ref=:sha
+- 404 responses indicate file doesn't exist at that SHA (new or deleted file)
+- Commands that need GitLab API access must fetch instance token from database
+
+---
+
 ## 2026-02-05 - US-006
 **Workflow**: PRD
 **Feature**: Monaco Editor Integration

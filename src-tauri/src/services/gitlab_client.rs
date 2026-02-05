@@ -619,6 +619,62 @@ impl GitLabClient {
             ))
         }
     }
+
+    /// Get raw file content at a specific SHA.
+    ///
+    /// This fetches the raw file content from the repository at a specific commit.
+    /// Used by Monaco editor to display the original and modified file content.
+    ///
+    /// # Arguments
+    /// * `project_id` - The GitLab project ID
+    /// * `file_path` - The path to the file in the repository
+    /// * `sha` - The commit SHA to fetch the file at
+    ///
+    /// # Returns
+    /// The raw file content as a string, or empty string if file doesn't exist (404).
+    pub async fn get_file_content(
+        &self,
+        project_id: i64,
+        file_path: &str,
+        sha: &str,
+    ) -> Result<String, AppError> {
+        // URL-encode the file path (required by GitLab API)
+        let encoded_path = urlencoding::encode(file_path);
+        let endpoint = format!(
+            "/projects/{}/repository/files/{}/raw",
+            project_id, encoded_path
+        );
+        let url = self.api_url(&endpoint);
+
+        let response = self
+            .client
+            .get(&url)
+            .query(&[("ref", sha)])
+            .send()
+            .await?;
+
+        let status = response.status();
+
+        if status.is_success() {
+            response
+                .text()
+                .await
+                .map_err(|e| AppError::internal(format!("Failed to read file content: {}", e)))
+        } else if status == StatusCode::NOT_FOUND {
+            // File doesn't exist at this SHA (e.g., new file or deleted file)
+            Ok(String::new())
+        } else if status == StatusCode::UNAUTHORIZED {
+            Err(AppError::authentication_expired(
+                "GitLab token expired or revoked. Please re-authenticate.",
+            ))
+        } else {
+            Err(AppError::gitlab_api_full(
+                "Failed to fetch file content",
+                status.as_u16(),
+                &endpoint,
+            ))
+        }
+    }
 }
 
 #[cfg(test)]

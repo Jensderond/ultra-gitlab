@@ -63,6 +63,9 @@ tokio = { version = "1", features = ["sync", "time"] }
 # Date/Time
 chrono = { version = "0.4", features = ["serde"] }
 
+# URL Encoding
+urlencoding = "2"
+
 # Secure Credential Storage (OS keychain)
 keyring = "3"
 
