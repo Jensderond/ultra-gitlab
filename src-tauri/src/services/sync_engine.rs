@@ -14,6 +14,7 @@ use crate::services::gitlab_client::{
     GitLabClient, GitLabClientConfig, GitLabDiffVersion, GitLabDiscussion, GitLabMergeRequest,
     MergeRequestsQuery,
 };
+use crate::models::project::{self, Project};
 use crate::services::sync_processor::{self, ProcessResult};
 use crate::services::sync_queue;
 use serde::{Deserialize, Serialize};
@@ -457,6 +458,9 @@ impl SyncEngine {
             }
         }
 
+        // Fetch and cache project titles for any new project IDs
+        self.cache_project_titles(instance.id, &client, &mrs).await;
+
         // Purge merged/closed MRs
         result.purged_count = self.purge_closed_mrs(instance.id, &mrs).await?;
 
@@ -635,6 +639,57 @@ impl SyncEngine {
         .await?;
 
         Ok(())
+    }
+
+    /// Fetch and cache project titles for any project IDs not already in the projects table.
+    async fn cache_project_titles(
+        &self,
+        instance_id: i64,
+        client: &GitLabClient,
+        mrs: &[GitLabMergeRequest],
+    ) {
+        // Collect unique project IDs
+        let mut project_ids: Vec<i64> = mrs.iter().map(|mr| mr.project_id).collect();
+        project_ids.sort_unstable();
+        project_ids.dedup();
+
+        // Find which ones are missing from cache
+        let missing = match project::get_missing_project_ids(&self.pool, instance_id, &project_ids).await {
+            Ok(ids) => ids,
+            Err(e) => {
+                log::warn!("Failed to check cached project IDs: {}", e);
+                return;
+            }
+        };
+
+        if missing.is_empty() {
+            return;
+        }
+
+        eprintln!("[sync] Fetching {} missing project title(s)", missing.len());
+
+        for project_id in missing {
+            match client.get_project(project_id).await {
+                Ok(gitlab_project) => {
+                    let project = Project {
+                        id: gitlab_project.id,
+                        instance_id,
+                        name: gitlab_project.name,
+                        name_with_namespace: gitlab_project.name_with_namespace,
+                        path_with_namespace: gitlab_project.path_with_namespace,
+                        web_url: gitlab_project.web_url,
+                        created_at: gitlab_project.created_at,
+                        updated_at: gitlab_project.updated_at,
+                    };
+                    if let Err(e) = project::upsert_project(&self.pool, &project).await {
+                        log::warn!("Failed to cache project {}: {}", project_id, e);
+                    }
+                }
+                Err(e) => {
+                    log::warn!("Failed to fetch project {}: {}", project_id, e);
+                }
+            }
+        }
     }
 
     /// Upsert MR metadata into the database.

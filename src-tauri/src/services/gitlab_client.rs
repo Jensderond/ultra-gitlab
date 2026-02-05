@@ -228,6 +228,18 @@ pub struct GitLabNotePosition {
     pub position_type: String,
 }
 
+/// GitLab project from API.
+#[derive(Debug, Clone, Deserialize)]
+pub struct GitLabProject {
+    pub id: i64,
+    pub name: String,
+    pub name_with_namespace: String,
+    pub path_with_namespace: String,
+    pub web_url: String,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
+}
+
 impl GitLabClient {
     /// Create a new GitLab client.
     pub fn new(config: GitLabClientConfig) -> Result<Self, AppError> {
@@ -369,6 +381,14 @@ impl GitLabClient {
         let url = self.api_url("/user");
         let response = self.client.get(&url).send().await?;
         self.handle_response(response, "/user").await
+    }
+
+    /// Get a single project by ID.
+    pub async fn get_project(&self, project_id: i64) -> Result<GitLabProject, AppError> {
+        let endpoint = format!("/projects/{}", project_id);
+        let url = self.api_url(&endpoint);
+        let response = self.client.get(&url).send().await?;
+        self.handle_response(response, &endpoint).await
     }
 
     /// List merge requests.

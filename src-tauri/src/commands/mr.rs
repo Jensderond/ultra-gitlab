@@ -104,16 +104,21 @@ pub async fn get_merge_requests(
     let filter = filter.unwrap_or_default();
 
     // Build the query dynamically based on filters
+    // LEFT JOIN with projects table for human-readable project names,
+    // falling back to the URL-derived project_name on merge_requests
     let mut query = String::from(
         r#"
         SELECT
-            id, instance_id, iid, project_id, project_name, title, description,
-            author_username, source_branch, target_branch, state,
-            web_url, created_at, updated_at, merged_at,
-            approval_status, approvals_required, approvals_count,
-            labels, reviewers, cached_at, user_has_approved
-        FROM merge_requests
-        WHERE instance_id = $1
+            mr.id, mr.instance_id, mr.iid, mr.project_id,
+            COALESCE(p.name_with_namespace, mr.project_name) AS project_name,
+            mr.title, mr.description,
+            mr.author_username, mr.source_branch, mr.target_branch, mr.state,
+            mr.web_url, mr.created_at, mr.updated_at, mr.merged_at,
+            mr.approval_status, mr.approvals_required, mr.approvals_count,
+            mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved
+        FROM merge_requests mr
+        LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
+        WHERE mr.instance_id = $1
         "#,
     );
 
@@ -121,14 +126,11 @@ pub async fn get_merge_requests(
     let state_filter = filter.state.as_deref();
     if let Some(state) = state_filter {
         if state != "all" {
-            query.push_str(" AND state = $2");
+            query.push_str(" AND mr.state = $2");
         }
     }
 
     // Add search filter if specified
-    // Note: scope filter would require user context (current username),
-    // which would need to be passed from frontend or stored.
-    // For now, we'll implement state and search filters.
     let has_search = filter.search.is_some();
     let search_pattern = filter.search.map(|s| format!("%{}%", s));
 
@@ -139,13 +141,13 @@ pub async fn get_merge_requests(
             "$3"
         };
         query.push_str(&format!(
-            " AND (title LIKE {} OR description LIKE {})",
+            " AND (mr.title LIKE {} OR mr.description LIKE {})",
             search_param, search_param
         ));
     }
 
     // Order by updated_at descending for most recent first
-    query.push_str(" ORDER BY updated_at DESC");
+    query.push_str(" ORDER BY mr.updated_at DESC");
 
     // Execute the query with appropriate bindings
     let mrs: Vec<MergeRequest> = match (state_filter, search_pattern.as_ref()) {
@@ -239,17 +241,20 @@ pub async fn get_merge_request_detail(
     pool: State<'_, DbPool>,
     mr_id: i64,
 ) -> Result<MergeRequestDetail, AppError> {
-    // Fetch the MR
+    // Fetch the MR with project name from projects table
     let mr: Option<MergeRequest> = sqlx::query_as(
         r#"
         SELECT
-            id, instance_id, iid, project_id, project_name, title, description,
-            author_username, source_branch, target_branch, state,
-            web_url, created_at, updated_at, merged_at,
-            approval_status, approvals_required, approvals_count,
-            labels, reviewers, cached_at, user_has_approved
-        FROM merge_requests
-        WHERE id = $1
+            mr.id, mr.instance_id, mr.iid, mr.project_id,
+            COALESCE(p.name_with_namespace, mr.project_name) AS project_name,
+            mr.title, mr.description,
+            mr.author_username, mr.source_branch, mr.target_branch, mr.state,
+            mr.web_url, mr.created_at, mr.updated_at, mr.merged_at,
+            mr.approval_status, mr.approvals_required, mr.approvals_count,
+            mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved
+        FROM merge_requests mr
+        LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
+        WHERE mr.id = $1
         "#,
     )
     .bind(mr_id)

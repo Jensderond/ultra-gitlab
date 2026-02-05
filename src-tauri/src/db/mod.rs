@@ -60,6 +60,7 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("0002_add_discarded_status", include_str!("migrations/0002_add_discarded_status.sql")),
     ("0003_add_user_has_approved", include_str!("migrations/0003_add_user_has_approved.sql")),
     ("0004_add_project_name", include_str!("migrations/0004_add_project_name.sql")),
+    ("0005_create_projects_table", include_str!("migrations/0005_create_projects_table.sql")),
 ];
 
 /// Run all pending database migrations.

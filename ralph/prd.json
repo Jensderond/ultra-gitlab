@@ -1,356 +1,93 @@
 {
   "project": "Ultra GitLab",
-  "branchName": "ralph/monaco-editor-integration",
-  "description": "Monaco Editor Integration - Replace custom DiffViewer with Monaco Editor for professional-grade code review with Kanagawa Wave theme",
+  "branchName": "ralph/project-titles",
+  "description": "Fetch and display human-readable GitLab project titles (name_with_namespace) on MR cards instead of URL-derived paths, cached in a normalized projects table",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Install Monaco Editor packages and configure Vite",
-      "description": "As a developer, I need Monaco Editor packages installed and Vite configured for worker loading so Monaco can be used in the app.",
+      "title": "Create projects cache table",
+      "description": "As a developer, I need a normalized projects table so that project metadata is stored once and referenced by all merge requests.",
       "acceptanceCriteria": [
-        "Install @monaco-editor/react and monaco-editor packages via bun",
-        "Install vite-plugin-monaco-editor for worker bundling",
-        "Add Monaco plugin to vite.config.ts with worker configuration",
-        "Typecheck passes"
+        "New SQL migration creates a projects table with columns: id (INTEGER PRIMARY KEY, the GitLab project ID), instance_id (INTEGER, FK to instances), name (TEXT), name_with_namespace (TEXT), path_with_namespace (TEXT), web_url (TEXT), created_at (TEXT), updated_at (TEXT)",
+        "Migration is registered in the migration list in db/mod.rs",
+        "Remove or repurpose the existing 0004_add_project_name.sql migration since we are using a separate table instead",
+        "Typecheck passes (cargo check)"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Completed with vite-plugin-monaco-editor and language workers configured"
+      "notes": ""
     },
     {
       "id": "US-002",
-      "title": "Create MonacoProvider component for app-wide configuration",
-      "description": "As a developer, I need a provider component that initializes Monaco with default settings so all Monaco instances share configuration.",
+      "title": "Add Rust model and DB operations for projects",
+      "description": "As a developer, I need a Project struct and database helper functions to insert/query projects.",
       "acceptanceCriteria": [
-        "Create src/components/Monaco/MonacoProvider.tsx component",
-        "Provider uses @monaco-editor/react loader to configure Monaco",
-        "Provider wraps the app in main.tsx or App.tsx",
-        "Monaco loads without console errors when navigating to MR detail page",
-        "Typecheck passes"
+        "Project struct in src-tauri/src/models/ with fields matching the database schema",
+        "Function to look up a project by (instance_id, project_id) — returns Option<Project>",
+        "Function to upsert a project (insert or update on conflict)",
+        "Typecheck passes (cargo check)"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "MonacoProvider wraps App and pre-loads Monaco from CDN"
+      "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Create Kanagawa Wave theme definition for Monaco",
-      "description": "As a user, I want the Kanagawa Wave color scheme applied to Monaco so the editor matches the app's visual identity.",
+      "title": "Add GitLab API method to fetch a project by ID",
+      "description": "As a developer, I need a method on the GitLab client to call GET /projects/:id and return project metadata.",
       "acceptanceCriteria": [
-        "Create src/components/Monaco/kanagawaTheme.ts with Monaco theme definition",
-        "Theme defines colors: background #1f1f28, foreground #dcd7ba, selection #2d4f67, lineNumbers #54546d",
-        "Theme defines syntax tokens: comments #727169, strings #98bb6c, keywords #957fb8, functions #7e9cd8",
-        "Theme defines diff colors: added bg #76946a33, removed bg #c3404333",
-        "Theme registered in MonacoProvider via monaco.editor.defineTheme",
-        "Typecheck passes"
+        "New method on the GitLab client: get_project(project_id: u64) -> Result<GitLabProject>",
+        "GitLabProject response struct with at least: id, name, name_with_namespace, path_with_namespace, web_url",
+        "Typecheck passes (cargo check)"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Comprehensive theme with all Kanagawa colors for editor, syntax, and diff"
+      "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Create basic MonacoDiffViewer component with side-by-side view",
-      "description": "As a reviewer, I want to see file changes in a side-by-side diff view using Monaco's DiffEditor.",
+      "title": "Fetch and cache project titles during MR sync",
+      "description": "As a developer, I want the sync engine to automatically fetch project titles for any new project IDs encountered during an MR sync, so the data is available without extra API calls later.",
       "acceptanceCriteria": [
-        "Create src/components/Monaco/MonacoDiffViewer.tsx component",
-        "Component accepts originalContent, modifiedContent, and filePath props",
-        "Uses Monaco DiffEditor with renderSideBySide: true",
-        "Editor is read-only (readOnly: true)",
-        "Applies Kanagawa Wave theme",
-        "Displays line numbers on both sides",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "After fetching MRs, the sync engine collects all unique project_id values",
+        "For each project_id not already present in the projects table, call GET /projects/:id",
+        "Upsert the fetched project data into the projects table",
+        "If the API call for a project fails, log a warning and continue (do not block the sync)",
+        "Typecheck passes (cargo check)"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "Basic diff viewer with Kanagawa theme and side-by-side support"
+      "notes": ""
     },
     {
       "id": "US-005",
-      "title": "Add language detection to MonacoDiffViewer",
-      "description": "As a reviewer, I want syntax highlighting based on file extension so code is readable.",
+      "title": "Expose project name to frontend via MR queries",
+      "description": "As a developer, I need the MR list and detail queries to join on the projects table and return the human-readable project name.",
       "acceptanceCriteria": [
-        "Create getLanguageFromPath utility function in Monaco folder",
-        "Function maps common extensions to Monaco language IDs (ts, tsx, js, jsx, rs, css, json, md, etc.)",
-        "MonacoDiffViewer passes detected language to DiffEditor",
-        "Falls back to plaintext for unknown extensions",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "SQL queries in commands/mr.rs LEFT JOIN merge_requests with projects on (project_id, instance_id)",
+        "The project_name field on MergeRequestListItem is populated from projects.name_with_namespace",
+        "If no project row exists (cache miss), fall back to extracting the path from web_url using the existing extract_project_path() function",
+        "The project_name column on the merge_requests table can be removed or ignored in favor of the join",
+        "Typecheck passes (cargo check)"
       ],
       "priority": 5,
       "passes": true,
-      "notes": "Supports 50+ extensions and special filenames like Dockerfile"
+      "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Add unified (inline) diff view mode to MonacoDiffViewer",
-      "description": "As a reviewer, I want to toggle between side-by-side and unified diff views.",
+      "title": "Display project title on MR cards",
+      "description": "As a user, I want to see the project's human-readable name (e.g. 'GitLab.org / GitLab') on each MR card so I can quickly identify which project a merge request belongs to.",
       "acceptanceCriteria": [
-        "Add viewMode prop to MonacoDiffViewer: 'unified' | 'split'",
-        "viewMode='split' sets renderSideBySide: true",
-        "viewMode='unified' sets renderSideBySide: false",
-        "Add onViewModeChange callback prop",
+        "MR cards display name_with_namespace from the projects cache",
+        "Falls back to project_path from URL if project title is unavailable",
+        "Long names are truncated with ellipsis (existing CSS behavior)",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
       "passes": true,
-      "notes": "Already implemented in US-004 - viewMode prop and onViewModeChange callback were part of initial component design"
-    },
-    {
-      "id": "US-007",
-      "title": "Add Rust command to fetch raw file content at SHA",
-      "description": "As a developer, I need a backend command to fetch raw file content from GitLab at a specific SHA for Monaco to display.",
-      "acceptanceCriteria": [
-        "Add get_file_content command to src-tauri/src/commands/mr.rs",
-        "Command accepts projectId, filePath, and sha parameters",
-        "Command calls GitLab API: GET /projects/:id/repository/files/:file_path/raw?ref=:sha",
-        "Returns file content as string",
-        "Handles 404 for deleted files (returns empty string)",
-        "Register command in lib.rs",
-        "Typecheck passes (cargo check)"
-      ],
-      "priority": 7,
-      "passes": true,
-      "notes": "Added get_file_content method to GitLabClient and Tauri command. Uses urlencoding for file paths."
-    },
-    {
-      "id": "US-008",
-      "title": "Add TypeScript service function for fetching file content",
-      "description": "As a developer, I need a frontend service to call the get_file_content command.",
-      "acceptanceCriteria": [
-        "Add getFileContent function to src/services/gitlab.ts",
-        "Function calls invoke('get_file_content', { projectId, filePath, sha })",
-        "Function returns Promise<string>",
-        "Typecheck passes"
-      ],
-      "priority": 8,
-      "passes": true,
-      "notes": "Added getFileContent to tauri.ts and gitlab.ts with proper exports via index.ts"
-    },
-    {
-      "id": "US-009",
-      "title": "Integrate MonacoDiffViewer into MRDetailPage",
-      "description": "As a reviewer, I want the Monaco diff viewer to replace the current diff viewer in the MR detail page.",
-      "acceptanceCriteria": [
-        "Import MonacoDiffViewer in MRDetailPage.tsx",
-        "Fetch original content using getFileContent with mr.diffRefs.baseSha",
-        "Fetch modified content using getFileContent with mr.diffRefs.headSha",
-        "Replace DiffViewer with MonacoDiffViewer, passing content and viewMode",
-        "Show loading state while fetching content",
-        "Handle error state if fetch fails",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 9,
-      "passes": true,
-      "notes": "Implemented with getDiffRefs to fetch SHA values, file content fetching for Monaco, loading/error states, and full styling"
-    },
-    {
-      "id": "US-010",
-      "title": "Add diffRefs to MergeRequest type and API",
-      "description": "As a developer, I need the base_sha, head_sha, and start_sha available on the MergeRequest to fetch file content.",
-      "acceptanceCriteria": [
-        "Add diffRefs field to MergeRequest type in src/types/index.ts: { baseSha: string, headSha: string, startSha: string }",
-        "Update Rust MergeRequest struct to include diff_refs",
-        "Update API call to include diff_refs in response",
-        "Typecheck passes (both bun and cargo)"
-      ],
-      "priority": 10,
-      "passes": true,
-      "notes": "Implemented via separate get_diff_refs command instead of embedding in MergeRequest. Added DiffRefs type to frontend, getDiffRefs function in tauri.ts and gitlab.ts. Also added instanceId to MergeRequest type."
-    },
-    {
-      "id": "US-011",
-      "title": "Enable minimap in MonacoDiffViewer",
-      "description": "As a reviewer, I want a minimap showing the full file structure for quick navigation.",
-      "acceptanceCriteria": [
-        "Enable Monaco minimap option: minimap: { enabled: true, side: 'right' }",
-        "Minimap shows on the modified (right) side in split view",
-        "Minimap shows diff decorations (colored regions for changes)",
-        "Clicking minimap navigates to that position",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 11,
-      "passes": true,
-      "notes": "Enabled minimap with side: right, showSlider: mouseover, renderCharacters: false"
-    },
-    {
-      "id": "US-012",
-      "title": "Enable code folding in MonacoDiffViewer",
-      "description": "As a reviewer, I want to collapse code regions to focus on changes.",
-      "acceptanceCriteria": [
-        "Enable Monaco folding option: folding: true",
-        "Fold/unfold icons appear in gutter for foldable regions",
-        "Ctrl+Shift+[ folds current region",
-        "Ctrl+Shift+] unfolds current region",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 12,
-      "passes": true,
-      "notes": "Already enabled: folding: true, foldingHighlight: true, showFoldingControls: always"
-    },
-    {
-      "id": "US-013",
-      "title": "Enable find functionality in MonacoDiffViewer",
-      "description": "As a reviewer, I want to search within the diff to find specific code.",
-      "acceptanceCriteria": [
-        "Ctrl/Cmd+F opens Monaco's built-in find widget",
-        "Search highlights matches in both original and modified panes",
-        "F3 / Shift+F3 navigates to next/previous match",
-        "Find widget styled to match Kanagawa theme",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 13,
-      "passes": true,
-      "notes": "Monaco find functionality enabled by default - Kanagawa theme provides styling"
-    },
-    {
-      "id": "US-014",
-      "title": "Add keyboard shortcut for view mode toggle",
-      "description": "As a reviewer, I want to press 'x' to toggle between unified and split view modes.",
-      "acceptanceCriteria": [
-        "Existing 'x' key handler in MRDetailPage toggles viewMode state",
-        "viewMode state passed to MonacoDiffViewer",
-        "View switches immediately on keypress",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 14,
-      "passes": true,
-      "notes": "Already implemented - x key toggles viewMode state which is passed to MonacoDiffViewer"
-    },
-    {
-      "id": "US-015",
-      "title": "Add diff hunk navigation with bracket keys",
-      "description": "As a reviewer, I want to press ] and [ to jump between diff hunks.",
-      "acceptanceCriteria": [
-        "Create useDiffNavigation hook that gets Monaco editor instance",
-        "Hook uses editor.getModifiedEditor().getLineChanges() to get diff positions",
-        "'] ' key jumps to next change (scrolls editor to that line)",
-        "'[' key jumps to previous change",
-        "Navigation wraps around at file boundaries",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 15,
-      "passes": true,
-      "notes": "Implemented via MonacoDiffViewerRef with goToNextChange/goToPreviousChange methods, wired to ] and [ keys in MRDetailPage"
-    },
-    {
-      "id": "US-016",
-      "title": "Display comment indicators in Monaco glyph margin",
-      "description": "As a reviewer, I want to see which lines have comments via icons in the gutter.",
-      "acceptanceCriteria": [
-        "Fetch comments for current file using existing get_file_comments command",
-        "Create decorations for lines with comments using editor.createDecorationsCollection",
-        "Show comment icon (💬 or custom glyph) in glyph margin for commented lines",
-        "Lines with comments have subtle background highlight",
-        "Decorations update when comments change",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 16,
-      "passes": true,
-      "notes": "Implemented with LineComment type, decoration collection, CSS styles for glyph margin emoji and line highlight"
-    },
-    {
-      "id": "US-017",
-      "title": "Show comment content on hover",
-      "description": "As a reviewer, I want to hover over a comment indicator to see the comment content.",
-      "acceptanceCriteria": [
-        "Register Monaco hover provider for lines with comments",
-        "Hover displays author username and timestamp",
-        "Hover displays comment body",
-        "Multiple comments on same line shown stacked",
-        "Hover styled to match Kanagawa theme",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 17,
-      "passes": true,
-      "notes": "Implemented via glyphMarginHoverMessage with markdown formatting for author, timestamp, resolved status, and body. Multiple comments shown as separate messages."
-    },
-    {
-      "id": "US-018",
-      "title": "Add comment input widget via 'c' key",
-      "description": "As a reviewer, I want to press 'c' to add a comment on the selected line.",
-      "acceptanceCriteria": [
-        "Pressing 'c' opens comment input as Monaco view zone below current line",
-        "View zone contains textarea for comment body",
-        "Submit button posts comment via existing add_comment command",
-        "Cancel button or Escape closes widget without saving",
-        "After submit, comment decoration appears on the line",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 18,
-      "passes": true,
-      "notes": "Implemented as overlay modal with getCursorPosition from MonacoDiffViewerRef. Cmd+Enter submits, Escape cancels. Optimistic update adds comment decoration immediately."
-    },
-    {
-      "id": "US-019",
-      "title": "Preserve scroll position when switching files",
-      "description": "As a reviewer, I want my scroll position preserved when returning to a previously viewed file.",
-      "acceptanceCriteria": [
-        "Create useEditorState hook to track scroll position per file path",
-        "Save scroll position (editor.getScrollTop()) when file changes",
-        "Restore scroll position when returning to a file",
-        "State cleared when MR ID changes",
-        "Typecheck passes"
-      ],
-      "priority": 19,
-      "passes": true,
-      "notes": "Implemented via scrollPositionsRef Map and getScrollTop/setScrollTop on MonacoDiffViewerRef"
-    },
-    {
-      "id": "US-020",
-      "title": "Remove old DiffViewer component imports",
-      "description": "As a developer, I want to clean up old DiffViewer code now that Monaco is integrated.",
-      "acceptanceCriteria": [
-        "Remove DiffViewer import from MRDetailPage if no longer used",
-        "Keep old DiffViewer files for now (can delete in future cleanup)",
-        "Update any remaining references to use MonacoDiffViewer",
-        "Typecheck passes"
-      ],
-      "priority": 20,
-      "passes": true,
-      "notes": "DiffViewer component replaced with MonacoDiffViewer; FileNavigation still imported from DiffViewer folder"
-    },
-    {
-      "id": "US-021",
-      "title": "Add loading skeleton for Monaco diff viewer",
-      "description": "As a reviewer, I want to see a loading indicator while file content is being fetched.",
-      "acceptanceCriteria": [
-        "Show skeleton/shimmer UI while originalContent or modifiedContent is loading",
-        "Skeleton matches approximate size of editor area",
-        "Loading text or spinner indicates progress",
-        "Editor renders once both contents are available",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 21,
-      "passes": true,
-      "notes": "Already implemented with file-loading spinner in US-009"
-    },
-    {
-      "id": "US-022",
-      "title": "Update keyboard hints footer for Monaco shortcuts",
-      "description": "As a user, I want the keyboard hints footer to show accurate shortcuts for the Monaco viewer.",
-      "acceptanceCriteria": [
-        "Footer in MRDetailPage shows updated shortcuts",
-        "Include: n/p file, v viewed, ]/[ change, x split/unified, a approve, c comment, Ctrl+F find",
-        "Remove any shortcuts that no longer apply",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 22,
-      "passes": true,
-      "notes": "Updated footer with ⌘F find shortcut; removed c comment (not yet implemented in Monaco)"
+      "notes": ""
     }
   ]
 }
