@@ -13,7 +13,8 @@ import {
   type GitLabInstanceWithStatus,
 } from '../services/gitlab';
 import { formatRelativeTime } from '../services/storage';
-import { invoke, updateInstanceToken } from '../services/tauri';
+import { invoke, getTokenInfo, updateInstanceToken } from '../services/tauri';
+import type { TokenInfo } from '../types';
 import useCustomShortcuts from '../hooks/useCustomShortcuts';
 import {
   defaultShortcuts,
@@ -63,6 +64,9 @@ export default function Settings() {
   const [tokenSuccess, setTokenSuccess] = useState<string | null>(null);
   const tokenInputRef = useRef<HTMLInputElement>(null);
 
+  // Token info state
+  const [tokenInfoMap, setTokenInfoMap] = useState<Record<number, TokenInfo | 'error'>>({});
+
   // Sync settings state
   const [syncSettings, setSyncSettings] = useState<SyncConfig | null>(null);
   const [syncSettingsLoading, setSyncSettingsLoading] = useState(true);
@@ -80,11 +84,30 @@ export default function Settings() {
       setError(null);
       const result = await listInstances();
       setInstances(result);
+      loadTokenInfos(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load instances');
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadTokenInfos(insts: GitLabInstanceWithStatus[]) {
+    const results = await Promise.allSettled(
+      insts.filter((i) => i.hasToken).map(async (inst) => {
+        const info = await getTokenInfo(inst.id);
+        return { id: inst.id, info };
+      })
+    );
+    const map: Record<number, TokenInfo | 'error'> = {};
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        map[result.value.id] = result.value.info;
+      } else {
+        // Can't recover instance id from rejected promise easily, skip
+      }
+    }
+    setTokenInfoMap(map);
   }
 
   async function loadSyncSettings() {
@@ -180,6 +203,19 @@ export default function Settings() {
     loadInstances();
   }
 
+  function formatExpiration(info: TokenInfo): { text: string; daysLeft: number | null } {
+    if (!info.expiresAt) return { text: 'No expiration', daysLeft: null };
+    const expires = new Date(info.expiresAt);
+    const now = new Date();
+    const diffMs = expires.getTime() - now.getTime();
+    const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const formatted = expires.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    if (daysLeft < 0) {
+      return { text: `Expired ${formatted}`, daysLeft };
+    }
+    return { text: `Expires ${formatted} — ${daysLeft} day${daysLeft === 1 ? '' : 's'} left`, daysLeft };
+  }
+
   return (
     <div className="settings-page">
       <header className="settings-header">
@@ -234,6 +270,11 @@ export default function Settings() {
                         <span className="token-warning"> • Token missing</span>
                       )}
                     </span>
+                    {tokenInfoMap[inst.id] && tokenInfoMap[inst.id] !== 'error' && (
+                      <span className="instance-expiration">
+                        {formatExpiration(tokenInfoMap[inst.id] as TokenInfo).text}
+                      </span>
+                    )}
                     {editingTokenId === inst.id ? (
                       <div className="edit-token-form">
                         <input

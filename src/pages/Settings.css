@@ -135,6 +135,11 @@
   color: var(--warning-color, #f90);
 }
 
+.instance-expiration {
+  font-size: 0.8rem;
+  color: var(--text-muted, #888);
+}
+
 .delete-button {
   background: none;
   border: none;
