@@ -270,11 +270,20 @@ export default function Settings() {
                         <span className="token-warning"> • Token missing</span>
                       )}
                     </span>
-                    {tokenInfoMap[inst.id] && tokenInfoMap[inst.id] !== 'error' && (
-                      <span className="instance-expiration">
-                        {formatExpiration(tokenInfoMap[inst.id] as TokenInfo).text}
-                      </span>
-                    )}
+                    {tokenInfoMap[inst.id] && tokenInfoMap[inst.id] !== 'error' && (() => {
+                      const { text, daysLeft } = formatExpiration(tokenInfoMap[inst.id] as TokenInfo);
+                      return (
+                        <span className="instance-expiration">
+                          {text}
+                          {daysLeft !== null && daysLeft < 0 && (
+                            <span className="token-badge token-badge-expired">Expired</span>
+                          )}
+                          {daysLeft !== null && daysLeft >= 0 && daysLeft < 30 && (
+                            <span className="token-badge token-badge-warning">Expiring soon</span>
+                          )}
+                        </span>
+                      );
+                    })()}
                     {editingTokenId === inst.id ? (
                       <div className="edit-token-form">
                         <input

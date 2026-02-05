@@ -136,8 +136,31 @@
 }
 
 .instance-expiration {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.8rem;
   color: var(--text-muted, #888);
+}
+
+.token-badge {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.token-badge-warning {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.token-badge-expired {
+  background: #f8d7da;
+  color: #842029;
 }
 
 .delete-button {
