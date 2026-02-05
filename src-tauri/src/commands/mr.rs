@@ -792,6 +792,39 @@ fn parse_range(s: &str) -> Option<(i64, i64)> {
     }
 }
 
+/// Create a GitLab client for the given instance.
+///
+/// Helper function to avoid duplication between file content commands.
+async fn create_gitlab_client(
+    pool: &State<'_, DbPool>,
+    instance_id: i64,
+) -> Result<GitLabClient, AppError> {
+    let instance: Option<GitLabInstance> = sqlx::query_as(
+        r#"
+        SELECT id, url, name, token, created_at
+        FROM gitlab_instances
+        WHERE id = $1
+        "#,
+    )
+    .bind(instance_id)
+    .fetch_optional(pool.inner())
+    .await?;
+
+    let instance = instance.ok_or_else(|| {
+        AppError::not_found_with_id("GitLabInstance", instance_id.to_string())
+    })?;
+
+    let token = instance.token.ok_or_else(|| {
+        AppError::authentication("No token configured for GitLab instance")
+    })?;
+
+    GitLabClient::new(GitLabClientConfig {
+        base_url: instance.url,
+        token,
+        timeout_secs: 30,
+    })
+}
+
 /// Get raw file content from GitLab at a specific SHA.
 ///
 /// This fetches the raw file content from the repository at a specific commit.
@@ -813,35 +846,37 @@ pub async fn get_file_content(
     file_path: String,
     sha: String,
 ) -> Result<String, AppError> {
-    // Get the GitLab instance to retrieve the token
-    let instance: Option<GitLabInstance> = sqlx::query_as(
-        r#"
-        SELECT id, url, name, token, created_at
-        FROM gitlab_instances
-        WHERE id = $1
-        "#,
-    )
-    .bind(instance_id)
-    .fetch_optional(pool.inner())
-    .await?;
-
-    let instance = instance.ok_or_else(|| {
-        AppError::not_found_with_id("GitLabInstance", instance_id.to_string())
-    })?;
-
-    let token = instance.token.ok_or_else(|| {
-        AppError::authentication("No token configured for GitLab instance")
-    })?;
-
-    // Create the GitLab client
-    let client = GitLabClient::new(GitLabClientConfig {
-        base_url: instance.url,
-        token,
-        timeout_secs: 30,
-    })?;
-
-    // Fetch the file content
+    let client = create_gitlab_client(&pool, instance_id).await?;
     client.get_file_content(project_id, &file_path, &sha).await
+}
+
+/// Get binary file content from GitLab as base64.
+///
+/// This fetches binary file content (images, etc.) and returns it as base64-encoded string.
+/// Used by the image diff viewer to display original and modified images.
+///
+/// # Arguments
+/// * `instance_id` - The GitLab instance ID
+/// * `project_id` - The GitLab project ID
+/// * `file_path` - The path to the file in the repository
+/// * `sha` - The commit SHA to fetch the file at
+///
+/// # Returns
+/// The file content as a base64-encoded string. Returns empty string for deleted/new files (404).
+#[tauri::command]
+pub async fn get_file_content_base64(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+    file_path: String,
+    sha: String,
+) -> Result<String, AppError> {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+
+    let client = create_gitlab_client(&pool, instance_id).await?;
+    let bytes = client.get_file_content_bytes(project_id, &file_path, &sha).await?;
+
+    Ok(STANDARD.encode(&bytes))
 }
 
 #[cfg(test)]

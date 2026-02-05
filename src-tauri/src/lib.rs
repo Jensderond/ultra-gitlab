@@ -13,15 +13,15 @@ use commands::{
     add_comment, approve_mr, clear_test_data, delete_gitlab_instance, discard_failed_action,
     generate_test_data, get_action_counts, get_approval_status, get_cache_stats, get_comments,
     get_diagnostics_report, get_diff_content, get_diff_file, get_diff_file_metadata, get_diff_files,
-    get_diff_hunks, get_diff_refs, get_file_comments, get_file_content, get_gitlab_instances,
-    get_memory_stats, get_merge_request_detail, get_merge_requests, get_settings, get_sync_config,
-    get_sync_settings, get_sync_status, reply_to_comment, resolve_discussion, retry_failed_actions,
-    setup_gitlab_instance, trigger_sync, unapprove_mr, update_settings, update_sync_config,
-    update_sync_settings,
+    get_diff_hunks, get_diff_refs, get_file_comments, get_file_content, get_file_content_base64,
+    get_gitlab_instances, get_memory_stats, get_merge_request_detail, get_merge_requests,
+    get_settings, get_sync_config, get_sync_settings, get_sync_status, reply_to_comment,
+    resolve_discussion, retry_failed_actions, setup_gitlab_instance, trigger_sync, unapprove_mr,
+    update_settings, update_sync_config, update_sync_settings,
 };
+use services::sync_engine::{SyncConfig, SyncEngine};
 use tauri::Manager;
 
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -44,14 +44,21 @@ pub fn run() {
             println!("Database path: {}", db_path.display());
 
             // Run async initialization in a blocking context
-            let pool = tauri::async_runtime::block_on(async {
-                db::initialize(&db_path)
+            let (pool, sync_handle) = tauri::async_runtime::block_on(async {
+                let pool = db::initialize(&db_path)
                     .await
-                    .expect("Failed to initialize database")
+                    .expect("Failed to initialize database");
+
+                // Start background sync engine (needs active Tokio runtime for tokio::spawn)
+                let sync_handle = SyncEngine::start_background(pool.clone(), SyncConfig::default());
+                eprintln!("[sync] Background sync engine started");
+
+                (pool, sync_handle)
             });
 
-            // Store the pool in app state for use in commands
+            // Store state for use in commands
             app.manage(pool);
+            app.manage(sync_handle);
 
             Ok(())
         })
@@ -69,6 +76,7 @@ pub fn run() {
             get_diff_hunks,
             get_diff_refs,
             get_file_content,
+            get_file_content_base64,
             get_comments,
             get_file_comments,
             add_comment,

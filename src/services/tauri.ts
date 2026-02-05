@@ -180,6 +180,19 @@ export async function getFileContent(
 }
 
 /**
+ * Get binary file content as base64 at a specific SHA.
+ * Used by image diff viewer to get original and modified images.
+ */
+export async function getFileContentBase64(
+  instanceId: number,
+  projectId: number,
+  filePath: string,
+  sha: string
+): Promise<string> {
+  return invoke<string>('get_file_content_base64', { instanceId, projectId, filePath, sha });
+}
+
+/**
  * Get diff refs (SHA values) for a merge request.
  * Used to fetch original and modified file content for Monaco diff viewer.
  */

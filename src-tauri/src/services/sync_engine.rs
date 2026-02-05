@@ -17,10 +17,9 @@ use crate::services::gitlab_client::{
 use crate::services::sync_processor::{self, ProcessResult};
 use crate::services::sync_queue;
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio::sync::{mpsc, RwLock};
 use tokio::time;
 
 /// Default sync interval in seconds (5 minutes per spec).
@@ -142,6 +141,42 @@ pub enum SyncCommand {
     Stop,
 }
 
+/// Lightweight handle for controlling the background sync engine.
+///
+/// Managed as Tauri state. Communicates with the background sync loop
+/// via an mpsc channel, avoiding lock contention.
+#[derive(Clone)]
+pub struct SyncHandle {
+    /// Command channel sender.
+    command_tx: mpsc::Sender<SyncCommand>,
+
+    /// Shared configuration (readable without locking the engine).
+    config: Arc<RwLock<SyncConfig>>,
+}
+
+impl SyncHandle {
+    /// Trigger an immediate sync.
+    pub async fn trigger_sync(&self) -> Result<(), AppError> {
+        self.command_tx
+            .send(SyncCommand::TriggerSync)
+            .await
+            .map_err(|_| AppError::internal("Sync engine not running"))
+    }
+
+    /// Update the sync configuration.
+    pub async fn update_config(&self, config: SyncConfig) -> Result<(), AppError> {
+        self.command_tx
+            .send(SyncCommand::UpdateConfig(config))
+            .await
+            .map_err(|_| AppError::internal("Sync engine not running"))
+    }
+
+    /// Get the current configuration.
+    pub async fn get_config(&self) -> SyncConfig {
+        self.config.read().await.clone()
+    }
+}
+
 /// Background sync engine.
 ///
 /// Manages periodic synchronization with GitLab, including:
@@ -158,12 +193,6 @@ pub struct SyncEngine {
 
     /// Sync status.
     status: Arc<RwLock<SyncStatus>>,
-
-    /// Whether the engine is running.
-    is_running: Arc<AtomicBool>,
-
-    /// Command channel sender.
-    command_tx: Option<mpsc::Sender<SyncCommand>>,
 }
 
 impl SyncEngine {
@@ -182,119 +211,93 @@ impl SyncEngine {
                 cache_size_bytes: 0,
                 cache_size_warning: false,
             })),
-            is_running: Arc::new(AtomicBool::new(false)),
-            command_tx: None,
-        }
-    }
-
-    /// Get a clone of the current status.
-    pub async fn get_status(&self) -> SyncStatus {
-        self.status.read().await.clone()
-    }
-
-    /// Get the current configuration.
-    pub async fn get_config(&self) -> SyncConfig {
-        self.config.read().await.clone()
-    }
-
-    /// Update the configuration.
-    pub async fn update_config(&self, config: SyncConfig) {
-        *self.config.write().await = config.clone();
-
-        // If running, notify the engine of the config change
-        if let Some(tx) = &self.command_tx {
-            let _ = tx.send(SyncCommand::UpdateConfig(config)).await;
-        }
-    }
-
-    /// Trigger an immediate sync.
-    pub async fn trigger_sync(&self) -> Result<(), AppError> {
-        if let Some(tx) = &self.command_tx {
-            tx.send(SyncCommand::TriggerSync)
-                .await
-                .map_err(|_| AppError::internal("Sync engine not running"))?;
-            Ok(())
-        } else {
-            // If not running as background task, run sync directly
-            self.run_sync().await?;
-            Ok(())
-        }
-    }
-
-    /// Stop the sync engine.
-    pub async fn stop(&self) {
-        self.is_running.store(false, Ordering::SeqCst);
-
-        if let Some(tx) = &self.command_tx {
-            let _ = tx.send(SyncCommand::Stop).await;
         }
     }
 
     /// Start the background sync loop.
     ///
-    /// This spawns a background task that runs sync at the configured interval.
-    /// Returns a handle to control the sync engine.
-    pub fn start_background(pool: DbPool, config: SyncConfig) -> Arc<Mutex<SyncEngine>> {
+    /// Spawns a background task that owns the engine and runs sync at the
+    /// configured interval. Returns a lightweight `SyncHandle` for sending
+    /// commands (trigger, config update, stop) without holding a lock.
+    pub fn start_background(pool: DbPool, config: SyncConfig) -> SyncHandle {
         let (tx, mut rx) = mpsc::channel::<SyncCommand>(16);
-
-        let engine = Arc::new(Mutex::new(SyncEngine {
-            pool: pool.clone(),
-            config: Arc::new(RwLock::new(config.clone())),
-            status: Arc::new(RwLock::new(SyncStatus {
-                is_syncing: false,
-                last_sync_time: None,
-                last_error: None,
-                pending_actions: 0,
-                failed_actions: 0,
-                last_sync_mr_count: 0,
-                cache_size_bytes: 0,
-                cache_size_warning: false,
-            })),
-            is_running: Arc::new(AtomicBool::new(true)),
-            command_tx: Some(tx),
-        }));
-
-        let engine_clone = engine.clone();
+        let config_shared = Arc::new(RwLock::new(config.clone()));
+        let config_for_task = config_shared.clone();
 
         tokio::spawn(async move {
-            let mut interval = time::interval(Duration::from_secs(config.interval_secs));
+            // Brief delay so the app window appears before we start network I/O
+            tokio::time::sleep(Duration::from_secs(3)).await;
+
+            let engine = SyncEngine {
+                pool,
+                config: config_for_task,
+                status: Arc::new(RwLock::new(SyncStatus {
+                    is_syncing: false,
+                    last_sync_time: None,
+                    last_error: None,
+                    pending_actions: 0,
+                    failed_actions: 0,
+                    last_sync_mr_count: 0,
+                    cache_size_bytes: 0,
+                    cache_size_warning: false,
+                })),
+            };
+
+            // Run initial sync immediately
+            eprintln!("[sync] Running initial background sync...");
+            match engine.run_sync().await {
+                Ok(r) => eprintln!(
+                    "[sync] Initial sync complete: {} MRs, {} purged, {} errors",
+                    r.mr_count,
+                    r.purged_count,
+                    r.errors.len()
+                ),
+                Err(e) => eprintln!("[sync] Initial sync error: {}", e),
+            }
+
+            let interval_secs = {
+                engine.config.read().await.interval_secs
+            };
+            let mut interval = time::interval(Duration::from_secs(interval_secs));
+            // Consume the first (immediate) tick since we just ran sync
+            interval.tick().await;
 
             loop {
                 tokio::select! {
                     _ = interval.tick() => {
-                        let engine = engine_clone.lock().await;
-                        if !engine.is_running.load(Ordering::SeqCst) {
-                            break;
-                        }
-
-                        // Run sync
+                        eprintln!("[sync] Running periodic background sync...");
                         if let Err(e) = engine.run_sync().await {
-                            let mut status = engine.status.write().await;
-                            status.last_error = Some(e.to_string());
+                            eprintln!("[sync] Periodic sync error: {}", e);
                         }
                     }
                     Some(cmd) = rx.recv() => {
                         match cmd {
                             SyncCommand::TriggerSync => {
-                                let engine = engine_clone.lock().await;
+                                eprintln!("[sync] Manual sync triggered");
                                 if let Err(e) = engine.run_sync().await {
-                                    let mut status = engine.status.write().await;
-                                    status.last_error = Some(e.to_string());
+                                    eprintln!("[sync] Manual sync error: {}", e);
                                 }
                             }
                             SyncCommand::UpdateConfig(new_config) => {
+                                eprintln!("[sync] Config updated, interval={}s", new_config.interval_secs);
                                 interval = time::interval(Duration::from_secs(new_config.interval_secs));
+                                *engine.config.write().await = new_config;
                             }
                             SyncCommand::Stop => {
+                                eprintln!("[sync] Sync engine stopping");
                                 break;
                             }
                         }
                     }
                 }
             }
+            eprintln!("[sync] Sync engine stopped");
         });
 
-        engine
+        SyncHandle {
+            command_tx: tx,
+            config: config_shared,
+        }
     }
 
     /// Run a single sync operation.
@@ -323,6 +326,11 @@ impl SyncEngine {
 
         // Get all GitLab instances
         let instances = self.get_gitlab_instances().await?;
+        eprintln!("[sync] Found {} GitLab instance(s)", instances.len());
+
+        for instance in &instances {
+            eprintln!("[sync] Syncing instance: {} (id={})", instance.url, instance.id);
+        }
 
         for instance in instances {
             match self.sync_instance(&instance).await {
@@ -393,9 +401,17 @@ impl SyncEngine {
     /// Sync a single GitLab instance.
     async fn sync_instance(&self, instance: &GitLabInstanceRow) -> Result<SyncResult, AppError> {
         let config = self.config.read().await;
+        eprintln!(
+            "[sync] sync_instance: url={}, has_token={}, sync_authored={}, sync_reviewing={}",
+            instance.url,
+            instance.token.is_some(),
+            config.sync_authored,
+            config.sync_reviewing
+        );
 
         // Get token from DB
         let token = instance.token.clone().ok_or_else(|| {
+            eprintln!("[sync] ERROR: No token for instance {} (id={})", instance.url, instance.id);
             AppError::authentication_expired_for_instance(
                 "GitLab token missing. Please re-authenticate.",
                 instance.id,
@@ -490,6 +506,7 @@ impl SyncEngine {
 
         // Validate token and get current user
         let current_user = client.validate_token().await?;
+        eprintln!("[sync] Authenticated as user: '{}' (id={})", current_user.username, current_user.id);
 
         // Fetch authored MRs if enabled
         if config.sync_authored {
@@ -523,8 +540,19 @@ impl SyncEngine {
                 ..Default::default()
             };
 
+            // Log the query parameters so we can verify the username and filters
+            eprintln!(
+                "[sync] Fetching reviewing MRs for user '{}', query: {}",
+                current_user.username,
+                serde_json::to_string(&query).unwrap_or_default()
+            );
+
             match client.list_merge_requests(&query).await {
                 Ok(response) => {
+                    eprintln!(
+                        "[sync] Received {} reviewing MRs from GitLab",
+                        response.data.len()
+                    );
                     // Avoid duplicates (MR could be both authored and assigned for review)
                     for mr in response.data {
                         if !all_mrs.iter().any(|m: &GitLabMergeRequest| m.id == mr.id) {
@@ -546,7 +574,7 @@ impl SyncEngine {
         Ok(all_mrs)
     }
 
-    /// Sync a single MR (metadata, diff, comments).
+    /// Sync a single MR (metadata, diff, comments, approval status).
     async fn sync_mr(
         &self,
         instance_id: i64,
@@ -557,6 +585,40 @@ impl SyncEngine {
 
         // Upsert MR metadata
         self.upsert_mr(instance_id, mr).await?;
+
+        // Fetch and store approval status
+        match client.get_mr_approvals(mr.project_id, mr.iid).await {
+            Ok(approvals) => {
+                // Get current user to check if they've approved
+                let current_user = client.validate_token().await.ok();
+                let user_has_approved = current_user.map_or(false, |u| {
+                    approvals.approved_by.iter().any(|a| a.user.id == u.id)
+                });
+
+                let approval_status = if approvals.approved { "approved" } else { "pending" };
+                let approvals_count = approvals.approvals_required - approvals.approvals_left;
+
+                sqlx::query(
+                    "UPDATE merge_requests SET
+                        approval_status = ?,
+                        approvals_count = ?,
+                        approvals_required = ?,
+                        user_has_approved = ?
+                     WHERE id = ?"
+                )
+                .bind(approval_status)
+                .bind(approvals_count)
+                .bind(approvals.approvals_required)
+                .bind(user_has_approved)
+                .bind(mr.id)
+                .execute(&self.pool)
+                .await?;
+            }
+            Err(e) => {
+                // Non-critical - log and continue
+                log::warn!("Failed to fetch approvals for MR {}: {}", mr.iid, e);
+            }
+        }
 
         // Fetch and store diff
         match client.get_merge_request_diff(mr.project_id, mr.iid).await {

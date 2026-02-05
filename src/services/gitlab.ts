@@ -17,6 +17,7 @@ import {
   getDiffHunks,
   getDiffRefs as tauriGetDiffRefs,
   getFileContent as tauriGetFileContent,
+  getFileContentBase64 as tauriGetFileContentBase64,
   getComments,
   addComment,
   replyToComment,
@@ -197,6 +198,25 @@ export async function getFileContent(
   sha: string
 ): Promise<string> {
   return tauriGetFileContent(instanceId, projectId, filePath, sha);
+}
+
+/**
+ * Get binary file content as base64 at a specific commit SHA.
+ * Used by image diff viewer to get original and modified images.
+ *
+ * @param instanceId - The GitLab instance ID
+ * @param projectId - The GitLab project ID
+ * @param filePath - The path to the file in the repository
+ * @param sha - The commit SHA to fetch the file at
+ * @returns The file content as base64-encoded string (empty for deleted/new files)
+ */
+export async function getFileContentBase64(
+  instanceId: number,
+  projectId: number,
+  filePath: string,
+  sha: string
+): Promise<string> {
+  return tauriGetFileContentBase64(instanceId, projectId, filePath, sha);
 }
 
 // ============================================================================

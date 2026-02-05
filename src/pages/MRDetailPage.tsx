@@ -9,8 +9,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { FileNavigation } from '../components/DiffViewer';
 import { MonacoDiffViewer, type MonacoDiffViewerRef, type LineComment, type CursorPosition } from '../components/Monaco/MonacoDiffViewer';
+import { ImageDiffViewer } from '../components/Monaco/ImageDiffViewer';
+import { isImageFile, getImageMimeType } from '../components/Monaco/languageDetection';
 import { ApprovalButton, type ApprovalButtonRef } from '../components/Approval';
-import { getMergeRequestById, getMergeRequestFiles, getDiffRefs, getFileContent } from '../services/gitlab';
+import { getMergeRequestById, getMergeRequestFiles, getDiffRefs, getFileContent, getFileContentBase64 } from '../services/gitlab';
 import { invoke } from '../services/tauri';
 import type { MergeRequest, DiffFileSummary, DiffRefs, Comment, AddCommentRequest } from '../types';
 import './MRDetailPage.css';
@@ -40,6 +42,10 @@ export default function MRDetailPage() {
   const [modifiedContent, setModifiedContent] = useState<string>('');
   const [fileContentLoading, setFileContentLoading] = useState(false);
   const [fileContentError, setFileContentError] = useState<string | null>(null);
+
+  // Image diff viewer state (base64 content)
+  const [originalImageBase64, setOriginalImageBase64] = useState<string>('');
+  const [modifiedImageBase64, setModifiedImageBase64] = useState<string>('');
 
   // Scroll position state per file
   const scrollPositionsRef = useRef<Map<string, number>>(new Map());
@@ -122,6 +128,8 @@ export default function MRDetailPage() {
       if (!selectedFile || !mr || !diffRefs) {
         setOriginalContent('');
         setModifiedContent('');
+        setOriginalImageBase64('');
+        setModifiedImageBase64('');
         return;
       }
 
@@ -131,24 +139,50 @@ export default function MRDetailPage() {
       const isDeletedFile = fileInfo?.changeType === 'deleted';
       const oldPath = fileInfo?.oldPath || selectedFile;
 
+      // Check if this is an image file
+      const isImage = isImageFile(selectedFile);
+
       try {
         setFileContentLoading(true);
         setFileContentError(null);
 
-        // Fetch original and modified content in parallel
-        const [original, modified] = await Promise.all([
-          // Original content (at base SHA) - empty for new files
-          isNewFile
-            ? Promise.resolve('')
-            : getFileContent(mr.instanceId, mr.projectId, oldPath, diffRefs.baseSha).catch(() => ''),
-          // Modified content (at head SHA) - empty for deleted files
-          isDeletedFile
-            ? Promise.resolve('')
-            : getFileContent(mr.instanceId, mr.projectId, selectedFile, diffRefs.headSha).catch(() => ''),
-        ]);
+        if (isImage) {
+          // Fetch image content as base64
+          const [originalBase64, modifiedBase64] = await Promise.all([
+            // Original image (at base SHA) - empty for new files
+            isNewFile
+              ? Promise.resolve('')
+              : getFileContentBase64(mr.instanceId, mr.projectId, oldPath, diffRefs.baseSha).catch(() => ''),
+            // Modified image (at head SHA) - empty for deleted files
+            isDeletedFile
+              ? Promise.resolve('')
+              : getFileContentBase64(mr.instanceId, mr.projectId, selectedFile, diffRefs.headSha).catch(() => ''),
+          ]);
 
-        setOriginalContent(original);
-        setModifiedContent(modified);
+          setOriginalImageBase64(originalBase64);
+          setModifiedImageBase64(modifiedBase64);
+          // Clear text content
+          setOriginalContent('');
+          setModifiedContent('');
+        } else {
+          // Fetch original and modified content in parallel
+          const [original, modified] = await Promise.all([
+            // Original content (at base SHA) - empty for new files
+            isNewFile
+              ? Promise.resolve('')
+              : getFileContent(mr.instanceId, mr.projectId, oldPath, diffRefs.baseSha).catch(() => ''),
+            // Modified content (at head SHA) - empty for deleted files
+            isDeletedFile
+              ? Promise.resolve('')
+              : getFileContent(mr.instanceId, mr.projectId, selectedFile, diffRefs.headSha).catch(() => ''),
+          ]);
+
+          setOriginalContent(original);
+          setModifiedContent(modified);
+          // Clear image content
+          setOriginalImageBase64('');
+          setModifiedImageBase64('');
+        }
       } catch (err) {
         setFileContentError(err instanceof Error ? err.message : 'Failed to load file content');
       } finally {
@@ -397,6 +431,9 @@ export default function MRDetailPage() {
             approvalsCount={mr.approvalsCount ?? 0}
             approvalsRequired={mr.approvalsRequired ?? 1}
             hasApproved={mr.userHasApproved}
+            onApprovalChange={(approved) => {
+              if (approved) navigate('/mrs');
+            }}
           />
         </div>
       </header>
@@ -425,6 +462,13 @@ export default function MRDetailPage() {
               <div className="file-error">
                 <p>Diff information not available. Please sync the merge request first.</p>
               </div>
+            ) : isImageFile(selectedFile) ? (
+              <ImageDiffViewer
+                originalBase64={originalImageBase64}
+                modifiedBase64={modifiedImageBase64}
+                filePath={selectedFile}
+                mimeType={getImageMimeType(selectedFile)}
+              />
             ) : (
               <MonacoDiffViewer
                 ref={diffViewerRef}

@@ -82,8 +82,8 @@ export default function MRList({
       setError(null);
 
       const data = await listMergeRequests(instanceId, { state: 'opened' });
-      // Filter out approved MRs
-      const filteredData = data.filter(mr => mr.approvalStatus !== 'approved');
+      // Filter out MRs the user has already approved
+      const filteredData = data.filter(mr => !mr.userHasApproved);
 
       // Track newly added MRs (only on background refresh)
       if (isBackgroundRefresh && previousMrIdsRef.current.size > 0) {

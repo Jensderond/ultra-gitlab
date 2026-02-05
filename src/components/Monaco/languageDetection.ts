@@ -175,3 +175,59 @@ export function getLanguageFromPath(filePath: string): string {
 
   return "plaintext";
 }
+
+/**
+ * Image extension to MIME type mapping.
+ */
+const IMAGE_MIME_TYPES: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+  ico: "image/x-icon",
+  bmp: "image/bmp",
+  tiff: "image/tiff",
+  tif: "image/tiff",
+  avif: "image/avif",
+};
+
+/**
+ * Extracts the file extension from a path.
+ *
+ * @param filePath - The file path
+ * @returns The lowercase extension, or null if none
+ */
+function getFileExtension(filePath: string): string | null {
+  const filename = filePath.split("/").pop() || "";
+  const lastDot = filename.lastIndexOf(".");
+
+  if (lastDot === -1 || lastDot === filename.length - 1) {
+    return null;
+  }
+
+  return filename.slice(lastDot + 1).toLowerCase();
+}
+
+/**
+ * Checks if a file is an image based on its extension.
+ *
+ * @param filePath - The file path (can be full path or just filename)
+ * @returns true if the file is an image
+ */
+export function isImageFile(filePath: string): boolean {
+  const ext = getFileExtension(filePath);
+  return ext !== null && ext in IMAGE_MIME_TYPES;
+}
+
+/**
+ * Gets the MIME type for an image file based on its extension.
+ *
+ * @param filePath - The file path
+ * @returns The MIME type, or "application/octet-stream" if unknown
+ */
+export function getImageMimeType(filePath: string): string {
+  const ext = getFileExtension(filePath);
+  return ext !== null ? IMAGE_MIME_TYPES[ext] || "application/octet-stream" : "application/octet-stream";
+}

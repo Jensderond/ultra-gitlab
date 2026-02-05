@@ -5,7 +5,7 @@
 use crate::db::pool::DbPool;
 use crate::error::AppError;
 use crate::services::gitlab_client::{GitLabClient, GitLabClientConfig};
-use crate::services::sync_engine::{SyncConfig, SyncEngine, SyncLogEntry};
+use crate::services::sync_engine::{SyncConfig, SyncEngine, SyncHandle, SyncLogEntry};
 use crate::services::sync_events::{
     ActionSyncedPayload, AuthExpiredPayload, SyncPhase, SyncProgressPayload, ACTION_SYNCED_EVENT,
     AUTH_EXPIRED_EVENT, SYNC_PROGRESS_EVENT,
@@ -21,21 +21,6 @@ use tauri::{AppHandle, Emitter, State};
 pub struct ActionCountsResponse {
     pub pending: i64,
     pub failed: i64,
-}
-
-/// Response for trigger_sync command.
-#[derive(Debug, Serialize)]
-pub struct TriggerSyncResponse {
-    /// Number of MRs synced.
-    pub mr_count: i64,
-    /// Number of MRs purged.
-    pub purged_count: i64,
-    /// Number of actions pushed to GitLab.
-    pub actions_pushed: i64,
-    /// Duration in milliseconds.
-    pub duration_ms: i64,
-    /// Any errors encountered.
-    pub errors: Vec<String>,
 }
 
 /// Response for get_sync_status command.
@@ -80,90 +65,13 @@ pub async fn get_action_counts(pool: State<'_, DbPool>) -> Result<ActionCountsRe
 
 /// Trigger an immediate sync operation.
 ///
-/// This fetches new/updated MRs from all configured GitLab instances,
-/// updates diffs and comments, pushes pending local actions, and
-/// purges merged/closed MRs.
-///
-/// # Returns
-/// Summary of the sync operation
+/// Sends a trigger command to the background sync engine.
+/// The sync runs asynchronously; poll get_sync_status for results.
 #[tauri::command]
 pub async fn trigger_sync(
-    app: AppHandle,
-    pool: State<'_, DbPool>,
-) -> Result<TriggerSyncResponse, AppError> {
-    // Emit sync starting event
-    let _ = app.emit(
-        SYNC_PROGRESS_EVENT,
-        SyncProgressPayload {
-            phase: SyncPhase::Starting,
-            message: "Starting sync...".to_string(),
-            processed: None,
-            total: None,
-            is_error: false,
-        },
-    );
-
-    // Create a sync engine for this operation
-    let engine = SyncEngine::new(pool.inner().clone());
-
-    // Run the sync
-    let result = match engine.run_sync().await {
-        Ok(result) => {
-            // Emit sync complete event
-            let _ = app.emit(
-                SYNC_PROGRESS_EVENT,
-                SyncProgressPayload {
-                    phase: SyncPhase::Complete,
-                    message: format!(
-                        "Synced {} MRs, purged {}, pushed {} actions",
-                        result.mr_count, result.purged_count, result.actions_pushed
-                    ),
-                    processed: Some(result.mr_count),
-                    total: Some(result.mr_count),
-                    is_error: false,
-                },
-            );
-            result
-        }
-        Err(e) => {
-            // Check if this is an authentication expired error
-            if e.is_authentication_expired() {
-                // Emit auth-expired event so frontend can prompt re-auth
-                let _ = app.emit(
-                    AUTH_EXPIRED_EVENT,
-                    AuthExpiredPayload {
-                        instance_id: e.get_expired_instance_id().unwrap_or(0),
-                        instance_url: e
-                            .get_expired_instance_url()
-                            .unwrap_or("Unknown")
-                            .to_string(),
-                        message: "Your GitLab token has expired or been revoked. Please re-authenticate.".to_string(),
-                    },
-                );
-            }
-
-            // Emit sync failed event
-            let _ = app.emit(
-                SYNC_PROGRESS_EVENT,
-                SyncProgressPayload {
-                    phase: SyncPhase::Failed,
-                    message: e.to_string(),
-                    processed: None,
-                    total: None,
-                    is_error: true,
-                },
-            );
-            return Err(e);
-        }
-    };
-
-    Ok(TriggerSyncResponse {
-        mr_count: result.mr_count,
-        purged_count: result.purged_count,
-        actions_pushed: result.actions_pushed,
-        duration_ms: result.duration_ms,
-        errors: result.errors,
-    })
+    sync_handle: State<'_, SyncHandle>,
+) -> Result<(), AppError> {
+    sync_handle.trigger_sync().await
 }
 
 /// Get the current sync status.
@@ -342,25 +250,18 @@ pub async fn discard_failed_action(
 }
 
 /// Get the current sync configuration.
-///
-/// # Returns
-/// Current sync settings
 #[tauri::command]
-pub async fn get_sync_config() -> Result<SyncConfig, AppError> {
-    // For now, return default config
-    // In a real app, this would be loaded from persistent storage
-    Ok(SyncConfig::default())
+pub async fn get_sync_config(
+    sync_handle: State<'_, SyncHandle>,
+) -> Result<SyncConfig, AppError> {
+    Ok(sync_handle.get_config().await)
 }
 
 /// Update the sync configuration.
-///
-/// # Arguments
-/// * `config` - New sync settings
 #[tauri::command]
-pub async fn update_sync_config(config: SyncConfig) -> Result<(), AppError> {
-    // For now, this is a no-op as we don't have a managed sync engine
-    // In a real app, this would update the managed sync engine
-    // and persist the config to storage
-    let _ = config;
-    Ok(())
+pub async fn update_sync_config(
+    sync_handle: State<'_, SyncHandle>,
+    config: SyncConfig,
+) -> Result<(), AppError> {
+    sync_handle.update_config(config).await
 }

@@ -203,6 +203,21 @@ pub struct GitLabDiscussionNote {
     pub position: Option<GitLabNotePosition>,
 }
 
+/// Response from the MR approvals endpoint.
+#[derive(Debug, Clone, Deserialize)]
+pub struct MergeRequestApprovals {
+    pub approved: bool,
+    pub approvals_required: i64,
+    pub approvals_left: i64,
+    pub approved_by: Vec<ApprovedBy>,
+}
+
+/// User who approved an MR.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ApprovedBy {
+    pub user: GitLabUser,
+}
+
 /// Position information for inline comments.
 #[derive(Debug, Clone, Deserialize)]
 pub struct GitLabNotePosition {
@@ -583,6 +598,18 @@ impl GitLabClient {
         self.handle_response(response, &endpoint).await
     }
 
+    /// Get approval status for a merge request.
+    pub async fn get_mr_approvals(
+        &self,
+        project_id: i64,
+        mr_iid: i64,
+    ) -> Result<MergeRequestApprovals, AppError> {
+        let endpoint = format!("/projects/{}/merge_requests/{}/approvals", project_id, mr_iid);
+        let url = self.api_url(&endpoint);
+        let response = self.client.get(&url).send().await?;
+        self.handle_response(response, &endpoint).await
+    }
+
     /// Resolve or unresolve a discussion.
     pub async fn resolve_discussion(
         &self,
@@ -620,25 +647,15 @@ impl GitLabClient {
         }
     }
 
-    /// Get raw file content at a specific SHA.
+    /// Fetch raw file from GitLab repository at a specific SHA.
     ///
-    /// This fetches the raw file content from the repository at a specific commit.
-    /// Used by Monaco editor to display the original and modified file content.
-    ///
-    /// # Arguments
-    /// * `project_id` - The GitLab project ID
-    /// * `file_path` - The path to the file in the repository
-    /// * `sha` - The commit SHA to fetch the file at
-    ///
-    /// # Returns
-    /// The raw file content as a string, or empty string if file doesn't exist (404).
-    pub async fn get_file_content(
+    /// Internal helper that handles the API request and error handling.
+    async fn fetch_raw_file(
         &self,
         project_id: i64,
         file_path: &str,
         sha: &str,
-    ) -> Result<String, AppError> {
-        // URL-encode the file path (required by GitLab API)
+    ) -> Result<Response, AppError> {
         let encoded_path = urlencoding::encode(file_path);
         let endpoint = format!(
             "/projects/{}/repository/files/{}/raw",
@@ -655,14 +672,8 @@ impl GitLabClient {
 
         let status = response.status();
 
-        if status.is_success() {
-            response
-                .text()
-                .await
-                .map_err(|e| AppError::internal(format!("Failed to read file content: {}", e)))
-        } else if status == StatusCode::NOT_FOUND {
-            // File doesn't exist at this SHA (e.g., new file or deleted file)
-            Ok(String::new())
+        if status.is_success() || status == StatusCode::NOT_FOUND {
+            Ok(response)
         } else if status == StatusCode::UNAUTHORIZED {
             Err(AppError::authentication_expired(
                 "GitLab token expired or revoked. Please re-authenticate.",
@@ -674,6 +685,57 @@ impl GitLabClient {
                 &endpoint,
             ))
         }
+    }
+
+    /// Get raw file content at a specific SHA.
+    ///
+    /// This fetches the raw file content from the repository at a specific commit.
+    /// Used by Monaco editor to display the original and modified file content.
+    ///
+    /// # Returns
+    /// The raw file content as a string, or empty string if file doesn't exist (404).
+    pub async fn get_file_content(
+        &self,
+        project_id: i64,
+        file_path: &str,
+        sha: &str,
+    ) -> Result<String, AppError> {
+        let response = self.fetch_raw_file(project_id, file_path, sha).await?;
+
+        if response.status() == StatusCode::NOT_FOUND {
+            return Ok(String::new());
+        }
+
+        response
+            .text()
+            .await
+            .map_err(|e| AppError::internal(format!("Failed to read file content: {}", e)))
+    }
+
+    /// Get raw file content as bytes at a specific SHA.
+    ///
+    /// This fetches binary file content from the repository at a specific commit.
+    /// Used for images and other binary files.
+    ///
+    /// # Returns
+    /// The raw file content as bytes, or empty Vec if file doesn't exist (404).
+    pub async fn get_file_content_bytes(
+        &self,
+        project_id: i64,
+        file_path: &str,
+        sha: &str,
+    ) -> Result<Vec<u8>, AppError> {
+        let response = self.fetch_raw_file(project_id, file_path, sha).await?;
+
+        if response.status() == StatusCode::NOT_FOUND {
+            return Ok(Vec::new());
+        }
+
+        response
+            .bytes()
+            .await
+            .map(|b| b.to_vec())
+            .map_err(|e| AppError::internal(format!("Failed to read file bytes: {}", e)))
     }
 }
 
