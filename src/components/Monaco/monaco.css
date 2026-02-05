@@ -1,0 +1,43 @@
+/**
+ * Monaco Editor custom styles for Ultra GitLab.
+ * These styles apply to Monaco's internal elements via className decorations.
+ */
+
+/* Comment indicator in the glyph margin */
+.comment-glyph {
+  background-color: rgba(126, 156, 216, 0.25);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.comment-glyph::before {
+  content: "💬";
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+/* Comment indicator in the line decorations */
+.comment-indicator {
+  background-color: rgba(126, 156, 216, 0.2);
+  width: 3px !important;
+  margin-left: 3px;
+  border-radius: 2px;
+}
+
+/* Subtle highlight for lines with comments */
+.comment-line-highlight {
+  background-color: rgba(126, 156, 216, 0.06);
+}
+
+/* Hover tooltip styling (inherits from Monaco's built-in hover) */
+.monaco-hover {
+  background-color: #2a2a37 !important;
+  border-color: #363646 !important;
+}
+
+.monaco-hover .hover-contents {
+  color: #dcd7ba !important;
+}

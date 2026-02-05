@@ -1201,3 +1201,66 @@ All success criteria verified:
 - Use Promise.all for parallel file fetches but catch errors to handle missing files gracefully
 
 ---
+
+## 2026-02-05 - US-011 to US-022
+**Workflow**: PRD
+**Feature**: Monaco Editor Integration - Complete
+
+### Implemented
+All remaining user stories for Monaco Editor integration:
+
+**Editor Features (US-011 to US-014)**
+- Enabled minimap with side: right, showSlider: mouseover
+- Code folding already enabled (folding: true, foldingHighlight: true)
+- Find functionality enabled by default in Monaco
+- x key view mode toggle working with viewMode prop
+
+**Navigation (US-015, US-019)**
+- Added MonacoDiffViewerRef with goToNextChange/goToPreviousChange methods
+- Implemented ] and [ keyboard shortcuts for diff hunk navigation
+- Added scroll position preservation per file (scrollPositionsRef Map)
+- getScrollTop/setScrollTop methods for scroll state management
+
+**Comments (US-016, US-017, US-018)**
+- Added LineComment type and comments prop to MonacoDiffViewer
+- Created decorations with glyph margin emoji (💬) and line highlight
+- Hover shows full comment content with author, timestamp, resolved status
+- Added getCursorPosition method for 'c' key comment input
+- Comment input overlay modal with Cmd+Enter submit, Escape cancel
+- Optimistic comment update after submission
+
+**Cleanup (US-020, US-021, US-022)**
+- DiffViewer replaced with MonacoDiffViewer (FileNavigation still used)
+- Loading skeleton already implemented in US-009
+- Keyboard hints updated with c comment and ⌘F find
+
+### Files Changed
+- src/components/Monaco/MonacoDiffViewer.tsx (refs, comments, cursor position)
+- src/components/Monaco/MonacoProvider.tsx (import monaco.css)
+- src/components/Monaco/monaco.css (new - comment styles)
+- src/components/Monaco/index.ts (exports)
+- src/pages/MRDetailPage.tsx (comment input, keyboard shortcuts)
+- src/pages/MRDetailPage.css (comment input overlay styles)
+- ralph/prd.json (all US marked passes: true)
+
+### Learnings for Future Iterations
+- Monaco decorations use glyphMarginClassName for gutter icons and className for line highlights
+- glyphMarginHoverMessage supports markdown and multiple messages
+- DiffOnMount callback takes (editor, monaco) - both required
+- forwardRef + useImperativeHandle pattern for exposing editor methods
+- Use requestAnimationFrame for scroll restoration after content loads
+- Monaco DiffEditor has getModifiedEditor() and getOriginalEditor() for accessing individual editors
+
+---
+
+## FEATURE COMPLETE: Monaco Editor Integration
+
+All 22 user stories completed:
+- US-001 to US-008: Initial Monaco setup and Kanagawa theme
+- US-009 to US-010: File content fetching integration
+- US-011 to US-014: Editor features (minimap, folding, find, view toggle)
+- US-015, US-019: Navigation and scroll preservation
+- US-016 to US-018: Comment indicators, hover, and input
+- US-020 to US-022: Cleanup and keyboard hints
+
+---

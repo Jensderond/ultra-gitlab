@@ -1,6 +1,7 @@
 import { loader } from "@monaco-editor/react";
 import { ReactNode, useEffect } from "react";
 import { kanagawaWaveTheme, KANAGAWA_THEME_NAME } from "./kanagawaTheme";
+import "./monaco.css";
 
 interface MonacoProviderProps {
   children: ReactNode;

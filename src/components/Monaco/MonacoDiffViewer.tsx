@@ -4,6 +4,12 @@ import type { editor } from "monaco-editor";
 import { KANAGAWA_THEME_NAME } from "./kanagawaTheme";
 import { getLanguageFromPath } from "./languageDetection";
 
+/** Information about the current cursor position */
+export interface CursorPosition {
+  line: number;
+  isOriginal: boolean;
+}
+
 /** Ref handle for MonacoDiffViewer */
 export interface MonacoDiffViewerRef {
   /** Navigate to next change */
@@ -16,6 +22,19 @@ export interface MonacoDiffViewerRef {
   getScrollTop: () => number;
   /** Set scroll position */
   setScrollTop: (top: number) => void;
+  /** Get current cursor position */
+  getCursorPosition: () => CursorPosition | null;
+}
+
+/** Comment data for a line */
+export interface LineComment {
+  id: number;
+  line: number;
+  isOldLine?: boolean;
+  authorUsername: string;
+  body: string;
+  createdAt: number;
+  resolved?: boolean;
 }
 
 interface MonacoDiffViewerProps {
@@ -29,6 +48,8 @@ interface MonacoDiffViewerProps {
   language?: string;
   /** View mode: split (side-by-side) or unified (inline) */
   viewMode?: "split" | "unified";
+  /** Comments to display in the gutter */
+  comments?: LineComment[];
   /** Callback when editor mounts */
   onMount?: DiffOnMount;
 }
@@ -42,6 +63,7 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
     {
       originalContent,
       modifiedContent,
+      comments = [],
       filePath,
       language,
       viewMode = "split",
@@ -115,6 +137,35 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
       editor.getModifiedEditor().setScrollTop(top);
     }, []);
 
+    // Get current cursor position
+    const getCursorPosition = useCallback((): CursorPosition | null => {
+      const editor = editorRef.current;
+      if (!editor) return null;
+
+      // Check if modified editor has focus
+      const modifiedEditor = editor.getModifiedEditor();
+      const originalEditor = editor.getOriginalEditor();
+
+      // Try modified editor first (more common)
+      const modifiedPos = modifiedEditor.getPosition();
+      if (modifiedPos && modifiedEditor.hasTextFocus()) {
+        return { line: modifiedPos.lineNumber, isOriginal: false };
+      }
+
+      // Check original editor
+      const originalPos = originalEditor.getPosition();
+      if (originalPos && originalEditor.hasTextFocus()) {
+        return { line: originalPos.lineNumber, isOriginal: true };
+      }
+
+      // Fallback to modified position if no focus
+      if (modifiedPos) {
+        return { line: modifiedPos.lineNumber, isOriginal: false };
+      }
+
+      return null;
+    }, []);
+
     // Expose ref methods
     useImperativeHandle(ref, () => ({
       goToNextChange,
@@ -122,7 +173,8 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
       getEditor: () => editorRef.current,
       getScrollTop,
       setScrollTop,
-    }), [goToNextChange, goToPreviousChange, getScrollTop, setScrollTop]);
+      getCursorPosition,
+    }), [goToNextChange, goToPreviousChange, getScrollTop, setScrollTop, getCursorPosition]);
 
     // Handle editor mount
     const handleMount: DiffOnMount = useCallback((editor, monaco) => {
@@ -135,6 +187,89 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
     useEffect(() => {
       currentChangeIndexRef.current = -1;
     }, [originalContent, modifiedContent]);
+
+    // Add comment decorations to the editor
+    useEffect(() => {
+      const editor = editorRef.current;
+      if (!editor || comments.length === 0) return;
+
+      const modifiedEditor = editor.getModifiedEditor();
+      const originalEditor = editor.getOriginalEditor();
+
+      // Group comments by line
+      const modifiedLineComments = new Map<number, LineComment[]>();
+      const originalLineComments = new Map<number, LineComment[]>();
+
+      for (const comment of comments) {
+        if (comment.isOldLine) {
+          const existing = originalLineComments.get(comment.line) || [];
+          existing.push(comment);
+          originalLineComments.set(comment.line, existing);
+        } else {
+          const existing = modifiedLineComments.get(comment.line) || [];
+          existing.push(comment);
+          modifiedLineComments.set(comment.line, existing);
+        }
+      }
+
+      // Helper to format comment timestamp
+      const formatTime = (ts: number) => {
+        const date = new Date(ts * 1000);
+        return date.toLocaleString(undefined, {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      };
+
+      // Helper to create hover content for comments
+      const createHoverContent = (lineComments: LineComment[]) => {
+        return lineComments.map((c) => ({
+          value: `**@${c.authorUsername}** · ${formatTime(c.createdAt)}${c.resolved ? " ✅" : ""}\n\n${c.body}`,
+          isTrusted: true,
+        }));
+      };
+
+      // Create decorations for modified editor
+      const modifiedDecorations: editor.IModelDeltaDecoration[] = [];
+      for (const [line, lineComments] of modifiedLineComments) {
+        modifiedDecorations.push({
+          range: { startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: 1 },
+          options: {
+            isWholeLine: true,
+            linesDecorationsClassName: "comment-indicator",
+            glyphMarginClassName: "comment-glyph",
+            glyphMarginHoverMessage: createHoverContent(lineComments),
+            className: "comment-line-highlight",
+          },
+        });
+      }
+
+      // Create decorations for original editor
+      const originalDecorations: editor.IModelDeltaDecoration[] = [];
+      for (const [line, lineComments] of originalLineComments) {
+        originalDecorations.push({
+          range: { startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: 1 },
+          options: {
+            isWholeLine: true,
+            linesDecorationsClassName: "comment-indicator",
+            glyphMarginClassName: "comment-glyph",
+            glyphMarginHoverMessage: createHoverContent(lineComments),
+            className: "comment-line-highlight",
+          },
+        });
+      }
+
+      // Apply decorations
+      const modifiedCollection = modifiedEditor.createDecorationsCollection(modifiedDecorations);
+      const originalCollection = originalEditor.createDecorationsCollection(originalDecorations);
+
+      return () => {
+        modifiedCollection.clear();
+        originalCollection.clear();
+      };
+    }, [comments]);
 
     return (
     <DiffEditor

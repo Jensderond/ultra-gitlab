@@ -7,10 +7,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FileNavigation } from '../components/DiffViewer';
-import { MonacoDiffViewer, type MonacoDiffViewerRef } from '../components/Monaco/MonacoDiffViewer';
+import { MonacoDiffViewer, type MonacoDiffViewerRef, type LineComment, type CursorPosition } from '../components/Monaco/MonacoDiffViewer';
 import { ApprovalButton, type ApprovalButtonRef } from '../components/Approval';
 import { getMergeRequestById, getMergeRequestFiles, getDiffRefs, getFileContent } from '../services/gitlab';
-import type { MergeRequest, DiffFileSummary, DiffRefs } from '../types';
+import { invoke } from '../services/tauri';
+import type { MergeRequest, DiffFileSummary, DiffRefs, Comment, AddCommentRequest } from '../types';
 import './MRDetailPage.css';
 
 /**
@@ -42,6 +43,18 @@ export default function MRDetailPage() {
   // Scroll position state per file
   const scrollPositionsRef = useRef<Map<string, number>>(new Map());
   const previousFileRef = useRef<string | null>(null);
+
+  // Comments state for current file
+  const [fileComments, setFileComments] = useState<LineComment[]>([]);
+
+  // Comment input state
+  const [commentInput, setCommentInput] = useState<{
+    visible: boolean;
+    position: CursorPosition | null;
+    text: string;
+    submitting: boolean;
+  }>({ visible: false, position: null, text: '', submitting: false });
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Load MR data
   useEffect(() => {
@@ -163,6 +176,42 @@ export default function MRDetailPage() {
     previousFileRef.current = null;
   }, [mrId]);
 
+  // Fetch comments for the current file
+  useEffect(() => {
+    async function loadComments() {
+      if (!mrId || !selectedFile) {
+        setFileComments([]);
+        return;
+      }
+
+      try {
+        const comments = await invoke<Comment[]>('get_file_comments', {
+          mrId,
+          filePath: selectedFile,
+        });
+
+        // Convert to LineComment format
+        const lineComments: LineComment[] = comments
+          .filter((c) => !c.system && (c.newLine !== null || c.oldLine !== null))
+          .map((c) => ({
+            id: c.id,
+            line: c.newLine ?? c.oldLine ?? 0,
+            isOldLine: c.newLine === null && c.oldLine !== null,
+            authorUsername: c.authorUsername,
+            body: c.body,
+            createdAt: c.createdAt,
+            resolved: c.resolved,
+          }));
+
+        setFileComments(lineComments);
+      } catch {
+        // Silently ignore comment fetch errors
+        setFileComments([]);
+      }
+    }
+    loadComments();
+  }, [mrId, selectedFile]);
+
   // Navigate to next/previous file
   const navigateFile = useCallback(
     (direction: 1 | -1) => {
@@ -182,6 +231,44 @@ export default function MRDetailPage() {
       navigateFile(1);
     }
   }, [selectedFile, navigateFile]);
+
+  // Submit a new comment
+  const submitComment = useCallback(async () => {
+    if (!commentInput.text.trim() || !commentInput.position || !selectedFile) return;
+
+    setCommentInput((prev) => ({ ...prev, submitting: true }));
+
+    try {
+      const request: AddCommentRequest = {
+        mrId,
+        body: commentInput.text.trim(),
+        position: {
+          filePath: selectedFile,
+          ...(commentInput.position.isOriginal
+            ? { oldLine: commentInput.position.line }
+            : { newLine: commentInput.position.line }),
+        },
+      };
+
+      await invoke<{ localId: number }>('add_comment', { input: request });
+
+      // Add optimistic update to comments
+      const newComment: LineComment = {
+        id: -Date.now(), // Temporary local ID
+        line: commentInput.position.line,
+        isOldLine: commentInput.position.isOriginal,
+        authorUsername: 'You',
+        body: commentInput.text.trim(),
+        createdAt: Math.floor(Date.now() / 1000),
+      };
+
+      setFileComments((prev) => [...prev, newComment]);
+      setCommentInput({ visible: false, position: null, text: '', submitting: false });
+    } catch (err) {
+      console.error('Failed to add comment:', err);
+      setCommentInput((prev) => ({ ...prev, submitting: false }));
+    }
+  }, [commentInput.text, commentInput.position, selectedFile, mrId]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -228,16 +315,36 @@ export default function MRDetailPage() {
           e.preventDefault();
           diffViewerRef.current?.goToPreviousChange();
           break;
+        case 'c':
+          // Open comment input at current line
+          e.preventDefault();
+          if (selectedFile) {
+            const pos = diffViewerRef.current?.getCursorPosition();
+            if (pos) {
+              setCommentInput({ visible: true, position: pos, text: '', submitting: false });
+              // Focus textarea after render
+              requestAnimationFrame(() => {
+                commentInputRef.current?.focus();
+              });
+            }
+          }
+          break;
         case 'Escape':
-          // Go back to list, focus on latest item
-          navigate('/mrs', { state: { focusLatest: true } });
+          // Close comment input if visible, otherwise go back
+          if (commentInput.visible) {
+            e.preventDefault();
+            setCommentInput({ visible: false, position: null, text: '', submitting: false });
+          } else {
+            // Go back to list, focus on latest item
+            navigate('/mrs', { state: { focusLatest: true } });
+          }
           break;
       }
     }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [navigateFile, navigate, viewMode, markViewedAndNext]);
+  }, [navigateFile, navigate, viewMode, markViewedAndNext, selectedFile, commentInput.visible]);
 
   // Loading state
   if (loading) {
@@ -321,6 +428,7 @@ export default function MRDetailPage() {
                 modifiedContent={modifiedContent}
                 filePath={selectedFile}
                 viewMode={viewMode}
+                comments={fileComments}
               />
             )
           ) : (
@@ -331,6 +439,57 @@ export default function MRDetailPage() {
         </main>
       </div>
 
+      {/* Comment input overlay */}
+      {commentInput.visible && commentInput.position && (
+        <div className="comment-input-overlay">
+          <div className="comment-input-container">
+            <div className="comment-input-header">
+              <span>
+                Add comment on {commentInput.position.isOriginal ? 'old' : 'new'} line{' '}
+                {commentInput.position.line}
+              </span>
+              <button
+                className="comment-input-close"
+                onClick={() => setCommentInput({ visible: false, position: null, text: '', submitting: false })}
+              >
+                ✕
+              </button>
+            </div>
+            <textarea
+              ref={commentInputRef}
+              className="comment-input-textarea"
+              placeholder="Write a comment..."
+              value={commentInput.text}
+              onChange={(e) => setCommentInput((prev) => ({ ...prev, text: e.target.value }))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  submitComment();
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setCommentInput({ visible: false, position: null, text: '', submitting: false });
+                }
+              }}
+              disabled={commentInput.submitting}
+              rows={4}
+            />
+            <div className="comment-input-actions">
+              <span className="comment-input-hint">
+                <kbd>⌘</kbd>+<kbd>Enter</kbd> to submit · <kbd>Esc</kbd> to cancel
+              </span>
+              <button
+                className="comment-input-submit"
+                onClick={submitComment}
+                disabled={!commentInput.text.trim() || commentInput.submitting}
+              >
+                {commentInput.submitting ? 'Submitting...' : 'Add Comment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <footer className="mr-detail-footer">
         <span className="keyboard-hint">
           <kbd>n</kbd>/<kbd>p</kbd> file &middot;{' '}
@@ -338,6 +497,7 @@ export default function MRDetailPage() {
           <kbd>]</kbd>/<kbd>[</kbd> change &middot;{' '}
           <kbd>x</kbd> split/unified &middot;{' '}
           <kbd>a</kbd> approve &middot;{' '}
+          <kbd>c</kbd> comment &middot;{' '}
           <kbd>⌘F</kbd> find &middot;{' '}
           <kbd>?</kbd> help
         </span>

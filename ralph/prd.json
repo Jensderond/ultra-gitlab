@@ -255,8 +255,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 16,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented with LineComment type, decoration collection, CSS styles for glyph margin emoji and line highlight"
     },
     {
       "id": "US-017",
@@ -272,8 +272,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 17,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented via glyphMarginHoverMessage with markdown formatting for author, timestamp, resolved status, and body. Multiple comments shown as separate messages."
     },
     {
       "id": "US-018",
@@ -289,8 +289,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 18,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented as overlay modal with getCursorPosition from MonacoDiffViewerRef. Cmd+Enter submits, Escape cancels. Optimistic update adds comment decoration immediately."
     },
     {
       "id": "US-019",
