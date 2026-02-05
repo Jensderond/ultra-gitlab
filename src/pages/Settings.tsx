@@ -4,7 +4,7 @@
  * Displays GitLab instance management and application settings.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import InstanceSetup from '../components/InstanceSetup/InstanceSetup';
 import {
@@ -13,7 +13,7 @@ import {
   type GitLabInstanceWithStatus,
 } from '../services/gitlab';
 import { formatRelativeTime } from '../services/storage';
-import { invoke } from '../services/tauri';
+import { invoke, updateInstanceToken } from '../services/tauri';
 import useCustomShortcuts from '../hooks/useCustomShortcuts';
 import {
   defaultShortcuts,
@@ -54,6 +54,14 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showSetup, setShowSetup] = useState(false);
+
+  // Edit token state
+  const [editingTokenId, setEditingTokenId] = useState<number | null>(null);
+  const [tokenInput, setTokenInput] = useState('');
+  const [tokenSaving, setTokenSaving] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [tokenSuccess, setTokenSuccess] = useState<string | null>(null);
+  const tokenInputRef = useRef<HTMLInputElement>(null);
 
   // Sync settings state
   const [syncSettings, setSyncSettings] = useState<SyncConfig | null>(null);
@@ -121,6 +129,41 @@ export default function Settings() {
     if (!syncSettings) return;
     const newSettings = { ...syncSettings, [scope]: checked };
     saveSyncSettings(newSettings);
+  }
+
+  function startEditToken(instanceId: number) {
+    setEditingTokenId(instanceId);
+    setTokenInput('');
+    setTokenError(null);
+    setTokenSuccess(null);
+    // Auto-focus happens via useEffect on ref
+    setTimeout(() => tokenInputRef.current?.focus(), 0);
+  }
+
+  function cancelEditToken() {
+    setEditingTokenId(null);
+    setTokenInput('');
+    setTokenError(null);
+    setTokenSuccess(null);
+  }
+
+  async function handleSaveToken(instanceId: number) {
+    if (!tokenInput.trim()) return;
+    try {
+      setTokenSaving(true);
+      setTokenError(null);
+      const username = await updateInstanceToken(instanceId, tokenInput.trim());
+      setTokenSuccess(`Token updated (${username})`);
+      setTokenInput('');
+      setTimeout(() => {
+        cancelEditToken();
+        loadInstances();
+      }, 1500);
+    } catch (err) {
+      setTokenError(err instanceof Error ? err.message : 'Invalid token');
+    } finally {
+      setTokenSaving(false);
+    }
   }
 
   async function handleDelete(instanceId: number) {
@@ -191,6 +234,53 @@ export default function Settings() {
                         <span className="token-warning"> • Token missing</span>
                       )}
                     </span>
+                    {editingTokenId === inst.id ? (
+                      <div className="edit-token-form">
+                        <input
+                          ref={tokenInputRef}
+                          type="password"
+                          className="edit-token-input"
+                          value={tokenInput}
+                          onChange={(e) => setTokenInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveToken(inst.id);
+                            if (e.key === 'Escape') cancelEditToken();
+                          }}
+                          placeholder="glpat-..."
+                          disabled={tokenSaving}
+                          autoFocus
+                        />
+                        <div className="edit-token-actions">
+                          <button
+                            className="edit-token-save"
+                            onClick={() => handleSaveToken(inst.id)}
+                            disabled={tokenSaving || !tokenInput.trim()}
+                          >
+                            {tokenSaving ? 'Validating...' : 'Save'}
+                          </button>
+                          <button
+                            className="edit-token-cancel"
+                            onClick={cancelEditToken}
+                            disabled={tokenSaving}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        {tokenError && (
+                          <span className="edit-token-error">{tokenError}</span>
+                        )}
+                        {tokenSuccess && (
+                          <span className="edit-token-success">{tokenSuccess}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        className="edit-token-button"
+                        onClick={() => startEditToken(inst.id)}
+                      >
+                        Edit Token
+                      </button>
+                    )}
                   </div>
                   <button
                     className="delete-button"

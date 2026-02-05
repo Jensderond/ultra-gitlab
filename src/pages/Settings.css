@@ -150,6 +150,105 @@
   background: var(--error-bg, #fee);
 }
 
+/* Edit token inline form */
+.edit-token-button {
+  background: none;
+  border: 1px solid var(--border-color, #ccc);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: var(--text-secondary, #555);
+  cursor: pointer;
+  margin-top: 0.25rem;
+  align-self: flex-start;
+}
+
+.edit-token-button:hover {
+  background: var(--bg-hover);
+  border-color: var(--primary-color, #0066cc);
+  color: var(--primary-color, #0066cc);
+}
+
+.edit-token-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.edit-token-input {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border-color, #ccc);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-family: var(--font-mono, 'SF Mono', 'Monaco', 'Consolas', monospace);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  max-width: 300px;
+}
+
+.edit-token-input:focus {
+  border-color: var(--primary-color, #0066cc);
+  outline: none;
+}
+
+.edit-token-input:disabled {
+  opacity: 0.6;
+}
+
+.edit-token-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.edit-token-save {
+  background: var(--primary-color, #0066cc);
+  color: #fff;
+  border: none;
+  padding: 0.3rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.edit-token-save:hover:not(:disabled) {
+  background: var(--primary-hover, #0052a3);
+}
+
+.edit-token-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.edit-token-cancel {
+  background: none;
+  border: 1px solid var(--border-color, #ccc);
+  padding: 0.3rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--text-secondary, #555);
+}
+
+.edit-token-cancel:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.edit-token-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.edit-token-error {
+  font-size: 0.8rem;
+  color: var(--error-color, #c00);
+}
+
+.edit-token-success {
+  font-size: 0.8rem;
+  color: var(--success-color, #090);
+}
+
 .coming-soon {
   color: var(--text-muted, #666);
   font-style: italic;
