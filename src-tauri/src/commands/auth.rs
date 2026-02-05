@@ -6,7 +6,7 @@
 use crate::db::pool::DbPool;
 use crate::error::AppError;
 use crate::models::GitLabInstance;
-use crate::services::gitlab_client::{GitLabClient, GitLabClientConfig};
+use crate::services::gitlab_client::{GitLabClient, GitLabClientConfig, PersonalAccessTokenInfo};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -122,6 +122,65 @@ pub async fn get_gitlab_instances(
             }
         })
         .collect())
+}
+
+/// Response for get_token_info command.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TokenInfoResponse {
+    /// Token expiration date (ISO 8601 date string), or None if no expiration.
+    pub expires_at: Option<String>,
+
+    /// Token display name.
+    pub name: String,
+
+    /// Token scopes (e.g., ["api", "read_user"]).
+    pub scopes: Vec<String>,
+
+    /// Whether the token is currently active.
+    pub active: bool,
+}
+
+impl From<PersonalAccessTokenInfo> for TokenInfoResponse {
+    fn from(info: PersonalAccessTokenInfo) -> Self {
+        Self {
+            expires_at: info.expires_at,
+            name: info.name,
+            scopes: info.scopes,
+            active: info.active,
+        }
+    }
+}
+
+/// Get token lifetime info for a given GitLab instance.
+///
+/// Loads the instance from the DB, creates a GitLabClient, and fetches the token info
+/// from GitLab's /personal_access_tokens/self endpoint.
+#[tauri::command]
+pub async fn get_token_info(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+) -> Result<TokenInfoResponse, AppError> {
+    let instance: GitLabInstance = sqlx::query_as(
+        "SELECT id, url, name, token, created_at FROM gitlab_instances WHERE id = $1",
+    )
+    .bind(instance_id)
+    .fetch_optional(pool.inner())
+    .await?
+    .ok_or_else(|| AppError::not_found("GitLab instance not found"))?;
+
+    let token = instance
+        .token
+        .ok_or_else(|| AppError::authentication("No token configured for this instance"))?;
+
+    let client = GitLabClient::new(GitLabClientConfig {
+        base_url: instance.url,
+        token,
+        timeout_secs: 30,
+    })?;
+
+    let info = client.get_token_info().await?;
+    Ok(info.into())
 }
 
 /// Delete a GitLab instance.
