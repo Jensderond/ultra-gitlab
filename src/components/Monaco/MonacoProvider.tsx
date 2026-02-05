@@ -1,5 +1,6 @@
 import { loader } from "@monaco-editor/react";
 import { ReactNode, useEffect } from "react";
+import { kanagawaWaveTheme, KANAGAWA_THEME_NAME } from "./kanagawaTheme";
 
 interface MonacoProviderProps {
   children: ReactNode;
@@ -14,8 +15,11 @@ export function MonacoProvider({ children }: MonacoProviderProps) {
       },
     });
 
-    // Pre-load Monaco in background
-    loader.init().catch(console.error);
+    // Pre-load Monaco and register theme
+    loader.init().then((monaco) => {
+      // Register Kanagawa Wave theme
+      monaco.editor.defineTheme(KANAGAWA_THEME_NAME, kanagawaWaveTheme);
+    }).catch(console.error);
   }, []);
 
   return <>{children}</>;
