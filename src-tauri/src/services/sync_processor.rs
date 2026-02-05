@@ -13,7 +13,7 @@ use crate::db::pool::DbPool;
 use crate::error::AppError;
 use crate::models::sync_action::{ActionType, SyncAction};
 use crate::services::gitlab_client::GitLabClient;
-use crate::services::sync_queue::{self, ApprovalPayload, ReplyPayload, ResolvePayload};
+use crate::services::sync_queue::{self, ReplyPayload, ResolvePayload};
 use serde::Deserialize;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -259,22 +259,17 @@ struct ApprovalPayloadExt {
 
 /// Process an approval action (approve or unapprove).
 async fn process_approval(client: &GitLabClient, action: &SyncAction) -> Result<(), AppError> {
-    // Try parsing as extended payload first (with action field)
     let payload: ApprovalPayloadExt = serde_json::from_str(&action.payload)?;
 
-    // Check if this is an unapprove action
     if payload.action.as_deref() == Some("unapprove") {
-        return client
+        client
             .unapprove_merge_request(payload.project_id, payload.mr_iid)
-            .await;
+            .await
+    } else {
+        client
+            .approve_merge_request(payload.project_id, payload.mr_iid)
+            .await
     }
-
-    // Regular approve
-    let payload: ApprovalPayload = serde_json::from_str(&action.payload)?;
-
-    client
-        .approve_merge_request(payload.project_id, payload.mr_iid)
-        .await
 }
 
 /// Process a comment action (general or inline).
@@ -407,7 +402,7 @@ pub async fn retry_failed_actions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::services::sync_queue::CommentPayload;
+    use crate::services::sync_queue::{ApprovalPayload, CommentPayload};
 
     #[test]
     fn test_parse_approval_payload() {

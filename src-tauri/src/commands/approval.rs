@@ -7,7 +7,19 @@ use crate::db::pool::DbPool;
 use crate::error::AppError;
 use crate::models::sync_action::ActionType;
 use crate::services::sync_queue::{self, ApprovalPayload, EnqueueInput};
+use sqlx::Row;
 use tauri::State;
+
+/// Look up project_id and iid for a merge request.
+async fn get_mr_ids(pool: &DbPool, mr_id: i64) -> Result<(i64, i64), AppError> {
+    let row = sqlx::query("SELECT project_id, iid FROM merge_requests WHERE id = ?")
+        .bind(mr_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::not_found_with_id("MergeRequest", mr_id.to_string()))?;
+
+    Ok((row.get("project_id"), row.get("iid")))
+}
 
 /// Approve a merge request.
 ///
@@ -21,16 +33,7 @@ use tauri::State;
 /// Success or error
 #[tauri::command]
 pub async fn approve_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppError> {
-    // Get MR details (project_id and iid) from database
-    let mr_row = sqlx::query("SELECT project_id, iid FROM merge_requests WHERE id = ?")
-        .bind(mr_id)
-        .fetch_optional(pool.inner())
-        .await?
-        .ok_or_else(|| AppError::not_found_with_id("MergeRequest", mr_id.to_string()))?;
-
-    use sqlx::Row;
-    let project_id: i64 = mr_row.get("project_id");
-    let mr_iid: i64 = mr_row.get("iid");
+    let (project_id, mr_iid) = get_mr_ids(pool.inner(), mr_id).await?;
 
     // Update approval status optimistically
     // Increment approvals_count, update approval_status, and mark user as having approved
@@ -87,16 +90,7 @@ pub async fn approve_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppEr
 /// Success or error
 #[tauri::command]
 pub async fn unapprove_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppError> {
-    // Get MR details (project_id and iid) from database
-    let mr_row = sqlx::query("SELECT project_id, iid FROM merge_requests WHERE id = ?")
-        .bind(mr_id)
-        .fetch_optional(pool.inner())
-        .await?
-        .ok_or_else(|| AppError::not_found_with_id("MergeRequest", mr_id.to_string()))?;
-
-    use sqlx::Row;
-    let project_id: i64 = mr_row.get("project_id");
-    let mr_iid: i64 = mr_row.get("iid");
+    let (project_id, mr_iid) = get_mr_ids(pool.inner(), mr_id).await?;
 
     // Update approval status optimistically
     // Decrement approvals_count (but not below 0), update approval_status, and mark user as not having approved
@@ -167,7 +161,6 @@ pub async fn get_approval_status(
     .await?
     .ok_or_else(|| AppError::not_found_with_id("MergeRequest", mr_id.to_string()))?;
 
-    use sqlx::Row;
     Ok(ApprovalStatus {
         status: row.get::<Option<String>, _>("approval_status"),
         approvals_count: row.get::<Option<i64>, _>("approvals_count").unwrap_or(0),

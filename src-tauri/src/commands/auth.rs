@@ -111,18 +111,17 @@ pub async fn get_gitlab_instances(
             .fetch_all(pool.inner())
             .await?;
 
-    let mut results = Vec::with_capacity(instances.len());
-    for instance in instances {
-        let has_token = instance.token.is_some();
-
-        results.push(GitLabInstanceWithStatus {
-            instance,
-            has_token,
-            token_error: None,
-        });
-    }
-
-    Ok(results)
+    Ok(instances
+        .into_iter()
+        .map(|instance| {
+            let has_token = instance.token.is_some();
+            GitLabInstanceWithStatus {
+                instance,
+                has_token,
+                token_error: None,
+            }
+        })
+        .collect())
 }
 
 /// Delete a GitLab instance.
@@ -138,8 +137,6 @@ pub async fn delete_gitlab_instance(
     pool: State<'_, DbPool>,
     instance_id: i64,
 ) -> Result<(), AppError> {
-
-
     // Delete the instance from database (cascades to related records)
     sqlx::query("DELETE FROM gitlab_instances WHERE id = $1")
         .bind(instance_id)
@@ -148,8 +145,6 @@ pub async fn delete_gitlab_instance(
 
     Ok(())
 }
-
-
 
 #[cfg(test)]
 mod tests {

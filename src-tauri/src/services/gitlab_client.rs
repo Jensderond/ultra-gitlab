@@ -438,28 +438,33 @@ impl GitLabClient {
         self.get_all_pages(&endpoint, None::<&()>).await
     }
 
-    /// Approve a merge request.
-    pub async fn approve_merge_request(
-        &self,
-        project_id: i64,
-        mr_iid: i64,
-    ) -> Result<(), AppError> {
-        let endpoint = format!(
-            "/projects/{}/merge_requests/{}/approve",
-            project_id, mr_iid
-        );
-        let url = self.api_url(&endpoint);
+    /// Send a POST request to an endpoint, expecting only a success status.
+    async fn post_empty(&self, endpoint: &str) -> Result<(), AppError> {
+        let url = self.api_url(endpoint);
         let response = self.client.post(&url).send().await?;
 
         if response.status().is_success() {
             Ok(())
         } else {
             Err(AppError::gitlab_api_full(
-                "Failed to approve merge request",
+                "Request failed",
                 response.status().as_u16(),
-                &endpoint,
+                endpoint,
             ))
         }
+    }
+
+    /// Approve a merge request.
+    pub async fn approve_merge_request(
+        &self,
+        project_id: i64,
+        mr_iid: i64,
+    ) -> Result<(), AppError> {
+        self.post_empty(&format!(
+            "/projects/{}/merge_requests/{}/approve",
+            project_id, mr_iid
+        ))
+        .await
     }
 
     /// Unapprove a merge request.
@@ -468,22 +473,11 @@ impl GitLabClient {
         project_id: i64,
         mr_iid: i64,
     ) -> Result<(), AppError> {
-        let endpoint = format!(
+        self.post_empty(&format!(
             "/projects/{}/merge_requests/{}/unapprove",
             project_id, mr_iid
-        );
-        let url = self.api_url(&endpoint);
-        let response = self.client.post(&url).send().await?;
-
-        if response.status().is_success() {
-            Ok(())
-        } else {
-            Err(AppError::gitlab_api_full(
-                "Failed to unapprove merge request",
-                response.status().as_u16(),
-                &endpoint,
-            ))
-        }
+        ))
+        .await
     }
 
     /// Add a general comment to a merge request.
@@ -496,15 +490,10 @@ impl GitLabClient {
         let endpoint = format!("/projects/{}/merge_requests/{}/notes", project_id, mr_iid);
         let url = self.api_url(&endpoint);
 
-        #[derive(Serialize)]
-        struct Body<'a> {
-            body: &'a str,
-        }
-
         let response = self
             .client
             .post(&url)
-            .json(&Body { body })
+            .json(&serde_json::json!({ "body": body }))
             .send()
             .await?;
 
@@ -583,15 +572,10 @@ impl GitLabClient {
         );
         let url = self.api_url(&endpoint);
 
-        #[derive(Serialize)]
-        struct Body<'a> {
-            body: &'a str,
-        }
-
         let response = self
             .client
             .post(&url)
-            .json(&Body { body })
+            .json(&serde_json::json!({ "body": body }))
             .send()
             .await?;
 
@@ -624,15 +608,10 @@ impl GitLabClient {
         );
         let url = self.api_url(&endpoint);
 
-        #[derive(Serialize)]
-        struct Body {
-            resolved: bool,
-        }
-
         let response = self
             .client
             .put(&url)
-            .json(&Body { resolved })
+            .json(&serde_json::json!({ "resolved": resolved }))
             .send()
             .await?;
 

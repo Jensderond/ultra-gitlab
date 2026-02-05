@@ -70,7 +70,7 @@ impl Default for SyncConfig {
 }
 
 /// Status of the sync engine.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct SyncStatus {
     /// Whether sync is currently running.
     pub is_syncing: bool,
@@ -201,16 +201,7 @@ impl SyncEngine {
         Self {
             pool,
             config: Arc::new(RwLock::new(SyncConfig::default())),
-            status: Arc::new(RwLock::new(SyncStatus {
-                is_syncing: false,
-                last_sync_time: None,
-                last_error: None,
-                pending_actions: 0,
-                failed_actions: 0,
-                last_sync_mr_count: 0,
-                cache_size_bytes: 0,
-                cache_size_warning: false,
-            })),
+            status: Arc::new(RwLock::new(SyncStatus::default())),
         }
     }
 
@@ -231,16 +222,7 @@ impl SyncEngine {
             let engine = SyncEngine {
                 pool,
                 config: config_for_task,
-                status: Arc::new(RwLock::new(SyncStatus {
-                    is_syncing: false,
-                    last_sync_time: None,
-                    last_error: None,
-                    pending_actions: 0,
-                    failed_actions: 0,
-                    last_sync_mr_count: 0,
-                    cache_size_bytes: 0,
-                    cache_size_warning: false,
-                })),
+                status: Arc::new(RwLock::new(SyncStatus::default())),
             };
 
             // Run initial sync immediately
@@ -356,11 +338,11 @@ impl SyncEngine {
             status.last_sync_time = Some(now());
             status.last_sync_mr_count = result.mr_count;
 
-            if result.errors.is_empty() {
-                status.last_error = None;
+            status.last_error = if result.errors.is_empty() {
+                None
             } else {
-                status.last_error = Some(result.errors.join("; "));
-            }
+                Some(result.errors.join("; "))
+            };
 
             // Update action counts
             let (pending, failed) = sync_queue::get_action_counts(&self.pool).await?;
@@ -517,14 +499,8 @@ impl SyncEngine {
                 ..Default::default()
             };
 
-            match client.list_merge_requests(&query).await {
-                Ok(response) => {
-                    all_mrs.extend(response.data);
-                }
-                Err(e) => {
-                    return Err(e);
-                }
-            }
+            let response = client.list_merge_requests(&query).await?;
+            all_mrs.extend(response.data);
         }
 
         // Fetch reviewing MRs if enabled
@@ -547,21 +523,15 @@ impl SyncEngine {
                 serde_json::to_string(&query).unwrap_or_default()
             );
 
-            match client.list_merge_requests(&query).await {
-                Ok(response) => {
-                    eprintln!(
-                        "[sync] Received {} reviewing MRs from GitLab",
-                        response.data.len()
-                    );
-                    // Avoid duplicates (MR could be both authored and assigned for review)
-                    for mr in response.data {
-                        if !all_mrs.iter().any(|m: &GitLabMergeRequest| m.id == mr.id) {
-                            all_mrs.push(mr);
-                        }
-                    }
-                }
-                Err(e) => {
-                    return Err(e);
+            let response = client.list_merge_requests(&query).await?;
+            eprintln!(
+                "[sync] Received {} reviewing MRs from GitLab",
+                response.data.len()
+            );
+            // Avoid duplicates (MR could be both authored and assigned for review)
+            for mr in response.data {
+                if !all_mrs.iter().any(|m: &GitLabMergeRequest| m.id == mr.id) {
+                    all_mrs.push(mr);
                 }
             }
         }
@@ -1076,16 +1046,7 @@ mod tests {
 
     #[test]
     fn test_sync_status_initial() {
-        let status = SyncStatus {
-            is_syncing: false,
-            last_sync_time: None,
-            last_error: None,
-            pending_actions: 0,
-            failed_actions: 0,
-            last_sync_mr_count: 0,
-            cache_size_bytes: 0,
-            cache_size_warning: false,
-        };
+        let status = SyncStatus::default();
 
         assert!(!status.is_syncing);
         assert!(status.last_sync_time.is_none());

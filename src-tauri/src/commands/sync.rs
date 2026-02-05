@@ -157,10 +157,6 @@ pub async fn retry_failed_actions(
         });
     };
 
-    // Clone URL for potential use in error handling
-    let url_for_error = url.clone();
-
-    // Get token from DB
     let token = token.ok_or_else(|| {
         AppError::authentication_expired_for_instance(
             "GitLab token missing. Please re-authenticate.",
@@ -169,9 +165,8 @@ pub async fn retry_failed_actions(
         )
     })?;
 
-    // Create GitLab client
     let client = GitLabClient::new(GitLabClientConfig {
-        base_url: url,
+        base_url: url.clone(),
         token,
         timeout_secs: 30,
     })?;
@@ -199,7 +194,7 @@ pub async fn retry_failed_actions(
                     AUTH_EXPIRED_EVENT,
                     AuthExpiredPayload {
                         instance_id: e.get_expired_instance_id().unwrap_or(0),
-                        instance_url: e.get_expired_instance_url().unwrap_or(&url_for_error).to_string(),
+                        instance_url: e.get_expired_instance_url().unwrap_or(&url).to_string(),
                         message: "Your GitLab token has expired or been revoked. Please re-authenticate.".to_string(),
                     },
                 );

@@ -7,7 +7,7 @@ use crate::db::pool::DbPool;
 use crate::error::AppError;
 use crate::models::sync_action::ActionType;
 use crate::models::Comment;
-use crate::services::sync_queue::{self, CommentPayload, EnqueueInput, ReplyPayload, ResolvePayload};
+use crate::services::sync_queue::{self, EnqueueInput, ReplyPayload, ResolvePayload};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -45,48 +45,15 @@ fn now() -> i64 {
         .unwrap_or(0)
 }
 
-/// Generate a negative ID for local comments (to avoid conflicts with GitLab IDs).
-fn generate_local_id() -> i64 {
-    -now()
-}
-
-/// Get all comments for a merge request.
-///
-/// Returns both cached GitLab comments and local (pending sync) comments.
-/// Comments are ordered by creation time.
-///
-/// # Arguments
-/// * `mr_id` - Merge request ID
-///
-/// # Returns
-/// Array of comments with sync status
-#[tauri::command]
-pub async fn get_comments(
-    pool: State<'_, DbPool>,
-    mr_id: i64,
+/// Convert a list of Comments to CommentResponses, resolving sync status for local comments.
+async fn to_comment_responses(
+    pool: &DbPool,
+    comments: Vec<Comment>,
 ) -> Result<Vec<CommentResponse>, AppError> {
-    // Fetch comments from database
-    let comments = sqlx::query_as::<_, Comment>(
-        r#"
-        SELECT id, mr_id, discussion_id, parent_id, author_username, body,
-               file_path, old_line, new_line, line_type, resolved, resolvable,
-               system, created_at, updated_at, cached_at, is_local
-        FROM comments
-        WHERE mr_id = ?
-        ORDER BY created_at ASC
-        "#,
-    )
-    .bind(mr_id)
-    .fetch_all(pool.inner())
-    .await?;
-
-    // Get sync status for local comments
     let mut responses = Vec::with_capacity(comments.len());
     for comment in comments {
         let sync_status = if comment.is_local {
-            // Check the sync queue for this comment's status
-            let status = get_comment_sync_status(pool.inner(), comment.id).await?;
-            status
+            get_comment_sync_status(pool, comment.id).await?
         } else {
             "synced".to_string()
         };
@@ -111,8 +78,44 @@ pub async fn get_comments(
             sync_status,
         });
     }
-
     Ok(responses)
+}
+
+/// Generate a negative ID for local comments (to avoid conflicts with GitLab IDs).
+fn generate_local_id() -> i64 {
+    -now()
+}
+
+/// Get all comments for a merge request.
+///
+/// Returns both cached GitLab comments and local (pending sync) comments.
+/// Comments are ordered by creation time.
+///
+/// # Arguments
+/// * `mr_id` - Merge request ID
+///
+/// # Returns
+/// Array of comments with sync status
+#[tauri::command]
+pub async fn get_comments(
+    pool: State<'_, DbPool>,
+    mr_id: i64,
+) -> Result<Vec<CommentResponse>, AppError> {
+    let comments = sqlx::query_as::<_, Comment>(
+        r#"
+        SELECT id, mr_id, discussion_id, parent_id, author_username, body,
+               file_path, old_line, new_line, line_type, resolved, resolvable,
+               system, created_at, updated_at, cached_at, is_local
+        FROM comments
+        WHERE mr_id = ?
+        ORDER BY created_at ASC
+        "#,
+    )
+    .bind(mr_id)
+    .fetch_all(pool.inner())
+    .await?;
+
+    to_comment_responses(pool.inner(), comments).await
 }
 
 /// Get sync status for a local comment from the sync queue.
@@ -210,34 +213,18 @@ pub async fn add_comment(
     .execute(pool.inner())
     .await?;
 
-    // Build payload for sync queue
-    let payload = serde_json::to_string(&CommentPayload {
-        project_id: input.project_id,
-        mr_iid: input.mr_iid,
-        body: input.body.clone(),
-        file_path: input.file_path.clone(),
-        old_line: input.old_line,
-        new_line: input.new_line,
-    })?;
-
-    // If inline comment, we need to add SHA info to the payload
-    let payload = if input.file_path.is_some() {
-        // Create extended payload with SHA info
-        let extended = serde_json::json!({
-            "project_id": input.project_id,
-            "mr_iid": input.mr_iid,
-            "body": input.body,
-            "file_path": input.file_path,
-            "old_line": input.old_line,
-            "new_line": input.new_line,
-            "base_sha": input.base_sha,
-            "head_sha": input.head_sha,
-            "start_sha": input.start_sha,
-        });
-        serde_json::to_string(&extended)?
-    } else {
-        payload
-    };
+    // Build payload for sync queue (includes SHA info for inline comments)
+    let payload = serde_json::to_string(&serde_json::json!({
+        "project_id": input.project_id,
+        "mr_iid": input.mr_iid,
+        "body": input.body,
+        "file_path": input.file_path,
+        "old_line": input.old_line,
+        "new_line": input.new_line,
+        "base_sha": input.base_sha,
+        "head_sha": input.head_sha,
+        "start_sha": input.start_sha,
+    }))?;
 
     // Queue for sync
     sync_queue::enqueue_action(
@@ -487,36 +474,7 @@ pub async fn get_file_comments(
     .fetch_all(pool.inner())
     .await?;
 
-    let mut responses = Vec::with_capacity(comments.len());
-    for comment in comments {
-        let sync_status = if comment.is_local {
-            get_comment_sync_status(pool.inner(), comment.id).await?
-        } else {
-            "synced".to_string()
-        };
-
-        responses.push(CommentResponse {
-            id: comment.id,
-            mr_id: comment.mr_id,
-            discussion_id: comment.discussion_id,
-            parent_id: comment.parent_id,
-            author_username: comment.author_username,
-            body: comment.body,
-            file_path: comment.file_path,
-            old_line: comment.old_line,
-            new_line: comment.new_line,
-            line_type: comment.line_type,
-            resolved: comment.resolved,
-            resolvable: comment.resolvable,
-            system: comment.system,
-            created_at: comment.created_at,
-            updated_at: comment.updated_at,
-            is_local: comment.is_local,
-            sync_status,
-        });
-    }
-
-    Ok(responses)
+    to_comment_responses(pool.inner(), comments).await
 }
 
 #[cfg(test)]
