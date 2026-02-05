@@ -9,6 +9,7 @@ import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import type {
   GitLabInstance,
   GitLabInstanceSetup,
+  TokenInfo,
   MergeRequest,
   MRFilter,
   DiffFile,
@@ -103,6 +104,21 @@ export async function getGitLabInstances(): Promise<GitLabInstanceWithStatus[]> 
  */
 export async function deleteGitLabInstance(instanceId: number): Promise<void> {
   return invoke<void>('delete_gitlab_instance', { instanceId });
+}
+
+/**
+ * Get token info (expiration, scopes, etc.) for a GitLab instance.
+ */
+export async function getTokenInfo(instanceId: number): Promise<TokenInfo> {
+  return invoke<TokenInfo>('get_token_info', { instanceId });
+}
+
+/**
+ * Update the personal access token for a GitLab instance.
+ * Validates the token and returns the authenticated username.
+ */
+export async function updateInstanceToken(instanceId: number, token: string): Promise<string> {
+  return invoke<string>('update_instance_token', { instanceId, token });
 }
 
 // ============================================================================

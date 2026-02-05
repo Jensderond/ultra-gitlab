@@ -14,6 +14,8 @@ export {
   setupGitLabInstance,
   getGitLabInstances,
   deleteGitLabInstance,
+  getTokenInfo,
+  updateInstanceToken,
   getMergeRequests,
   getMergeRequest,
   getDiffFiles,

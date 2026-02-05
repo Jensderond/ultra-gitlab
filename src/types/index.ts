@@ -27,6 +27,13 @@ export interface GitLabInstanceResponse {
   validated: boolean;
 }
 
+export interface TokenInfo {
+  expiresAt: string | null;
+  name: string;
+  scopes: string[];
+  active: boolean;
+}
+
 // ============================================================================
 // Merge Request
 // ============================================================================
