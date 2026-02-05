@@ -1,0 +1,70 @@
+## Codebase Patterns
+- GitLabClient methods follow pattern: build URL with `api_url()`, send request, use `handle_response()` for deserialization
+- Tauri commands use `State<'_, DbPool>` for DB access, `#[serde(rename_all = "camelCase")]` for frontend DTO structs
+- Commands are organized by feature in `src-tauri/src/commands/` (auth.rs, mr.rs, etc.)
+- Frontend services layer: `services/tauri.ts` (low-level invoke) -> `services/gitlab.ts` (high-level) -> components
+- Frontend types live in `src/types/index.ts`, service functions in `src/services/tauri.ts`
+- GitLab API response structs use snake_case (matching API), Tauri command response structs use `#[serde(rename_all = "camelCase")]` for frontend
+- Instance setup pattern: validate token via API first, then store in DB (see `setup_gitlab_instance` in auth.rs)
+- Settings page uses `listInstances`/`removeInstance` from `services/gitlab.ts` for instance management
+- For inline UI patterns (edit forms), use state for editingId + input + saving/error/success and collapse on timer after success
+
+---
+
+## 2026-02-05 - US-001
+- Implemented `PersonalAccessTokenInfo` struct and `get_token_info()` method on `GitLabClient`
+- Files changed: `src-tauri/src/services/gitlab_client.rs`
+- **Learnings for future iterations:**
+  - GitLab's `/personal_access_tokens/self` endpoint returns: expires_at, name, scopes, active, and more
+  - The struct uses default serde (snake_case) for deserialization from GitLab API; the Tauri command layer should add `rename_all = "camelCase"` for frontend consumption
+  - `PersonalAccessTokenInfo` kept as a plain struct without `rename_all` so it can be deserialized from GitLab's snake_case response directly
+---
+
+## 2026-02-05 - US-002
+- Added `get_token_info` Tauri command with `TokenInfoResponse` (camelCase) DTO
+- Files changed: `src-tauri/src/commands/auth.rs`, `src-tauri/src/commands/mod.rs`, `src-tauri/src/lib.rs`
+- **Learnings for future iterations:**
+  - New Tauri commands need 3 registrations: function in command file, re-export in `commands/mod.rs`, and handler registration in `lib.rs`
+  - Use `fetch_optional` + `.ok_or_else()` for querying a single instance by ID (avoids panics on missing rows)
+  - `TokenInfoResponse` has `rename_all = "camelCase"` so frontend receives `expiresAt` not `expires_at`
+---
+
+## 2026-02-05 - US-003
+- Added `update_instance_token` Tauri command: validates new token via GET /user, then updates DB
+- Files changed: `src-tauri/src/commands/auth.rs`, `src-tauri/src/commands/mod.rs`, `src-tauri/src/lib.rs`
+- **Learnings for future iterations:**
+  - Token validation reuses the existing `validate_token()` method (GET /user) - returns 401 for invalid tokens
+  - Command returns the username string directly (not wrapped in a struct) since it's the only needed response field
+---
+
+## 2026-02-05 - US-004
+- Added `TokenInfo` interface in `src/types/index.ts` and `getTokenInfo`/`updateInstanceToken` wrappers in `src/services/tauri.ts`
+- Files changed: `src/types/index.ts`, `src/services/tauri.ts`, `src/services/index.ts`
+- **Learnings for future iterations:**
+  - New service functions need to be re-exported from `src/services/index.ts`
+  - Frontend types use camelCase (matching the `rename_all = "camelCase"` on Rust DTOs)
+---
+
+## 2026-02-05 - US-005
+- Added inline Edit Token UI with password input, Save/Cancel, loading/error/success states
+- Files changed: `src/pages/Settings.tsx`, `src/pages/Settings.css`
+- **Learnings for future iterations:**
+  - Settings page uses `listInstances` from `services/gitlab.ts` (not `getGitLabInstances` from tauri.ts directly)
+  - Inline editing pattern: state for editingId + input value + saving/error/success, with auto-focus via ref
+---
+
+## 2026-02-05 - US-006
+- Added token expiration display with parallel fetching on mount
+- Files changed: `src/pages/Settings.tsx`, `src/pages/Settings.css`
+- **Learnings for future iterations:**
+  - `Promise.allSettled` used for parallel token info fetches so one failure doesn't block others
+  - `formatExpiration()` returns both text and daysLeft for use by badge logic
+---
+
+## 2026-02-05 - US-007
+- Added yellow "Expiring soon" (< 30 days) and red "Expired" (< 0 days) badges next to expiration text
+- Files changed: `src/pages/Settings.tsx`, `src/pages/Settings.css`
+- **Learnings for future iterations:**
+  - Used IIFE in JSX to compute daysLeft once and render both text and badge
+  - Badge colors use hardcoded hex values (not CSS vars) for consistent appearance across themes
+---
