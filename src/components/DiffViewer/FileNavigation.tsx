@@ -16,6 +16,8 @@ interface FileNavigationProps {
   onSelect: (filePath: string) => void;
   /** Current file index for keyboard navigation */
   focusIndex?: number;
+  /** Set of file paths that have been marked as viewed */
+  viewedPaths?: Set<string>;
 }
 
 /**
@@ -59,6 +61,7 @@ export default function FileNavigation({
   selectedPath,
   onSelect,
   focusIndex,
+  viewedPaths,
 }: FileNavigationProps) {
   return (
     <div className="file-navigation">
@@ -70,11 +73,12 @@ export default function FileNavigation({
           const indicator = getChangeIndicator(file.changeType);
           const isSelected = file.newPath === selectedPath;
           const isFocused = index === focusIndex;
+          const isViewed = viewedPaths?.has(file.newPath) ?? false;
 
           return (
             <div
               key={file.newPath}
-              className={`file-nav-item ${isSelected ? 'selected' : ''} ${isFocused ? 'focused' : ''}`}
+              className={`file-nav-item ${isSelected ? 'selected' : ''} ${isFocused ? 'focused' : ''} ${isViewed ? 'viewed' : ''}`}
               onClick={() => onSelect(file.newPath)}
               role="button"
               tabIndex={0}
@@ -99,6 +103,7 @@ export default function FileNavigation({
                   <span className="stat-del">-{file.deletions}</span>
                 )}
               </div>
+              {isViewed && <span className="file-viewed-indicator">✓</span>}
             </div>
           );
         })}

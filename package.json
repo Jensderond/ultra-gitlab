@@ -10,9 +10,11 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-store": "^2.4.2",
+    "monaco-editor": "^0.55.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.13.0",
@@ -25,6 +27,7 @@
     "@types/react-window": "^2.0.0",
     "@vitejs/plugin-react": "^4.6.0",
     "typescript": "~5.8.3",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "vite-plugin-monaco-editor": "^1.1.0"
   }
 }

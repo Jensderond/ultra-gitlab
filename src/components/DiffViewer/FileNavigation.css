@@ -1,48 +1,91 @@
-/* File Navigation Styles */
+/* File Navigation - Kanagawa Wave Theme */
 
 .file-navigation {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: var(--bg-primary);
+  background: linear-gradient(180deg,
+    rgba(22, 22, 29, 0.5) 0%,
+    rgba(22, 22, 29, 0.3) 100%);
   border-right: 1px solid var(--border-color);
+  font-family: 'Noto Sans JP', sans-serif;
 }
 
 .file-nav-header {
-  padding: 12px 16px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border-color);
-  background-color: var(--bg-secondary);
+  background: linear-gradient(180deg,
+    rgba(31, 31, 40, 0.8) 0%,
+    rgba(31, 31, 40, 0.6) 100%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .file-count {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
+  letter-spacing: 0.02em;
 }
 
 .file-nav-list {
   flex: 1;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(126, 156, 216, 0.2) transparent;
+}
+
+.file-nav-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.file-nav-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.file-nav-list::-webkit-scrollbar-thumb {
+  background: rgba(126, 156, 216, 0.2);
+  border-radius: 3px;
+}
+
+.file-nav-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(126, 156, 216, 0.35);
 }
 
 .file-nav-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 10px;
+  padding: 10px 14px;
   cursor: pointer;
-  border-bottom: 1px solid var(--border-color-light);
-  transition: background-color 0.1s ease;
+  border-bottom: 1px solid rgba(54, 54, 70, 0.3);
+  transition: all 0.2s ease;
+  position: relative;
 }
 
 .file-nav-item:hover {
-  background-color: var(--bg-hover);
+  background: rgba(42, 42, 55, 0.5);
 }
 
 .file-nav-item.selected {
-  background-color: var(--bg-selected);
+  background: linear-gradient(90deg,
+    rgba(126, 156, 216, 0.12) 0%,
+    rgba(126, 156, 216, 0.06) 100%);
   border-left: 3px solid var(--accent-color);
-  padding-left: 9px;
+  padding-left: 11px;
+}
+
+.file-nav-item.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg,
+    #7e9cd8 0%,
+    #7fb4ca 100%);
+  box-shadow: 0 0 10px rgba(126, 156, 216, 0.5);
 }
 
 .file-nav-item.focused {
@@ -55,34 +98,47 @@
 
 .file-change-indicator {
   flex-shrink: 0;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 10px;
   font-weight: 600;
-  border-radius: 3px;
+  border-radius: 4px;
+  font-family: 'IBM Plex Mono', monospace;
 }
 
 .change-added {
-  background-color: var(--diff-add-bg);
+  background: linear-gradient(135deg,
+    rgba(152, 187, 108, 0.2) 0%,
+    rgba(152, 187, 108, 0.1) 100%);
   color: var(--diff-add-text);
+  border: 1px solid rgba(152, 187, 108, 0.25);
 }
 
 .change-deleted {
-  background-color: var(--diff-remove-bg);
+  background: linear-gradient(135deg,
+    rgba(195, 64, 67, 0.2) 0%,
+    rgba(195, 64, 67, 0.1) 100%);
   color: var(--diff-remove-text);
+  border: 1px solid rgba(195, 64, 67, 0.25);
 }
 
 .change-modified {
-  background-color: var(--warning-bg);
+  background: linear-gradient(135deg,
+    rgba(230, 195, 132, 0.2) 0%,
+    rgba(230, 195, 132, 0.1) 100%);
   color: var(--warning-text);
+  border: 1px solid rgba(230, 195, 132, 0.25);
 }
 
 .change-renamed {
-  background-color: var(--info-bg);
+  background: linear-gradient(135deg,
+    rgba(126, 156, 216, 0.2) 0%,
+    rgba(126, 156, 216, 0.1) 100%);
   color: var(--info-text);
+  border: 1px solid rgba(126, 156, 216, 0.25);
 }
 
 .file-info {
@@ -90,6 +146,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 .file-name {
@@ -99,6 +156,15 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 0.2s ease;
+}
+
+.file-nav-item:hover .file-name {
+  color: #e5ddb3;
+}
+
+.file-nav-item.selected .file-name {
+  color: #f0ead6;
 }
 
 .file-dir {
@@ -111,9 +177,9 @@
 
 .file-stats {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   font-size: 10px;
-  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  font-family: 'IBM Plex Mono', monospace;
 }
 
 .stat-add {
@@ -122,4 +188,24 @@
 
 .stat-del {
   color: var(--diff-remove-text);
+}
+
+/* Viewed state */
+.file-nav-item.viewed {
+  opacity: 0.55;
+}
+
+.file-nav-item.viewed:hover {
+  opacity: 0.75;
+}
+
+.file-nav-item.viewed .file-name {
+  color: var(--text-secondary);
+}
+
+.file-viewed-indicator {
+  flex-shrink: 0;
+  color: #98bb6c;
+  font-size: 12px;
+  font-weight: 600;
 }

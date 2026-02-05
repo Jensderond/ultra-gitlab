@@ -33,7 +33,7 @@ pub async fn approve_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppEr
     let mr_iid: i64 = mr_row.get("iid");
 
     // Update approval status optimistically
-    // Increment approvals_count and update approval_status
+    // Increment approvals_count, update approval_status, and mark user as having approved
     sqlx::query(
         r#"
         UPDATE merge_requests
@@ -42,7 +42,8 @@ pub async fn approve_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppEr
                 WHEN COALESCE(approvals_count, 0) + 1 >= COALESCE(approvals_required, 1)
                 THEN 'approved'
                 ELSE 'pending'
-            END
+            END,
+            user_has_approved = 1
         WHERE id = ?
         "#,
     )
@@ -98,7 +99,7 @@ pub async fn unapprove_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), App
     let mr_iid: i64 = mr_row.get("iid");
 
     // Update approval status optimistically
-    // Decrement approvals_count (but not below 0) and update approval_status
+    // Decrement approvals_count (but not below 0), update approval_status, and mark user as not having approved
     sqlx::query(
         r#"
         UPDATE merge_requests
@@ -107,7 +108,8 @@ pub async fn unapprove_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), App
                 WHEN MAX(COALESCE(approvals_count, 0) - 1, 0) >= COALESCE(approvals_required, 1)
                 THEN 'approved'
                 ELSE 'pending'
-            END
+            END,
+            user_has_approved = 0
         WHERE id = ?
         "#,
     )

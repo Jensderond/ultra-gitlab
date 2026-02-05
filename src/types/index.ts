@@ -54,6 +54,7 @@ export interface MergeRequest {
   labels: string[];
   reviewers: string[];
   cachedAt: number;
+  userHasApproved: boolean;
 }
 
 export interface MRFilter {

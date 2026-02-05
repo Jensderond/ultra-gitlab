@@ -116,6 +116,10 @@ pub struct MergeRequest {
 
     /// When this data was cached locally (Unix).
     pub cached_at: i64,
+
+    /// Whether the current user has approved this MR.
+    #[sqlx(default)]
+    pub user_has_approved: bool,
 }
 
 impl MergeRequest {

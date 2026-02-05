@@ -1,12 +1,22 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import monacoEditorPluginModule from "vite-plugin-monaco-editor";
+
+// Handle CommonJS default export
+const monacoEditorPlugin = (monacoEditorPluginModule as { default: typeof monacoEditorPluginModule }).default || monacoEditorPluginModule;
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [react()],
+  plugins: [
+    react(),
+    monacoEditorPlugin({
+      // Configure Monaco Editor workers
+      languageWorkers: ["editorWorkerService", "typescript", "json", "css", "html"],
+    }),
+  ],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

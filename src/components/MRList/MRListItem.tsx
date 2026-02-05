@@ -4,6 +4,7 @@
  * Displays a compact view of an MR with key information.
  */
 
+import { forwardRef } from 'react';
 import type { MergeRequest, ApprovalStatus, MRState } from '../../types';
 import './MRListItem.css';
 
@@ -12,6 +13,8 @@ interface MRListItemProps {
   mr: MergeRequest;
   /** Whether this item is currently selected */
   selected?: boolean;
+  /** Whether this item is newly added */
+  isNew?: boolean;
   /** Click handler */
   onClick?: () => void;
 }
@@ -63,19 +66,25 @@ function getStateClass(state: MRState): string {
 /**
  * Single merge request list item.
  */
-export default function MRListItem({ mr, selected, onClick }: MRListItemProps) {
-  return (
-    <div
-      className={`mr-list-item ${selected ? 'selected' : ''}`}
-      onClick={onClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          onClick?.();
-        }
-      }}
-    >
+const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
+  function MRListItem({ mr, selected, isNew, onClick }, ref) {
+    const classNames = ['mr-list-item'];
+    if (selected) classNames.push('selected');
+    if (isNew) classNames.push('is-new');
+
+    return (
+      <div
+        ref={ref}
+        className={classNames.join(' ')}
+        onClick={onClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            onClick?.();
+          }
+        }}
+      >
       <div className="mr-item-header">
         <span className={`mr-state ${getStateClass(mr.state)}`}>
           {mr.state === 'opened' ? 'Open' : mr.state}
@@ -116,4 +125,7 @@ export default function MRListItem({ mr, selected, onClick }: MRListItemProps) {
       </div>
     </div>
   );
-}
+  }
+);
+
+export default MRListItem;

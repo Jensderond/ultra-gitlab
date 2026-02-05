@@ -1,10 +1,19 @@
-/* Dark mode only theme */
+/* Kanagawa Wave Theme - Global Styles */
+/* Inspired by "The Great Wave off Kanagawa" by Katsushika Hokusai */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap');
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
 
 :root {
   /* Font */
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Noto Sans JP', -apple-system, sans-serif;
   font-size: 16px;
-  line-height: 24px;
+  line-height: 1.6;
   font-weight: 400;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -12,83 +21,82 @@
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
 
-  /* Core colors */
-  --bg-primary: #0d1117;
-  --bg-secondary: #161b22;
-  --bg-tertiary: #21262d;
-  --bg-hover: #30363d;
-  --bg-selected: #1f3a5f;
+  /* Kanagawa Wave - Core backgrounds */
+  --bg-primary: #16161d;
+  --bg-secondary: #1f1f28;
+  --bg-tertiary: #2a2a37;
+  --bg-hover: #363646;
+  --bg-selected: #223249;
 
-  /* Text colors */
-  --text-primary: #e6edf3;
-  --text-secondary: #8b949e;
-  --text-tertiary: #6e7681;
-  --text-muted: #6e7681;
+  /* Text colors - Warm paper/foam tones */
+  --text-primary: #dcd7ba;
+  --text-secondary: #c8c093;
+  --text-tertiary: #727169;
+  --text-muted: #625e5a;
 
-  /* Border colors */
-  --border-color: #30363d;
-  --border-color-light: #21262d;
-  --border-light: #21262d;
+  /* Border colors - Sumi ink tones */
+  --border-color: #363646;
+  --border-color-light: #2a2a37;
+  --border-light: #2a2a37;
 
-  /* Accent colors */
-  --accent-color: #58a6ff;
-  --accent-hover: #79c0ff;
-  --accent-bg: #1f3a5f;
-  --primary-color: #58a6ff;
-  --primary-hover: #79c0ff;
-  --primary-dark: #388bfd;
+  /* Accent colors - Wave blues */
+  --accent-color: #7e9cd8;
+  --accent-hover: #7fb4ca;
+  --accent-bg: #223249;
+  --primary-color: #7e9cd8;
+  --primary-hover: #7fb4ca;
+  --primary-dark: #6a89c7;
 
   /* Focus */
-  --focus-ring: rgba(88, 166, 255, 0.4);
+  --focus-ring: rgba(126, 156, 216, 0.4);
 
   /* Link colors */
-  --link-color: #58a6ff;
+  --link-color: #7e9cd8;
 
-  /* Status colors */
-  --error-color: #f85149;
-  --error-bg: rgba(248, 81, 73, 0.15);
-  --error-text: #f85149;
-  --error-light: rgba(248, 81, 73, 0.15);
-  --success-color: #3fb950;
-  --success-bg: rgba(63, 185, 80, 0.15);
-  --warning-color: #d29922;
-  --warning-bg: rgba(210, 153, 34, 0.15);
-  --warning-text: #d29922;
-  --warning-light: rgba(210, 153, 34, 0.15);
-  --info-bg: rgba(88, 166, 255, 0.15);
-  --info-text: #58a6ff;
+  /* Status colors - Kanagawa palette */
+  --error-color: #c34043;
+  --error-bg: rgba(195, 64, 67, 0.15);
+  --error-text: #c34043;
+  --error-light: rgba(195, 64, 67, 0.12);
+  --success-color: #98bb6c;
+  --success-bg: rgba(152, 187, 108, 0.15);
+  --warning-color: #e6c384;
+  --warning-bg: rgba(230, 195, 132, 0.15);
+  --warning-text: #e6c384;
+  --warning-light: rgba(230, 195, 132, 0.12);
+  --info-bg: rgba(126, 156, 216, 0.15);
+  --info-text: #7e9cd8;
 
-  /* Diff colors */
-  --diff-add-bg: rgba(63, 185, 80, 0.15);
-  --diff-add-hover: rgba(63, 185, 80, 0.25);
-  --diff-add-gutter: rgba(63, 185, 80, 0.25);
-  --diff-add-text: #3fb950;
-  --diff-remove-bg: rgba(248, 81, 73, 0.15);
-  --diff-remove-hover: rgba(248, 81, 73, 0.25);
-  --diff-remove-gutter: rgba(248, 81, 73, 0.25);
-  --diff-remove-text: #f85149;
-  --gutter-bg: #161b22;
-  --hunk-header-bg: rgba(88, 166, 255, 0.1);
-  --hunk-header-text: #58a6ff;
+  /* Diff colors - Kanagawa style */
+  --diff-add-bg: rgba(152, 187, 108, 0.12);
+  --diff-add-hover: rgba(152, 187, 108, 0.2);
+  --diff-add-gutter: rgba(152, 187, 108, 0.2);
+  --diff-add-text: #98bb6c;
+  --diff-remove-bg: rgba(195, 64, 67, 0.12);
+  --diff-remove-hover: rgba(195, 64, 67, 0.2);
+  --diff-remove-gutter: rgba(195, 64, 67, 0.2);
+  --diff-remove-text: #c34043;
+  --gutter-bg: #1a1a22;
+  --hunk-header-bg: rgba(126, 156, 216, 0.1);
+  --hunk-header-text: #7e9cd8;
 
   /* Labels */
-  --label-bg: rgba(88, 166, 255, 0.2);
-  --label-text: #79c0ff;
+  --label-bg: rgba(126, 156, 216, 0.2);
+  --label-text: #7fb4ca;
 
   /* Card */
-  --card-bg: #161b22;
+  --card-bg: #1f1f28;
 
   /* Input */
-  --input-bg: #0d1117;
-  --disabled-bg: #21262d;
-  --code-bg: #21262d;
+  --input-bg: #16161d;
+  --disabled-bg: #2a2a37;
+  --code-bg: #1a1a22;
 
   /* Apply to body */
   color: var(--text-primary);
   background-color: var(--bg-primary);
 }
 
-/* Add dark-theme class to body for components that still check for it */
 body {
   color: var(--text-primary);
   background-color: var(--bg-primary);
@@ -111,15 +119,15 @@ body {
 }
 
 .logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
+  filter: drop-shadow(0 0 2em #7e9cd8);
 }
 
 .logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafb);
+  filter: drop-shadow(0 0 2em #7fb4ca);
 }
 
 .logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
+  filter: drop-shadow(0 0 2em #7aa89f);
 }
 
 .row {
@@ -131,10 +139,11 @@ a {
   font-weight: 500;
   color: var(--link-color);
   text-decoration: inherit;
+  transition: color 0.2s ease;
 }
 
 a:hover {
-  color: #24c8db;
+  color: var(--accent-hover);
 }
 
 h1 {
@@ -151,8 +160,8 @@ button {
   font-family: inherit;
   color: var(--text-primary);
   background-color: var(--bg-secondary);
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.3);
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   outline: none;
 }
 
@@ -162,11 +171,17 @@ button {
 
 button:hover {
   border-color: var(--accent-color);
+  box-shadow: 0 2px 8px rgba(126, 156, 216, 0.15);
 }
 
 button:active {
   border-color: var(--accent-color);
   background-color: var(--bg-tertiary);
+}
+
+button:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 #greet-input {
@@ -192,5 +207,31 @@ button:active {
 }
 
 .shortcut-key-display {
+  color: var(--text-primary);
+}
+
+/* Custom scrollbar - Kanagawa style */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 5px;
+  border: 2px solid var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bg-hover);
+}
+
+/* Selection color */
+::selection {
+  background: rgba(126, 156, 216, 0.3);
   color: var(--text-primary);
 }

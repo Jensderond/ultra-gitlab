@@ -46,6 +46,7 @@ pub struct MergeRequestListItem {
     pub labels: Vec<String>,
     pub reviewers: Vec<String>,
     pub cached_at: i64,
+    pub user_has_approved: bool,
 }
 
 impl From<MergeRequest> for MergeRequestListItem {
@@ -73,6 +74,7 @@ impl From<MergeRequest> for MergeRequestListItem {
             labels,
             reviewers,
             cached_at: mr.cached_at,
+            user_has_approved: mr.user_has_approved,
         }
     }
 }
@@ -104,7 +106,7 @@ pub async fn get_merge_requests(
             author_username, source_branch, target_branch, state,
             web_url, created_at, updated_at, merged_at,
             approval_status, approvals_required, approvals_count,
-            labels, reviewers, cached_at
+            labels, reviewers, cached_at, user_has_approved
         FROM merge_requests
         WHERE instance_id = $1
         "#,
@@ -240,7 +242,7 @@ pub async fn get_merge_request_detail(
             author_username, source_branch, target_branch, state,
             web_url, created_at, updated_at, merged_at,
             approval_status, approvals_required, approvals_count,
-            labels, reviewers, cached_at
+            labels, reviewers, cached_at, user_has_approved
         FROM merge_requests
         WHERE id = $1
         "#,

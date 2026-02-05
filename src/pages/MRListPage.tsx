@@ -5,9 +5,9 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { MRList } from '../components/MRList';
-import { listInstances, listMergeRequests, type GitLabInstanceWithStatus } from '../services/gitlab';
+import { listInstances, type GitLabInstanceWithStatus } from '../services/gitlab';
 import type { MergeRequest } from '../types';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import './MRListPage.css';
@@ -17,6 +17,7 @@ import './MRListPage.css';
  */
 export default function MRListPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [instances, setInstances] = useState<GitLabInstanceWithStatus[]>([]);
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
   const [mrs, setMrs] = useState<MergeRequest[]>([]);
@@ -46,20 +47,10 @@ export default function MRListPage() {
     loadInstances();
   }, [selectedInstanceId]);
 
-  // Load MRs when instance changes (for keyboard navigation to work)
-  useEffect(() => {
-    if (!selectedInstanceId) return;
-
-    async function loadMRs() {
-      try {
-        const data = await listMergeRequests(selectedInstanceId!, { state: 'opened' });
-        setMrs(data);
-      } catch (error) {
-        console.error('Failed to load MRs:', error);
-      }
-    }
-    loadMRs();
-  }, [selectedInstanceId]);
+  // Sync MRs from MRList component (for keyboard navigation)
+  const handleMRsLoaded = useCallback((loadedMrs: MergeRequest[]) => {
+    setMrs(loadedMrs);
+  }, []);
 
   // Handle Enter to open selected MR
   const handleSelectByIndex = useCallback(
@@ -78,6 +69,15 @@ export default function MRListPage() {
     onSelect: handleSelectByIndex,
     enabled: !loading && mrs.length > 0,
   });
+
+  // Reset focus to first item when returning from MR detail with Escape
+  useEffect(() => {
+    if ((location.state as { focusLatest?: boolean })?.focusLatest) {
+      setFocusIndex(0);
+      // Clear state to prevent re-triggering
+      window.history.replaceState({}, '');
+    }
+  }, [location.state, setFocusIndex]);
 
   // Handle MR click from list
   const handleSelectMR = useCallback(
@@ -137,6 +137,7 @@ export default function MRListPage() {
             onSelect={handleSelectMR}
             focusIndex={focusIndex}
             onFocusChange={setFocusIndex}
+            onMRsLoaded={handleMRsLoaded}
           />
         )}
       </main>

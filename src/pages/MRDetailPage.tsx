@@ -27,6 +27,7 @@ export default function MRDetailPage() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileFocusIndex, setFileFocusIndex] = useState(0);
   const [viewMode, setViewMode] = useState<'unified' | 'split'>('unified');
+  const [viewedPaths, setViewedPaths] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,7 +69,7 @@ export default function MRDetailPage() {
       }
     }
     loadData();
-  }, [mrId, selectedFile]);
+  }, [mrId]);
 
   // Handle file selection
   const handleFileSelect = useCallback((filePath: string) => {
@@ -90,6 +91,14 @@ export default function MRDetailPage() {
     },
     [fileFocusIndex, files]
   );
+
+  // Mark current file as viewed and go to next file
+  const markViewedAndNext = useCallback(() => {
+    if (selectedFile) {
+      setViewedPaths((prev) => new Set(prev).add(selectedFile));
+      navigateFile(1);
+    }
+  }, [selectedFile, navigateFile]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -121,16 +130,21 @@ export default function MRDetailPage() {
           e.preventDefault();
           approvalButtonRef.current?.toggle();
           break;
+        case 'v':
+          // Mark file as viewed and go to next
+          e.preventDefault();
+          markViewedAndNext();
+          break;
         case 'Escape':
-          // Go back to list
-          navigate('/mrs');
+          // Go back to list, focus on latest item
+          navigate('/mrs', { state: { focusLatest: true } });
           break;
       }
     }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [navigateFile, navigate, viewMode]);
+  }, [navigateFile, navigate, viewMode, markViewedAndNext]);
 
   // Loading state
   if (loading) {
@@ -178,6 +192,7 @@ export default function MRDetailPage() {
             approvalStatus={mr.approvalStatus}
             approvalsCount={mr.approvalsCount ?? 0}
             approvalsRequired={mr.approvalsRequired ?? 1}
+            hasApproved={mr.userHasApproved}
           />
         </div>
       </header>
@@ -189,6 +204,7 @@ export default function MRDetailPage() {
             selectedPath={selectedFile ?? undefined}
             onSelect={handleFileSelect}
             focusIndex={fileFocusIndex}
+            viewedPaths={viewedPaths}
           />
         </aside>
 
@@ -214,6 +230,7 @@ export default function MRDetailPage() {
       <footer className="mr-detail-footer">
         <span className="keyboard-hint">
           <kbd>n</kbd>/<kbd>p</kbd> file &middot;{' '}
+          <kbd>v</kbd> viewed &middot;{' '}
           <kbd>]</kbd>/<kbd>[</kbd> change &middot;{' '}
           <kbd>x</kbd> split/unified &middot;{' '}
           <kbd>a</kbd> approve &middot;{' '}
