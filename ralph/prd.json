@@ -126,8 +126,8 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added getFileContent to tauri.ts and gitlab.ts with proper exports via index.ts"
     },
     {
       "id": "US-009",

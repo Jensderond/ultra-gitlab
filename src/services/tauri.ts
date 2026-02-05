@@ -165,6 +165,19 @@ export async function getDiffHunks(
   return invoke<DiffHunksResponse>('get_diff_hunks', { mrId, filePath, start, count });
 }
 
+/**
+ * Get raw file content at a specific SHA.
+ * Used by Monaco diff viewer to get original and modified file contents.
+ */
+export async function getFileContent(
+  instanceId: number,
+  projectId: number,
+  filePath: string,
+  sha: string
+): Promise<string> {
+  return invoke<string>('get_file_content', { instanceId, projectId, filePath, sha });
+}
+
 // ============================================================================
 // Comment Commands
 // ============================================================================

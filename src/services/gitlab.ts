@@ -15,6 +15,7 @@ import {
   getDiffFileContent,
   getDiffFileMetadata,
   getDiffHunks,
+  getFileContent as tauriGetFileContent,
   getComments,
   addComment,
   replyToComment,
@@ -164,6 +165,25 @@ export async function getFileDiffHunks(
   count: number
 ): Promise<DiffHunksResponse> {
   return getDiffHunks(mrId, filePath, start, count);
+}
+
+/**
+ * Get raw file content at a specific commit SHA.
+ * Used by Monaco diff viewer to get original and modified file contents.
+ *
+ * @param instanceId - The GitLab instance ID
+ * @param projectId - The GitLab project ID
+ * @param filePath - The path to the file in the repository
+ * @param sha - The commit SHA to fetch the file at
+ * @returns The raw file content as a string (empty for deleted/new files)
+ */
+export async function getFileContent(
+  instanceId: number,
+  projectId: number,
+  filePath: string,
+  sha: string
+): Promise<string> {
+  return tauriGetFileContent(instanceId, projectId, filePath, sha);
 }
 
 // ============================================================================
