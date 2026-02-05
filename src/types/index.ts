@@ -36,6 +36,7 @@ export type ApprovalStatus = 'approved' | 'pending' | 'changes_requested';
 
 export interface MergeRequest {
   id: number;
+  instanceId: number;
   iid: number;
   projectId: number;
   title: string;
@@ -107,6 +108,12 @@ export interface DiffContent {
   headHash: string;
   content: string;
   highlightedTokens?: HighlightToken[];
+}
+
+export interface DiffRefs {
+  baseSha: string;
+  headSha: string;
+  startSha: string;
 }
 
 export interface DiffFileContent {

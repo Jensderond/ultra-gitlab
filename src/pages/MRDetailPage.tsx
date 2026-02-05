@@ -1,17 +1,17 @@
 /**
  * MR Detail page component.
  *
- * Displays a merge request with file navigation and diff viewer.
+ * Displays a merge request with file navigation and Monaco diff viewer.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { DiffViewer, FileNavigation } from '../components/DiffViewer';
+import { FileNavigation } from '../components/DiffViewer';
+import { MonacoDiffViewer } from '../components/Monaco/MonacoDiffViewer';
 import { ApprovalButton, type ApprovalButtonRef } from '../components/Approval';
-import { getMergeRequestById, getMergeRequestFiles } from '../services/gitlab';
-import type { MergeRequest, DiffFileSummary } from '../types';
+import { getMergeRequestById, getMergeRequestFiles, getDiffRefs, getFileContent } from '../services/gitlab';
+import type { MergeRequest, DiffFileSummary, DiffRefs } from '../types';
 import './MRDetailPage.css';
-import '../styles/syntax.css';
 
 /**
  * Page for viewing a single merge request with diffs.
@@ -31,6 +31,13 @@ export default function MRDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Monaco diff viewer state
+  const [diffRefs, setDiffRefs] = useState<DiffRefs | null>(null);
+  const [originalContent, setOriginalContent] = useState<string>('');
+  const [modifiedContent, setModifiedContent] = useState<string>('');
+  const [fileContentLoading, setFileContentLoading] = useState(false);
+  const [fileContentError, setFileContentError] = useState<string | null>(null);
+
   // Load MR data
   useEffect(() => {
     async function loadData() {
@@ -40,12 +47,14 @@ export default function MRDetailPage() {
         setLoading(true);
         setError(null);
 
-        const [mrData, filesData] = await Promise.all([
+        const [mrData, filesData, diffRefsData] = await Promise.all([
           getMergeRequestById(mrId),
           getMergeRequestFiles(mrId),
+          getDiffRefs(mrId).catch(() => null), // May not exist yet
         ]);
 
         setMr(mrData);
+        setDiffRefs(diffRefsData);
 
         // Convert DiffFile[] to DiffFileSummary[]
         const summaries: DiffFileSummary[] = filesData.map((f) => ({
@@ -79,6 +88,48 @@ export default function MRDetailPage() {
       setFileFocusIndex(index);
     }
   }, [files]);
+
+  // Load file content when selected file changes
+  useEffect(() => {
+    async function loadFileContent() {
+      if (!selectedFile || !mr || !diffRefs) {
+        setOriginalContent('');
+        setModifiedContent('');
+        return;
+      }
+
+      // Find the file info to check if it's added/deleted
+      const fileInfo = files.find((f) => f.newPath === selectedFile);
+      const isNewFile = fileInfo?.changeType === 'added';
+      const isDeletedFile = fileInfo?.changeType === 'deleted';
+      const oldPath = fileInfo?.oldPath || selectedFile;
+
+      try {
+        setFileContentLoading(true);
+        setFileContentError(null);
+
+        // Fetch original and modified content in parallel
+        const [original, modified] = await Promise.all([
+          // Original content (at base SHA) - empty for new files
+          isNewFile
+            ? Promise.resolve('')
+            : getFileContent(mr.instanceId, mr.projectId, oldPath, diffRefs.baseSha).catch(() => ''),
+          // Modified content (at head SHA) - empty for deleted files
+          isDeletedFile
+            ? Promise.resolve('')
+            : getFileContent(mr.instanceId, mr.projectId, selectedFile, diffRefs.headSha).catch(() => ''),
+        ]);
+
+        setOriginalContent(original);
+        setModifiedContent(modified);
+      } catch (err) {
+        setFileContentError(err instanceof Error ? err.message : 'Failed to load file content');
+      } finally {
+        setFileContentLoading(false);
+      }
+    }
+    loadFileContent();
+  }, [selectedFile, mr, diffRefs, files]);
 
   // Navigate to next/previous file
   const navigateFile = useCallback(
@@ -210,15 +261,25 @@ export default function MRDetailPage() {
 
         <main className="mr-detail-main">
           {selectedFile ? (
-            <DiffViewer
-              mrId={mrId}
-              projectId={mr.projectId}
-              mrIid={mr.iid}
-              filePath={selectedFile}
-              currentUser="" // TODO: Get from settings/auth
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-            />
+            fileContentLoading ? (
+              <div className="file-loading">Loading file content...</div>
+            ) : fileContentError ? (
+              <div className="file-error">
+                <p>{fileContentError}</p>
+                <button onClick={() => handleFileSelect(selectedFile)}>Retry</button>
+              </div>
+            ) : !diffRefs ? (
+              <div className="file-error">
+                <p>Diff information not available. Please sync the merge request first.</p>
+              </div>
+            ) : (
+              <MonacoDiffViewer
+                originalContent={originalContent}
+                modifiedContent={modifiedContent}
+                filePath={selectedFile}
+                viewMode={viewMode}
+              />
+            )
           ) : (
             <div className="no-file-selected">
               Select a file to view its diff

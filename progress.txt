@@ -1143,3 +1143,61 @@ All success criteria verified:
 - SC-010: Zero loading spinners during normal operation ✅
 
 ---
+
+## 2026-02-05 - US-008
+**Workflow**: PRD
+**Feature**: Monaco Editor Integration
+
+### Implemented
+- Added getFileContent function to src/services/tauri.ts
+- Added high-level getFileContent wrapper in src/services/gitlab.ts
+- Updated src/services/index.ts to use explicit exports (avoid naming conflict)
+
+### Files Changed
+- src/services/tauri.ts (added getFileContent)
+- src/services/gitlab.ts (added getFileContent wrapper)
+- src/services/index.ts (explicit exports)
+- ralph/prd.json (marked US-008 passes: true)
+
+### Learnings for Future Iterations
+- When tauri.ts and gitlab.ts export same function name, use explicit exports in index.ts to avoid conflicts
+- getFileContent requires instanceId, projectId, filePath, and sha parameters
+
+---
+
+## 2026-02-05 - US-009, US-010
+**Workflow**: PRD
+**Feature**: Monaco Editor Integration
+
+### Implemented
+- Added get_diff_refs Rust command to fetch SHA values (base_sha, head_sha, start_sha) from diffs table
+- Added instanceId to MergeRequestListItem in Rust and MergeRequest in TypeScript
+- Added DiffRefs type to frontend types
+- Added getDiffRefs function to tauri.ts and gitlab.ts services
+- Integrated MonacoDiffViewer into MRDetailPage:
+  - Fetches diff refs on MR load
+  - Fetches original (base SHA) and modified (head SHA) file content when file selected
+  - Handles new files (empty original) and deleted files (empty modified)
+  - Shows loading spinner while fetching file content
+  - Shows error state with retry button if fetch fails
+  - Shows helpful message if diff refs not available
+- Added CSS styles for file loading and error states (Kanagawa Wave theme)
+
+### Files Changed
+- src-tauri/src/commands/mr.rs (added get_diff_refs, DiffRefsResponse, instanceId to MergeRequestListItem)
+- src-tauri/src/commands/mod.rs (export get_diff_refs)
+- src-tauri/src/lib.rs (register get_diff_refs command)
+- src/types/index.ts (added DiffRefs, instanceId to MergeRequest)
+- src/services/tauri.ts (added getDiffRefs, DiffRefs import)
+- src/services/gitlab.ts (added getDiffRefs wrapper)
+- src/pages/MRDetailPage.tsx (integrated MonacoDiffViewer with file content fetching)
+- src/pages/MRDetailPage.css (added file loading/error styles)
+- ralph/prd.json (marked US-009, US-010 passes: true)
+
+### Learnings for Future Iterations
+- Diff refs stored in diffs table, separate from merge_requests - use dedicated endpoint
+- File content for Monaco needs both old (base SHA) and new (head SHA) versions
+- Handle change types: added (empty original), deleted (empty modified), modified/renamed (both)
+- Use Promise.all for parallel file fetches but catch errors to handle missing files gracefully
+
+---

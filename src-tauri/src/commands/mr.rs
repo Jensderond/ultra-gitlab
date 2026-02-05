@@ -30,6 +30,7 @@ pub struct MergeRequestFilter {
 #[serde(rename_all = "camelCase")]
 pub struct MergeRequestListItem {
     pub id: i64,
+    pub instance_id: i64,
     pub iid: i64,
     pub project_id: i64,
     pub title: String,
@@ -58,6 +59,7 @@ impl From<MergeRequest> for MergeRequestListItem {
 
         Self {
             id: mr.id,
+            instance_id: mr.instance_id,
             iid: mr.iid,
             project_id: mr.project_id,
             title: mr.title,
@@ -317,6 +319,15 @@ pub struct DiffContentResponse {
     pub content: String,
 }
 
+/// Response for get_diff_refs command.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffRefsResponse {
+    pub base_sha: String,
+    pub head_sha: String,
+    pub start_sha: String,
+}
+
 /// Get the full diff content for an MR.
 ///
 /// # Arguments
@@ -393,6 +404,39 @@ pub async fn get_diff_content(
             content: diff.content,
         })
     }
+}
+
+/// Get diff refs (SHA values) for a merge request.
+///
+/// # Arguments
+/// * `mr_id` - The MR ID
+///
+/// # Returns
+/// The base, head, and start SHA values for the diff.
+#[tauri::command]
+pub async fn get_diff_refs(
+    pool: State<'_, DbPool>,
+    mr_id: i64,
+) -> Result<DiffRefsResponse, AppError> {
+    let diff: Option<Diff> = sqlx::query_as(
+        r#"
+        SELECT mr_id, content, base_sha, head_sha, start_sha,
+               file_count, additions, deletions, cached_at
+        FROM diffs
+        WHERE mr_id = $1
+        "#,
+    )
+    .bind(mr_id)
+    .fetch_optional(pool.inner())
+    .await?;
+
+    let diff = diff.ok_or_else(|| AppError::not_found_with_id("Diff", mr_id.to_string()))?;
+
+    Ok(DiffRefsResponse {
+        base_sha: diff.base_sha,
+        head_sha: diff.head_sha,
+        start_sha: diff.start_sha,
+    })
 }
 
 /// A syntax highlight token.

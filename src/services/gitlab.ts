@@ -15,6 +15,7 @@ import {
   getDiffFileContent,
   getDiffFileMetadata,
   getDiffHunks,
+  getDiffRefs as tauriGetDiffRefs,
   getFileContent as tauriGetFileContent,
   getComments,
   addComment,
@@ -33,6 +34,7 @@ import type {
   DiffFileContent,
   DiffFileMetadata,
   DiffHunksResponse,
+  DiffRefs,
   Comment,
   AddCommentRequest,
   AddCommentResponse,
@@ -165,6 +167,17 @@ export async function getFileDiffHunks(
   count: number
 ): Promise<DiffHunksResponse> {
   return getDiffHunks(mrId, filePath, start, count);
+}
+
+/**
+ * Get diff refs (SHA values) for a merge request.
+ * Used to fetch original and modified file content for Monaco diff viewer.
+ *
+ * @param mrId - The merge request ID
+ * @returns The base, head, and start SHA values
+ */
+export async function getDiffRefs(mrId: number): Promise<DiffRefs> {
+  return tauriGetDiffRefs(mrId);
 }
 
 /**

@@ -434,6 +434,92 @@
   animation: fadeIn 0.4s ease;
 }
 
+/* File loading state */
+.file-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 20px;
+  color: var(--kw-fg-muted);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  animation: fadeIn 0.3s ease;
+}
+
+.file-loading::before {
+  content: '';
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--kw-sumi-ink);
+  border-top-color: var(--kw-wave-blue);
+  border-right-color: var(--kw-wave-cyan);
+  border-radius: 50%;
+  animation: waveSpinner 1s ease-in-out infinite;
+}
+
+/* File error state */
+.file-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 18px;
+  text-align: center;
+  animation: errorReveal 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.file-error::before {
+  content: '';
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg,
+    rgba(195, 64, 67, 0.1) 0%,
+    rgba(195, 64, 67, 0.05) 100%);
+  border: 1px solid rgba(195, 64, 67, 0.2);
+  border-radius: 14px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23c34043' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cline x1='12' y1='8' x2='12' y2='12'%3E%3C/line%3E%3Cline x1='12' y1='16' x2='12.01' y2='16'%3E%3C/line%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.file-error p {
+  margin: 0;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--kw-autumn-red);
+  line-height: 1.5;
+}
+
+.file-error button {
+  padding: 8px 18px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--kw-fg-muted);
+  background: rgba(42, 42, 55, 0.8);
+  border: 1px solid var(--kw-sumi-ink);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.file-error button:hover {
+  color: var(--kw-fg-dim);
+  background: rgba(42, 42, 55, 1);
+  border-color: var(--kw-fuji-gray);
+}
+
+.file-error button:focus {
+  outline: none;
+  border-color: var(--kw-wave-blue);
+  box-shadow: 0 0 0 3px var(--kw-wave-glow);
+}
+
 .no-file-selected::before {
   content: '';
   width: 64px;

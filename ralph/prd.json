@@ -144,8 +144,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented with getDiffRefs to fetch SHA values, file content fetching for Monaco, loading/error states, and full styling"
     },
     {
       "id": "US-010",
@@ -158,8 +158,8 @@
         "Typecheck passes (both bun and cargo)"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": "This may already exist partially - check existing types first"
+      "passes": true,
+      "notes": "Implemented via separate get_diff_refs command instead of embedding in MergeRequest. Added DiffRefs type to frontend, getDiffRefs function in tauri.ts and gitlab.ts. Also added instanceId to MergeRequest type."
     },
     {
       "id": "US-011",

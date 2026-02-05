@@ -15,6 +15,7 @@ import type {
   DiffFileContent,
   DiffFileMetadata,
   DiffHunksResponse,
+  DiffRefs,
   Comment,
   AddCommentRequest,
   AddCommentResponse,
@@ -176,6 +177,14 @@ export async function getFileContent(
   sha: string
 ): Promise<string> {
   return invoke<string>('get_file_content', { instanceId, projectId, filePath, sha });
+}
+
+/**
+ * Get diff refs (SHA values) for a merge request.
+ * Used to fetch original and modified file content for Monaco diff viewer.
+ */
+export async function getDiffRefs(mrId: number): Promise<DiffRefs> {
+  return invoke<DiffRefs>('get_diff_refs', { mrId });
 }
 
 // ============================================================================
