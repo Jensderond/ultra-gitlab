@@ -58,7 +58,12 @@ export function MonacoDiffViewer({
         renderIndicators: true,
 
         // Editor appearance
-        minimap: { enabled: false },
+        minimap: {
+          enabled: true,
+          side: "right",
+          showSlider: "mouseover",
+          renderCharacters: false,
+        },
         scrollBeyondLastLine: false,
         fontSize: 13,
         fontFamily: '"SF Mono", Menlo, Monaco, "Courier New", monospace',

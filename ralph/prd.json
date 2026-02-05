@@ -174,8 +174,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Enabled minimap with side: right, showSlider: mouseover, renderCharacters: false"
     },
     {
       "id": "US-012",
@@ -190,8 +190,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Already enabled: folding: true, foldingHighlight: true, showFoldingControls: always"
     },
     {
       "id": "US-013",
@@ -206,8 +206,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 13,
-      "passes": false,
-      "notes": "Monaco enables find by default, just verify it works"
+      "passes": true,
+      "notes": "Monaco find functionality enabled by default - Kanagawa theme provides styling"
     },
     {
       "id": "US-014",
@@ -221,8 +221,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 14,
-      "passes": false,
-      "notes": "May already work if viewMode state is wired correctly"
+      "passes": true,
+      "notes": "Already implemented - x key toggles viewMode state which is passed to MonacoDiffViewer"
     },
     {
       "id": "US-015",
