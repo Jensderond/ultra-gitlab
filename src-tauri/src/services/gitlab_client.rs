@@ -240,6 +240,22 @@ pub struct GitLabProject {
     pub updated_at: Option<String>,
 }
 
+/// Personal access token info from GET /personal_access_tokens/self.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PersonalAccessTokenInfo {
+    /// Token expiration date (ISO 8601 date string), or None if no expiration.
+    pub expires_at: Option<String>,
+
+    /// Token display name.
+    pub name: String,
+
+    /// Token scopes (e.g., ["api", "read_user"]).
+    pub scopes: Vec<String>,
+
+    /// Whether the token is currently active.
+    pub active: bool,
+}
+
 impl GitLabClient {
     /// Create a new GitLab client.
     pub fn new(config: GitLabClientConfig) -> Result<Self, AppError> {
@@ -381,6 +397,14 @@ impl GitLabClient {
         let url = self.api_url("/user");
         let response = self.client.get(&url).send().await?;
         self.handle_response(response, "/user").await
+    }
+
+    /// Fetch the current personal access token's info (expiration, scopes, etc.).
+    pub async fn get_token_info(&self) -> Result<PersonalAccessTokenInfo, AppError> {
+        let endpoint = "/personal_access_tokens/self";
+        let url = self.api_url(endpoint);
+        let response = self.client.get(&url).send().await?;
+        self.handle_response(response, endpoint).await
     }
 
     /// Get a single project by ID.

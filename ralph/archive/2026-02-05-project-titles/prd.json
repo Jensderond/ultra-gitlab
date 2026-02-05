@@ -1,0 +1,93 @@
+{
+  "project": "Ultra GitLab",
+  "branchName": "ralph/project-titles",
+  "description": "Fetch and display human-readable GitLab project titles (name_with_namespace) on MR cards instead of URL-derived paths, cached in a normalized projects table",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create projects cache table",
+      "description": "As a developer, I need a normalized projects table so that project metadata is stored once and referenced by all merge requests.",
+      "acceptanceCriteria": [
+        "New SQL migration creates a projects table with columns: id (INTEGER PRIMARY KEY, the GitLab project ID), instance_id (INTEGER, FK to instances), name (TEXT), name_with_namespace (TEXT), path_with_namespace (TEXT), web_url (TEXT), created_at (TEXT), updated_at (TEXT)",
+        "Migration is registered in the migration list in db/mod.rs",
+        "Remove or repurpose the existing 0004_add_project_name.sql migration since we are using a separate table instead",
+        "Typecheck passes (cargo check)"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add Rust model and DB operations for projects",
+      "description": "As a developer, I need a Project struct and database helper functions to insert/query projects.",
+      "acceptanceCriteria": [
+        "Project struct in src-tauri/src/models/ with fields matching the database schema",
+        "Function to look up a project by (instance_id, project_id) — returns Option<Project>",
+        "Function to upsert a project (insert or update on conflict)",
+        "Typecheck passes (cargo check)"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Add GitLab API method to fetch a project by ID",
+      "description": "As a developer, I need a method on the GitLab client to call GET /projects/:id and return project metadata.",
+      "acceptanceCriteria": [
+        "New method on the GitLab client: get_project(project_id: u64) -> Result<GitLabProject>",
+        "GitLabProject response struct with at least: id, name, name_with_namespace, path_with_namespace, web_url",
+        "Typecheck passes (cargo check)"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Fetch and cache project titles during MR sync",
+      "description": "As a developer, I want the sync engine to automatically fetch project titles for any new project IDs encountered during an MR sync, so the data is available without extra API calls later.",
+      "acceptanceCriteria": [
+        "After fetching MRs, the sync engine collects all unique project_id values",
+        "For each project_id not already present in the projects table, call GET /projects/:id",
+        "Upsert the fetched project data into the projects table",
+        "If the API call for a project fails, log a warning and continue (do not block the sync)",
+        "Typecheck passes (cargo check)"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Expose project name to frontend via MR queries",
+      "description": "As a developer, I need the MR list and detail queries to join on the projects table and return the human-readable project name.",
+      "acceptanceCriteria": [
+        "SQL queries in commands/mr.rs LEFT JOIN merge_requests with projects on (project_id, instance_id)",
+        "The project_name field on MergeRequestListItem is populated from projects.name_with_namespace",
+        "If no project row exists (cache miss), fall back to extracting the path from web_url using the existing extract_project_path() function",
+        "The project_name column on the merge_requests table can be removed or ignored in favor of the join",
+        "Typecheck passes (cargo check)"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Display project title on MR cards",
+      "description": "As a user, I want to see the project's human-readable name (e.g. 'GitLab.org / GitLab') on each MR card so I can quickly identify which project a merge request belongs to.",
+      "acceptanceCriteria": [
+        "MR cards display name_with_namespace from the projects cache",
+        "Falls back to project_path from URL if project title is unavailable",
+        "Long names are truncated with ellipsis (existing CSS behavior)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

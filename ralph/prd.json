@@ -1,92 +1,117 @@
 {
   "project": "Ultra GitLab",
-  "branchName": "ralph/project-titles",
-  "description": "Fetch and display human-readable GitLab project titles (name_with_namespace) on MR cards instead of URL-derived paths, cached in a normalized projects table",
+  "branchName": "ralph/token-management",
+  "description": "Token Management & Lifetime Display - Allow users to change their GitLab personal access token inline on the Settings page and display token expiration with warning badges",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Create projects cache table",
-      "description": "As a developer, I need a normalized projects table so that project metadata is stored once and referenced by all merge requests.",
+      "title": "Add GitLab API method to fetch token expiration",
+      "description": "As a developer, I need a backend method to retrieve the current token's expiration date from GitLab so the frontend can display lifetime information.",
       "acceptanceCriteria": [
-        "New SQL migration creates a projects table with columns: id (INTEGER PRIMARY KEY, the GitLab project ID), instance_id (INTEGER, FK to instances), name (TEXT), name_with_namespace (TEXT), path_with_namespace (TEXT), web_url (TEXT), created_at (TEXT), updated_at (TEXT)",
-        "Migration is registered in the migration list in db/mod.rs",
-        "Remove or repurpose the existing 0004_add_project_name.sql migration since we are using a separate table instead",
+        "New method on GitLabClient that calls GET /personal_access_tokens/self and returns expires_at (date string or null), name, scopes, and active status",
+        "Response struct PersonalAccessTokenInfo with fields: expires_at (Option<String>), name (String), scopes (Vec<String>), active (bool)",
+        "Handles tokens with no expiration gracefully (returns None for expires_at)",
         "Typecheck passes (cargo check)"
       ],
       "priority": 1,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-002",
-      "title": "Add Rust model and DB operations for projects",
-      "description": "As a developer, I need a Project struct and database helper functions to insert/query projects.",
+      "title": "Expose token info via Tauri command",
+      "description": "As a developer, I need a Tauri IPC command that the frontend can call to get token lifetime info for a given instance.",
       "acceptanceCriteria": [
-        "Project struct in src-tauri/src/models/ with fields matching the database schema",
-        "Function to look up a project by (instance_id, project_id) — returns Option<Project>",
-        "Function to upsert a project (insert or update on conflict)",
+        "New Tauri command get_token_info(instance_id) that loads the instance from the DB, creates a GitLabClient, and fetches the token info",
+        "Returns a typed response with expires_at: Option<String>, name: String, scopes: Vec<String>, active: bool",
+        "Returns a clear error if the instance has no token or the API call fails",
+        "Command is registered in the Tauri command handler in main.rs or lib.rs",
         "Typecheck passes (cargo check)"
       ],
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Add GitLab API method to fetch a project by ID",
-      "description": "As a developer, I need a method on the GitLab client to call GET /projects/:id and return project metadata.",
+      "title": "Add update_instance_token Tauri command",
+      "description": "As a developer, I need a backend command that validates a new token against the GitLab API and updates the database row for the instance.",
       "acceptanceCriteria": [
-        "New method on the GitLab client: get_project(project_id: u64) -> Result<GitLabProject>",
-        "GitLabProject response struct with at least: id, name, name_with_namespace, path_with_namespace, web_url",
+        "New Tauri command update_instance_token(instance_id, token) that validates the token via GitLab GET /user endpoint",
+        "On successful validation, updates the token column in the gitlab_instances table for the given instance_id",
+        "Returns the validated username on success",
+        "Returns a clear error message on validation failure (e.g. 401 Unauthorized)",
+        "Command is registered in the Tauri command handler",
         "Typecheck passes (cargo check)"
       ],
       "priority": 3,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Fetch and cache project titles during MR sync",
-      "description": "As a developer, I want the sync engine to automatically fetch project titles for any new project IDs encountered during an MR sync, so the data is available without extra API calls later.",
+      "title": "Add frontend invoke wrappers for new commands",
+      "description": "As a developer, I need typed TypeScript wrapper functions for the new Tauri commands so the frontend can call them with type safety.",
       "acceptanceCriteria": [
-        "After fetching MRs, the sync engine collects all unique project_id values",
-        "For each project_id not already present in the projects table, call GET /projects/:id",
-        "Upsert the fetched project data into the projects table",
-        "If the API call for a project fails, log a warning and continue (do not block the sync)",
-        "Typecheck passes (cargo check)"
+        "TypeScript function getTokenInfo(instanceId: number) that invokes get_token_info and returns typed TokenInfo response",
+        "TypeScript function updateInstanceToken(instanceId: number, token: string) that invokes update_instance_token and returns the username",
+        "TokenInfo TypeScript interface with expiresAt: string | null, name: string, scopes: string[], active: boolean",
+        "Functions are added to the existing services/tauri.ts or equivalent file",
+        "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-005",
-      "title": "Expose project name to frontend via MR queries",
-      "description": "As a developer, I need the MR list and detail queries to join on the projects table and return the human-readable project name.",
+      "title": "Add inline Edit Token UI on Settings page",
+      "description": "As a user, I want an Edit Token button next to each GitLab instance in Settings so I can update my PAT without removing and re-adding the instance.",
       "acceptanceCriteria": [
-        "SQL queries in commands/mr.rs LEFT JOIN merge_requests with projects on (project_id, instance_id)",
-        "The project_name field on MergeRequestListItem is populated from projects.name_with_namespace",
-        "If no project row exists (cache miss), fall back to extracting the path from web_url using the existing extract_project_path() function",
-        "The project_name column on the merge_requests table can be removed or ignored in favor of the join",
-        "Typecheck passes (cargo check)"
+        "Each instance item in the Settings list shows an Edit Token button",
+        "Clicking it reveals an inline password input field (type=password, placeholder glpat-...) that is auto-focused",
+        "Save and Cancel buttons appear next to the input",
+        "Cancel hides the input and restores the previous view",
+        "Save calls updateInstanceToken and shows a Validating... loading state on the button",
+        "On success, shows brief confirmation message and collapses the edit input",
+        "On failure, shows an inline error message (e.g. Invalid token) without closing the edit input",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Display project title on MR cards",
-      "description": "As a user, I want to see the project's human-readable name (e.g. 'GitLab.org / GitLab') on each MR card so I can quickly identify which project a merge request belongs to.",
+      "title": "Display token lifetime on each instance",
+      "description": "As a user, I want to see when my token expires and how many days are left so I can plan ahead.",
       "acceptanceCriteria": [
-        "MR cards display name_with_namespace from the projects cache",
-        "Falls back to project_path from URL if project title is unavailable",
-        "Long names are truncated with ellipsis (existing CSS behavior)",
+        "Each instance item shows expiration info below existing metadata (e.g. Expires Mar 15, 2026 — 38 days left)",
+        "If the token has no expiration, shows No expiration",
+        "If the token info cannot be fetched, shows nothing or a subtle Unable to fetch token info note",
+        "Token info is fetched for all instances in parallel when the Settings page mounts",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": true,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Show expiration warning badges",
+      "description": "As a user, I want a visual warning when my token expires within 30 days so I notice before it breaks.",
+      "acceptanceCriteria": [
+        "When a token expires in less than 30 days, show a yellow warning badge with text Expiring soon",
+        "When a token is already expired, show a red badge with text Expired",
+        "Badges appear next to the expiration text in the instance list",
+        "No badge shown when token has more than 30 days remaining or no expiration set",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": false,
       "notes": ""
     }
   ]
