@@ -13,6 +13,7 @@ import { KeyboardHelp } from './components/KeyboardHelp';
 import { ReAuthPrompt } from './components/ReAuthPrompt';
 import { CommandId, commandDefinitions } from './commands/registry';
 import { manualSync } from './services/storage';
+import { MonacoProvider } from './components/Monaco';
 import type { AuthExpiredPayload } from './types';
 import './App.css';
 
@@ -216,9 +217,11 @@ function AppContent() {
  */
 function App() {
   return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
+    <MonacoProvider>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </MonacoProvider>
   );
 }
 
