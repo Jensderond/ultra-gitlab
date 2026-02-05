@@ -69,6 +69,10 @@ pub struct MergeRequest {
     /// GitLab project ID.
     pub project_id: i64,
 
+    /// Project path with namespace (e.g., "group/project").
+    #[sqlx(default)]
+    pub project_name: String,
+
     /// MR title.
     pub title: String,
 

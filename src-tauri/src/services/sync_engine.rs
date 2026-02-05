@@ -655,14 +655,16 @@ impl SyncEngine {
                     .unwrap_or_else(|_| "[]".to_string())
             })
             .unwrap_or_else(|| "[]".to_string());
+        let project_name = extract_project_path(&mr.web_url);
 
         sqlx::query(
             r#"
             INSERT INTO merge_requests (
                 id, instance_id, iid, project_id, title, description,
                 author_username, source_branch, target_branch, state, web_url,
-                created_at, updated_at, merged_at, labels, reviewers, cached_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                created_at, updated_at, merged_at, labels, reviewers, cached_at,
+                project_name
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 description = excluded.description,
@@ -671,7 +673,8 @@ impl SyncEngine {
                 merged_at = excluded.merged_at,
                 labels = excluded.labels,
                 reviewers = excluded.reviewers,
-                cached_at = excluded.cached_at
+                cached_at = excluded.cached_at,
+                project_name = excluded.project_name
             "#,
         )
         .bind(mr.id)
@@ -691,6 +694,7 @@ impl SyncEngine {
         .bind(&labels_json)
         .bind(&reviewers_json)
         .bind(now())
+        .bind(&project_name)
         .execute(&self.pool)
         .await?;
 
@@ -1011,6 +1015,24 @@ struct GitLabInstanceRow {
     token: Option<String>,
 }
 
+/// Extract the project path with namespace from a GitLab MR web URL.
+///
+/// e.g., "https://gitlab.com/group/project/-/merge_requests/1" -> "group/project"
+fn extract_project_path(web_url: &str) -> String {
+    // Strip the scheme and host, then find everything before /-/merge_requests/
+    if let Some(path_start) = web_url.find("://") {
+        let after_scheme = &web_url[path_start + 3..];
+        // Skip the host portion (find the first '/')
+        if let Some(slash_idx) = after_scheme.find('/') {
+            let path = &after_scheme[slash_idx + 1..];
+            if let Some(mr_idx) = path.find("/-/merge_requests/") {
+                return path[..mr_idx].to_string();
+            }
+        }
+    }
+    String::new()
+}
+
 /// Parse ISO 8601 timestamp to Unix timestamp.
 fn parse_iso_timestamp(s: &str) -> i64 {
     chrono::DateTime::parse_from_rfc3339(s)
@@ -1042,6 +1064,23 @@ mod tests {
         // Invalid timestamp should return 0
         let ts_invalid = parse_iso_timestamp("invalid");
         assert_eq!(ts_invalid, 0);
+    }
+
+    #[test]
+    fn test_extract_project_path() {
+        assert_eq!(
+            extract_project_path("https://gitlab.com/group/project/-/merge_requests/1"),
+            "group/project"
+        );
+        assert_eq!(
+            extract_project_path("https://gitlab.com/group/subgroup/project/-/merge_requests/42"),
+            "group/subgroup/project"
+        );
+        assert_eq!(
+            extract_project_path("https://self-hosted.example.com/team/repo/-/merge_requests/100"),
+            "team/repo"
+        );
+        assert_eq!(extract_project_path("invalid-url"), "");
     }
 
     #[test]

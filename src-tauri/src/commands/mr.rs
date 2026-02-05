@@ -33,6 +33,7 @@ pub struct MergeRequestListItem {
     pub instance_id: i64,
     pub iid: i64,
     pub project_id: i64,
+    pub project_name: String,
     pub title: String,
     pub description: Option<String>,
     pub author_username: String,
@@ -62,6 +63,7 @@ impl From<MergeRequest> for MergeRequestListItem {
             instance_id: mr.instance_id,
             iid: mr.iid,
             project_id: mr.project_id,
+            project_name: mr.project_name,
             title: mr.title,
             description: mr.description,
             author_username: mr.author_username,
@@ -105,7 +107,7 @@ pub async fn get_merge_requests(
     let mut query = String::from(
         r#"
         SELECT
-            id, instance_id, iid, project_id, title, description,
+            id, instance_id, iid, project_id, project_name, title, description,
             author_username, source_branch, target_branch, state,
             web_url, created_at, updated_at, merged_at,
             approval_status, approvals_required, approvals_count,
@@ -241,7 +243,7 @@ pub async fn get_merge_request_detail(
     let mr: Option<MergeRequest> = sqlx::query_as(
         r#"
         SELECT
-            id, instance_id, iid, project_id, title, description,
+            id, instance_id, iid, project_id, project_name, title, description,
             author_username, source_branch, target_branch, state,
             web_url, created_at, updated_at, merged_at,
             approval_status, approvals_required, approvals_count,

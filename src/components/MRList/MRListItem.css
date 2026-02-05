@@ -167,6 +167,31 @@
   background: rgba(126, 156, 216, 0.1);
 }
 
+/* Project name */
+.mr-project {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  font-weight: 400;
+  color: #625e5a;
+  padding: 2px 8px;
+  background: rgba(42, 42, 55, 0.5);
+  border-radius: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+  transition: color 0.2s ease;
+}
+
+.mr-list-item:hover .mr-project {
+  color: #727169;
+}
+
+.mr-list-item.selected .mr-project {
+  color: #7fb4ca;
+  background: rgba(127, 180, 202, 0.1);
+}
+
 /* Timestamp */
 .mr-time {
   margin-left: auto;

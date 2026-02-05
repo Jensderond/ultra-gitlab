@@ -90,6 +90,9 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
           {mr.state === 'opened' ? 'Open' : mr.state}
         </span>
         <span className="mr-iid">!{mr.iid}</span>
+        {mr.projectName && (
+          <span className="mr-project">{mr.projectName}</span>
+        )}
         <span className="mr-time">{formatRelativeTime(mr.updatedAt)}</span>
       </div>
 

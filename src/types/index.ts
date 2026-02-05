@@ -39,6 +39,7 @@ export interface MergeRequest {
   instanceId: number;
   iid: number;
   projectId: number;
+  projectName: string;
   title: string;
   description: string | null;
   authorUsername: string;
