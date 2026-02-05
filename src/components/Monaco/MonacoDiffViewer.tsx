@@ -12,6 +12,10 @@ export interface MonacoDiffViewerRef {
   goToPreviousChange: () => void;
   /** Get the underlying diff editor instance */
   getEditor: () => editor.IStandaloneDiffEditor | null;
+  /** Get current scroll position */
+  getScrollTop: () => number;
+  /** Set scroll position */
+  setScrollTop: (top: number) => void;
 }
 
 interface MonacoDiffViewerProps {
@@ -97,12 +101,28 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
       goToChange(currentChangeIndexRef.current - 1);
     }, [goToChange]);
 
+    // Get current scroll position
+    const getScrollTop = useCallback(() => {
+      const editor = editorRef.current;
+      if (!editor) return 0;
+      return editor.getModifiedEditor().getScrollTop();
+    }, []);
+
+    // Set scroll position
+    const setScrollTop = useCallback((top: number) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      editor.getModifiedEditor().setScrollTop(top);
+    }, []);
+
     // Expose ref methods
     useImperativeHandle(ref, () => ({
       goToNextChange,
       goToPreviousChange,
       getEditor: () => editorRef.current,
-    }), [goToNextChange, goToPreviousChange]);
+      getScrollTop,
+      setScrollTop,
+    }), [goToNextChange, goToPreviousChange, getScrollTop, setScrollTop]);
 
     // Handle editor mount
     const handleMount: DiffOnMount = useCallback((editor, monaco) => {

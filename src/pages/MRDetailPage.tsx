@@ -39,6 +39,10 @@ export default function MRDetailPage() {
   const [fileContentLoading, setFileContentLoading] = useState(false);
   const [fileContentError, setFileContentError] = useState<string | null>(null);
 
+  // Scroll position state per file
+  const scrollPositionsRef = useRef<Map<string, number>>(new Map());
+  const previousFileRef = useRef<string | null>(null);
+
   // Load MR data
   useEffect(() => {
     async function loadData() {
@@ -81,9 +85,17 @@ export default function MRDetailPage() {
     loadData();
   }, [mrId]);
 
-  // Handle file selection
+  // Handle file selection with scroll position preservation
   const handleFileSelect = useCallback((filePath: string) => {
+    // Save current scroll position before switching
+    if (previousFileRef.current && diffViewerRef.current) {
+      const scrollTop = diffViewerRef.current.getScrollTop();
+      scrollPositionsRef.current.set(previousFileRef.current, scrollTop);
+    }
+
     setSelectedFile(filePath);
+    previousFileRef.current = filePath;
+
     const index = files.findIndex((f) => f.newPath === filePath);
     if (index >= 0) {
       setFileFocusIndex(index);
@@ -131,6 +143,25 @@ export default function MRDetailPage() {
     }
     loadFileContent();
   }, [selectedFile, mr, diffRefs, files]);
+
+  // Restore scroll position after content loads
+  useEffect(() => {
+    if (!fileContentLoading && selectedFile && diffViewerRef.current) {
+      const savedScrollTop = scrollPositionsRef.current.get(selectedFile);
+      if (savedScrollTop !== undefined) {
+        // Small delay to ensure editor is rendered
+        requestAnimationFrame(() => {
+          diffViewerRef.current?.setScrollTop(savedScrollTop);
+        });
+      }
+    }
+  }, [fileContentLoading, selectedFile, originalContent, modifiedContent]);
+
+  // Clear scroll positions when MR changes
+  useEffect(() => {
+    scrollPositionsRef.current.clear();
+    previousFileRef.current = null;
+  }, [mrId]);
 
   // Navigate to next/previous file
   const navigateFile = useCallback(

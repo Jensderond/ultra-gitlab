@@ -304,8 +304,8 @@
         "Typecheck passes"
       ],
       "priority": 19,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented via scrollPositionsRef Map and getScrollTop/setScrollTop on MonacoDiffViewerRef"
     },
     {
       "id": "US-020",
