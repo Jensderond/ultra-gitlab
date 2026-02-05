@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import { DiffEditor, type DiffOnMount } from "@monaco-editor/react";
 import { KANAGAWA_THEME_NAME } from "./kanagawaTheme";
+import { getLanguageFromPath } from "./languageDetection";
 
 interface MonacoDiffViewerProps {
   /** Original file content (left side) */
@@ -8,7 +10,7 @@ interface MonacoDiffViewerProps {
   modifiedContent: string;
   /** File path for language detection */
   filePath: string;
-  /** Optional language override */
+  /** Optional language override (takes precedence over auto-detection) */
   language?: string;
   /** View mode: split (side-by-side) or unified (inline) */
   viewMode?: "split" | "unified";
@@ -23,16 +25,22 @@ interface MonacoDiffViewerProps {
 export function MonacoDiffViewer({
   originalContent,
   modifiedContent,
-  filePath: _filePath, // Used for language detection in US-005
+  filePath,
   language,
   viewMode = "split",
   onMount,
 }: MonacoDiffViewerProps) {
+  // Detect language from file path, fallback to plaintext
+  const detectedLanguage = useMemo(
+    () => language ?? getLanguageFromPath(filePath),
+    [language, filePath]
+  );
+
   return (
     <DiffEditor
       original={originalContent}
       modified={modifiedContent}
-      language={language}
+      language={detectedLanguage}
       theme={KANAGAWA_THEME_NAME}
       options={{
         // Read-only mode
