@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ultra-gitlab",
+  "productName": "Ultra Gitlab",
   "version": "0.1.0",
   "identifier": "com.jens.ultra-gitlab",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "ultra-gitlab",
+        "title": "Ultra Gitlab",
         "width": 800,
         "height": 600
       }

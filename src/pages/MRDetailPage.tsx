@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { FileNavigation } from '../components/DiffViewer';
 import { MonacoDiffViewer, type MonacoDiffViewerRef, type LineComment, type CursorPosition } from '../components/Monaco/MonacoDiffViewer';
 import { ApprovalButton, type ApprovalButtonRef } from '../components/Approval';
@@ -283,11 +284,17 @@ export default function MRDetailPage() {
 
       switch (e.key) {
         case 'n':
+        case 'j':
+        case 'ArrowDown':
           // Next file
+          e.preventDefault();
           navigateFile(1);
           break;
         case 'p':
+        case 'k':
+        case 'ArrowUp':
           // Previous file
+          e.preventDefault();
           navigateFile(-1);
           break;
         case 'x':
@@ -300,20 +307,17 @@ export default function MRDetailPage() {
           e.preventDefault();
           approvalButtonRef.current?.toggle();
           break;
+        case 'o':
+          // Open MR in browser
+          e.preventDefault();
+          if (mr?.webUrl) {
+            openUrl(mr.webUrl);
+          }
+          break;
         case 'v':
           // Mark file as viewed and go to next
           e.preventDefault();
           markViewedAndNext();
-          break;
-        case ']':
-          // Next change in diff
-          e.preventDefault();
-          diffViewerRef.current?.goToNextChange();
-          break;
-        case '[':
-          // Previous change in diff
-          e.preventDefault();
-          diffViewerRef.current?.goToPreviousChange();
           break;
         case 'c':
           // Open comment input at current line
@@ -492,12 +496,12 @@ export default function MRDetailPage() {
 
       <footer className="mr-detail-footer">
         <span className="keyboard-hint">
-          <kbd>n</kbd>/<kbd>p</kbd> file &middot;{' '}
+          <kbd>j</kbd>/<kbd>k</kbd> or <kbd>↑</kbd>/<kbd>↓</kbd> file &middot;{' '}
           <kbd>v</kbd> viewed &middot;{' '}
-          <kbd>]</kbd>/<kbd>[</kbd> change &middot;{' '}
           <kbd>x</kbd> split/unified &middot;{' '}
           <kbd>a</kbd> approve &middot;{' '}
           <kbd>c</kbd> comment &middot;{' '}
+          <kbd>o</kbd> open &middot;{' '}
           <kbd>⌘F</kbd> find &middot;{' '}
           <kbd>?</kbd> help
         </span>
