@@ -318,8 +318,8 @@
         "Typecheck passes"
       ],
       "priority": 20,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "DiffViewer component replaced with MonacoDiffViewer; FileNavigation still imported from DiffViewer folder"
     },
     {
       "id": "US-021",
@@ -334,8 +334,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 21,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Already implemented with file-loading spinner in US-009"
     },
     {
       "id": "US-022",
@@ -349,8 +349,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 22,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Updated footer with ⌘F find shortcut; removed c comment (not yet implemented in Monaco)"
     }
   ]
 }

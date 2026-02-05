@@ -307,7 +307,7 @@ export default function MRDetailPage() {
           <kbd>]</kbd>/<kbd>[</kbd> change &middot;{' '}
           <kbd>x</kbd> split/unified &middot;{' '}
           <kbd>a</kbd> approve &middot;{' '}
-          <kbd>c</kbd> comment &middot;{' '}
+          <kbd>⌘F</kbd> find &middot;{' '}
           <kbd>?</kbd> help
         </span>
       </footer>
