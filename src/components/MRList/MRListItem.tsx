@@ -91,7 +91,7 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
         </span>
         <span className="mr-iid">!{mr.iid}</span>
         {mr.projectName && (
-          <span className="mr-project">{mr.projectName}</span>
+          <span className="mr-project">{mr.projectName.replace(/^Customers\s*\/\s*/, '')}</span>
         )}
         <span className="mr-time">{formatRelativeTime(mr.updatedAt)}</span>
       </div>
