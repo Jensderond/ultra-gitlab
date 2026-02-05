@@ -183,6 +183,43 @@ pub async fn get_token_info(
     Ok(info.into())
 }
 
+/// Update the personal access token for a GitLab instance.
+///
+/// Validates the new token by calling GitLab's /user endpoint, then updates
+/// the token in the database.
+#[tauri::command]
+pub async fn update_instance_token(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    token: String,
+) -> Result<String, AppError> {
+    let instance: GitLabInstance = sqlx::query_as(
+        "SELECT id, url, name, token, created_at FROM gitlab_instances WHERE id = $1",
+    )
+    .bind(instance_id)
+    .fetch_optional(pool.inner())
+    .await?
+    .ok_or_else(|| AppError::not_found("GitLab instance not found"))?;
+
+    // Validate the new token
+    let client = GitLabClient::new(GitLabClientConfig {
+        base_url: instance.url,
+        token: token.clone(),
+        timeout_secs: 30,
+    })?;
+
+    let user = client.validate_token().await?;
+
+    // Update the token in the database
+    sqlx::query("UPDATE gitlab_instances SET token = $1 WHERE id = $2")
+        .bind(&token)
+        .bind(instance_id)
+        .execute(pool.inner())
+        .await?;
+
+    Ok(user.username)
+}
+
 /// Delete a GitLab instance.
 ///
 /// This command:
