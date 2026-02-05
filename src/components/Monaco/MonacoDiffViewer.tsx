@@ -1,4 +1,4 @@
-import { useMemo, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useMemo, useRef, useCallback, useEffect, forwardRef, useImperativeHandle, useState } from "react";
 import { DiffEditor, type DiffOnMount } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 import { KANAGAWA_THEME_NAME } from "./kanagawaTheme";
@@ -73,6 +73,7 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
   ) {
     const editorRef = useRef<editor.IStandaloneDiffEditor | null>(null);
     const currentChangeIndexRef = useRef<number>(-1);
+    const [editorReady, setEditorReady] = useState(false);
 
     // Detect language from file path, fallback to plaintext
     const detectedLanguage = useMemo(
@@ -180,6 +181,7 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
     const handleMount: DiffOnMount = useCallback((editor, monaco) => {
       editorRef.current = editor;
       currentChangeIndexRef.current = -1;
+      setEditorReady(true);
       onMount?.(editor, monaco);
     }, [onMount]);
 
@@ -191,7 +193,7 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
     // Add comment decorations to the editor
     useEffect(() => {
       const editor = editorRef.current;
-      if (!editor || comments.length === 0) return;
+      if (!editorReady || !editor || comments.length === 0) return;
 
       const modifiedEditor = editor.getModifiedEditor();
       const originalEditor = editor.getOriginalEditor();
@@ -269,7 +271,7 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
         modifiedCollection.clear();
         originalCollection.clear();
       };
-    }, [comments]);
+    }, [comments, editorReady]);
 
     return (
     <DiffEditor

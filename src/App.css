@@ -3,7 +3,7 @@
 
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap');
 
-html, body, #root {
+html, body, #root, .app {
   height: 100%;
   margin: 0;
   overflow: hidden;

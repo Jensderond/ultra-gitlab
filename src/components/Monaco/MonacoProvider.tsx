@@ -1,7 +1,12 @@
 import { loader } from "@monaco-editor/react";
+import * as monaco from "monaco-editor";
 import { ReactNode, useEffect } from "react";
 import { kanagawaWaveTheme, KANAGAWA_THEME_NAME } from "./kanagawaTheme";
 import "./monaco.css";
+
+// Configure Monaco to use the local npm package instead of CDN
+// This ensures the app works offline (local-first)
+loader.config({ monaco });
 
 interface MonacoProviderProps {
   children: ReactNode;
@@ -9,17 +14,10 @@ interface MonacoProviderProps {
 
 export function MonacoProvider({ children }: MonacoProviderProps) {
   useEffect(() => {
-    // Configure Monaco loader
-    loader.config({
-      paths: {
-        vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.55.1/min/vs",
-      },
-    });
-
     // Pre-load Monaco and register theme
-    loader.init().then((monaco) => {
+    loader.init().then((monacoInstance) => {
       // Register Kanagawa Wave theme
-      monaco.editor.defineTheme(KANAGAWA_THEME_NAME, kanagawaWaveTheme);
+      monacoInstance.editor.defineTheme(KANAGAWA_THEME_NAME, kanagawaWaveTheme);
     }).catch(console.error);
   }, []);
 
