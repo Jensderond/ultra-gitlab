@@ -238,8 +238,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 15,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented via MonacoDiffViewerRef with goToNextChange/goToPreviousChange methods, wired to ] and [ keys in MRDetailPage"
     },
     {
       "id": "US-016",

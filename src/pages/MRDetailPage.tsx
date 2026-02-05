@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FileNavigation } from '../components/DiffViewer';
-import { MonacoDiffViewer } from '../components/Monaco/MonacoDiffViewer';
+import { MonacoDiffViewer, type MonacoDiffViewerRef } from '../components/Monaco/MonacoDiffViewer';
 import { ApprovalButton, type ApprovalButtonRef } from '../components/Approval';
 import { getMergeRequestById, getMergeRequestFiles, getDiffRefs, getFileContent } from '../services/gitlab';
 import type { MergeRequest, DiffFileSummary, DiffRefs } from '../types';
@@ -21,6 +21,7 @@ export default function MRDetailPage() {
   const navigate = useNavigate();
   const mrId = parseInt(id || '0', 10);
   const approvalButtonRef = useRef<ApprovalButtonRef>(null);
+  const diffViewerRef = useRef<MonacoDiffViewerRef>(null);
 
   const [mr, setMr] = useState<MergeRequest | null>(null);
   const [files, setFiles] = useState<DiffFileSummary[]>([]);
@@ -186,6 +187,16 @@ export default function MRDetailPage() {
           e.preventDefault();
           markViewedAndNext();
           break;
+        case ']':
+          // Next change in diff
+          e.preventDefault();
+          diffViewerRef.current?.goToNextChange();
+          break;
+        case '[':
+          // Previous change in diff
+          e.preventDefault();
+          diffViewerRef.current?.goToPreviousChange();
+          break;
         case 'Escape':
           // Go back to list, focus on latest item
           navigate('/mrs', { state: { focusLatest: true } });
@@ -274,6 +285,7 @@ export default function MRDetailPage() {
               </div>
             ) : (
               <MonacoDiffViewer
+                ref={diffViewerRef}
                 originalContent={originalContent}
                 modifiedContent={modifiedContent}
                 filePath={selectedFile}

@@ -1,7 +1,18 @@
-import { useMemo } from "react";
+import { useMemo, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from "react";
 import { DiffEditor, type DiffOnMount } from "@monaco-editor/react";
+import type { editor } from "monaco-editor";
 import { KANAGAWA_THEME_NAME } from "./kanagawaTheme";
 import { getLanguageFromPath } from "./languageDetection";
+
+/** Ref handle for MonacoDiffViewer */
+export interface MonacoDiffViewerRef {
+  /** Navigate to next change */
+  goToNextChange: () => void;
+  /** Navigate to previous change */
+  goToPreviousChange: () => void;
+  /** Get the underlying diff editor instance */
+  getEditor: () => editor.IStandaloneDiffEditor | null;
+}
 
 interface MonacoDiffViewerProps {
   /** Original file content (left side) */
@@ -22,21 +33,90 @@ interface MonacoDiffViewerProps {
  * Monaco-based diff viewer component.
  * Displays side-by-side or unified diff with syntax highlighting.
  */
-export function MonacoDiffViewer({
-  originalContent,
-  modifiedContent,
-  filePath,
-  language,
-  viewMode = "split",
-  onMount,
-}: MonacoDiffViewerProps) {
-  // Detect language from file path, fallback to plaintext
-  const detectedLanguage = useMemo(
-    () => language ?? getLanguageFromPath(filePath),
-    [language, filePath]
-  );
+export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewerProps>(
+  function MonacoDiffViewer(
+    {
+      originalContent,
+      modifiedContent,
+      filePath,
+      language,
+      viewMode = "split",
+      onMount,
+    },
+    ref
+  ) {
+    const editorRef = useRef<editor.IStandaloneDiffEditor | null>(null);
+    const currentChangeIndexRef = useRef<number>(-1);
 
-  return (
+    // Detect language from file path, fallback to plaintext
+    const detectedLanguage = useMemo(
+      () => language ?? getLanguageFromPath(filePath),
+      [language, filePath]
+    );
+
+    // Get line changes from the diff editor
+    const getLineChanges = useCallback(() => {
+      const editor = editorRef.current;
+      if (!editor) return [];
+
+      const lineChanges = editor.getLineChanges();
+      return lineChanges || [];
+    }, []);
+
+    // Navigate to a specific change by index
+    const goToChange = useCallback((index: number) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+
+      const changes = getLineChanges();
+      if (changes.length === 0) return;
+
+      // Wrap around
+      let targetIndex = index;
+      if (targetIndex < 0) targetIndex = changes.length - 1;
+      if (targetIndex >= changes.length) targetIndex = 0;
+
+      currentChangeIndexRef.current = targetIndex;
+      const change = changes[targetIndex];
+
+      // Get the modified editor to scroll to the change
+      const modifiedEditor = editor.getModifiedEditor();
+      const lineNumber = change.modifiedStartLineNumber || change.originalStartLineNumber || 1;
+
+      modifiedEditor.revealLineInCenter(lineNumber);
+      modifiedEditor.setPosition({ lineNumber, column: 1 });
+    }, [getLineChanges]);
+
+    // Navigate to next change
+    const goToNextChange = useCallback(() => {
+      goToChange(currentChangeIndexRef.current + 1);
+    }, [goToChange]);
+
+    // Navigate to previous change
+    const goToPreviousChange = useCallback(() => {
+      goToChange(currentChangeIndexRef.current - 1);
+    }, [goToChange]);
+
+    // Expose ref methods
+    useImperativeHandle(ref, () => ({
+      goToNextChange,
+      goToPreviousChange,
+      getEditor: () => editorRef.current,
+    }), [goToNextChange, goToPreviousChange]);
+
+    // Handle editor mount
+    const handleMount: DiffOnMount = useCallback((editor, monaco) => {
+      editorRef.current = editor;
+      currentChangeIndexRef.current = -1;
+      onMount?.(editor, monaco);
+    }, [onMount]);
+
+    // Reset change index when content changes
+    useEffect(() => {
+      currentChangeIndexRef.current = -1;
+    }, [originalContent, modifiedContent]);
+
+    return (
     <DiffEditor
       original={originalContent}
       modified={modifiedContent}
@@ -92,9 +172,10 @@ export function MonacoDiffViewer({
         // Performance
         automaticLayout: true,
       }}
-      onMount={onMount}
+      onMount={handleMount}
     />
-  );
-}
+    );
+  }
+);
 
 export default MonacoDiffViewer;
