@@ -87,3 +87,20 @@
   - The built-in hideUnchangedRegions feature handles US-004 and US-005 entirely — no custom code needed beyond CSS styling
 ---
 
+## 2026-02-06 - US-005
+- Verified Monaco's built-in "Show Unchanged Region" control satisfies all acceptance criteria
+- The center bar of each fold zone contains an unfold icon link (`$(unfold)`) rendered as an `<a>` element
+- Clicking it calls `this._unchangedRegion.showAll(void 0)` which reveals all hidden lines in that section
+- Widget is automatically removed when fully expanded (checks `isFullyRevealed`)
+- Both original and modified editors expand in sync (single unchanged region object)
+- Scroll position remains stable (built-in scroll management)
+- CSS already styled from US-003: `.diff-hidden-lines .center a` (muted #727169) and `.center a:hover` (Kanagawa blue #7e9cd8)
+- No code changes needed — the built-in feature + existing CSS covers everything
+- Files changed: `ralph/prd.json` (updated passes: true)
+- **Learnings for future iterations:**
+  - Monaco's unfold icon in the center bar is the "show all" control — it's a `<a>` with `role="button"` containing a codicon span
+  - The `showAll(void 0)` method on the unchanged region object reveals all hidden lines at once
+  - The codicon inherits color from the parent `<a>` element, so styling `.center a` is sufficient
+  - No separate click handler or custom widget needed for "show all" functionality
+---
+

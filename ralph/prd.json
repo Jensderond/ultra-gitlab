@@ -86,8 +86,8 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Monaco's built-in hideUnchangedRegions provides a 'Show Unchanged Region' button (unfold icon) in each fold zone center bar that calls showAll() to reveal all hidden lines. Widget is removed on full expansion, both editors sync automatically, scroll position is stable. CSS already styles the unfold link with Kanagawa theme colors (muted default, blue hover)."
     },
     {
       "id": "US-006",
