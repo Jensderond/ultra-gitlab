@@ -294,6 +294,14 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
         renderOverviewRuler: true,
         renderIndicators: true,
 
+        // Collapse unchanged regions (show only 5 lines of context around changes)
+        hideUnchangedRegions: {
+          enabled: true,
+          contextLineCount: 5,
+          minimumLineCount: 3,
+          revealLineCount: 20,
+        },
+
         // Editor appearance
         minimap: {
           enabled: true,

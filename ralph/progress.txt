@@ -11,6 +11,10 @@
 - ILineChange shape: {originalStartLineNumber, originalEndLineNumber, modifiedStartLineNumber, modifiedEndLineNumber, charChanges}
 - For pure insertions: originalEndLineNumber=0, originalStartLineNumber=line before gap; for pure deletions: modifiedEndLineNumber=0
 - collapseRegions.ts exports computeCollapseRegions() and CollapseRegion type for computing hidden areas
+- **CRITICAL**: Monaco v0.55+ has built-in `hideUnchangedRegions` option on DiffEditor — it handles setHiddenAreas, ViewZones, expand controls, and sync between editors automatically
+- hideUnchangedRegions config: { enabled, contextLineCount (context lines around changes), minimumLineCount (min hidden to collapse), revealLineCount (lines revealed per expand click) }
+- The built-in feature internally uses setHiddenAreas() on both editors, creates ViewZone widgets with expand up/down/all controls
+- CSS classes for styling: `.diff-hidden-lines-widget`, `.diff-hidden-lines-compact`, `.diff-unchanged-lines`, `.fold-unchanged`
 
 ---
 
@@ -26,5 +30,25 @@
   - For pure insertions: `originalEndLineNumber === 0`, `originalStartLineNumber` = line before insertion point
   - For pure deletions: `modifiedEndLineNumber === 0`, `modifiedStartLineNumber` = line before deletion point
   - All Monaco line numbers are 1-based
+---
+
+## 2026-02-06 - US-002
+- Enabled Monaco's built-in `hideUnchangedRegions` feature on the DiffEditor in `MonacoDiffViewer.tsx`
+- Configuration: `{ enabled: true, contextLineCount: 5, minimumLineCount: 3, revealLineCount: 20 }`
+- This replaces the need for manually calling `setHiddenAreas()` — Monaco internally handles:
+  - Computing unchanged regions from the diff
+  - Applying hidden areas on both original and modified editors
+  - Maintaining line number alignment
+  - Preserving syntax highlighting (full model preserved, view layer only)
+  - Files with no changes are collapsed
+- Files changed: `src/components/Monaco/MonacoDiffViewer.tsx` (modified)
+- **Learnings for future iterations:**
+  - Monaco v0.55+ `hideUnchangedRegions` option does what the PRD described with `setHiddenAreas()` but as a built-in, well-tested feature
+  - The feature also provides ViewZone widgets with expand controls (up/down/all), removing the need to implement US-003/004/005 from scratch
+  - `contextLineCount: 5` matches the PRD's "5 lines of context" requirement
+  - `revealLineCount: 20` matches the PRD's "+20 lines" incremental expand requirement
+  - `minimumLineCount: 3` prevents collapsing tiny unchanged regions that aren't worth hiding
+  - The built-in feature works in both split and unified view modes automatically
+  - Remaining work: custom styling (US-003/008) to match Kanagawa theme, toolbar buttons (US-006), state persistence (US-007)
 ---
 
