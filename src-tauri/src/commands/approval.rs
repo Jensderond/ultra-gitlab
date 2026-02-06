@@ -6,6 +6,7 @@
 use crate::db::pool::DbPool;
 use crate::error::AppError;
 use crate::models::sync_action::ActionType;
+use crate::services::sync_engine::SyncHandle;
 use crate::services::sync_queue::{self, ApprovalPayload, EnqueueInput};
 use sqlx::Row;
 use tauri::State;
@@ -32,7 +33,11 @@ async fn get_mr_ids(pool: &DbPool, mr_id: i64) -> Result<(i64, i64), AppError> {
 /// # Returns
 /// Success or error
 #[tauri::command]
-pub async fn approve_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppError> {
+pub async fn approve_mr(
+    pool: State<'_, DbPool>,
+    sync_handle: State<'_, SyncHandle>,
+    mr_id: i64,
+) -> Result<(), AppError> {
     let (project_id, mr_iid) = get_mr_ids(pool.inner(), mr_id).await?;
 
     // Update approval status optimistically
@@ -71,6 +76,11 @@ pub async fn approve_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppEr
         },
     )
     .await?;
+
+    // Fire-and-forget: flush approval actions immediately
+    if let Err(e) = sync_handle.flush_approvals().await {
+        eprintln!("[approval] Failed to send flush signal: {}", e);
+    }
 
     Ok(())
 }
