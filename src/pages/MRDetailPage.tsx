@@ -9,6 +9,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { FileNavigation } from '../components/DiffViewer';
 import { MonacoDiffViewer, type MonacoDiffViewerRef, type LineComment, type CursorPosition } from '../components/Monaco/MonacoDiffViewer';
+import type { editor } from 'monaco-editor';
 import { ImageDiffViewer } from '../components/Monaco/ImageDiffViewer';
 import { isImageFile, getImageMimeType } from '../components/Monaco/languageDetection';
 import { ApprovalButton, type ApprovalButtonRef } from '../components/Approval';
@@ -48,8 +49,8 @@ export default function MRDetailPage() {
   const [originalImageBase64, setOriginalImageBase64] = useState<string>('');
   const [modifiedImageBase64, setModifiedImageBase64] = useState<string>('');
 
-  // Scroll position state per file
-  const scrollPositionsRef = useRef<Map<string, number>>(new Map());
+  // View state per file (scroll, cursor, collapsed regions)
+  const viewStatesRef = useRef<Map<string, editor.IDiffEditorViewState>>(new Map());
   const previousFileRef = useRef<string | null>(null);
 
   // Comments state for current file
@@ -106,16 +107,20 @@ export default function MRDetailPage() {
     loadData();
   }, [mrId]);
 
-  // Handle file selection with scroll position preservation
+  // Handle file selection with view state preservation
   const handleFileSelect = useCallback((filePath: string) => {
-    // Save current scroll position before switching
+    // Save current view state (scroll, cursor, collapsed regions) before switching
     if (previousFileRef.current && diffViewerRef.current) {
-      const scrollTop = diffViewerRef.current.getScrollTop();
-      scrollPositionsRef.current.set(previousFileRef.current, scrollTop);
+      const viewState = diffViewerRef.current.saveViewState();
+      if (viewState) {
+        viewStatesRef.current.set(previousFileRef.current, viewState);
+      }
     }
 
     setSelectedFile(filePath);
-    setCollapseState('collapsed');
+    // Restore collapse state from saved view state, or default to 'collapsed'
+    const savedState = viewStatesRef.current.get(filePath);
+    setCollapseState(savedState ? 'partial' : 'collapsed');
     previousFileRef.current = filePath;
 
     const index = files.findIndex((f) => f.newPath === filePath);
@@ -194,22 +199,22 @@ export default function MRDetailPage() {
     loadFileContent();
   }, [selectedFile, mr, diffRefs, files]);
 
-  // Restore scroll position after content loads
+  // Restore view state (scroll, cursor, collapsed regions) after content loads
   useEffect(() => {
     if (!fileContentLoading && selectedFile && diffViewerRef.current) {
-      const savedScrollTop = scrollPositionsRef.current.get(selectedFile);
-      if (savedScrollTop !== undefined) {
-        // Small delay to ensure editor is rendered
+      const savedState = viewStatesRef.current.get(selectedFile);
+      if (savedState) {
+        // Small delay to ensure editor is rendered and diff computed
         requestAnimationFrame(() => {
-          diffViewerRef.current?.setScrollTop(savedScrollTop);
+          diffViewerRef.current?.restoreViewState(savedState);
         });
       }
     }
   }, [fileContentLoading, selectedFile, originalContent, modifiedContent]);
 
-  // Clear scroll positions when MR changes
+  // Clear view states when MR changes
   useEffect(() => {
-    scrollPositionsRef.current.clear();
+    viewStatesRef.current.clear();
     previousFileRef.current = null;
   }, [mrId]);
 

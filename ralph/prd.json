@@ -118,8 +118,8 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Used Monaco's built-in saveViewState()/restoreViewState() API which captures scroll position, cursor position, AND collapsed region state (via modelState containing collapsedRegions). View states stored per file path in a ref Map. State saved on file switch, restored after content loads. Map cleared when MR changes. Also replaced the old scroll-only persistence with the comprehensive view state approach."
     },
     {
       "id": "US-008",

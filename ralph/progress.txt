@@ -7,7 +7,7 @@
 - Monaco CSS in src/components/Monaco/monaco.css (comment decorations, glyph styles)
 - Language detection in src/components/Monaco/languageDetection.ts
 - Component used in MRDetailPage.tsx with props: originalContent, modifiedContent, filePath, viewMode, comments
-- Exposed ref methods: goToNextChange, goToPreviousChange, getEditor, getScrollTop, setScrollTop, getCursorPosition
+- Exposed ref methods: goToNextChange, goToPreviousChange, getEditor, getScrollTop, setScrollTop, getCursorPosition, collapseUnchanged, expandAll, saveViewState, restoreViewState
 - ILineChange shape: {originalStartLineNumber, originalEndLineNumber, modifiedStartLineNumber, modifiedEndLineNumber, charChanges}
 - For pure insertions: originalEndLineNumber=0, originalStartLineNumber=line before gap; for pure deletions: modifiedEndLineNumber=0
 - collapseRegions.ts exports computeCollapseRegions() and CollapseRegion type for computing hidden areas
@@ -21,6 +21,8 @@
 - Monaco handles scroll position stability on bottom expand (saves/restores scrollTop around the reveal)
 - **Collapse/Expand All**: Use `editor.updateOptions({ hideUnchangedRegions: { enabled: false } })` to expand all, re-enable with full config to re-collapse (Monaco recomputes from scratch)
 - MRDetailPage has a `.diff-toolbar` div above MonacoDiffViewer for toolbar buttons (collapse/expand all)
+- **View state persistence**: `saveViewState()`/`restoreViewState()` on DiffEditor captures scroll, cursor, AND collapsed region state (modelState.collapsedRegions) — replaces manual scroll position tracking
+- View states stored in `viewStatesRef` Map<string, IDiffEditorViewState> keyed by file path in MRDetailPage
 
 ---
 
@@ -122,5 +124,22 @@
   - There is no public API to enumerate or individually control unchanged regions — only bulk enable/disable via options
   - The toolbar buttons need a wrapping `<>...</>` fragment to sit alongside the MonacoDiffViewer in the conditional render
   - `collapseState` tracking is an approximation — user can manually expand regions via fold zone controls without updating this state, but it's sufficient for button disabled logic
+---
+
+## 2026-02-06 - US-007
+- Implemented per-file expand/collapse state persistence using Monaco's `saveViewState()`/`restoreViewState()` API
+- Added `saveViewState()` and `restoreViewState()` methods to `MonacoDiffViewerRef` interface and implementation
+- Replaced the old scroll-only persistence (`scrollPositionsRef` Map<string, number>) with comprehensive view state persistence (`viewStatesRef` Map<string, IDiffEditorViewState>)
+- `saveViewState()` captures scroll position, cursor position, AND collapsed region state (via `modelState.collapsedRegions`)
+- State saved in `handleFileSelect` before switching files, restored after content loads via `requestAnimationFrame`
+- `collapseState` set to `'partial'` when restoring saved state (since user may have manually expanded some regions)
+- View state map cleared when MR changes (mrId dependency)
+- Files changed: `src/components/Monaco/MonacoDiffViewer.tsx` (modified), `src/pages/MRDetailPage.tsx` (modified)
+- **Learnings for future iterations:**
+  - Monaco DiffEditor has `saveViewState()` / `restoreViewState()` that captures everything: scroll, cursor, AND collapsed region state
+  - The view state's `modelState` property contains `collapsedRegions` array with line ranges for each collapsed region
+  - `restoreViewState()` matches regions by intersection with unchanged ranges, so it's resilient to minor content changes
+  - This replaces the need for separate scroll position tracking — one API handles scroll + cursor + collapsed regions
+  - The `IDiffEditorViewState` type is available via `import type { editor } from 'monaco-editor'`
 ---
 

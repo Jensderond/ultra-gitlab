@@ -28,6 +28,10 @@ export interface MonacoDiffViewerRef {
   collapseUnchanged: () => void;
   /** Expand all regions, showing the complete file */
   expandAll: () => void;
+  /** Save the current view state (scroll, cursor, collapsed regions) */
+  saveViewState: () => editor.IDiffEditorViewState | null;
+  /** Restore a previously saved view state */
+  restoreViewState: (state: editor.IDiffEditorViewState | null) => void;
 }
 
 /** Comment data for a line */
@@ -165,6 +169,20 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
       });
     }, []);
 
+    // Save view state (scroll, cursor, collapsed regions)
+    const saveViewState = useCallback((): editor.IDiffEditorViewState | null => {
+      const ed = editorRef.current;
+      if (!ed) return null;
+      return ed.saveViewState();
+    }, []);
+
+    // Restore view state
+    const restoreViewState = useCallback((state: editor.IDiffEditorViewState | null) => {
+      const ed = editorRef.current;
+      if (!ed || !state) return;
+      ed.restoreViewState(state);
+    }, []);
+
     // Get current cursor position
     const getCursorPosition = useCallback((): CursorPosition | null => {
       const editor = editorRef.current;
@@ -204,7 +222,9 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
       getCursorPosition,
       collapseUnchanged,
       expandAll,
-    }), [goToNextChange, goToPreviousChange, getScrollTop, setScrollTop, getCursorPosition, collapseUnchanged, expandAll]);
+      saveViewState,
+      restoreViewState,
+    }), [goToNextChange, goToPreviousChange, getScrollTop, setScrollTop, getCursorPosition, collapseUnchanged, expandAll, saveViewState, restoreViewState]);
 
     // Handle editor mount
     const handleMount: DiffOnMount = useCallback((editor, monaco) => {
