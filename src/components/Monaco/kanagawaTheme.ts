@@ -139,6 +139,16 @@ export const kanagawaWaveTheme: Monaco.editor.IStandaloneThemeData = {
     "diffEditor.removedLineBackground": "#c3404322",
     "diffEditor.diagonalFill": "#363646",
 
+    // Diff editor unchanged/collapsed regions
+    "diffEditor.unchangedRegionBackground": "#2a2a37",
+    "diffEditor.unchangedRegionForeground": "#727169",
+    "diffEditor.unchangedRegionShadow": "#16161d",
+    "diffEditor.unchangedCodeBackground": "#1f1f2800",
+
+    // Focus & link colors (used by fold zone hover/expand controls)
+    focusBorder: "#7e9cd8",
+    "editorLink.activeForeground": "#7e9cd8",
+
     // Widget (find, command palette, etc.)
     "editorWidget.background": "#1f1f28",
     "editorWidget.foreground": "#dcd7ba",

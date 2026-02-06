@@ -41,3 +41,32 @@
 .monaco-hover .hover-contents {
   color: #dcd7ba !important;
 }
+
+/* ── Diff fold zone (collapsed unchanged regions) ── */
+
+/* Center bar: subtle background with thin borders */
+.monaco-editor .diff-hidden-lines .center {
+  background: #2a2a37 !important;
+  color: #727169 !important;
+  font-size: 12px !important;
+  border-top: 1px solid #363646;
+  border-bottom: 1px solid #363646;
+  box-shadow: none !important;
+}
+
+/* Top/bottom drag handles: Kanagawa accent on hover */
+.monaco-editor .diff-hidden-lines:not(.dragging) .top:hover,
+.monaco-editor .diff-hidden-lines:not(.dragging) .bottom:hover,
+.monaco-editor .diff-hidden-lines .top.dragging,
+.monaco-editor .diff-hidden-lines .bottom.dragging {
+  background-color: #7e9cd8 !important;
+}
+
+/* Expand control links: muted, accent on hover */
+.monaco-editor .diff-hidden-lines .center a {
+  color: #727169 !important;
+}
+
+.monaco-editor .diff-hidden-lines .center a:hover {
+  color: #7e9cd8 !important;
+}
