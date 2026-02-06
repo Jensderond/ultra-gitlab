@@ -129,6 +129,33 @@ pub async fn get_pending_actions(pool: &DbPool) -> Result<Vec<SyncAction>, AppEr
     Ok(actions)
 }
 
+/// Get pending actions filtered by action type.
+///
+/// # Arguments
+/// * `pool` - Database connection pool
+/// * `action_type` - Action type to filter by (e.g., `ActionType::Approve`)
+///
+/// # Returns
+/// List of pending actions matching the given type, ordered by creation time
+pub async fn get_pending_actions_by_type(
+    pool: &DbPool,
+    action_type: ActionType,
+) -> Result<Vec<SyncAction>, AppError> {
+    let actions = sqlx::query_as::<_, SyncAction>(
+        r#"
+        SELECT id, mr_id, action_type, payload, local_reference_id, status, retry_count, last_error, created_at, synced_at
+        FROM sync_queue
+        WHERE status = 'pending' AND action_type = ?
+        ORDER BY created_at ASC
+        "#,
+    )
+    .bind(action_type.to_string())
+    .fetch_all(pool)
+    .await?;
+
+    Ok(actions)
+}
+
 /// Get all failed actions that can be retried.
 ///
 /// # Arguments
@@ -683,5 +710,66 @@ mod tests {
         let (pending, failed) = get_action_counts(&pool).await.unwrap();
         assert_eq!(pending, 1);
         assert_eq!(failed, 0);
+    }
+
+    #[tokio::test]
+    async fn test_get_pending_actions_by_type() {
+        let pool = setup_test_db().await;
+
+        // Enqueue one Approve and two Comment actions
+        enqueue_action(
+            &pool,
+            EnqueueInput {
+                mr_id: 1,
+                action_type: ActionType::Approve,
+                payload: "{}".to_string(),
+                local_reference_id: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        enqueue_action(
+            &pool,
+            EnqueueInput {
+                mr_id: 1,
+                action_type: ActionType::Comment,
+                payload: "{}".to_string(),
+                local_reference_id: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        enqueue_action(
+            &pool,
+            EnqueueInput {
+                mr_id: 1,
+                action_type: ActionType::Comment,
+                payload: "{}".to_string(),
+                local_reference_id: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        // Filter by Approve — should return only 1
+        let approvals = get_pending_actions_by_type(&pool, ActionType::Approve)
+            .await
+            .unwrap();
+        assert_eq!(approvals.len(), 1);
+        assert_eq!(approvals[0].action_type, "approve");
+
+        // Filter by Comment — should return 2
+        let comments = get_pending_actions_by_type(&pool, ActionType::Comment)
+            .await
+            .unwrap();
+        assert_eq!(comments.len(), 2);
+
+        // Filter by Resolve — should return 0 (empty vec, not error)
+        let resolves = get_pending_actions_by_type(&pool, ActionType::Resolve)
+            .await
+            .unwrap();
+        assert_eq!(resolves.len(), 0);
     }
 }

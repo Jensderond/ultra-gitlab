@@ -1008,12 +1008,9 @@ impl SyncEngine {
     /// queued action types are left untouched. If no approval actions are
     /// pending, this is a no-op.
     async fn flush_approval_actions(&self) -> Result<(), AppError> {
-        // Get only pending approval actions
-        let all_pending = sync_queue::get_pending_actions(&self.pool).await?;
-        let approval_actions: Vec<_> = all_pending
-            .into_iter()
-            .filter(|a| a.action_type_enum() == ActionType::Approve)
-            .collect();
+        // Get only pending approval actions (filtered at the DB level)
+        let approval_actions =
+            sync_queue::get_pending_actions_by_type(&self.pool, ActionType::Approve).await?;
 
         if approval_actions.is_empty() {
             eprintln!("[sync] No pending approval actions to flush");

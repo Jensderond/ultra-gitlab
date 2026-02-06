@@ -10,6 +10,7 @@
 - GitLab client: approve_merge_request() and unapprove_merge_request() POST endpoints in gitlab_client.rs
 - SyncCommand now has FlushApprovals variant; SyncHandle has flush_approvals() convenience method
 - flush_approval_actions() on SyncEngine filters pending actions by ActionType::Approve, looks up instance per MR, creates client, and processes each action
+- sync_queue::get_pending_actions_by_type() filters at DB level by ActionType; flush_approval_actions uses it instead of in-memory filtering
 
 ---
 
@@ -21,5 +22,14 @@
   - Each approval action may belong to a different GitLab instance, so the method creates a client per action (could be optimized to cache clients per instance if needed)
   - The existing `process_action` from sync_processor handles all status transitions (mark_syncing, mark_synced, mark_failed) so the flush just needs to call it
   - ActionType::Approve covers both approve and unapprove (the payload distinguishes them via the "action" field)
+---
+
+## 2026-02-06 - US-002
+- What was implemented: Added `get_pending_actions_by_type()` to `sync_queue.rs` that accepts an `ActionType` filter and queries `sync_queue WHERE status = 'pending' AND action_type = ?`. Updated `flush_approval_actions()` in `sync_engine.rs` to use this new DB-level filtered query instead of fetching all pending actions and filtering in-memory. Added a comprehensive test covering filtering by Approve (1 match), Comment (2 matches), and Resolve (0 matches / empty vec).
+- Files changed: src-tauri/src/services/sync_queue.rs, src-tauri/src/services/sync_engine.rs
+- **Learnings for future iterations:**
+  - The function follows the same pattern as `get_pending_actions` — uses `sqlx::query_as::<_, SyncAction>` and returns `Result<Vec<SyncAction>, AppError>`
+  - ActionType implements Display (returns lowercase string like "approve"), which is used with `.bind(action_type.to_string())` for the SQL parameter
+  - DB-level filtering is preferable to in-memory filtering for efficiency and clarity
 ---
 
