@@ -1,17 +1,20 @@
 {
   "project": "Ultra GitLab",
-  "branchName": "ralph/token-management",
-  "description": "Token Management & Lifetime Display - Allow users to change their GitLab personal access token inline on the Settings page and display token expiration with warning badges",
+  "branchName": "ralph/diff-collapse",
+  "description": "Monaco Diff Viewer Collapse/Expand - Collapse unchanged lines in the diff viewer, showing only 5 lines of context around changes, with incremental and full expand controls",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Add GitLab API method to fetch token expiration",
-      "description": "As a developer, I need a backend method to retrieve the current token's expiration date from GitLab so the frontend can display lifetime information.",
+      "title": "Compute collapse regions from diff changes",
+      "description": "As a developer, I need a utility function that calculates which line ranges should be collapsed based on the diff's changed regions, keeping 5 lines of context around each change.",
       "acceptanceCriteria": [
-        "New method on GitLabClient that calls GET /personal_access_tokens/self and returns expires_at (date string or null), name, scopes, and active status",
-        "Response struct PersonalAccessTokenInfo with fields: expires_at (Option<String>), name (String), scopes (Vec<String>), active (bool)",
-        "Handles tokens with no expiration gracefully (returns None for expires_at)",
-        "Typecheck passes (cargo check)"
+        "Create a utility module (e.g., src/components/Monaco/collapseRegions.ts) with a pure function that takes an array of line changes and total line counts, and returns collapse regions for both original and modified sides",
+        "Each changed range keeps 5 lines of context above and below as visible",
+        "Overlapping/adjacent visible regions are merged (e.g., two changes 8 lines apart share context)",
+        "Everything outside visible regions becomes a collapse region with startLine and endLine",
+        "Edge cases handled: changes at line 1 (no context above), changes at last line (no context below)",
+        "Files with no changes return a single collapse region covering the entire file",
+        "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
@@ -19,99 +22,121 @@
     },
     {
       "id": "US-002",
-      "title": "Expose token info via Tauri command",
-      "description": "As a developer, I need a Tauri IPC command that the frontend can call to get token lifetime info for a given instance.",
+      "title": "Apply hidden regions on diff editor mount",
+      "description": "As a reviewer, I want unchanged lines to be automatically collapsed when I open a diff so I can focus on what changed.",
       "acceptanceCriteria": [
-        "New Tauri command get_token_info(instance_id) that loads the instance from the DB, creates a GitLabClient, and fetches the token info",
-        "Returns a typed response with expires_at: Option<String>, name: String, scopes: Vec<String>, active: bool",
-        "Returns a clear error if the instance has no token or the API call fails",
-        "Command is registered in the Tauri command handler in main.rs or lib.rs",
-        "Typecheck passes (cargo check)"
+        "In MonacoDiffViewer.tsx, after the diff editor mounts and line changes are available, call the collapse regions utility from US-001",
+        "Apply computed collapse regions as hidden areas using Monaco's setHiddenAreas() on both getOriginalEditor() and getModifiedEditor()",
+        "Collapsed regions do not break line number alignment between original and modified sides",
+        "Syntax highlighting remains correct on all visible lines (the full file content is preserved in the model)",
+        "When a file has no changes, the entire file is collapsed",
+        "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Add update_instance_token Tauri command",
-      "description": "As a developer, I need a backend command that validates a new token against the GitLab API and updates the database row for the instance.",
+      "title": "Add fold zone widgets for collapsed regions",
+      "description": "As a reviewer, I want to see a visual indicator between visible code sections showing how many lines are hidden.",
       "acceptanceCriteria": [
-        "New Tauri command update_instance_token(instance_id, token) that validates the token via GitLab GET /user endpoint",
-        "On successful validation, updates the token column in the gitlab_instances table for the given instance_id",
-        "Returns the validated username on success",
-        "Returns a clear error message on validation failure (e.g. 401 Unauthorized)",
-        "Command is registered in the Tauri command handler",
-        "Typecheck passes (cargo check)"
+        "For each collapsed region, inject a Monaco ViewZone widget on both original and modified editors",
+        "Each widget displays the number of hidden lines (e.g., '42 lines hidden')",
+        "Widgets render inline between code lines at the collapse boundary",
+        "Widgets are styled with a subtle background color distinct from the editor background, matching the Kanagawa theme",
+        "Widgets have thin top/bottom borders to visually separate them from code",
+        "Text uses a muted color and smaller font size",
+        "Styling is added to the existing monaco.css file",
+        "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Add frontend invoke wrappers for new commands",
-      "description": "As a developer, I need typed TypeScript wrapper functions for the new Tauri commands so the frontend can call them with type safety.",
+      "title": "Add expand-up and expand-down controls to fold zones",
+      "description": "As a reviewer, I want to incrementally reveal 20 more lines above or below a collapsed region to get more context.",
       "acceptanceCriteria": [
-        "TypeScript function getTokenInfo(instanceId: number) that invokes get_token_info and returns typed TokenInfo response",
-        "TypeScript function updateInstanceToken(instanceId: number, token: string) that invokes update_instance_token and returns the username",
-        "TokenInfo TypeScript interface with expiresAt: string | null, name: string, scopes: string[], active: boolean",
-        "Functions are added to the existing services/tauri.ts or equivalent file",
+        "Each fold zone widget has an expand-up chevron/button that reveals 20 lines above the collapsed region",
+        "Each fold zone widget has an expand-down chevron/button that reveals 20 lines below the collapsed region",
+        "If fewer than 20 lines remain hidden in that direction, all remaining lines are revealed",
+        "After expanding, the fold zone widget updates its 'N lines hidden' count",
+        "If all lines in a collapsed region are revealed, the fold zone widget is removed",
+        "Expansion applies symmetrically to both original and modified editors",
+        "Scroll position remains stable during expansion (viewport does not jump)",
+        "Expand controls are visible on hover, subtle when not hovered",
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-005",
-      "title": "Add inline Edit Token UI on Settings page",
-      "description": "As a user, I want an Edit Token button next to each GitLab instance in Settings so I can update my PAT without removing and re-adding the instance.",
+      "title": "Add show-all control to fully expand a collapsed region",
+      "description": "As a reviewer, I want a way to reveal all hidden lines in a section at once when I need the full context.",
       "acceptanceCriteria": [
-        "Each instance item in the Settings list shows an Edit Token button",
-        "Clicking it reveals an inline password input field (type=password, placeholder glpat-...) that is auto-focused",
-        "Save and Cancel buttons appear next to the input",
-        "Cancel hides the input and restores the previous view",
-        "Save calls updateInstanceToken and shows a Validating... loading state on the button",
-        "On success, shows brief confirmation message and collapses the edit input",
-        "On failure, shows an inline error message (e.g. Invalid token) without closing the edit input",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Each fold zone widget has a 'show all' text button/link",
+        "Clicking 'show all' reveals every hidden line in that specific collapsed section",
+        "The fold zone widget is removed after full expansion",
+        "Both original and modified editors expand in sync",
+        "Scroll position remains stable during expansion",
+        "Typecheck passes"
       ],
       "priority": 5,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Display token lifetime on each instance",
-      "description": "As a user, I want to see when my token expires and how many days are left so I can plan ahead.",
+      "title": "Add Collapse All and Expand All toolbar buttons",
+      "description": "As a reviewer, I want quick actions to collapse everything back to just the changes, or expand the entire file.",
       "acceptanceCriteria": [
-        "Each instance item shows expiration info below existing metadata (e.g. Expires Mar 15, 2026 — 38 days left)",
-        "If the token has no expiration, shows No expiration",
-        "If the token info cannot be fetched, shows nothing or a subtle Unable to fetch token info note",
-        "Token info is fetched for all instances in parallel when the Settings page mounts",
+        "Add a 'Collapse unchanged' button to the diff viewer toolbar/header area in MonacoDiffViewer or its parent",
+        "Add an 'Expand all' button to the diff viewer toolbar/header area",
+        "'Collapse unchanged' resets to the initial state (5 lines context around changes, all other regions collapsed)",
+        "'Expand all' removes all hidden areas and fold zone widgets, showing the complete file",
+        "Buttons reflect current state (disabled when already fully collapsed or fully expanded)",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-007",
-      "title": "Show expiration warning badges",
-      "description": "As a user, I want a visual warning when my token expires within 30 days so I notice before it breaks.",
+      "title": "Persist expand/collapse state per file",
+      "description": "As a reviewer, I want my expand/collapse state remembered when I switch between files so I don't lose my place.",
       "acceptanceCriteria": [
-        "When a token expires in less than 30 days, show a yellow warning badge with text Expiring soon",
-        "When a token is already expired, show a red badge with text Expired",
-        "Badges appear next to the expiration text in the instance list",
-        "No badge shown when token has more than 30 days remaining or no expiration set",
+        "When switching away from a file, store the current hidden area ranges (which regions are expanded/collapsed) keyed by file path",
+        "When returning to a previously viewed file, restore the exact expand/collapse state including fold zone widgets",
+        "State is stored in React component state or a ref Map (not persisted across app restarts)",
+        "If the diff data changes (e.g., different MR or MR updated), reset the stored state for affected files",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Unified view collapse support",
+      "description": "As a reviewer, I want collapse/expand to also work in unified (inline) diff view mode so I get the same focused experience regardless of view preference.",
+      "acceptanceCriteria": [
+        "Collapse regions are computed and applied in unified view mode (single editor pane via getModifiedEditor())",
+        "The same 5-line context, expand-up/down (+20 lines), and show-all controls work in unified view",
+        "Fold zone widgets render correctly in the single-pane layout",
+        "Switching between split and unified view preserves the current expand/collapse state",
+        "Collapse All / Expand All toolbar buttons work in unified view",
+        "No visual glitches when toggling view mode while regions are partially expanded",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 7,
-      "passes": true,
+      "priority": 8,
+      "passes": false,
       "notes": ""
     }
   ]
