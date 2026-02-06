@@ -15,6 +15,7 @@ use crate::services::gitlab_client::{
     MergeRequestsQuery,
 };
 use crate::models::project::{self, Project};
+use crate::models::sync_action::ActionType;
 use crate::services::sync_processor::{self, ProcessResult};
 use crate::services::sync_queue;
 use serde::{Deserialize, Serialize};
@@ -135,6 +136,9 @@ pub enum SyncCommand {
     /// Trigger an immediate sync.
     TriggerSync,
 
+    /// Flush only approval-type actions immediately (approve/unapprove).
+    FlushApprovals,
+
     /// Update the sync configuration.
     UpdateConfig(SyncConfig),
 
@@ -160,6 +164,14 @@ impl SyncHandle {
     pub async fn trigger_sync(&self) -> Result<(), AppError> {
         self.command_tx
             .send(SyncCommand::TriggerSync)
+            .await
+            .map_err(|_| AppError::internal("Sync engine not running"))
+    }
+
+    /// Flush only pending approval actions immediately.
+    pub async fn flush_approvals(&self) -> Result<(), AppError> {
+        self.command_tx
+            .send(SyncCommand::FlushApprovals)
             .await
             .map_err(|_| AppError::internal("Sync engine not running"))
     }
@@ -261,7 +273,13 @@ impl SyncEngine {
                                     eprintln!("[sync] Manual sync error: {}", e);
                                 }
                             }
-                            SyncCommand::UpdateConfig(new_config) => {
+                            SyncCommand::FlushApprovals => {
+                                eprintln!("[sync] Flushing approval actions immediately");
+                                if let Err(e) = engine.flush_approval_actions().await {
+                                    eprintln!("[sync] Flush approvals error: {}", e);
+                                }
+                            }
+                        SyncCommand::UpdateConfig(new_config) => {
                                 eprintln!("[sync] Config updated, interval={}s", new_config.interval_secs);
                                 interval = time::interval(Duration::from_secs(new_config.interval_secs));
                                 *engine.config.write().await = new_config;
@@ -981,6 +999,92 @@ impl SyncEngine {
         client: &GitLabClient,
     ) -> Result<Vec<ProcessResult>, AppError> {
         sync_processor::process_pending_actions(client, &self.pool).await
+    }
+
+    /// Flush only approval-type pending actions immediately.
+    ///
+    /// Fetches pending actions with action_type = 'approve', creates a GitLab
+    /// client for each instance, and processes each approval action. Other
+    /// queued action types are left untouched. If no approval actions are
+    /// pending, this is a no-op.
+    async fn flush_approval_actions(&self) -> Result<(), AppError> {
+        // Get only pending approval actions
+        let all_pending = sync_queue::get_pending_actions(&self.pool).await?;
+        let approval_actions: Vec<_> = all_pending
+            .into_iter()
+            .filter(|a| a.action_type_enum() == ActionType::Approve)
+            .collect();
+
+        if approval_actions.is_empty() {
+            eprintln!("[sync] No pending approval actions to flush");
+            return Ok(());
+        }
+
+        eprintln!(
+            "[sync] Flushing {} approval action(s)",
+            approval_actions.len()
+        );
+
+        // Get all instances to create clients
+        let instances = self.get_gitlab_instances().await?;
+
+        for action in &approval_actions {
+            // Find the instance for this action's MR
+            let instance_id: Option<i64> = sqlx::query_scalar(
+                "SELECT instance_id FROM merge_requests WHERE id = ?",
+            )
+            .bind(action.mr_id)
+            .fetch_optional(&self.pool)
+            .await?;
+
+            let Some(instance_id) = instance_id else {
+                eprintln!(
+                    "[sync] No instance found for MR {} (action {}), skipping",
+                    action.mr_id, action.id
+                );
+                continue;
+            };
+
+            let Some(instance) = instances.iter().find(|i| i.id == instance_id) else {
+                eprintln!(
+                    "[sync] Instance {} not found for action {}, skipping",
+                    instance_id, action.id
+                );
+                continue;
+            };
+
+            let Some(token) = &instance.token else {
+                eprintln!(
+                    "[sync] No token for instance {} (action {}), skipping",
+                    instance.url, action.id
+                );
+                continue;
+            };
+
+            let client = match GitLabClient::new(GitLabClientConfig {
+                base_url: instance.url.clone(),
+                token: token.clone(),
+                timeout_secs: 30,
+            }) {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!(
+                        "[sync] Failed to create client for instance {}: {}",
+                        instance.url, e
+                    );
+                    continue;
+                }
+            };
+
+            let result = sync_processor::process_action(&client, &self.pool, action).await;
+            if result.success {
+                eprintln!("[sync] Flushed approval action {} successfully", action.id);
+            } else if let Some(err) = &result.error {
+                eprintln!("[sync] Approval action {} failed: {}", action.id, err);
+            }
+        }
+
+        Ok(())
     }
 
     /// Get all GitLab instances from the database.

@@ -1,161 +1,25 @@
 ## Codebase Patterns
-- MonacoDiffViewer is at src/components/Monaco/MonacoDiffViewer.tsx — forwardRef component with imperative ref API
-- Monaco options configured in the component: folding: true, showFoldingControls: "always", splitView with viewMode prop
-- Key Monaco APIs: editor.getLineChanges(), getOriginalEditor(), getModifiedEditor(), setHiddenAreas()
-- ViewZone API for injecting custom DOM between editor lines
-- Kanagawa theme defined in src/components/Monaco/kanagawaTheme.ts with diff-specific colors
-- Monaco CSS in src/components/Monaco/monaco.css (comment decorations, glyph styles)
-- Language detection in src/components/Monaco/languageDetection.ts
-- Component used in MRDetailPage.tsx with props: originalContent, modifiedContent, filePath, viewMode, comments
-- Exposed ref methods: goToNextChange, goToPreviousChange, getEditor, getScrollTop, setScrollTop, getCursorPosition, collapseUnchanged, expandAll, saveViewState, restoreViewState
-- ILineChange shape: {originalStartLineNumber, originalEndLineNumber, modifiedStartLineNumber, modifiedEndLineNumber, charChanges}
-- For pure insertions: originalEndLineNumber=0, originalStartLineNumber=line before gap; for pure deletions: modifiedEndLineNumber=0
-- collapseRegions.ts exports computeCollapseRegions() and CollapseRegion type for computing hidden areas
-- **CRITICAL**: Monaco v0.55+ has built-in `hideUnchangedRegions` option on DiffEditor — it handles setHiddenAreas, ViewZones, expand controls, and sync between editors automatically
-- hideUnchangedRegions config: { enabled, contextLineCount (context lines around changes), minimumLineCount (min hidden to collapse), revealLineCount (lines revealed per expand click) }
-- The built-in feature internally uses setHiddenAreas() on both editors, creates ViewZone widgets with expand up/down/all controls
-- CSS classes for styling: `.diff-hidden-lines-widget`, `.diff-hidden-lines-compact`, `.diff-unchanged-lines`, `.fold-unchanged`
-- Theme color keys for fold zone styling: `diffEditor.unchangedRegionBackground`, `diffEditor.unchangedRegionForeground`, `diffEditor.unchangedRegionShadow`, `diffEditor.unchangedCodeBackground`
-- CSS overrides for fold zones go in monaco.css targeting `.monaco-editor .diff-hidden-lines .center` (the bar), `.top`/`.bottom` (drag handles), `.center a` (expand links)
-- **Top/bottom handles support click-to-reveal**: click (no drag) calls showMoreAbove/showMoreBelow with revealLineCount (20), drag reveals incrementally by mouse delta / lineHeight
-- Monaco handles scroll position stability on bottom expand (saves/restores scrollTop around the reveal)
-- **Collapse/Expand All**: Use `editor.updateOptions({ hideUnchangedRegions: { enabled: false } })` to expand all, re-enable with full config to re-collapse (Monaco recomputes from scratch)
-- MRDetailPage has a `.diff-toolbar` div above MonacoDiffViewer for toolbar buttons (collapse/expand all)
-- **View state persistence**: `saveViewState()`/`restoreViewState()` on DiffEditor captures scroll, cursor, AND collapsed region state (modelState.collapsedRegions) — replaces manual scroll position tracking
-- View states stored in `viewStatesRef` Map<string, IDiffEditorViewState> keyed by file path in MRDetailPage
-- **View mode toggle**: `renderSideBySide` change via `updateOptions()` does NOT remount editor, but may reset collapsed regions — use `pendingViewStateRef` pattern to save/restore around the toggle
-- hideUnchangedRegions works identically in both split and unified modes (Monaco handles it internally)
+- Sync engine in src-tauri/src/services/sync_engine.rs — runs background tokio task, processes SyncCommand enum (TriggerSync, UpdateConfig, Stop) via mpsc channel
+- SyncHandle stored as Tauri managed state, has send() method to send commands to the sync engine
+- Approval commands in src-tauri/src/commands/approval.rs — approve_mr and unapprove_mr enqueue actions via sync_queue then return immediately
+- Sync queue in src-tauri/src/services/sync_queue.rs — enqueue_action(), get_pending_actions(), process via sync_processor
+- Sync processor in src-tauri/src/services/sync_processor.rs — process_action() handles individual action execution against GitLab API
+- ActionType enum includes Approve, Comment, Reply, Resolve, Unresolve
+- Approval commands currently only take pool: State<SqlitePool> — need to also accept SyncHandle state
+- Command registration: src-tauri/src/commands/mod.rs (re-exports) and src-tauri/src/lib.rs (generate_handler!)
+- GitLab client: approve_merge_request() and unapprove_merge_request() POST endpoints in gitlab_client.rs
+- SyncCommand now has FlushApprovals variant; SyncHandle has flush_approvals() convenience method
+- flush_approval_actions() on SyncEngine filters pending actions by ActionType::Approve, looks up instance per MR, creates client, and processes each action
 
 ---
 
 ## 2026-02-06 - US-001
-- Implemented `computeCollapseRegions()` utility in `src/components/Monaco/collapseRegions.ts`
-- Pure function takes `ILineChange[]`, original/modified line counts → returns `{ original: CollapseRegion[], modified: CollapseRegion[] }`
-- Handles 5 lines of context around each change, merges overlapping/adjacent visible regions
-- Handles edge cases: changes at line 1 (no context above), changes at last line (no context below), files with no changes (collapse entire file)
-- For insertions/deletions where `end === 0`, anchors context around the `start` line (line before the gap)
-- Files changed: `src/components/Monaco/collapseRegions.ts` (new)
+- What was implemented: Added `FlushApprovals` variant to `SyncCommand` enum, handled it in the sync engine background loop, added `flush_approvals()` convenience method on `SyncHandle`, and added `flush_approval_actions()` on `SyncEngine` that filters pending actions to only approval types and processes them individually.
+- Files changed: src-tauri/src/services/sync_engine.rs
 - **Learnings for future iterations:**
-  - Monaco `ILineChange` has `originalStartLineNumber/originalEndLineNumber/modifiedStartLineNumber/modifiedEndLineNumber`
-  - For pure insertions: `originalEndLineNumber === 0`, `originalStartLineNumber` = line before insertion point
-  - For pure deletions: `modifiedEndLineNumber === 0`, `modifiedStartLineNumber` = line before deletion point
-  - All Monaco line numbers are 1-based
----
-
-## 2026-02-06 - US-002
-- Enabled Monaco's built-in `hideUnchangedRegions` feature on the DiffEditor in `MonacoDiffViewer.tsx`
-- Configuration: `{ enabled: true, contextLineCount: 5, minimumLineCount: 3, revealLineCount: 20 }`
-- This replaces the need for manually calling `setHiddenAreas()` — Monaco internally handles:
-  - Computing unchanged regions from the diff
-  - Applying hidden areas on both original and modified editors
-  - Maintaining line number alignment
-  - Preserving syntax highlighting (full model preserved, view layer only)
-  - Files with no changes are collapsed
-- Files changed: `src/components/Monaco/MonacoDiffViewer.tsx` (modified)
-- **Learnings for future iterations:**
-  - Monaco v0.55+ `hideUnchangedRegions` option does what the PRD described with `setHiddenAreas()` but as a built-in, well-tested feature
-  - The feature also provides ViewZone widgets with expand controls (up/down/all), removing the need to implement US-003/004/005 from scratch
-  - `contextLineCount: 5` matches the PRD's "5 lines of context" requirement
-  - `revealLineCount: 20` matches the PRD's "+20 lines" incremental expand requirement
-  - `minimumLineCount: 3` prevents collapsing tiny unchanged regions that aren't worth hiding
-  - The built-in feature works in both split and unified view modes automatically
-  - Remaining work: custom styling (US-003/008) to match Kanagawa theme, toolbar buttons (US-006), state persistence (US-007)
----
-
-## 2026-02-06 - US-003
-- Styled Monaco's built-in `hideUnchangedRegions` ViewZone widgets to match Kanagawa theme
-- Added theme colors in `kanagawaTheme.ts`: `diffEditor.unchangedRegionBackground` (#2a2a37), `diffEditor.unchangedRegionForeground` (#727169), `diffEditor.unchangedRegionShadow` (#16161d), `diffEditor.unchangedCodeBackground` (transparent), `focusBorder` and `editorLink.activeForeground` (#7e9cd8)
-- Added CSS overrides in `monaco.css`: thin top/bottom borders (#363646), 12px font size, muted text color, no box shadow, Kanagawa blue hover accents on drag handles and expand links
-- Files changed: `src/components/Monaco/kanagawaTheme.ts` (modified), `src/components/Monaco/monaco.css` (modified)
-- **Learnings for future iterations:**
-  - Monaco's built-in fold zone CSS uses `--vscode-*` CSS variables that map to theme color keys (e.g., `--vscode-diffEditor-unchangedRegionBackground` ← `diffEditor.unchangedRegionBackground` in theme)
-  - The `.diff-hidden-lines .center` element is the main fold bar (24px tall), `.top`/`.bottom` are 4px drag handles, `.center a` contains expand controls
-  - `!important` overrides are needed for `background`, `color`, `font-size`, and `box-shadow` because Monaco's default styles are also set with high specificity
-  - Setting `diffEditor.unchangedCodeBackground` to transparent (`#1f1f2800`) avoids a visible tint on code near collapsed regions
----
-
-## 2026-02-06 - US-004
-- Verified Monaco's built-in expand-up/down controls already satisfy all acceptance criteria:
-  - Top handle click → `showMoreAbove(revealLineCount=20)` reveals 20 lines above
-  - Bottom handle click → `showMoreBelow(revealLineCount=20)` reveals 20 lines below
-  - Fewer than 20 remaining → clamped to max, all revealed
-  - Hidden line count updates automatically in center bar
-  - Widget removed when fully expanded (built-in)
-  - Symmetric on both original and modified editors (built-in)
-  - Scroll position stable: bottom expand explicitly saves/restores scrollTop
-  - Handles are transparent (subtle) by default, highlight with Kanagawa blue on hover
-- Enhanced CSS for expand handles: added smooth transition on height, handles grow from 4px to 6px on hover for better discoverability
-- Files changed: `src/components/Monaco/monaco.css` (modified), `ralph/prd.json` (updated)
-- **Learnings for future iterations:**
-  - Monaco's top/bottom drag handles have dual behavior: click (no mouse movement) triggers `showMoreAbove`/`showMoreBelow` with `revealLineCount`, drag reveals incrementally by pixel delta / lineHeight
-  - The `didMove` flag (threshold: `Math.abs(delta) > 2`) distinguishes click from drag
-  - Bottom expand includes scroll stabilization: captures `getTopForLineNumber(endLineExclusive)` before/after reveal, adjusts scrollTop by difference
-  - The built-in hideUnchangedRegions feature handles US-004 and US-005 entirely — no custom code needed beyond CSS styling
----
-
-## 2026-02-06 - US-005
-- Verified Monaco's built-in "Show Unchanged Region" control satisfies all acceptance criteria
-- The center bar of each fold zone contains an unfold icon link (`$(unfold)`) rendered as an `<a>` element
-- Clicking it calls `this._unchangedRegion.showAll(void 0)` which reveals all hidden lines in that section
-- Widget is automatically removed when fully expanded (checks `isFullyRevealed`)
-- Both original and modified editors expand in sync (single unchanged region object)
-- Scroll position remains stable (built-in scroll management)
-- CSS already styled from US-003: `.diff-hidden-lines .center a` (muted #727169) and `.center a:hover` (Kanagawa blue #7e9cd8)
-- No code changes needed — the built-in feature + existing CSS covers everything
-- Files changed: `ralph/prd.json` (updated passes: true)
-- **Learnings for future iterations:**
-  - Monaco's unfold icon in the center bar is the "show all" control — it's a `<a>` with `role="button"` containing a codicon span
-  - The `showAll(void 0)` method on the unchanged region object reveals all hidden lines at once
-  - The codicon inherits color from the parent `<a>` element, so styling `.center a` is sufficient
-  - No separate click handler or custom widget needed for "show all" functionality
----
-
-## 2026-02-06 - US-006
-- Added "Collapse unchanged" and "Expand all" toolbar buttons to the diff viewer in MRDetailPage
-- Added `collapseUnchanged()` and `expandAll()` methods to MonacoDiffViewerRef interface
-- `collapseUnchanged()` calls `updateOptions({ hideUnchangedRegions: { enabled: true, contextLineCount: 5, minimumLineCount: 3, revealLineCount: 20 } })` to reset to initial collapsed state
-- `expandAll()` calls `updateOptions({ hideUnchangedRegions: { enabled: false } })` to disable folding and show the complete file
-- Toolbar renders above MonacoDiffViewer in a `<div className="diff-toolbar">` — only shown for non-image files
-- Buttons track collapsed/expanded state via `collapseState` — disabled when already in that state
-- State resets to 'collapsed' on file change
-- Styled `.diff-toolbar-btn` in MRDetailPage.css with Kanagawa theme (muted text, sumi-ink border, wave-blue focus ring)
-- Files changed: `src/components/Monaco/MonacoDiffViewer.tsx` (modified), `src/pages/MRDetailPage.tsx` (modified), `src/pages/MRDetailPage.css` (modified), `ralph/prd.json` (updated)
-- **Learnings for future iterations:**
-  - Monaco's `hideUnchangedRegions` can be toggled via `updateOptions()` — setting `enabled: false` expands all, setting `enabled: true` re-collapses
-  - Re-enabling with the full config object resets to the initial collapsed state (Monaco recomputes regions from scratch)
-  - There is no public API to enumerate or individually control unchanged regions — only bulk enable/disable via options
-  - The toolbar buttons need a wrapping `<>...</>` fragment to sit alongside the MonacoDiffViewer in the conditional render
-  - `collapseState` tracking is an approximation — user can manually expand regions via fold zone controls without updating this state, but it's sufficient for button disabled logic
----
-
-## 2026-02-06 - US-007
-- Implemented per-file expand/collapse state persistence using Monaco's `saveViewState()`/`restoreViewState()` API
-- Added `saveViewState()` and `restoreViewState()` methods to `MonacoDiffViewerRef` interface and implementation
-- Replaced the old scroll-only persistence (`scrollPositionsRef` Map<string, number>) with comprehensive view state persistence (`viewStatesRef` Map<string, IDiffEditorViewState>)
-- `saveViewState()` captures scroll position, cursor position, AND collapsed region state (via `modelState.collapsedRegions`)
-- State saved in `handleFileSelect` before switching files, restored after content loads via `requestAnimationFrame`
-- `collapseState` set to `'partial'` when restoring saved state (since user may have manually expanded some regions)
-- View state map cleared when MR changes (mrId dependency)
-- Files changed: `src/components/Monaco/MonacoDiffViewer.tsx` (modified), `src/pages/MRDetailPage.tsx` (modified)
-- **Learnings for future iterations:**
-  - Monaco DiffEditor has `saveViewState()` / `restoreViewState()` that captures everything: scroll, cursor, AND collapsed region state
-  - The view state's `modelState` property contains `collapsedRegions` array with line ranges for each collapsed region
-  - `restoreViewState()` matches regions by intersection with unchanged ranges, so it's resilient to minor content changes
-  - This replaces the need for separate scroll position tracking — one API handles scroll + cursor + collapsed regions
-  - The `IDiffEditorViewState` type is available via `import type { editor } from 'monaco-editor'`
----
-
-## 2026-02-06 - US-008
-- Verified Monaco's `hideUnchangedRegions` already works in both split and unified (inline) view modes
-- The `@monaco-editor/react` DiffEditor calls `updateOptions()` when `renderSideBySide` changes — no remount occurs
-- Added `pendingViewStateRef` in MRDetailPage to save/restore collapsed region state across view mode toggles
-- On 'x' key press: saves view state via `saveViewState()`, toggles viewMode, then a `useEffect([viewMode])` restores via `restoreViewState()` with `requestAnimationFrame` delay
-- Collapse All / Expand All toolbar buttons work in both modes (same editor instance, same `updateOptions()` API)
-- Files changed: `src/pages/MRDetailPage.tsx` (modified), `ralph/prd.json` (updated)
-- **Learnings for future iterations:**
-  - Monaco DiffEditor's `updateOptions({ renderSideBySide })` does NOT remount the editor — it reconfigures in-place
-  - However, the internal layout change CAN reset collapsed region state, so explicit save/restore around mode switches is prudent
-  - `@monaco-editor/react`'s DiffEditor has a `useEffect` on options that calls `editor.updateOptions(options)` — changes flow as prop updates, not remounts
-  - The `pendingViewStateRef` pattern (save to ref → toggle state → useEffect restores from ref) is reusable for any option change that might disrupt view state
+  - The flush_approval_actions method needs to look up the instance_id from the merge_requests table for each action, since actions don't store instance_id directly
+  - Each approval action may belong to a different GitLab instance, so the method creates a client per action (could be optimized to cache clients per instance if needed)
+  - The existing `process_action` from sync_processor handles all status transitions (mark_syncing, mark_synced, mark_failed) so the flush just needs to call it
+  - ActionType::Approve covers both approve and unapprove (the payload distinguishes them via the "action" field)
 ---
 
