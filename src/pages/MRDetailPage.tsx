@@ -52,6 +52,8 @@ export default function MRDetailPage() {
   // View state per file (scroll, cursor, collapsed regions)
   const viewStatesRef = useRef<Map<string, editor.IDiffEditorViewState>>(new Map());
   const previousFileRef = useRef<string | null>(null);
+  // Pending view state to restore after view mode toggle
+  const pendingViewStateRef = useRef<editor.IDiffEditorViewState | null>(null);
 
   // Comments state for current file
   const [fileComments, setFileComments] = useState<LineComment[]>([]);
@@ -212,6 +214,17 @@ export default function MRDetailPage() {
     }
   }, [fileContentLoading, selectedFile, originalContent, modifiedContent]);
 
+  // Restore view state after view mode toggle (split ↔ unified)
+  useEffect(() => {
+    const state = pendingViewStateRef.current;
+    if (!state || !diffViewerRef.current) return;
+    pendingViewStateRef.current = null;
+    // Delay to allow Monaco to reconfigure after renderSideBySide change
+    requestAnimationFrame(() => {
+      diffViewerRef.current?.restoreViewState(state);
+    });
+  }, [viewMode]);
+
   // Clear view states when MR changes
   useEffect(() => {
     viewStatesRef.current.clear();
@@ -351,8 +364,12 @@ export default function MRDetailPage() {
           navigateFile(-1);
           break;
         case 'x':
-          // Toggle unified/split view
+          // Toggle unified/split view, preserving collapse state
           e.preventDefault();
+          // Save view state before mode switch so collapsed regions survive
+          if (diffViewerRef.current) {
+            pendingViewStateRef.current = diffViewerRef.current.saveViewState();
+          }
           setViewMode(viewMode === 'unified' ? 'split' : 'unified');
           break;
         case 'a':

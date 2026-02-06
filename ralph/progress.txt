@@ -23,6 +23,8 @@
 - MRDetailPage has a `.diff-toolbar` div above MonacoDiffViewer for toolbar buttons (collapse/expand all)
 - **View state persistence**: `saveViewState()`/`restoreViewState()` on DiffEditor captures scroll, cursor, AND collapsed region state (modelState.collapsedRegions) — replaces manual scroll position tracking
 - View states stored in `viewStatesRef` Map<string, IDiffEditorViewState> keyed by file path in MRDetailPage
+- **View mode toggle**: `renderSideBySide` change via `updateOptions()` does NOT remount editor, but may reset collapsed regions — use `pendingViewStateRef` pattern to save/restore around the toggle
+- hideUnchangedRegions works identically in both split and unified modes (Monaco handles it internally)
 
 ---
 
@@ -141,5 +143,19 @@
   - `restoreViewState()` matches regions by intersection with unchanged ranges, so it's resilient to minor content changes
   - This replaces the need for separate scroll position tracking — one API handles scroll + cursor + collapsed regions
   - The `IDiffEditorViewState` type is available via `import type { editor } from 'monaco-editor'`
+---
+
+## 2026-02-06 - US-008
+- Verified Monaco's `hideUnchangedRegions` already works in both split and unified (inline) view modes
+- The `@monaco-editor/react` DiffEditor calls `updateOptions()` when `renderSideBySide` changes — no remount occurs
+- Added `pendingViewStateRef` in MRDetailPage to save/restore collapsed region state across view mode toggles
+- On 'x' key press: saves view state via `saveViewState()`, toggles viewMode, then a `useEffect([viewMode])` restores via `restoreViewState()` with `requestAnimationFrame` delay
+- Collapse All / Expand All toolbar buttons work in both modes (same editor instance, same `updateOptions()` API)
+- Files changed: `src/pages/MRDetailPage.tsx` (modified), `ralph/prd.json` (updated)
+- **Learnings for future iterations:**
+  - Monaco DiffEditor's `updateOptions({ renderSideBySide })` does NOT remount the editor — it reconfigures in-place
+  - However, the internal layout change CAN reset collapsed region state, so explicit save/restore around mode switches is prudent
+  - `@monaco-editor/react`'s DiffEditor has a `useEffect` on options that calls `editor.updateOptions(options)` — changes flow as prop updates, not remounts
+  - The `pendingViewStateRef` pattern (save to ref → toggle state → useEffect restores from ref) is reusable for any option change that might disrupt view state
 ---
 

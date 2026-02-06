@@ -136,8 +136,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Monaco's built-in hideUnchangedRegions already works in both split and unified modes. The DiffEditor component receives renderSideBySide via options and calls updateOptions() without remounting. Added view state save/restore around the viewMode toggle (pendingViewStateRef) to preserve collapsed region state across split↔unified switches. Collapse All/Expand All buttons work in both modes since they call updateOptions() on the same editor instance."
     }
   ]
 }
