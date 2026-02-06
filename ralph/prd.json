@@ -51,8 +51,8 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Styled Monaco's built-in hideUnchangedRegions ViewZone widgets via theme colors (diffEditor.unchangedRegion*) and CSS overrides (.diff-hidden-lines .center) to match Kanagawa theme with thin borders, muted text, and accent hover states"
     },
     {
       "id": "US-004",
@@ -70,8 +70,8 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Monaco's built-in hideUnchangedRegions handles expand-up/down via top/bottom drag handles that support click-to-reveal (20 lines via revealLineCount) and drag-to-reveal. Enhanced CSS for better hover discoverability (height increase, smooth transitions)."
     },
     {
       "id": "US-005",

@@ -15,6 +15,10 @@
 - hideUnchangedRegions config: { enabled, contextLineCount (context lines around changes), minimumLineCount (min hidden to collapse), revealLineCount (lines revealed per expand click) }
 - The built-in feature internally uses setHiddenAreas() on both editors, creates ViewZone widgets with expand up/down/all controls
 - CSS classes for styling: `.diff-hidden-lines-widget`, `.diff-hidden-lines-compact`, `.diff-unchanged-lines`, `.fold-unchanged`
+- Theme color keys for fold zone styling: `diffEditor.unchangedRegionBackground`, `diffEditor.unchangedRegionForeground`, `diffEditor.unchangedRegionShadow`, `diffEditor.unchangedCodeBackground`
+- CSS overrides for fold zones go in monaco.css targeting `.monaco-editor .diff-hidden-lines .center` (the bar), `.top`/`.bottom` (drag handles), `.center a` (expand links)
+- **Top/bottom handles support click-to-reveal**: click (no drag) calls showMoreAbove/showMoreBelow with revealLineCount (20), drag reveals incrementally by mouse delta / lineHeight
+- Monaco handles scroll position stability on bottom expand (saves/restores scrollTop around the reveal)
 
 ---
 
@@ -50,5 +54,36 @@
   - `minimumLineCount: 3` prevents collapsing tiny unchanged regions that aren't worth hiding
   - The built-in feature works in both split and unified view modes automatically
   - Remaining work: custom styling (US-003/008) to match Kanagawa theme, toolbar buttons (US-006), state persistence (US-007)
+---
+
+## 2026-02-06 - US-003
+- Styled Monaco's built-in `hideUnchangedRegions` ViewZone widgets to match Kanagawa theme
+- Added theme colors in `kanagawaTheme.ts`: `diffEditor.unchangedRegionBackground` (#2a2a37), `diffEditor.unchangedRegionForeground` (#727169), `diffEditor.unchangedRegionShadow` (#16161d), `diffEditor.unchangedCodeBackground` (transparent), `focusBorder` and `editorLink.activeForeground` (#7e9cd8)
+- Added CSS overrides in `monaco.css`: thin top/bottom borders (#363646), 12px font size, muted text color, no box shadow, Kanagawa blue hover accents on drag handles and expand links
+- Files changed: `src/components/Monaco/kanagawaTheme.ts` (modified), `src/components/Monaco/monaco.css` (modified)
+- **Learnings for future iterations:**
+  - Monaco's built-in fold zone CSS uses `--vscode-*` CSS variables that map to theme color keys (e.g., `--vscode-diffEditor-unchangedRegionBackground` ← `diffEditor.unchangedRegionBackground` in theme)
+  - The `.diff-hidden-lines .center` element is the main fold bar (24px tall), `.top`/`.bottom` are 4px drag handles, `.center a` contains expand controls
+  - `!important` overrides are needed for `background`, `color`, `font-size`, and `box-shadow` because Monaco's default styles are also set with high specificity
+  - Setting `diffEditor.unchangedCodeBackground` to transparent (`#1f1f2800`) avoids a visible tint on code near collapsed regions
+---
+
+## 2026-02-06 - US-004
+- Verified Monaco's built-in expand-up/down controls already satisfy all acceptance criteria:
+  - Top handle click → `showMoreAbove(revealLineCount=20)` reveals 20 lines above
+  - Bottom handle click → `showMoreBelow(revealLineCount=20)` reveals 20 lines below
+  - Fewer than 20 remaining → clamped to max, all revealed
+  - Hidden line count updates automatically in center bar
+  - Widget removed when fully expanded (built-in)
+  - Symmetric on both original and modified editors (built-in)
+  - Scroll position stable: bottom expand explicitly saves/restores scrollTop
+  - Handles are transparent (subtle) by default, highlight with Kanagawa blue on hover
+- Enhanced CSS for expand handles: added smooth transition on height, handles grow from 4px to 6px on hover for better discoverability
+- Files changed: `src/components/Monaco/monaco.css` (modified), `ralph/prd.json` (updated)
+- **Learnings for future iterations:**
+  - Monaco's top/bottom drag handles have dual behavior: click (no mouse movement) triggers `showMoreAbove`/`showMoreBelow` with `revealLineCount`, drag reveals incrementally by pixel delta / lineHeight
+  - The `didMove` flag (threshold: `Math.abs(delta) > 2`) distinguishes click from drag
+  - Bottom expand includes scroll stabilization: captures `getTopForLineNumber(endLineExclusive)` before/after reveal, adjusts scrollTop by difference
+  - The built-in hideUnchangedRegions feature handles US-004 and US-005 entirely — no custom code needed beyond CSS styling
 ---
 

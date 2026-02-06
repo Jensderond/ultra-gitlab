@@ -54,9 +54,18 @@
   box-shadow: none !important;
 }
 
-/* Top/bottom drag handles: Kanagawa accent on hover */
+/* Top/bottom expand handles: subtle by default, accent on hover */
+.monaco-editor .diff-hidden-lines .top,
+.monaco-editor .diff-hidden-lines .bottom {
+  transition: background-color 0.15s ease-out, height 0.15s ease-out !important;
+}
+
 .monaco-editor .diff-hidden-lines:not(.dragging) .top:hover,
-.monaco-editor .diff-hidden-lines:not(.dragging) .bottom:hover,
+.monaco-editor .diff-hidden-lines:not(.dragging) .bottom:hover {
+  background-color: #7e9cd8 !important;
+  height: 6px !important;
+}
+
 .monaco-editor .diff-hidden-lines .top.dragging,
 .monaco-editor .diff-hidden-lines .bottom.dragging {
   background-color: #7e9cd8 !important;
