@@ -103,8 +103,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added collapseUnchanged() and expandAll() methods to MonacoDiffViewerRef that use updateOptions() to toggle hideUnchangedRegions enabled/disabled. Added diff-toolbar with 'Collapse unchanged' and 'Expand all' buttons in MRDetailPage above the diff viewer. Buttons track collapsed/expanded state and are disabled when already in that state. Styled with Kanagawa theme in MRDetailPage.css."
     },
     {
       "id": "US-007",

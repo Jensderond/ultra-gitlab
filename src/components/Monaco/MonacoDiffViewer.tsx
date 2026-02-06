@@ -24,6 +24,10 @@ export interface MonacoDiffViewerRef {
   setScrollTop: (top: number) => void;
   /** Get current cursor position */
   getCursorPosition: () => CursorPosition | null;
+  /** Collapse unchanged regions back to initial state (5 lines context) */
+  collapseUnchanged: () => void;
+  /** Expand all regions, showing the complete file */
+  expandAll: () => void;
 }
 
 /** Comment data for a line */
@@ -138,6 +142,29 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
       editor.getModifiedEditor().setScrollTop(top);
     }, []);
 
+    // Collapse unchanged regions back to initial state
+    const collapseUnchanged = useCallback(() => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      editor.updateOptions({
+        hideUnchangedRegions: {
+          enabled: true,
+          contextLineCount: 5,
+          minimumLineCount: 3,
+          revealLineCount: 20,
+        },
+      });
+    }, []);
+
+    // Expand all regions, showing the complete file
+    const expandAll = useCallback(() => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      editor.updateOptions({
+        hideUnchangedRegions: { enabled: false },
+      });
+    }, []);
+
     // Get current cursor position
     const getCursorPosition = useCallback((): CursorPosition | null => {
       const editor = editorRef.current;
@@ -175,7 +202,9 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
       getScrollTop,
       setScrollTop,
       getCursorPosition,
-    }), [goToNextChange, goToPreviousChange, getScrollTop, setScrollTop, getCursorPosition]);
+      collapseUnchanged,
+      expandAll,
+    }), [goToNextChange, goToPreviousChange, getScrollTop, setScrollTop, getCursorPosition, collapseUnchanged, expandAll]);
 
     // Handle editor mount
     const handleMount: DiffOnMount = useCallback((editor, monaco) => {

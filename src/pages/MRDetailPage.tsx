@@ -32,6 +32,7 @@ export default function MRDetailPage() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileFocusIndex, setFileFocusIndex] = useState(0);
   const [viewMode, setViewMode] = useState<'unified' | 'split'>('unified');
+  const [collapseState, setCollapseState] = useState<'collapsed' | 'expanded' | 'partial'>('collapsed');
   const [viewedPaths, setViewedPaths] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +115,7 @@ export default function MRDetailPage() {
     }
 
     setSelectedFile(filePath);
+    setCollapseState('collapsed');
     previousFileRef.current = filePath;
 
     const index = files.findIndex((f) => f.newPath === filePath);
@@ -246,6 +248,18 @@ export default function MRDetailPage() {
     }
     loadComments();
   }, [mrId, selectedFile]);
+
+  // Collapse unchanged regions
+  const handleCollapseUnchanged = useCallback(() => {
+    diffViewerRef.current?.collapseUnchanged();
+    setCollapseState('collapsed');
+  }, []);
+
+  // Expand all regions
+  const handleExpandAll = useCallback(() => {
+    diffViewerRef.current?.expandAll();
+    setCollapseState('expanded');
+  }, []);
 
   // Navigate to next/previous file
   const navigateFile = useCallback(
@@ -470,14 +484,34 @@ export default function MRDetailPage() {
                 mimeType={getImageMimeType(selectedFile)}
               />
             ) : (
-              <MonacoDiffViewer
-                ref={diffViewerRef}
-                originalContent={originalContent}
-                modifiedContent={modifiedContent}
-                filePath={selectedFile}
-                viewMode={viewMode}
-                comments={fileComments}
-              />
+              <>
+                <div className="diff-toolbar">
+                  <button
+                    className="diff-toolbar-btn"
+                    onClick={handleCollapseUnchanged}
+                    disabled={collapseState === 'collapsed'}
+                    title="Collapse unchanged regions"
+                  >
+                    Collapse unchanged
+                  </button>
+                  <button
+                    className="diff-toolbar-btn"
+                    onClick={handleExpandAll}
+                    disabled={collapseState === 'expanded'}
+                    title="Expand all regions"
+                  >
+                    Expand all
+                  </button>
+                </div>
+                <MonacoDiffViewer
+                  ref={diffViewerRef}
+                  originalContent={originalContent}
+                  modifiedContent={modifiedContent}
+                  filePath={selectedFile}
+                  viewMode={viewMode}
+                  comments={fileComments}
+                />
+              </>
             )
           ) : (
             <div className="no-file-selected">

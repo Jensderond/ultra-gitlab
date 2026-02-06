@@ -420,6 +420,45 @@
   box-shadow: 0 0 0 3px var(--kw-wave-glow);
 }
 
+/* Diff toolbar */
+.diff-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.diff-toolbar-btn {
+  padding: 6px 14px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--kw-fg-muted);
+  background: rgba(42, 42, 55, 0.6);
+  border: 1px solid var(--kw-sumi-ink);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.diff-toolbar-btn:hover:not(:disabled) {
+  color: var(--kw-fg-dim);
+  background: rgba(42, 42, 55, 0.9);
+  border-color: var(--kw-fuji-gray);
+}
+
+.diff-toolbar-btn:focus {
+  outline: none;
+  border-color: var(--kw-wave-blue);
+  box-shadow: 0 0 0 3px var(--kw-wave-glow);
+}
+
+.diff-toolbar-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 /* No file selected state */
 .no-file-selected {
   display: flex;

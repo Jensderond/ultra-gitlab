@@ -19,6 +19,8 @@
 - CSS overrides for fold zones go in monaco.css targeting `.monaco-editor .diff-hidden-lines .center` (the bar), `.top`/`.bottom` (drag handles), `.center a` (expand links)
 - **Top/bottom handles support click-to-reveal**: click (no drag) calls showMoreAbove/showMoreBelow with revealLineCount (20), drag reveals incrementally by mouse delta / lineHeight
 - Monaco handles scroll position stability on bottom expand (saves/restores scrollTop around the reveal)
+- **Collapse/Expand All**: Use `editor.updateOptions({ hideUnchangedRegions: { enabled: false } })` to expand all, re-enable with full config to re-collapse (Monaco recomputes from scratch)
+- MRDetailPage has a `.diff-toolbar` div above MonacoDiffViewer for toolbar buttons (collapse/expand all)
 
 ---
 
@@ -102,5 +104,23 @@
   - The `showAll(void 0)` method on the unchanged region object reveals all hidden lines at once
   - The codicon inherits color from the parent `<a>` element, so styling `.center a` is sufficient
   - No separate click handler or custom widget needed for "show all" functionality
+---
+
+## 2026-02-06 - US-006
+- Added "Collapse unchanged" and "Expand all" toolbar buttons to the diff viewer in MRDetailPage
+- Added `collapseUnchanged()` and `expandAll()` methods to MonacoDiffViewerRef interface
+- `collapseUnchanged()` calls `updateOptions({ hideUnchangedRegions: { enabled: true, contextLineCount: 5, minimumLineCount: 3, revealLineCount: 20 } })` to reset to initial collapsed state
+- `expandAll()` calls `updateOptions({ hideUnchangedRegions: { enabled: false } })` to disable folding and show the complete file
+- Toolbar renders above MonacoDiffViewer in a `<div className="diff-toolbar">` — only shown for non-image files
+- Buttons track collapsed/expanded state via `collapseState` — disabled when already in that state
+- State resets to 'collapsed' on file change
+- Styled `.diff-toolbar-btn` in MRDetailPage.css with Kanagawa theme (muted text, sumi-ink border, wave-blue focus ring)
+- Files changed: `src/components/Monaco/MonacoDiffViewer.tsx` (modified), `src/pages/MRDetailPage.tsx` (modified), `src/pages/MRDetailPage.css` (modified), `ralph/prd.json` (updated)
+- **Learnings for future iterations:**
+  - Monaco's `hideUnchangedRegions` can be toggled via `updateOptions()` — setting `enabled: false` expands all, setting `enabled: true` re-collapses
+  - Re-enabling with the full config object resets to the initial collapsed state (Monaco recomputes regions from scratch)
+  - There is no public API to enumerate or individually control unchanged regions — only bulk enable/disable via options
+  - The toolbar buttons need a wrapping `<>...</>` fragment to sit alongside the MonacoDiffViewer in the conditional render
+  - `collapseState` tracking is an approximation — user can manually expand regions via fold zone controls without updating this state, but it's sufficient for button disabled logic
 ---
 
