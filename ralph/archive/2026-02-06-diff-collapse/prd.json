@@ -1,0 +1,143 @@
+{
+  "project": "Ultra GitLab",
+  "branchName": "ralph/diff-collapse",
+  "description": "Monaco Diff Viewer Collapse/Expand - Collapse unchanged lines in the diff viewer, showing only 5 lines of context around changes, with incremental and full expand controls",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Compute collapse regions from diff changes",
+      "description": "As a developer, I need a utility function that calculates which line ranges should be collapsed based on the diff's changed regions, keeping 5 lines of context around each change.",
+      "acceptanceCriteria": [
+        "Create a utility module (e.g., src/components/Monaco/collapseRegions.ts) with a pure function that takes an array of line changes and total line counts, and returns collapse regions for both original and modified sides",
+        "Each changed range keeps 5 lines of context above and below as visible",
+        "Overlapping/adjacent visible regions are merged (e.g., two changes 8 lines apart share context)",
+        "Everything outside visible regions becomes a collapse region with startLine and endLine",
+        "Edge cases handled: changes at line 1 (no context above), changes at last line (no context below)",
+        "Files with no changes return a single collapse region covering the entire file",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Apply hidden regions on diff editor mount",
+      "description": "As a reviewer, I want unchanged lines to be automatically collapsed when I open a diff so I can focus on what changed.",
+      "acceptanceCriteria": [
+        "In MonacoDiffViewer.tsx, after the diff editor mounts and line changes are available, call the collapse regions utility from US-001",
+        "Apply computed collapse regions as hidden areas using Monaco's setHiddenAreas() on both getOriginalEditor() and getModifiedEditor()",
+        "Collapsed regions do not break line number alignment between original and modified sides",
+        "Syntax highlighting remains correct on all visible lines (the full file content is preserved in the model)",
+        "When a file has no changes, the entire file is collapsed",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Used Monaco's built-in hideUnchangedRegions option instead of manual setHiddenAreas() - it provides the same behavior (calls setHiddenAreas internally) plus built-in ViewZone widgets with expand controls"
+    },
+    {
+      "id": "US-003",
+      "title": "Add fold zone widgets for collapsed regions",
+      "description": "As a reviewer, I want to see a visual indicator between visible code sections showing how many lines are hidden.",
+      "acceptanceCriteria": [
+        "For each collapsed region, inject a Monaco ViewZone widget on both original and modified editors",
+        "Each widget displays the number of hidden lines (e.g., '42 lines hidden')",
+        "Widgets render inline between code lines at the collapse boundary",
+        "Widgets are styled with a subtle background color distinct from the editor background, matching the Kanagawa theme",
+        "Widgets have thin top/bottom borders to visually separate them from code",
+        "Text uses a muted color and smaller font size",
+        "Styling is added to the existing monaco.css file",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Styled Monaco's built-in hideUnchangedRegions ViewZone widgets via theme colors (diffEditor.unchangedRegion*) and CSS overrides (.diff-hidden-lines .center) to match Kanagawa theme with thin borders, muted text, and accent hover states"
+    },
+    {
+      "id": "US-004",
+      "title": "Add expand-up and expand-down controls to fold zones",
+      "description": "As a reviewer, I want to incrementally reveal 20 more lines above or below a collapsed region to get more context.",
+      "acceptanceCriteria": [
+        "Each fold zone widget has an expand-up chevron/button that reveals 20 lines above the collapsed region",
+        "Each fold zone widget has an expand-down chevron/button that reveals 20 lines below the collapsed region",
+        "If fewer than 20 lines remain hidden in that direction, all remaining lines are revealed",
+        "After expanding, the fold zone widget updates its 'N lines hidden' count",
+        "If all lines in a collapsed region are revealed, the fold zone widget is removed",
+        "Expansion applies symmetrically to both original and modified editors",
+        "Scroll position remains stable during expansion (viewport does not jump)",
+        "Expand controls are visible on hover, subtle when not hovered",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Monaco's built-in hideUnchangedRegions handles expand-up/down via top/bottom drag handles that support click-to-reveal (20 lines via revealLineCount) and drag-to-reveal. Enhanced CSS for better hover discoverability (height increase, smooth transitions)."
+    },
+    {
+      "id": "US-005",
+      "title": "Add show-all control to fully expand a collapsed region",
+      "description": "As a reviewer, I want a way to reveal all hidden lines in a section at once when I need the full context.",
+      "acceptanceCriteria": [
+        "Each fold zone widget has a 'show all' text button/link",
+        "Clicking 'show all' reveals every hidden line in that specific collapsed section",
+        "The fold zone widget is removed after full expansion",
+        "Both original and modified editors expand in sync",
+        "Scroll position remains stable during expansion",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Monaco's built-in hideUnchangedRegions provides a 'Show Unchanged Region' button (unfold icon) in each fold zone center bar that calls showAll() to reveal all hidden lines. Widget is removed on full expansion, both editors sync automatically, scroll position is stable. CSS already styles the unfold link with Kanagawa theme colors (muted default, blue hover)."
+    },
+    {
+      "id": "US-006",
+      "title": "Add Collapse All and Expand All toolbar buttons",
+      "description": "As a reviewer, I want quick actions to collapse everything back to just the changes, or expand the entire file.",
+      "acceptanceCriteria": [
+        "Add a 'Collapse unchanged' button to the diff viewer toolbar/header area in MonacoDiffViewer or its parent",
+        "Add an 'Expand all' button to the diff viewer toolbar/header area",
+        "'Collapse unchanged' resets to the initial state (5 lines context around changes, all other regions collapsed)",
+        "'Expand all' removes all hidden areas and fold zone widgets, showing the complete file",
+        "Buttons reflect current state (disabled when already fully collapsed or fully expanded)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Added collapseUnchanged() and expandAll() methods to MonacoDiffViewerRef that use updateOptions() to toggle hideUnchangedRegions enabled/disabled. Added diff-toolbar with 'Collapse unchanged' and 'Expand all' buttons in MRDetailPage above the diff viewer. Buttons track collapsed/expanded state and are disabled when already in that state. Styled with Kanagawa theme in MRDetailPage.css."
+    },
+    {
+      "id": "US-007",
+      "title": "Persist expand/collapse state per file",
+      "description": "As a reviewer, I want my expand/collapse state remembered when I switch between files so I don't lose my place.",
+      "acceptanceCriteria": [
+        "When switching away from a file, store the current hidden area ranges (which regions are expanded/collapsed) keyed by file path",
+        "When returning to a previously viewed file, restore the exact expand/collapse state including fold zone widgets",
+        "State is stored in React component state or a ref Map (not persisted across app restarts)",
+        "If the diff data changes (e.g., different MR or MR updated), reset the stored state for affected files",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "Used Monaco's built-in saveViewState()/restoreViewState() API which captures scroll position, cursor position, AND collapsed region state (via modelState containing collapsedRegions). View states stored per file path in a ref Map. State saved on file switch, restored after content loads. Map cleared when MR changes. Also replaced the old scroll-only persistence with the comprehensive view state approach."
+    },
+    {
+      "id": "US-008",
+      "title": "Unified view collapse support",
+      "description": "As a reviewer, I want collapse/expand to also work in unified (inline) diff view mode so I get the same focused experience regardless of view preference.",
+      "acceptanceCriteria": [
+        "Collapse regions are computed and applied in unified view mode (single editor pane via getModifiedEditor())",
+        "The same 5-line context, expand-up/down (+20 lines), and show-all controls work in unified view",
+        "Fold zone widgets render correctly in the single-pane layout",
+        "Switching between split and unified view preserves the current expand/collapse state",
+        "Collapse All / Expand All toolbar buttons work in unified view",
+        "No visual glitches when toggling view mode while regions are partially expanded",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "Monaco's built-in hideUnchangedRegions already works in both split and unified modes. The DiffEditor component receives renderSideBySide via options and calls updateOptions() without remounting. Added view state save/restore around the viewMode toggle (pendingViewStateRef) to preserve collapsed region state across split↔unified switches. Collapse All/Expand All buttons work in both modes since they call updateOptions() on the same editor instance."
+    }
+  ]
+}
