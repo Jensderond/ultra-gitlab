@@ -99,7 +99,11 @@ pub async fn approve_mr(
 /// # Returns
 /// Success or error
 #[tauri::command]
-pub async fn unapprove_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppError> {
+pub async fn unapprove_mr(
+    pool: State<'_, DbPool>,
+    sync_handle: State<'_, SyncHandle>,
+    mr_id: i64,
+) -> Result<(), AppError> {
     let (project_id, mr_iid) = get_mr_ids(pool.inner(), mr_id).await?;
 
     // Update approval status optimistically
@@ -143,6 +147,11 @@ pub async fn unapprove_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), App
         },
     )
     .await?;
+
+    // Fire-and-forget: flush approval actions immediately
+    if let Err(e) = sync_handle.flush_approvals().await {
+        eprintln!("[unapproval] Failed to send flush signal: {}", e);
+    }
 
     Ok(())
 }
