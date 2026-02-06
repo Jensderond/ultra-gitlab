@@ -5,7 +5,7 @@
 - Sync queue in src-tauri/src/services/sync_queue.rs — enqueue_action(), get_pending_actions(), process via sync_processor
 - Sync processor in src-tauri/src/services/sync_processor.rs — process_action() handles individual action execution against GitLab API
 - ActionType enum includes Approve, Comment, Reply, Resolve, Unresolve
-- Approval commands currently only take pool: State<SqlitePool> — need to also accept SyncHandle state
+- Approval commands accept both pool: State<DbPool> and sync_handle: State<SyncHandle> — Tauri auto-injects managed state by type
 - Command registration: src-tauri/src/commands/mod.rs (re-exports) and src-tauri/src/lib.rs (generate_handler!)
 - GitLab client: approve_merge_request() and unapprove_merge_request() POST endpoints in gitlab_client.rs
 - SyncCommand now has FlushApprovals variant; SyncHandle has flush_approvals() convenience method
@@ -31,5 +31,36 @@
   - The function follows the same pattern as `get_pending_actions` — uses `sqlx::query_as::<_, SyncAction>` and returns `Result<Vec<SyncAction>, AppError>`
   - ActionType implements Display (returns lowercase string like "approve"), which is used with `.bind(action_type.to_string())` for the SQL parameter
   - DB-level filtering is preferable to in-memory filtering for efficiency and clarity
+---
+
+## 2026-02-06 - US-003
+- What was implemented: Modified `approve_mr` command to accept `SyncHandle` as managed state in addition to `DbPool`. After successfully enqueuing the approve action, the command sends a `FlushApprovals` signal via `sync_handle.flush_approvals()`. The signal is fire-and-forget: if sending fails (e.g., channel closed), the error is logged with `eprintln!` but not propagated to the frontend.
+- Files changed: src-tauri/src/commands/approval.rs
+- **Learnings for future iterations:**
+  - Tauri auto-injects managed state by type — just add `sync_handle: State<'_, SyncHandle>` as a parameter and it works, no changes to lib.rs generate_handler needed
+  - The `flush_approvals()` method is async, so we can await it inline and handle the error with a simple `if let Err`
+  - No changes needed to commands/mod.rs or lib.rs — the command signature change is transparent to Tauri's handler registration
+---
+
+## 2026-02-06 - US-004
+- What was implemented: Modified `unapprove_mr` command to accept `SyncHandle` as managed state (mirroring `approve_mr`). After enqueuing the unapprove action, the command sends a `FlushApprovals` signal via `sync_handle.flush_approvals()`. The signal is fire-and-forget with error logging using `[unapproval]` prefix.
+- Files changed: src-tauri/src/commands/approval.rs
+- **Learnings for future iterations:**
+  - This was a direct mirror of US-003 — same pattern of adding `sync_handle: State<'_, SyncHandle>` and the fire-and-forget flush block
+  - No changes needed to lib.rs or mod.rs for the signature update (confirmed pattern from US-003)
+  - The unapprove action uses ActionType::Approve with "action": "unapprove" in the payload — the flush handles both approve and unapprove since they share the same ActionType
+---
+
+## 2026-02-06 - US-005
+- What was implemented: Verification-only story — no code changes needed. All acceptance criteria were already satisfied by the existing implementation from US-001 through US-004.
+- Files changed: None (only prd.json updated)
+- **Verification details:**
+  - `process_action()` in sync_processor.rs handles failures via `mark_failed()` which resets status to "pending" if retry count < max, or "failed" if max retries reached — actions stay in queue for retry
+  - `flush_approval_actions()` in sync_engine.rs iterates all approval actions and continues past failures — no crash/block
+  - Failed actions with status "pending" are picked up by the next regular sync cycle via `push_pending_actions()` → `get_pending_actions()`
+  - No frontend events or notifications are emitted during flush — only `eprintln!` logging
+- **Learnings for future iterations:**
+  - The existing `process_action` + `mark_failed` retry logic was designed to be reusable — it handles both regular sync and flush scenarios without modification
+  - When a story's acceptance criteria are already met by prior work, treat it as a verification story: confirm each criterion, document findings, and mark as passing
 ---
 
