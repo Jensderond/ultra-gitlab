@@ -80,11 +80,44 @@ pub async fn refresh_gitattributes(
     refresh_gitattributes_inner(pool.inner(), instance_id, project_id).await
 }
 
+/// Refresh the gitattributes cache for a project if it's stale or missing.
+///
+/// Called by the sync engine during the regular MR sync cycle.
+/// Returns Ok(true) if a refresh was performed, Ok(false) if the cache was fresh.
+pub async fn refresh_gitattributes_if_stale(
+    pool: &DbPool,
+    instance_id: i64,
+    project_id: i64,
+) -> Result<bool, AppError> {
+    let row: Option<(i64,)> = sqlx::query_as(
+        "SELECT fetched_at FROM gitattributes_cache WHERE instance_id = ? AND project_id = ?",
+    )
+    .bind(instance_id)
+    .bind(project_id)
+    .fetch_optional(pool)
+    .await?;
+
+    let needs_refresh = match row {
+        Some((fetched_at,)) => {
+            let now = chrono::Utc::now().timestamp();
+            now - fetched_at >= STALE_THRESHOLD_SECS
+        }
+        None => true, // No cache at all
+    };
+
+    if needs_refresh {
+        refresh_gitattributes_inner(pool, instance_id, project_id).await?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
 /// Inner implementation of refresh_gitattributes that takes a `&DbPool` directly.
 ///
 /// This is separated from the Tauri command so it can be called from both
-/// the command handler and background tasks (which can't use `State<>`).
-async fn refresh_gitattributes_inner(
+/// the command handler, background tasks, and the sync engine.
+pub async fn refresh_gitattributes_inner(
     pool: &DbPool,
     instance_id: i64,
     project_id: i64,

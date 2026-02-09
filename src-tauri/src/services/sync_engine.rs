@@ -479,6 +479,9 @@ impl SyncEngine {
         // Fetch and cache project titles for any new project IDs
         self.cache_project_titles(instance.id, &client, &mrs).await;
 
+        // Refresh gitattributes cache for projects with MRs (if stale or missing)
+        self.refresh_gitattributes_for_projects(instance.id, &mrs).await;
+
         // Purge merged/closed MRs
         result.purged_count = self.purge_closed_mrs(instance.id, &mrs).await?;
 
@@ -721,6 +724,47 @@ impl SyncEngine {
                 }
                 Err(e) => {
                     log::warn!("Failed to fetch project {}: {}", project_id, e);
+                }
+            }
+        }
+    }
+
+    /// Refresh gitattributes cache for all projects that have MRs in the current sync.
+    ///
+    /// Only refreshes projects whose cache is stale (>24h) or missing.
+    /// Runs alongside MR sync but doesn't block or slow down MR data processing.
+    async fn refresh_gitattributes_for_projects(
+        &self,
+        instance_id: i64,
+        mrs: &[GitLabMergeRequest],
+    ) {
+        // Collect unique project IDs
+        let mut project_ids: Vec<i64> = mrs.iter().map(|mr| mr.project_id).collect();
+        project_ids.sort_unstable();
+        project_ids.dedup();
+
+        for project_id in project_ids {
+            match crate::commands::gitattributes::refresh_gitattributes_if_stale(
+                &self.pool,
+                instance_id,
+                project_id,
+            )
+            .await
+            {
+                Ok(refreshed) => {
+                    if refreshed {
+                        eprintln!(
+                            "[sync] Refreshed gitattributes cache for project {}",
+                            project_id
+                        );
+                    }
+                }
+                Err(e) => {
+                    log::warn!(
+                        "Failed to refresh gitattributes for project {}: {}",
+                        project_id,
+                        e
+                    );
                 }
             }
         }

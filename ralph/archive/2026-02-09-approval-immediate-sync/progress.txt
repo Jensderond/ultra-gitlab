@@ -4,6 +4,23 @@
 - Settings store uses separate keys per concern — collapse patterns stored independently from sync config
 - File classification utility in src/utils/classifyFiles.ts uses picomatch for glob matching
 - DiffFileSummary.newPath is used for matching (not oldPath)
+- Gitattributes refresh during sync: use refresh_gitattributes_if_stale() from commands::gitattributes
+- To share logic between Tauri commands (using State<>) and sync engine (using &DbPool): extract `_inner` functions taking &DbPool
+
+---
+
+## 2026-02-09 - US-011
+- Added `refresh_gitattributes_if_stale()` public function in commands/gitattributes.rs
+- Checks fetched_at timestamp against 24h threshold, refreshes if stale or missing
+- Made `refresh_gitattributes_inner` public for reuse by the new function
+- Added `refresh_gitattributes_for_projects()` method to SyncEngine
+- Collects unique project IDs from synced MRs, deduplicates, calls refresh_if_stale for each
+- Runs after cache_project_titles in sync_instance(), doesn't block MR data processing
+- New projects (first time in sync) get their gitattributes fetched automatically
+- Individual project failures logged but don't fail the sync
+- **Learnings for future iterations:**
+  - Share logic between Tauri commands and sync engine via public `_inner` / `_if_stale` functions
+  - `crate::commands::gitattributes::` path for cross-module access within the same crate
 
 ---
 
