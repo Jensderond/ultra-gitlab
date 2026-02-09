@@ -13,7 +13,7 @@ import type { editor } from 'monaco-editor';
 import { ImageDiffViewer } from '../components/Monaco/ImageDiffViewer';
 import { isImageFile, getImageMimeType } from '../components/Monaco/languageDetection';
 import { ApprovalButton, type ApprovalButtonRef } from '../components/Approval';
-import { getMergeRequestById, getMergeRequestFiles, getDiffRefs, getFileContent, getFileContentBase64 } from '../services/gitlab';
+import { getMergeRequestById, getMergeRequestFiles, getDiffRefs, getFileContent, getFileContentBase64, getCachedFilePair } from '../services/gitlab';
 import { invoke } from '../services/tauri';
 import type { MergeRequest, DiffFileSummary, DiffRefs, Comment, AddCommentRequest } from '../types';
 import './MRDetailPage.css';
@@ -174,23 +174,38 @@ export default function MRDetailPage() {
           setOriginalContent('');
           setModifiedContent('');
         } else {
-          // Fetch original and modified content in parallel
-          const [original, modified] = await Promise.all([
-            // Original content (at base SHA) - empty for new files
-            isNewFile
-              ? Promise.resolve('')
-              : getFileContent(mr.instanceId, mr.projectId, oldPath, diffRefs.baseSha).catch(() => ''),
-            // Modified content (at head SHA) - empty for deleted files
-            isDeletedFile
-              ? Promise.resolve('')
-              : getFileContent(mr.instanceId, mr.projectId, selectedFile, diffRefs.headSha).catch(() => ''),
-          ]);
+          // Try loading from cache first for instant rendering
+          const cached = await getCachedFilePair(mrId, selectedFile).catch(() => null);
 
-          setOriginalContent(original);
-          setModifiedContent(modified);
-          // Clear image content
-          setOriginalImageBase64('');
-          setModifiedImageBase64('');
+          const needBase = !isNewFile;
+          const needHead = !isDeletedFile;
+          const cacheHit =
+            (!needBase || cached?.baseContent !== null) &&
+            (!needHead || cached?.headContent !== null);
+
+          if (cached && cacheHit) {
+            // Cache hit — render immediately without loading state
+            setOriginalContent(needBase ? (cached.baseContent ?? '') : '');
+            setModifiedContent(needHead ? (cached.headContent ?? '') : '');
+            setOriginalImageBase64('');
+            setModifiedImageBase64('');
+            setFileContentLoading(false);
+          } else {
+            // Cache miss — fall back to network fetch
+            const [original, modified] = await Promise.all([
+              isNewFile
+                ? Promise.resolve('')
+                : getFileContent(mr.instanceId, mr.projectId, oldPath, diffRefs.baseSha).catch(() => ''),
+              isDeletedFile
+                ? Promise.resolve('')
+                : getFileContent(mr.instanceId, mr.projectId, selectedFile, diffRefs.headSha).catch(() => ''),
+            ]);
+
+            setOriginalContent(original);
+            setModifiedContent(modified);
+            setOriginalImageBase64('');
+            setModifiedImageBase64('');
+          }
         }
       } catch (err) {
         setFileContentError(err instanceof Error ? err.message : 'Failed to load file content');

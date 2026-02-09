@@ -18,6 +18,7 @@ import {
   getDiffRefs as tauriGetDiffRefs,
   getFileContent as tauriGetFileContent,
   getFileContentBase64 as tauriGetFileContentBase64,
+  getCachedFilePair as tauriGetCachedFilePair,
   getComments,
   addComment,
   replyToComment,
@@ -36,6 +37,7 @@ import type {
   DiffFileMetadata,
   DiffHunksResponse,
   DiffRefs,
+  CachedFilePair,
   Comment,
   AddCommentRequest,
   AddCommentResponse,
@@ -217,6 +219,21 @@ export async function getFileContentBase64(
   sha: string
 ): Promise<string> {
   return tauriGetFileContentBase64(instanceId, projectId, filePath, sha);
+}
+
+/**
+ * Get cached file content pair (base + head) from local cache.
+ * Returns null values for cache misses.
+ *
+ * @param mrId - The merge request ID
+ * @param filePath - The file path
+ * @returns Cached base and head content (null if not cached)
+ */
+export async function getCachedFilePair(
+  mrId: number,
+  filePath: string
+): Promise<CachedFilePair> {
+  return tauriGetCachedFilePair(mrId, filePath);
 }
 
 // ============================================================================

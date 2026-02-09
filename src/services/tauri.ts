@@ -17,6 +17,7 @@ import type {
   DiffFileMetadata,
   DiffHunksResponse,
   DiffRefs,
+  CachedFilePair,
   Comment,
   AddCommentRequest,
   AddCommentResponse,
@@ -214,6 +215,17 @@ export async function getFileContentBase64(
  */
 export async function getDiffRefs(mrId: number): Promise<DiffRefs> {
   return invoke<DiffRefs>('get_diff_refs', { mrId });
+}
+
+/**
+ * Get cached file content pair (base + head) from local cache.
+ * Returns null values for cache misses, signaling fallback to network fetch.
+ */
+export async function getCachedFilePair(
+  mrId: number,
+  filePath: string
+): Promise<CachedFilePair> {
+  return invoke<CachedFilePair>('get_cached_file_pair', { mrId, filePath });
 }
 
 // ============================================================================
