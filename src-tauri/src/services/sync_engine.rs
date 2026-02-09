@@ -1051,34 +1051,59 @@ impl SyncEngine {
             .map(|mr| mr.id)
             .collect();
 
-        // Find cached MRs that are no longer open
-        // We delete MRs that:
-        // 1. Belong to this instance
-        // 2. Are NOT in the current open list from GitLab
-        // (Either they were merged/closed, or they no longer match our scope filters)
+        // Find MR IDs that will be purged (to clean up file cache)
+        let purge_ids: Vec<(i64,)> = if open_mr_ids.is_empty() {
+            sqlx::query_as("SELECT id FROM merge_requests WHERE instance_id = ?")
+                .bind(instance_id)
+                .fetch_all(&self.pool)
+                .await?
+        } else {
+            let placeholders: Vec<String> = (0..open_mr_ids.len()).map(|_| "?".to_string()).collect();
+            let query = format!(
+                "SELECT id FROM merge_requests WHERE instance_id = ? AND id NOT IN ({})",
+                placeholders.join(", ")
+            );
+            let mut q = sqlx::query_as(&query).bind(instance_id);
+            for id in &open_mr_ids {
+                q = q.bind(*id);
+            }
+            q.fetch_all(&self.pool).await?
+        };
+
+        // Delete file versions for each purged MR
+        for (mr_id,) in &purge_ids {
+            if let Err(e) = crate::db::file_cache::delete_file_versions_for_mr(&self.pool, *mr_id).await {
+                log::warn!("Failed to delete file versions for MR {}: {}", mr_id, e);
+            }
+        }
+
+        // Delete the MRs themselves
         let result = if open_mr_ids.is_empty() {
-            // If no open MRs, delete all MRs for this instance
             sqlx::query("DELETE FROM merge_requests WHERE instance_id = ?")
                 .bind(instance_id)
                 .execute(&self.pool)
                 .await?
         } else {
-            // Build placeholders for the IN clause
             let placeholders: Vec<String> = (0..open_mr_ids.len()).map(|_| "?".to_string()).collect();
             let query = format!(
                 "DELETE FROM merge_requests WHERE instance_id = ? AND id NOT IN ({})",
                 placeholders.join(", ")
             );
-
             let mut query_builder = sqlx::query(&query).bind(instance_id);
             for id in &open_mr_ids {
                 query_builder = query_builder.bind(*id);
             }
-
             query_builder.execute(&self.pool).await?
         };
 
         let purged = result.rows_affected() as i64;
+
+        // Clean up orphaned blobs after file version deletion
+        if !purge_ids.is_empty() {
+            if let Err(e) = crate::db::file_cache::delete_orphaned_blobs(&self.pool).await {
+                log::warn!("Failed to delete orphaned blobs: {}", e);
+            }
+        }
 
         if purged > 0 {
             self.log_sync_operation(
