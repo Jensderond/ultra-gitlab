@@ -104,12 +104,15 @@ export default function MRDetailPage() {
           getCollapsePatterns().catch(() => []),
         ]);
 
-        const { generated } = classifyFiles(summaries, gitattributes, userPatterns);
+        const { reviewable, generated } = classifyFiles(summaries, gitattributes, userPatterns);
         setGeneratedPaths(generated);
 
-        // Auto-select first file if available
-        if (summaries.length > 0 && !selectedFile) {
-          setSelectedFile(summaries[0].newPath);
+        // Auto-select first reviewable file (skip generated files)
+        if (!selectedFile && reviewable.length > 0) {
+          const firstReviewable = reviewable[0];
+          setSelectedFile(firstReviewable.newPath);
+          const fullIndex = summaries.findIndex((f) => f.newPath === firstReviewable.newPath);
+          if (fullIndex >= 0) setFileFocusIndex(fullIndex);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load merge request');
@@ -588,6 +591,12 @@ export default function MRDetailPage() {
                 />
               </>
             )
+          ) : files.length > 0 && reviewableFiles.length === 0 ? (
+            <div className="all-generated-empty-state">
+              <div className="all-generated-icon">~</div>
+              <p className="all-generated-message">Nothing to see here &mdash; the robots wrote all of this.</p>
+              <p className="all-generated-hint">Click any file in the sidebar to peek anyway.</p>
+            </div>
           ) : (
             <div className="no-file-selected">
               Select a file to view its diff

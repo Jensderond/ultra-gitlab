@@ -7,6 +7,19 @@
 
 ---
 
+## 2026-02-09 - US-010
+- Auto-select now picks first reviewable file, not first file overall
+- When all files are generated, no file is auto-opened
+- Added all-generated empty state with playful "Nothing to see here" message
+- Empty state uses muted styling (not error styling) with hint to click sidebar
+- User can still click any dimmed file manually — clicking opens diff viewer as normal
+- Added CSS for .all-generated-empty-state, .all-generated-icon, .all-generated-message, .all-generated-hint
+- **Learnings for future iterations:**
+  - classifyFiles returns both reviewable list and generated Set — use reviewable for auto-select
+  - Empty state condition: files.length > 0 && reviewableFiles.length === 0
+
+---
+
 ## 2026-02-09 - US-009
 - Updated navigateFile to use reviewableFiles (useMemo filtered list) instead of full files array
 - Keyboard nav (j/k, arrows) now only cycles through non-generated files
