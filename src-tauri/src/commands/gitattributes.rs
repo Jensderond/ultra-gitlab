@@ -2,6 +2,9 @@
 //!
 //! These commands handle fetching and caching `.gitattributes` patterns
 //! for identifying linguist-generated files in merge requests.
+//!
+//! Uses stale-while-revalidate: cached data is returned immediately, and
+//! a background refresh is spawned when the cache is older than 24 hours.
 
 use crate::db::pool::DbPool;
 use crate::error::AppError;
@@ -10,25 +13,25 @@ use crate::services::gitattributes::parse_gitattributes;
 use crate::services::gitlab_client::{GitLabClient, GitLabClientConfig};
 use tauri::State;
 
+/// Cache entries older than this are considered stale and trigger a background refresh.
+const STALE_THRESHOLD_SECS: i64 = 24 * 60 * 60; // 24 hours
+
 /// Get cached gitattributes patterns for a project.
 ///
-/// Returns the cached patterns from the local database. If no cache exists,
-/// returns an empty Vec (not an error).
-///
-/// # Arguments
-/// * `instance_id` - The GitLab instance ID
-/// * `project_id` - The GitLab project ID
-///
-/// # Returns
-/// A Vec of glob pattern strings, or empty Vec if no cache exists.
+/// Uses stale-while-revalidate strategy:
+/// - If cached data exists and is fresh (< 24h old), returns it immediately.
+/// - If cached data exists but is stale (>= 24h old), returns it immediately
+///   AND spawns a background task to refresh the cache.
+/// - If no cache exists at all, fetches synchronously so the caller gets data
+///   on the first call.
 #[tauri::command]
 pub async fn get_gitattributes(
     pool: State<'_, DbPool>,
     instance_id: i64,
     project_id: i64,
 ) -> Result<Vec<String>, AppError> {
-    let row: Option<(String,)> = sqlx::query_as(
-        "SELECT patterns FROM gitattributes_cache WHERE instance_id = ? AND project_id = ?",
+    let row: Option<(String, i64)> = sqlx::query_as(
+        "SELECT patterns, fetched_at FROM gitattributes_cache WHERE instance_id = ? AND project_id = ?",
     )
     .bind(instance_id)
     .bind(project_id)
@@ -36,11 +39,27 @@ pub async fn get_gitattributes(
     .await?;
 
     match row {
-        Some((patterns_json,)) => {
+        Some((patterns_json, fetched_at)) => {
             let patterns: Vec<String> = serde_json::from_str(&patterns_json)?;
+
+            // Check if cache is stale
+            let now = chrono::Utc::now().timestamp();
+            if now - fetched_at >= STALE_THRESHOLD_SECS {
+                // Spawn background refresh — don't block the response
+                let bg_pool = pool.inner().clone();
+                tokio::spawn(async move {
+                    if let Err(e) = refresh_gitattributes_inner(&bg_pool, instance_id, project_id).await {
+                        eprintln!("[gitattributes] Background refresh failed for instance={} project={}: {}", instance_id, project_id, e);
+                    }
+                });
+            }
+
             Ok(patterns)
         }
-        None => Ok(Vec::new()),
+        None => {
+            // No cache at all — fetch synchronously so the frontend gets data
+            refresh_gitattributes_inner(pool.inner(), instance_id, project_id).await
+        }
     }
 }
 
@@ -52,20 +71,25 @@ pub async fn get_gitattributes(
 ///
 /// Handles 404 gracefully — if the project has no `.gitattributes`, the cache
 /// is updated with an empty patterns array.
-///
-/// # Arguments
-/// * `instance_id` - The GitLab instance ID
-/// * `project_id` - The GitLab project ID
-///
-/// # Returns
-/// The parsed patterns (may be empty).
 #[tauri::command]
 pub async fn refresh_gitattributes(
     pool: State<'_, DbPool>,
     instance_id: i64,
     project_id: i64,
 ) -> Result<Vec<String>, AppError> {
-    let client = create_gitlab_client(&pool, instance_id).await?;
+    refresh_gitattributes_inner(pool.inner(), instance_id, project_id).await
+}
+
+/// Inner implementation of refresh_gitattributes that takes a `&DbPool` directly.
+///
+/// This is separated from the Tauri command so it can be called from both
+/// the command handler and background tasks (which can't use `State<>`).
+async fn refresh_gitattributes_inner(
+    pool: &DbPool,
+    instance_id: i64,
+    project_id: i64,
+) -> Result<Vec<String>, AppError> {
+    let client = create_gitlab_client_from_pool(pool, instance_id).await?;
 
     // Fetch .gitattributes from the default branch (HEAD)
     let content = client
@@ -90,22 +114,22 @@ pub async fn refresh_gitattributes(
     .bind(project_id)
     .bind(&patterns_json)
     .bind(now)
-    .execute(pool.inner())
+    .execute(pool)
     .await?;
 
     Ok(patterns)
 }
 
-/// Helper to create a GitLab client from an instance ID.
-async fn create_gitlab_client(
-    pool: &State<'_, DbPool>,
+/// Helper to create a GitLab client from a pool and instance ID.
+async fn create_gitlab_client_from_pool(
+    pool: &DbPool,
     instance_id: i64,
 ) -> Result<GitLabClient, AppError> {
     let instance: Option<GitLabInstance> = sqlx::query_as(
         "SELECT id, url, name, token, created_at FROM gitlab_instances WHERE id = $1",
     )
     .bind(instance_id)
-    .fetch_optional(pool.inner())
+    .fetch_optional(pool)
     .await?;
 
     let instance = instance.ok_or_else(|| {

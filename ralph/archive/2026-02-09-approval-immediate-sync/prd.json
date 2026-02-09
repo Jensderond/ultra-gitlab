@@ -67,7 +67,7 @@
         "Typecheck passes (cargo check)"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
