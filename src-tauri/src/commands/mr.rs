@@ -886,6 +886,33 @@ pub async fn get_file_content_base64(
     Ok(STANDARD.encode(&bytes))
 }
 
+/// Response struct for cached file pair content.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CachedFilePair {
+    pub base_content: Option<String>,
+    pub head_content: Option<String>,
+}
+
+/// Get cached file content pair (base + head) from local cache.
+///
+/// Returns cached file content for instant diff viewing. If no cached content
+/// exists, the corresponding field is null (signaling a cache miss).
+#[tauri::command]
+pub async fn get_cached_file_pair(
+    pool: State<'_, DbPool>,
+    mr_id: i64,
+    file_path: String,
+) -> Result<CachedFilePair, AppError> {
+    let (base_content, head_content) =
+        crate::db::file_cache::get_cached_file_pair(&pool, mr_id, &file_path).await?;
+
+    Ok(CachedFilePair {
+        base_content,
+        head_content,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
