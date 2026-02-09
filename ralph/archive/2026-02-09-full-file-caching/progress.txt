@@ -1,0 +1,100 @@
+## Codebase Patterns
+- Migrations are in `src-tauri/src/db/migrations/` and registered via `include_str!` in `src-tauri/src/db/mod.rs` MIGRATIONS array
+- Use `CREATE TABLE IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS` in migration SQL
+- DB module files go in `src-tauri/src/db/` and are registered in `src-tauri/src/db/mod.rs` as `pub mod`
+- The `diffs` table stores `base_sha` and `head_sha` per MR — useful for cache invalidation
+- Tauri command registration: 3 steps — command fn, mod.rs re-export, lib.rs import + generate_handler!
+- Frontend service layer: tauri.ts (invoke wrappers) → gitlab.ts (high-level) → index.ts (re-exports via `export *`)
+- File content cache: `file_blobs` (SHA-deduped content) + `file_versions` (MR/path/version → SHA mapping)
+- `file_versions` has no FK cascade — must explicitly delete before MR deletion in purge
+
+---
+
+## 2026-02-09 - US-001
+- Created migration `0006_file_content_cache.sql` with `file_blobs` and `file_versions` tables
+- `file_blobs`: SHA-256 primary key for content deduplication, stores content + size_bytes + cached_at
+- `file_versions`: links MR + file_path + version_type to a blob SHA, with unique constraint and index on mr_id
+- Registered migration in `src-tauri/src/db/mod.rs` MIGRATIONS array
+- Files changed: `src-tauri/src/db/migrations/0006_file_content_cache.sql` (new), `src-tauri/src/db/mod.rs`
+- **Learnings for future iterations:**
+  - Migration numbering is sequential (0001, 0002, ...) — next is 0007
+  - All tables use `IF NOT EXISTS` for idempotency
+  - `instance_id` in `file_versions` is TEXT (not INTEGER) — matches the PRD spec
+---
+
+## 2026-02-09 - US-002
+- Created `src-tauri/src/db/file_cache.rs` with all DB query functions for file content cache
+- Functions: `upsert_file_blob`, `upsert_file_version`, `get_cached_file_content`, `get_cached_file_pair`, `delete_file_versions_for_mr`, `delete_orphaned_blobs`
+- Registered module in `src-tauri/src/db/mod.rs`
+- Files changed: `src-tauri/src/db/file_cache.rs` (new), `src-tauri/src/db/mod.rs`
+- **Learnings for future iterations:**
+  - DB query functions use `Result<T, AppError>` from `crate::error::AppError`
+  - `sqlx::Error` converts to `AppError` via `From` impl, so `?` just works
+  - Use `sqlx::query_as::<_, (Type,)>` for single-column results with `fetch_optional`
+  - `INSERT OR IGNORE` for blob dedup, `INSERT OR REPLACE` for version upsert
+---
+
+## 2026-02-09 - US-003
+- Added `cache_file_contents()` method to `SyncEngine` in `sync_engine.rs`
+- Called after `upsert_diff()` in `sync_mr()` to pre-fetch file content during background sync
+- Added `sha2 = "0.10"` to Cargo.toml for SHA-256 hashing
+- Added `is_binary_extension()` helper with comprehensive binary extension list
+- For non-added files: fetches base version using `old_path` + `base_commit_sha`
+- For non-deleted files: fetches head version using `new_path` + `head_commit_sha`
+- Individual file failures log warnings but don't fail the MR sync
+- Files changed: `src-tauri/Cargo.toml`, `src-tauri/src/services/sync_engine.rs`
+- **Learnings for future iterations:**
+  - `GitLabDiffVersion` has `base_commit_sha`, `head_commit_sha`, `start_commit_sha`
+  - `GitLabFileDiff` has `old_path`, `new_path`, `new_file`, `deleted_file`, `renamed_file`
+  - `client.get_file_content(project_id, file_path, sha)` returns `Result<String, AppError>`
+  - `cache_file_contents` is async but returns nothing — errors are logged, not propagated
+---
+
+## 2026-02-09 - US-004
+- Added `CachedFilePair` response struct with `#[serde(rename_all = "camelCase")]` in `commands/mr.rs`
+- Added `get_cached_file_pair` Tauri command that delegates to `db::file_cache::get_cached_file_pair()`
+- Registered in `commands/mod.rs` (re-export) and `lib.rs` (import + generate_handler!)
+- Files changed: `src-tauri/src/commands/mr.rs`, `src-tauri/src/commands/mod.rs`, `src-tauri/src/lib.rs`
+- **Learnings for future iterations:**
+  - 3-step registration: command fn, mod.rs re-export, lib.rs import + generate_handler! macro
+  - Response DTOs use `#[serde(rename_all = "camelCase")]` for frontend compatibility
+---
+
+## 2026-02-09 - US-005
+- Added `CachedFilePair` type in `src/types/index.ts`
+- Added `getCachedFilePair` invoke wrapper in `src/services/tauri.ts`
+- Exported from `src/services/gitlab.ts` (already re-exported via `export *` in `index.ts`)
+- Updated `MRDetailPage.tsx` loadFileContent: tries cache first, only falls back to network on miss
+- Cache hit skips `setFileContentLoading(true)` — Monaco renders immediately without spinner
+- Files changed: `src/types/index.ts`, `src/services/tauri.ts`, `src/services/gitlab.ts`, `src/pages/MRDetailPage.tsx`
+- **Learnings for future iterations:**
+  - Frontend service layer: tauri.ts (low-level) → gitlab.ts (high-level) → index.ts (re-export)
+  - `export * from './gitlab'` in index.ts automatically re-exports new functions from gitlab.ts
+  - For cache-first pattern: check if needed fields are non-null, not just if cache object exists
+---
+
+## 2026-02-09 - US-006
+- Modified `purge_closed_mrs()` to first query MR IDs that will be purged
+- Calls `delete_file_versions_for_mr()` for each purged MR before deleting the MR itself
+- Calls `delete_orphaned_blobs()` once after all file versions are cleaned up
+- `get_cache_size()` already uses `page_count * page_size` which covers all tables including new ones
+- Files changed: `src-tauri/src/services/sync_engine.rs`
+- **Learnings for future iterations:**
+  - `file_versions` has no FK cascade on `mr_id` — must explicitly delete before MR deletion
+  - SQLite `page_count * page_size` covers entire database file, no per-table calculation needed
+---
+
+## 2026-02-09 - US-007
+- Added `has_cached_version()` and `get_cached_diff_shas()` to `db/file_cache.rs`
+- Modified `sync_mr()` to query previous diff SHAs before `upsert_diff()` and pass to `cache_file_contents()`
+- Updated `cache_file_contents()` with two-level skip logic:
+  1. If base_sha + head_sha unchanged → skip ALL file fetching entirely
+  2. If SHAs changed → check each file individually via `has_cached_version()`, only fetch missing ones
+- Added debug logging for skipped files count
+- Files changed: `src-tauri/src/db/file_cache.rs`, `src-tauri/src/services/sync_engine.rs`
+- **Learnings for future iterations:**
+  - Must query old SHAs BEFORE `upsert_diff()` overwrites them in the diffs table
+  - `has_cached_version()` checks `file_versions` table existence, not content correctness
+  - When SHAs change, old cached versions become stale but harmless — they'll be overwritten on next fetch
+---
+
