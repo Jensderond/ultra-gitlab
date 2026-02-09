@@ -19,6 +19,35 @@
     rgba(31, 31, 40, 0.6) 100%);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.file-nav-toggle-generated {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: rgba(84, 84, 109, 0.25);
+  border: 1px solid rgba(84, 84, 109, 0.3);
+  border-radius: 4px;
+  padding: 2px 7px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.file-nav-toggle-generated:hover {
+  background: rgba(84, 84, 109, 0.4);
+  color: var(--text-secondary);
+}
+
+.file-nav-toggle-generated.active {
+  background: rgba(126, 156, 216, 0.15);
+  border-color: rgba(126, 156, 216, 0.3);
+  color: var(--accent-color);
 }
 
 .file-count {

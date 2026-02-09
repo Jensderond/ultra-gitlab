@@ -20,6 +20,10 @@ interface FileNavigationProps {
   viewedPaths?: Set<string>;
   /** Set of file paths classified as generated */
   generatedPaths?: Set<string>;
+  /** Whether generated files are currently hidden */
+  hideGenerated?: boolean;
+  /** Callback to toggle hiding generated files */
+  onToggleHideGenerated?: () => void;
 }
 
 /**
@@ -65,14 +69,31 @@ export default function FileNavigation({
   focusIndex,
   viewedPaths,
   generatedPaths,
+  hideGenerated,
+  onToggleHideGenerated,
 }: FileNavigationProps) {
+  const generatedCount = generatedPaths?.size ?? 0;
+  const visibleFiles = hideGenerated
+    ? files.filter((f) => !generatedPaths?.has(f.newPath))
+    : files;
+
   return (
     <div className="file-navigation">
       <div className="file-nav-header">
         <span className="file-count">{files.length} files changed</span>
+        {generatedCount > 0 && onToggleHideGenerated && (
+          <button
+            className={`file-nav-toggle-generated ${hideGenerated ? 'active' : ''}`}
+            onClick={onToggleHideGenerated}
+            title={hideGenerated ? `Show ${generatedCount} generated files` : `Hide ${generatedCount} generated files`}
+          >
+            {hideGenerated ? `+${generatedCount} hidden` : `${generatedCount} generated`}
+          </button>
+        )}
       </div>
       <div className="file-nav-list">
-        {files.map((file, index) => {
+        {visibleFiles.map((file) => {
+          const index = files.indexOf(file);
           const indicator = getChangeIndicator(file.changeType);
           const isSelected = file.newPath === selectedPath;
           const isFocused = index === focusIndex;

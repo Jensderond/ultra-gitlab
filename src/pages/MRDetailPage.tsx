@@ -37,6 +37,7 @@ export default function MRDetailPage() {
   const [collapseState, setCollapseState] = useState<'collapsed' | 'expanded' | 'partial'>('collapsed');
   const [viewedPaths, setViewedPaths] = useState<Set<string>>(new Set());
   const [generatedPaths, setGeneratedPaths] = useState<Set<string>>(new Set());
+  const [hideGenerated, setHideGenerated] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -444,6 +445,11 @@ export default function MRDetailPage() {
           e.preventDefault();
           markViewedAndNext();
           break;
+        case 'g':
+          // Toggle generated files visibility in file tree
+          e.preventDefault();
+          setHideGenerated((prev) => !prev);
+          break;
         case 'c':
           // Open comment input at current line
           e.preventDefault();
@@ -538,6 +544,8 @@ export default function MRDetailPage() {
             focusIndex={fileFocusIndex}
             viewedPaths={viewedPaths}
             generatedPaths={generatedPaths}
+            hideGenerated={hideGenerated}
+            onToggleHideGenerated={() => setHideGenerated((prev) => !prev)}
           />
         </aside>
 
@@ -663,6 +671,7 @@ export default function MRDetailPage() {
           <kbd>x</kbd> split/unified &middot;{' '}
           <kbd>a</kbd> approve &middot;{' '}
           <kbd>c</kbd> comment &middot;{' '}
+          <kbd>g</kbd> generated &middot;{' '}
           <kbd>o</kbd> open &middot;{' '}
           <kbd>⌘F</kbd> find &middot;{' '}
           <kbd>?</kbd> help
