@@ -165,6 +165,7 @@ function AppContent() {
 
   return (
     <div className="app">
+      <div className="titlebar-drag-region" data-tauri-drag-region />
       <Routes>
         {/* Redirect root to MR list */}
         <Route path="/" element={<Navigate to="/mrs" replace />} />

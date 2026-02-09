@@ -23,7 +23,7 @@ use commands::{
     update_sync_settings,
 };
 use services::sync_engine::{SyncConfig, SyncEngine};
-use tauri::Manager;
+use tauri::{Manager, TitleBarStyle, WebviewUrl, WebviewWindowBuilder};
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -62,6 +62,35 @@ pub fn run() {
             // Store state for use in commands
             app.manage(pool);
             app.manage(sync_handle);
+
+            // Create window with transparent titlebar
+            let win = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
+                .title("Ultra Gitlab")
+                .inner_size(800.0, 600.0)
+                .hidden_title(true)
+                .title_bar_style(TitleBarStyle::Transparent)
+                .build()?;
+
+            // Set macOS window background color to match app theme (#16161d)
+            #[cfg(target_os = "macos")]
+            {
+                #[allow(deprecated)]
+                {
+                    use cocoa::appkit::{NSColor, NSWindow};
+                    use cocoa::base::{id, nil};
+                    let ns_win: id = win.ns_window().unwrap() as id;
+                    unsafe {
+                        let bg_color = NSColor::colorWithSRGBRed_green_blue_alpha_(
+                            nil,
+                            22.0 / 255.0,
+                            22.0 / 255.0,
+                            29.0 / 255.0,
+                            1.0,
+                        );
+                        ns_win.setBackgroundColor_(bg_color);
+                    }
+                }
+            }
 
             Ok(())
         })

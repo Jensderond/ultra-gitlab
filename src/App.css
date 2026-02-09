@@ -9,6 +9,17 @@ html, body, #root, .app {
   overflow: hidden;
 }
 
+/* Transparent titlebar drag region */
+.titlebar-drag-region {
+  height: 28px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  -webkit-app-region: drag;
+}
+
 :root {
   /* Font */
   font-family: 'Noto Sans JP', -apple-system, sans-serif;
