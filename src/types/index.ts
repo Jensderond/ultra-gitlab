@@ -283,6 +283,7 @@ export interface Settings {
   theme: Theme;
   keyboardShortcuts: Record<string, string>;
   diffViewMode: DiffViewMode;
+  collapsePatterns: string[];
 }
 
 export type SettingsUpdate = Partial<Settings>;

@@ -36,6 +36,8 @@ export {
   refreshGitattributes,
   getSettings,
   updateSettings,
+  getCollapsePatterns,
+  updateCollapsePatterns,
   getMemoryStats,
   getCacheStats,
   getDiagnosticsReport,

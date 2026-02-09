@@ -355,6 +355,24 @@ export async function updateSettings(update: SettingsUpdate): Promise<Settings> 
 }
 
 // ============================================================================
+// Collapse Patterns Commands
+// ============================================================================
+
+/**
+ * Get the current collapse patterns for dimming generated files.
+ */
+export async function getCollapsePatterns(): Promise<string[]> {
+  return invoke<string[]>('get_collapse_patterns');
+}
+
+/**
+ * Update collapse patterns.
+ */
+export async function updateCollapsePatterns(patterns: string[]): Promise<void> {
+  return invoke<void>('update_collapse_patterns', { patterns });
+}
+
+// ============================================================================
 // Diagnostics Commands (Memory and Performance Verification)
 // ============================================================================
 

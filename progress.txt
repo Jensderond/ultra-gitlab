@@ -12,10 +12,13 @@
 - Use `Path` instead of `PathBuf` for function parameters per Clippy recommendation
 - SQL statements in migrations must be parsed carefully - semicolons inside parentheses (e.g., `strftime('%s', 'now')`) don't end statements
 - All database tests use `tempfile` crate for isolated test databases
+- Settings store uses separate keys per concern (e.g., `sync_config`, `collapse_patterns`) — add new keys for new settings groups
+- AppSettings struct uses `#[serde(rename_all = "camelCase")]` for consistent JSON serialization to frontend
 
 ### Gotchas
 - SQLite doesn't support executing multiple statements in a single query - must split and execute individually
 - When splitting SQL by `;`, need to track parenthesis depth to avoid splitting inside DEFAULT expressions
+- `State<'_, T>` can't be moved into `tokio::spawn` — clone inner value first with `pool.inner().clone()`
 
 ---
 
@@ -1334,5 +1337,62 @@ All 22 user stories completed:
 - `get_file_content` already returns empty string for 404 — parser handles empty input gracefully, no need for special 404 handling
 - Each command module has its own `create_gitlab_client` helper (same pattern in mr.rs and gitattributes.rs)
 - `bunx tsc --noEmit` requires `bun install` first — node_modules must exist
+
+---
+
+## 2026-02-09 - US-004
+**Workflow**: PRD
+**Feature**: Collapse Generated Files in MR File Tree
+
+### Implemented
+- Added stale-while-revalidate logic to `get_gitattributes` Tauri command
+- Cache freshness check: compares `fetched_at` against 24-hour threshold (STALE_THRESHOLD_SECS)
+- Three behaviors:
+  - Fresh cache (< 24h): return immediately, no refresh
+  - Stale cache (>= 24h): return stale data immediately, spawn `tokio::spawn` background refresh
+  - No cache: fetch synchronously so first call gets data
+- Extracted `refresh_gitattributes_inner(&DbPool, ...)` helper for reuse by both Tauri command and background tasks
+- Renamed `create_gitlab_client` to `create_gitlab_client_from_pool` taking `&DbPool` directly (not `State<>`)
+- Background refresh errors logged via `eprintln!` but don't propagate to frontend
+
+### Files Changed
+- src-tauri/src/commands/gitattributes.rs (stale-while-revalidate logic, refactored helpers)
+- ralph/archive/2026-02-09-approval-immediate-sync/prd.json (marked US-004 passes: true)
+
+### Learnings for Future Iterations
+- `State<'_, T>` can't be moved into `tokio::spawn` — use `pool.inner().clone()` to get an owned `DbPool`
+- Separate inner functions (taking `&DbPool`) from Tauri commands (taking `State<>`) for reuse in background tasks
+- `chrono::Utc::now().timestamp()` returns Unix seconds as i64 — compare directly with stored `fetched_at`
+
+---
+
+## 2026-02-09 - US-005
+**Workflow**: PRD
+**Feature**: Collapse Generated Files in MR File Tree
+
+### Implemented
+- Extended `AppSettings` struct with `collapse_patterns: Vec<String>` field
+- Added sensible defaults: `*.lock`, `*-lock.json`, `*.min.js`, `*.min.css`, `*.map`, `*.generated.*`, `package-lock.json`, `bun.lockb`, `yarn.lock`, `pnpm-lock.yaml`, `Cargo.lock`
+- Added `COLLAPSE_PATTERNS_KEY` store key for persistence via tauri-plugin-store
+- Load/save collapse patterns in `load_settings` / `save_settings` alongside sync config
+- Added dedicated `get_collapse_patterns` and `update_collapse_patterns` Tauri commands
+- Added TypeScript invoke wrappers (`getCollapsePatterns`, `updateCollapsePatterns`) in tauri.ts
+- Added `collapsePatterns: string[]` to TypeScript `Settings` interface
+- Exported new functions from services/index.ts
+- Registered commands in commands/mod.rs and lib.rs generate_handler
+
+### Files Changed
+- src-tauri/src/commands/settings.rs (extended AppSettings, added collapse commands)
+- src-tauri/src/commands/mod.rs (added re-exports)
+- src-tauri/src/lib.rs (imported and registered new commands)
+- src/types/index.ts (added collapsePatterns to Settings)
+- src/services/tauri.ts (added getCollapsePatterns, updateCollapsePatterns)
+- src/services/index.ts (added re-exports)
+- ralph/archive/2026-02-09-approval-immediate-sync/prd.json (marked US-005 passes: true)
+
+### Learnings for Future Iterations
+- AppSettings uses `serde(rename_all = "camelCase")` — added to struct for consistent JSON serialization
+- Settings store uses separate keys per concern (SYNC_CONFIG_KEY, COLLAPSE_PATTERNS_KEY) — keeps entries independent
+- Convenience commands pattern: dedicated get/update commands that wrap load_settings + modify + save_settings
 
 ---
