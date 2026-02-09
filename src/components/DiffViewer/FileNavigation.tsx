@@ -18,6 +18,8 @@ interface FileNavigationProps {
   focusIndex?: number;
   /** Set of file paths that have been marked as viewed */
   viewedPaths?: Set<string>;
+  /** Set of file paths classified as generated */
+  generatedPaths?: Set<string>;
 }
 
 /**
@@ -62,6 +64,7 @@ export default function FileNavigation({
   onSelect,
   focusIndex,
   viewedPaths,
+  generatedPaths,
 }: FileNavigationProps) {
   return (
     <div className="file-navigation">
@@ -74,11 +77,12 @@ export default function FileNavigation({
           const isSelected = file.newPath === selectedPath;
           const isFocused = index === focusIndex;
           const isViewed = viewedPaths?.has(file.newPath) ?? false;
+          const isGenerated = generatedPaths?.has(file.newPath) ?? false;
 
           return (
             <div
               key={file.newPath}
-              className={`file-nav-item ${isSelected ? 'selected' : ''} ${isFocused ? 'focused' : ''} ${isViewed ? 'viewed' : ''}`}
+              className={`file-nav-item ${isSelected ? 'selected' : ''} ${isFocused ? 'focused' : ''} ${isViewed ? 'viewed' : ''} ${isGenerated ? 'generated' : ''}`}
               onClick={() => onSelect(file.newPath)}
               role="button"
               tabIndex={0}
@@ -92,7 +96,10 @@ export default function FileNavigation({
                 {indicator.text}
               </span>
               <div className="file-info">
-                <span className="file-name">{getFileName(file.newPath)}</span>
+                <span className="file-name">
+                  {getFileName(file.newPath)}
+                  {isGenerated && <span className="file-generated-label">generated</span>}
+                </span>
                 <span className="file-dir">{getDirectory(file.newPath)}</span>
               </div>
               <div className="file-stats">

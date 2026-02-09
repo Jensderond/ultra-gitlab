@@ -13,8 +13,9 @@ import type { editor } from 'monaco-editor';
 import { ImageDiffViewer } from '../components/Monaco/ImageDiffViewer';
 import { isImageFile, getImageMimeType } from '../components/Monaco/languageDetection';
 import { ApprovalButton, type ApprovalButtonRef } from '../components/Approval';
-import { getMergeRequestById, getMergeRequestFiles, getDiffRefs, getFileContent, getFileContentBase64, getCachedFilePair } from '../services/gitlab';
-import { invoke } from '../services/tauri';
+import { getMergeRequestById, getMergeRequestFiles, getDiffRefs, getFileContent, getFileContentBase64, getCachedFilePair, getGitattributesPatterns } from '../services/gitlab';
+import { invoke, getCollapsePatterns } from '../services/tauri';
+import { classifyFiles } from '../utils/classifyFiles';
 import type { MergeRequest, DiffFileSummary, DiffRefs, Comment, AddCommentRequest } from '../types';
 import './MRDetailPage.css';
 
@@ -35,6 +36,7 @@ export default function MRDetailPage() {
   const [viewMode, setViewMode] = useState<'unified' | 'split'>('unified');
   const [collapseState, setCollapseState] = useState<'collapsed' | 'expanded' | 'partial'>('collapsed');
   const [viewedPaths, setViewedPaths] = useState<Set<string>>(new Set());
+  const [generatedPaths, setGeneratedPaths] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,6 +97,15 @@ export default function MRDetailPage() {
         }));
 
         setFiles(summaries);
+
+        // Fetch gitattributes and user collapse patterns for file classification
+        const [gitattributes, userPatterns] = await Promise.all([
+          getGitattributesPatterns(mrData.instanceId, mrData.projectId).catch(() => []),
+          getCollapsePatterns().catch(() => []),
+        ]);
+
+        const { generated } = classifyFiles(summaries, gitattributes, userPatterns);
+        setGeneratedPaths(generated);
 
         // Auto-select first file if available
         if (summaries.length > 0 && !selectedFile) {
@@ -497,6 +508,7 @@ export default function MRDetailPage() {
             onSelect={handleFileSelect}
             focusIndex={fileFocusIndex}
             viewedPaths={viewedPaths}
+            generatedPaths={generatedPaths}
           />
         </aside>
 

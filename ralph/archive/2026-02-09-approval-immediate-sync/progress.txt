@@ -7,6 +7,19 @@
 
 ---
 
+## 2026-02-09 - US-008
+- MRDetailPage fetches gitattributes + user collapse patterns on mount and runs classifyFiles
+- Passed generatedPaths Set to FileNavigation component
+- FileNavigation applies .generated class with 50% opacity and muted text color
+- Added "generated" label badge next to filename for generated files
+- Generated files remain clickable — clicking still opens diff viewer
+- Files stay in their normal list position (no reordering)
+- **Learnings for future iterations:**
+  - Pattern fetching uses Promise.all with .catch(() => []) fallback so missing patterns don't block load
+  - CSS .generated class separate from .viewed to avoid style conflicts
+
+---
+
 ## 2026-02-09 - US-007
 - Installed picomatch (+ @types/picomatch) for glob matching
 - Created classifyFiles utility in src/utils/classifyFiles.ts
