@@ -17,8 +17,9 @@ use crate::services::gitlab_client::{
 use crate::models::project::{self, Project};
 use crate::models::sync_action::ActionType;
 use crate::services::sync_events::{
-    ActionSyncedPayload, MrUpdatedPayload, MrUpdateType, SyncProgressPayload, SyncPhase,
-    ACTION_SYNCED_EVENT, MR_UPDATED_EVENT, SYNC_PROGRESS_EVENT,
+    ActionSyncedPayload, AuthExpiredPayload, MrUpdatedPayload, MrUpdateType,
+    SyncProgressPayload, SyncPhase,
+    ACTION_SYNCED_EVENT, AUTH_EXPIRED_EVENT, MR_UPDATED_EVENT, SYNC_PROGRESS_EVENT,
 };
 use crate::services::sync_processor::{self, ProcessResult};
 use crate::services::sync_queue;
@@ -390,6 +391,24 @@ impl SyncEngine {
                     result.errors.extend(instance_result.errors);
                 }
                 Err(e) => {
+                    // Emit auth-expired event if this is an authentication error
+                    if e.is_authentication_expired() {
+                        if let Err(emit_err) = self.app_handle.emit(
+                            AUTH_EXPIRED_EVENT,
+                            AuthExpiredPayload {
+                                instance_id: e.get_expired_instance_id().unwrap_or(instance.id),
+                                instance_url: e.get_expired_instance_url()
+                                    .unwrap_or(&instance.url)
+                                    .to_string(),
+                                message: format!(
+                                    "Authentication expired for {}. Please re-authenticate.",
+                                    instance.url
+                                ),
+                            },
+                        ) {
+                            log::warn!("Failed to emit auth-expired event: {}", emit_err);
+                        }
+                    }
                     result.errors.push(format!("Instance {}: {}", instance.url, e));
                 }
             }

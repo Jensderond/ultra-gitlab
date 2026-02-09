@@ -48,3 +48,13 @@
   - ProcessResult has `action: SyncAction` which has id, mr_id, action_type, local_reference_id - all needed for ActionSyncedPayload
   - Both push_pending_actions (in sync_instance) and flush_approval_actions (FlushApprovals command) need action-synced events for consistency
 ---
+
+## 2026-02-09 - US-005
+- What was implemented: Added auth-expired event emission when sync encounters authentication errors
+- Files changed:
+  - `src-tauri/src/services/sync_engine.rs`: Imported AuthExpiredPayload/AUTH_EXPIRED_EVENT. In run_sync() instance error handler, check `e.is_authentication_expired()` and emit auth-expired event with instance details. Sync continues with remaining instances.
+- **Learnings for future iterations:**
+  - AppError has helper methods: `is_authentication_expired()`, `get_expired_instance_id()`, `get_expired_instance_url()` for extracting instance info from auth errors
+  - Auth errors from sync_instance already propagate with instance info via `authentication_expired_for_instance()` constructor
+  - The error handler in run_sync's instance loop already skips failed instances and continues
+---
