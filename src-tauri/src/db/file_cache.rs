@@ -83,6 +83,40 @@ pub async fn get_cached_file_pair(
     Ok((base, head))
 }
 
+/// Check if a cached file version exists for a given MR, file path, and version type.
+pub async fn has_cached_version(
+    pool: &DbPool,
+    mr_id: i64,
+    file_path: &str,
+    version_type: &str,
+) -> Result<bool, AppError> {
+    let row: Option<(i64,)> = sqlx::query_as(
+        "SELECT 1 FROM file_versions WHERE mr_id = ? AND file_path = ? AND version_type = ?",
+    )
+    .bind(mr_id)
+    .bind(file_path)
+    .bind(version_type)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row.is_some())
+}
+
+/// Get the previously cached diff SHAs (base_sha, head_sha) for an MR.
+pub async fn get_cached_diff_shas(
+    pool: &DbPool,
+    mr_id: i64,
+) -> Result<Option<(String, String)>, AppError> {
+    let row: Option<(String, String)> = sqlx::query_as(
+        "SELECT base_sha, head_sha FROM diffs WHERE mr_id = ?",
+    )
+    .bind(mr_id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row)
+}
+
 /// Delete all file version records for a given MR.
 pub async fn delete_file_versions_for_mr(pool: &DbPool, mr_id: i64) -> Result<(), AppError> {
     sqlx::query("DELETE FROM file_versions WHERE mr_id = ?")
