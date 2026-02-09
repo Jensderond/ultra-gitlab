@@ -32,6 +32,8 @@ export {
   getSyncStatus,
   retryFailedAction,
   discardFailedAction,
+  getGitattributes,
+  refreshGitattributes,
   getSettings,
   updateSettings,
   getMemoryStats,

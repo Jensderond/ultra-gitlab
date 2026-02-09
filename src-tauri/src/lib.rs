@@ -14,10 +14,10 @@ use commands::{
     generate_test_data, get_action_counts, get_approval_status, get_cache_stats,
     get_cached_file_pair, get_comments, get_diagnostics_report, get_diff_content, get_diff_file,
     get_diff_file_metadata, get_diff_files, get_diff_hunks, get_diff_refs, get_file_comments,
-    get_file_content, get_file_content_base64, get_gitlab_instances, get_memory_stats,
-    get_merge_request_detail, get_merge_requests, get_settings, get_sync_config,
-    get_sync_settings, get_sync_status, get_token_info, reply_to_comment, resolve_discussion,
-    retry_failed_actions, setup_gitlab_instance, trigger_sync, unapprove_mr,
+    get_file_content, get_file_content_base64, get_gitattributes, get_gitlab_instances,
+    get_memory_stats, get_merge_request_detail, get_merge_requests, get_settings, get_sync_config,
+    get_sync_settings, get_sync_status, get_token_info, refresh_gitattributes, reply_to_comment,
+    resolve_discussion, retry_failed_actions, setup_gitlab_instance, trigger_sync, unapprove_mr,
     update_instance_token, update_settings, update_sync_config, update_sync_settings,
 };
 use services::sync_engine::{SyncConfig, SyncEngine};
@@ -98,6 +98,9 @@ pub fn run() {
             update_settings,
             get_sync_settings,
             update_sync_settings,
+            // Gitattributes cache
+            get_gitattributes,
+            refresh_gitattributes,
             // Diagnostics (memory and performance verification)
             get_memory_stats,
             get_cache_stats,

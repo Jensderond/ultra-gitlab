@@ -311,6 +311,32 @@ export async function discardFailedAction(actionId: number): Promise<void> {
 }
 
 // ============================================================================
+// Gitattributes Commands
+// ============================================================================
+
+/**
+ * Get cached gitattributes patterns for a project.
+ * Returns empty array if no cache exists.
+ */
+export async function getGitattributes(
+  instanceId: number,
+  projectId: number
+): Promise<string[]> {
+  return invoke<string[]>('get_gitattributes', { instanceId, projectId });
+}
+
+/**
+ * Fetch .gitattributes from GitLab and update the local cache.
+ * Returns the parsed linguist-generated patterns.
+ */
+export async function refreshGitattributes(
+  instanceId: number,
+  projectId: number
+): Promise<string[]> {
+  return invoke<string[]>('refresh_gitattributes', { instanceId, projectId });
+}
+
+// ============================================================================
 // Settings Commands
 // ============================================================================
 

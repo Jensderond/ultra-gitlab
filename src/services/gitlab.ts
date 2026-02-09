@@ -19,6 +19,8 @@ import {
   getFileContent as tauriGetFileContent,
   getFileContentBase64 as tauriGetFileContentBase64,
   getCachedFilePair as tauriGetCachedFilePair,
+  getGitattributes as tauriGetGitattributes,
+  refreshGitattributes as tauriRefreshGitattributes,
   getComments,
   addComment,
   replyToComment,
@@ -234,6 +236,40 @@ export async function getCachedFilePair(
   filePath: string
 ): Promise<CachedFilePair> {
   return tauriGetCachedFilePair(mrId, filePath);
+}
+
+// ============================================================================
+// Gitattributes Operations
+// ============================================================================
+
+/**
+ * Get cached gitattributes patterns for a project.
+ * Returns empty array if no cache exists.
+ *
+ * @param instanceId - The GitLab instance ID
+ * @param projectId - The GitLab project ID
+ * @returns Array of glob patterns marked as linguist-generated
+ */
+export async function getGitattributesPatterns(
+  instanceId: number,
+  projectId: number
+): Promise<string[]> {
+  return tauriGetGitattributes(instanceId, projectId);
+}
+
+/**
+ * Refresh gitattributes patterns from GitLab.
+ * Fetches .gitattributes from the default branch and updates the cache.
+ *
+ * @param instanceId - The GitLab instance ID
+ * @param projectId - The GitLab project ID
+ * @returns The freshly parsed patterns
+ */
+export async function refreshGitattributesPatterns(
+  instanceId: number,
+  projectId: number
+): Promise<string[]> {
+  return tauriRefreshGitattributes(instanceId, projectId);
 }
 
 // ============================================================================
