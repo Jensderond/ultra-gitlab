@@ -7,6 +7,18 @@
 
 ---
 
+## 2026-02-09 - US-009
+- Updated navigateFile to use reviewableFiles (useMemo filtered list) instead of full files array
+- Keyboard nav (j/k, arrows) now only cycles through non-generated files
+- Added wrap-around: past last reviewable wraps to first and vice versa
+- fileFocusIndex still maps to full files array for FileNavigation visual focus
+- markViewedAndNext (v) automatically skips generated files since it calls navigateFile(1)
+- **Learnings for future iterations:**
+  - Keep two index spaces: reviewableFiles for nav logic, files for visual focus index in FileNavigation
+  - selectedFile is the bridge between both — find current position in reviewable list by path
+
+---
+
 ## 2026-02-09 - US-008
 - MRDetailPage fetches gitattributes + user collapse patterns on mount and runs classifyFiles
 - Passed generatedPaths Set to FileNavigation component

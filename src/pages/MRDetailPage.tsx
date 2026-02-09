@@ -4,7 +4,7 @@
  * Displays a merge request with file navigation and Monaco diff viewer.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { FileNavigation } from '../components/DiffViewer';
@@ -305,16 +305,42 @@ export default function MRDetailPage() {
     setCollapseState('expanded');
   }, []);
 
-  // Navigate to next/previous file
+  // Reviewable files for keyboard navigation (excludes generated files)
+  const reviewableFiles = useMemo(
+    () => files.filter((f) => !generatedPaths.has(f.newPath)),
+    [files, generatedPaths]
+  );
+
+  // Navigate to next/previous reviewable file
   const navigateFile = useCallback(
     (direction: 1 | -1) => {
-      const newIndex = fileFocusIndex + direction;
-      if (newIndex >= 0 && newIndex < files.length) {
-        setFileFocusIndex(newIndex);
-        setSelectedFile(files[newIndex].newPath);
+      if (reviewableFiles.length === 0) return;
+
+      // Find current position in reviewable list
+      const currentReviewableIndex = reviewableFiles.findIndex(
+        (f) => f.newPath === selectedFile
+      );
+
+      let nextReviewableIndex: number;
+      if (currentReviewableIndex === -1) {
+        // Current file is generated or none selected — go to first/last reviewable
+        nextReviewableIndex = direction === 1 ? 0 : reviewableFiles.length - 1;
+      } else {
+        nextReviewableIndex = currentReviewableIndex + direction;
+        // Wrap around
+        if (nextReviewableIndex < 0) nextReviewableIndex = reviewableFiles.length - 1;
+        if (nextReviewableIndex >= reviewableFiles.length) nextReviewableIndex = 0;
       }
+
+      const nextFile = reviewableFiles[nextReviewableIndex];
+      // Update focus index in the full file list for FileNavigation visual focus
+      const fullIndex = files.findIndex((f) => f.newPath === nextFile.newPath);
+      if (fullIndex >= 0) {
+        setFileFocusIndex(fullIndex);
+      }
+      setSelectedFile(nextFile.newPath);
     },
-    [fileFocusIndex, files]
+    [reviewableFiles, files, selectedFile]
   );
 
   // Mark current file as viewed and go to next file
