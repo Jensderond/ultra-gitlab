@@ -2,6 +2,21 @@
 - Settings page uses sub-components (ShortcutEditor, CollapsePatternsEditor) for each settings section
 - Service wrappers in tauri.ts provide typed invoke calls; export from index.ts for consumers
 - Settings store uses separate keys per concern — collapse patterns stored independently from sync config
+- File classification utility in src/utils/classifyFiles.ts uses picomatch for glob matching
+- DiffFileSummary.newPath is used for matching (not oldPath)
+
+---
+
+## 2026-02-09 - US-007
+- Installed picomatch (+ @types/picomatch) for glob matching
+- Created classifyFiles utility in src/utils/classifyFiles.ts
+- Function takes files, gitattribute patterns, and user patterns; returns { reviewable, generated }
+- Uses picomatch with dot:true to match dotfiles
+- Returns early with all files as reviewable when no patterns exist
+- **Learnings for future iterations:**
+  - picomatch v4 accepts an array of patterns directly — no need to loop
+  - dot:true option needed to match dotfiles like .gitignore
+  - Set<string> for generated paths gives O(1) lookup in UI components
 
 ---
 
