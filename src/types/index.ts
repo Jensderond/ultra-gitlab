@@ -283,6 +283,7 @@ export interface Settings {
   theme: Theme;
   keyboardShortcuts: Record<string, string>;
   diffViewMode: DiffViewMode;
+  collapsePatterns: string[];
 }
 
 export type SettingsUpdate = Partial<Settings>;
@@ -357,6 +358,15 @@ export interface TestDataResult {
   diffFilesGenerated: number;
   commentsGenerated: number;
   durationMs: number;
+}
+
+// ============================================================================
+// File Content Cache
+// ============================================================================
+
+export interface CachedFilePair {
+  baseContent: string | null;
+  headContent: string | null;
 }
 
 // ============================================================================

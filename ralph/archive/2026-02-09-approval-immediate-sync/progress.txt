@@ -1,0 +1,91 @@
+## Codebase Patterns
+- Settings page uses sub-components (ShortcutEditor, CollapsePatternsEditor) for each settings section
+- Service wrappers in tauri.ts provide typed invoke calls; export from index.ts for consumers
+- Settings store uses separate keys per concern — collapse patterns stored independently from sync config
+- File classification utility in src/utils/classifyFiles.ts uses picomatch for glob matching
+- DiffFileSummary.newPath is used for matching (not oldPath)
+- Gitattributes refresh during sync: use refresh_gitattributes_if_stale() from commands::gitattributes
+- To share logic between Tauri commands (using State<>) and sync engine (using &DbPool): extract `_inner` functions taking &DbPool
+
+---
+
+## 2026-02-09 - US-011
+- Added `refresh_gitattributes_if_stale()` public function in commands/gitattributes.rs
+- Checks fetched_at timestamp against 24h threshold, refreshes if stale or missing
+- Made `refresh_gitattributes_inner` public for reuse by the new function
+- Added `refresh_gitattributes_for_projects()` method to SyncEngine
+- Collects unique project IDs from synced MRs, deduplicates, calls refresh_if_stale for each
+- Runs after cache_project_titles in sync_instance(), doesn't block MR data processing
+- New projects (first time in sync) get their gitattributes fetched automatically
+- Individual project failures logged but don't fail the sync
+- **Learnings for future iterations:**
+  - Share logic between Tauri commands and sync engine via public `_inner` / `_if_stale` functions
+  - `crate::commands::gitattributes::` path for cross-module access within the same crate
+
+---
+
+## 2026-02-09 - US-010
+- Auto-select now picks first reviewable file, not first file overall
+- When all files are generated, no file is auto-opened
+- Added all-generated empty state with playful "Nothing to see here" message
+- Empty state uses muted styling (not error styling) with hint to click sidebar
+- User can still click any dimmed file manually — clicking opens diff viewer as normal
+- Added CSS for .all-generated-empty-state, .all-generated-icon, .all-generated-message, .all-generated-hint
+- **Learnings for future iterations:**
+  - classifyFiles returns both reviewable list and generated Set — use reviewable for auto-select
+  - Empty state condition: files.length > 0 && reviewableFiles.length === 0
+
+---
+
+## 2026-02-09 - US-009
+- Updated navigateFile to use reviewableFiles (useMemo filtered list) instead of full files array
+- Keyboard nav (j/k, arrows) now only cycles through non-generated files
+- Added wrap-around: past last reviewable wraps to first and vice versa
+- fileFocusIndex still maps to full files array for FileNavigation visual focus
+- markViewedAndNext (v) automatically skips generated files since it calls navigateFile(1)
+- **Learnings for future iterations:**
+  - Keep two index spaces: reviewableFiles for nav logic, files for visual focus index in FileNavigation
+  - selectedFile is the bridge between both — find current position in reviewable list by path
+
+---
+
+## 2026-02-09 - US-008
+- MRDetailPage fetches gitattributes + user collapse patterns on mount and runs classifyFiles
+- Passed generatedPaths Set to FileNavigation component
+- FileNavigation applies .generated class with 50% opacity and muted text color
+- Added "generated" label badge next to filename for generated files
+- Generated files remain clickable — clicking still opens diff viewer
+- Files stay in their normal list position (no reordering)
+- **Learnings for future iterations:**
+  - Pattern fetching uses Promise.all with .catch(() => []) fallback so missing patterns don't block load
+  - CSS .generated class separate from .viewed to avoid style conflicts
+
+---
+
+## 2026-02-09 - US-007
+- Installed picomatch (+ @types/picomatch) for glob matching
+- Created classifyFiles utility in src/utils/classifyFiles.ts
+- Function takes files, gitattribute patterns, and user patterns; returns { reviewable, generated }
+- Uses picomatch with dot:true to match dotfiles
+- Returns early with all files as reviewable when no patterns exist
+- **Learnings for future iterations:**
+  - picomatch v4 accepts an array of patterns directly — no need to loop
+  - dot:true option needed to match dotfiles like .gitignore
+  - Set<string> for generated paths gives O(1) lookup in UI components
+
+---
+
+## 2026-02-09 - US-006
+- Added CollapsePatternsEditor component to Settings page
+- Displays list of glob patterns with text input + remove button per row
+- "Add pattern" button appends new empty row
+- Changes save immediately on blur (trimming empty patterns) or on remove
+- Loads patterns on mount via getCollapsePatterns()
+- Added CSS styles for the collapse patterns editor section
+- **Learnings for future iterations:**
+  - handlePatternKeyDown doesn't need the index param — just blur the target on Enter
+  - autoFocus on empty patterns works well for newly added rows
+  - Save on blur pattern avoids needing a dedicated save button
+
+---
+

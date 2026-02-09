@@ -1,0 +1,191 @@
+{
+  "project": "Ultra GitLab",
+  "branchName": "ralph/dim-generated-files",
+  "description": "Collapse Generated Files in MR File Tree - Dim generated files in the file navigation, skip them in keyboard nav, and show a fun empty state when all files are generated",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add gitattributes_cache table via SQLite migration",
+      "description": "As a developer, I need a database table to store parsed .gitattributes patterns per project so we can serve them instantly without network requests.",
+      "acceptanceCriteria": [
+        "Add new migration file (next sequence number after existing migrations) creating a `gitattributes_cache` table",
+        "Table columns: `id` (INTEGER PRIMARY KEY), `instance_id` (INTEGER NOT NULL), `project_id` (INTEGER NOT NULL), `patterns` (TEXT NOT NULL, JSON array of glob strings), `fetched_at` (INTEGER NOT NULL, Unix timestamp)",
+        "Foreign keys: `instance_id` REFERENCES `gitlab_instances(id)` ON DELETE CASCADE, `project_id` REFERENCES `projects(id)` ON DELETE CASCADE",
+        "Add UNIQUE constraint on (instance_id, project_id) to enforce one cache entry per project per instance",
+        "Typecheck passes (cargo check)"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Parse .gitattributes for linguist-generated patterns",
+      "description": "As a developer, I need a Rust function that parses .gitattributes file content and extracts glob patterns marked with linguist-generated.",
+      "acceptanceCriteria": [
+        "Create a parser function (e.g., `parse_gitattributes(content: &str) -> Vec<String>`) in an appropriate module",
+        "Parse lines in the format `<pattern> linguist-generated` or `<pattern> linguist-generated=true` — extract the pattern part",
+        "Ignore lines with `linguist-generated=false` (explicit opt-out)",
+        "Ignore comment lines (starting with `#`) and blank lines",
+        "Handle patterns with standard glob syntax: `*`, `**`, `?`, `[...]`",
+        "Return an empty Vec for empty input or input with no matching attributes",
+        "Unit tests covering: typical patterns like `*.lock linguist-generated`, negation with `=false`, comment lines, blank lines, empty input, multiple attributes on one line",
+        "Typecheck passes (cargo check)"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Add Tauri commands for gitattributes cache read/write",
+      "description": "As a developer, I need Tauri commands to get cached gitattributes patterns and to refresh them from the GitLab API.",
+      "acceptanceCriteria": [
+        "Add Tauri command `get_gitattributes(instanceId: i64, projectId: i64)` that queries the gitattributes_cache table and returns the cached patterns as Vec<String>",
+        "If no cache exists for the project, return an empty Vec (not an error)",
+        "Add Tauri command `refresh_gitattributes(instanceId: i64, projectId: i64)` that fetches .gitattributes from the project's default branch via the GitLab Repository Files API",
+        "The refresh command parses the file content using the parser from US-002 and upserts into gitattributes_cache (INSERT OR REPLACE using the unique constraint)",
+        "Handle 404 from GitLab API gracefully — upsert with empty patterns array (project has no .gitattributes)",
+        "Register both commands in lib.rs generate_handler",
+        "Add TypeScript invoke wrappers in the frontend services layer",
+        "Typecheck passes (cargo check)"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Add stale-while-revalidate logic to get_gitattributes",
+      "description": "As a developer, I need get_gitattributes to return cached data immediately and trigger a background refresh when stale, so the frontend never waits on network.",
+      "acceptanceCriteria": [
+        "Modify `get_gitattributes` to check `fetched_at` timestamp — if older than 24 hours, return the cached data AND spawn a background tokio task to call refresh_gitattributes",
+        "If no cache exists at all (first call for a project), fetch synchronously (blocking) so the frontend gets data on the first call",
+        "Background refresh does not block the command response — stale data is returned immediately",
+        "Background refresh errors are logged but do not propagate to the frontend",
+        "After background refresh completes, subsequent calls return fresh data",
+        "Typecheck passes (cargo check)"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Add collapse patterns to app settings backend",
+      "description": "As a developer, I need the settings system to store user-configurable glob patterns for collapsing generated files.",
+      "acceptanceCriteria": [
+        "Extend the AppSettings struct (or settings storage) to include a `collapse_patterns` field (Vec<String>)",
+        "Ship with sensible defaults: `*.lock`, `*-lock.json`, `*.min.js`, `*.min.css`, `*.map`, `*.generated.*`, `package-lock.json`, `bun.lockb`, `yarn.lock`, `pnpm-lock.yaml`, `Cargo.lock`",
+        "Expose via existing get_settings/update_settings commands OR add dedicated `get_collapse_patterns()` and `update_collapse_patterns(patterns)` Tauri commands",
+        "Patterns persist in settings.json via the existing tauri-plugin-store mechanism",
+        "Add TypeScript invoke wrappers in the frontend services layer",
+        "Typecheck passes (cargo check and tsc)"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Add collapse patterns UI to Settings page",
+      "description": "As a user, I want to view and edit my collapse glob patterns in the Settings page so I can control which files are dimmed.",
+      "acceptanceCriteria": [
+        "Add a 'Generated File Patterns' section to the Settings page below existing settings",
+        "Display the current list of glob patterns, one per row",
+        "Each row has a text input showing the pattern and a remove button (X) to delete it",
+        "An 'Add pattern' button at the bottom appends a new empty row",
+        "Changes save immediately when a pattern is edited, added, or removed (call update command)",
+        "On mount, load current patterns from the backend",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Build file classification utility on the frontend",
+      "description": "As a developer, I need a function that classifies MR files as generated or reviewable based on gitattributes and user patterns.",
+      "acceptanceCriteria": [
+        "Install picomatch (or minimatch) as a frontend dependency for glob matching",
+        "Create a utility function `classifyFiles(files: DiffFileSummary[], gitattributePatterns: string[], userPatterns: string[]): { reviewable: DiffFileSummary[], generated: Set<string> }`",
+        "Match each file's `new_path` against both pattern sources — a file is 'generated' if it matches any pattern from either source",
+        "The `generated` result is a Set of file paths for O(1) lookup in UI components",
+        "Classification runs synchronously — no async, no promises",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Dim generated files in FileNavigation component",
+      "description": "As a reviewer, I want generated files to appear visually dimmed in the file tree so I can distinguish them from files that need review.",
+      "acceptanceCriteria": [
+        "MRDetailPage fetches gitattributes patterns and user collapse patterns on mount, runs classifyFiles, and passes the generated file set to FileNavigation",
+        "FileNavigation applies dimmed styling to generated files: reduced opacity (~50%) and muted text color",
+        "Generated files show a small 'generated' label next to the filename to explain why they are dimmed",
+        "Generated files remain in their normal position in the file list (not moved or grouped)",
+        "Clicking a dimmed generated file still opens it in the diff viewer",
+        "Reviewable files remain fully styled with normal contrast",
+        "When there are 0 generated files, no visual changes are applied",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Skip generated files in keyboard navigation",
+      "description": "As a reviewer, I want j/k and arrow key navigation to skip generated files so I move through only reviewable files.",
+      "acceptanceCriteria": [
+        "Keyboard navigation (j/k, up/down arrows) only cycles through reviewable files, skipping generated ones",
+        "File index tracking in MRDetailPage uses the reviewable file list for keyboard nav, not the full file list",
+        "When navigating past the last reviewable file, wrap to the first reviewable file (and vice versa)",
+        "The 'mark viewed + next' shortcut (v) also skips generated files when advancing to the next file",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Auto-select first reviewable file and all-generated empty state",
+      "description": "As a reviewer, I want the MR detail view to auto-open the first non-generated file, or show a fun message when all files are generated.",
+      "acceptanceCriteria": [
+        "On MR detail page load, after file classification, auto-select the first reviewable file instead of the first file overall",
+        "If all files are generated (reviewable list is empty), do NOT auto-open any file",
+        "When all files are generated, display an empty state centered in the diff viewer area with the message: 'Nothing to see here — the robots wrote all of this.' (or similar lighthearted copy)",
+        "The empty state uses muted styling — not an error state, feels playful",
+        "User can still click any dimmed file in the tree to open it manually and see its diff",
+        "When a reviewable file exists, content loading starts immediately with no added delay",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Refresh gitattributes cache during MR sync",
+      "description": "As a developer, I want .gitattributes to be refreshed during the regular MR sync cycle so the cache stays fresh without user action.",
+      "acceptanceCriteria": [
+        "During MR sync (in the sync engine), for each project that has MRs, check if the gitattributes_cache entry is older than 24 hours or missing",
+        "If stale or missing, fetch .gitattributes and update the cache as part of the sync operation",
+        "Gitattributes fetching runs alongside MR sync but does not block or slow down MR data processing",
+        "New projects (first time seen in sync) get their gitattributes fetched",
+        "Typecheck passes (cargo check)"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

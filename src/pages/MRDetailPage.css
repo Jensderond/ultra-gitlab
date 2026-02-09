@@ -473,6 +473,42 @@
   animation: fadeIn 0.4s ease;
 }
 
+/* All-generated empty state */
+.all-generated-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 12px;
+  animation: fadeIn 0.5s ease;
+}
+
+.all-generated-icon {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 40px;
+  color: var(--kw-fg-comment);
+  opacity: 0.5;
+  user-select: none;
+}
+
+.all-generated-message {
+  margin: 0;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--kw-fg-muted);
+  letter-spacing: 0.02em;
+}
+
+.all-generated-hint {
+  margin: 0;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  color: var(--kw-fg-comment);
+  letter-spacing: 0.02em;
+}
+
 /* File loading state */
 .file-loading {
   display: flex;

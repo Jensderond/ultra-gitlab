@@ -19,6 +19,35 @@
     rgba(31, 31, 40, 0.6) 100%);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.file-nav-toggle-generated {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: rgba(84, 84, 109, 0.25);
+  border: 1px solid rgba(84, 84, 109, 0.3);
+  border-radius: 4px;
+  padding: 2px 7px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.file-nav-toggle-generated:hover {
+  background: rgba(84, 84, 109, 0.4);
+  color: var(--text-secondary);
+}
+
+.file-nav-toggle-generated.active {
+  background: rgba(126, 156, 216, 0.15);
+  border-color: rgba(126, 156, 216, 0.3);
+  color: var(--accent-color);
 }
 
 .file-count {
@@ -188,6 +217,31 @@
 
 .stat-del {
   color: var(--diff-remove-text);
+}
+
+/* Generated state */
+.file-nav-item.generated {
+  opacity: 0.5;
+}
+
+.file-nav-item.generated:hover {
+  opacity: 0.7;
+}
+
+.file-nav-item.generated .file-name {
+  color: var(--text-tertiary);
+}
+
+.file-generated-label {
+  margin-left: 6px;
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: rgba(84, 84, 109, 0.3);
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
 }
 
 /* Viewed state */

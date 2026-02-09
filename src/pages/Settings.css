@@ -346,6 +346,96 @@
   margin: 0;
 }
 
+/* Collapse patterns editor */
+.collapse-patterns-description {
+  font-size: 0.85rem;
+  color: var(--text-muted, #666);
+  margin: 0 0 1rem;
+  line-height: 1.4;
+}
+
+.collapse-patterns-description code {
+  font-size: 0.8rem;
+  background: var(--bg-secondary);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+}
+
+.collapse-patterns-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.collapse-pattern-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.collapse-pattern-input {
+  flex: 1;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border-color, #ccc);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-family: var(--font-mono, 'SF Mono', 'Monaco', 'Consolas', monospace);
+  background: var(--input-bg);
+  color: var(--text-primary);
+}
+
+.collapse-pattern-input:focus {
+  border-color: var(--primary-color, #0066cc);
+  outline: none;
+}
+
+.collapse-pattern-input:disabled {
+  opacity: 0.6;
+}
+
+.collapse-pattern-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted, #888);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  line-height: 1;
+  border-radius: 4px;
+}
+
+.collapse-pattern-remove:hover:not(:disabled) {
+  background: var(--error-bg, #fee);
+  color: var(--error-color, #c00);
+}
+
+.collapse-pattern-remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.collapse-pattern-add {
+  background: none;
+  border: 1px dashed var(--border-color, #ccc);
+  padding: 0.4rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: var(--text-muted, #666);
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.collapse-pattern-add:hover:not(:disabled) {
+  border-color: var(--primary-color, #0066cc);
+  color: var(--primary-color, #0066cc);
+}
+
+.collapse-pattern-add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Shortcut editor */
 .shortcuts-editor {
   display: flex;

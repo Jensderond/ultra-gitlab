@@ -18,6 +18,12 @@ interface FileNavigationProps {
   focusIndex?: number;
   /** Set of file paths that have been marked as viewed */
   viewedPaths?: Set<string>;
+  /** Set of file paths classified as generated */
+  generatedPaths?: Set<string>;
+  /** Whether generated files are currently hidden */
+  hideGenerated?: boolean;
+  /** Callback to toggle hiding generated files */
+  onToggleHideGenerated?: () => void;
 }
 
 /**
@@ -62,23 +68,42 @@ export default function FileNavigation({
   onSelect,
   focusIndex,
   viewedPaths,
+  generatedPaths,
+  hideGenerated,
+  onToggleHideGenerated,
 }: FileNavigationProps) {
+  const generatedCount = generatedPaths?.size ?? 0;
+  const visibleFiles = hideGenerated
+    ? files.filter((f) => !generatedPaths?.has(f.newPath))
+    : files;
+
   return (
     <div className="file-navigation">
       <div className="file-nav-header">
         <span className="file-count">{files.length} files changed</span>
+        {generatedCount > 0 && onToggleHideGenerated && (
+          <button
+            className={`file-nav-toggle-generated ${hideGenerated ? 'active' : ''}`}
+            onClick={onToggleHideGenerated}
+            title={hideGenerated ? `Show ${generatedCount} generated files` : `Hide ${generatedCount} generated files`}
+          >
+            {hideGenerated ? `+${generatedCount} hidden` : `${generatedCount} generated`}
+          </button>
+        )}
       </div>
       <div className="file-nav-list">
-        {files.map((file, index) => {
+        {visibleFiles.map((file) => {
+          const index = files.indexOf(file);
           const indicator = getChangeIndicator(file.changeType);
           const isSelected = file.newPath === selectedPath;
           const isFocused = index === focusIndex;
           const isViewed = viewedPaths?.has(file.newPath) ?? false;
+          const isGenerated = generatedPaths?.has(file.newPath) ?? false;
 
           return (
             <div
               key={file.newPath}
-              className={`file-nav-item ${isSelected ? 'selected' : ''} ${isFocused ? 'focused' : ''} ${isViewed ? 'viewed' : ''}`}
+              className={`file-nav-item ${isSelected ? 'selected' : ''} ${isFocused ? 'focused' : ''} ${isViewed ? 'viewed' : ''} ${isGenerated ? 'generated' : ''}`}
               onClick={() => onSelect(file.newPath)}
               role="button"
               tabIndex={0}
@@ -92,7 +117,10 @@ export default function FileNavigation({
                 {indicator.text}
               </span>
               <div className="file-info">
-                <span className="file-name">{getFileName(file.newPath)}</span>
+                <span className="file-name">
+                  {getFileName(file.newPath)}
+                  {isGenerated && <span className="file-generated-label">generated</span>}
+                </span>
                 <span className="file-dir">{getDirectory(file.newPath)}</span>
               </div>
               <div className="file-stats">

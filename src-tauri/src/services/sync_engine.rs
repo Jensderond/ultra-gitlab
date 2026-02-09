@@ -479,6 +479,9 @@ impl SyncEngine {
         // Fetch and cache project titles for any new project IDs
         self.cache_project_titles(instance.id, &client, &mrs).await;
 
+        // Refresh gitattributes cache for projects with MRs (if stale or missing)
+        self.refresh_gitattributes_for_projects(instance.id, &mrs).await;
+
         // Purge merged/closed MRs
         result.purged_count = self.purge_closed_mrs(instance.id, &mrs).await?;
 
@@ -615,7 +618,23 @@ impl SyncEngine {
         // Fetch and store diff
         match client.get_merge_request_diff(mr.project_id, mr.iid).await {
             Ok(diff) => {
+                // Get previously cached SHAs before upserting (for skip-unchanged logic)
+                let prev_shas = crate::db::file_cache::get_cached_diff_shas(&self.pool, mr.id)
+                    .await
+                    .unwrap_or(None);
+
                 self.upsert_diff(mr.id, &diff).await?;
+
+                // Pre-cache full file content for instant viewing
+                self.cache_file_contents(
+                    mr.id,
+                    mr.project_id,
+                    instance_id,
+                    client,
+                    &diff,
+                    prev_shas.as_ref(),
+                )
+                .await;
             }
             Err(e) => {
                 self.log_sync_operation(
@@ -705,6 +724,47 @@ impl SyncEngine {
                 }
                 Err(e) => {
                     log::warn!("Failed to fetch project {}: {}", project_id, e);
+                }
+            }
+        }
+    }
+
+    /// Refresh gitattributes cache for all projects that have MRs in the current sync.
+    ///
+    /// Only refreshes projects whose cache is stale (>24h) or missing.
+    /// Runs alongside MR sync but doesn't block or slow down MR data processing.
+    async fn refresh_gitattributes_for_projects(
+        &self,
+        instance_id: i64,
+        mrs: &[GitLabMergeRequest],
+    ) {
+        // Collect unique project IDs
+        let mut project_ids: Vec<i64> = mrs.iter().map(|mr| mr.project_id).collect();
+        project_ids.sort_unstable();
+        project_ids.dedup();
+
+        for project_id in project_ids {
+            match crate::commands::gitattributes::refresh_gitattributes_if_stale(
+                &self.pool,
+                instance_id,
+                project_id,
+            )
+            .await
+            {
+                Ok(refreshed) => {
+                    if refreshed {
+                        eprintln!(
+                            "[sync] Refreshed gitattributes cache for project {}",
+                            project_id
+                        );
+                    }
+                }
+                Err(e) => {
+                    log::warn!(
+                        "Failed to refresh gitattributes for project {}: {}",
+                        project_id,
+                        e
+                    );
                 }
             }
         }
@@ -876,6 +936,133 @@ impl SyncEngine {
         Ok(())
     }
 
+    /// Pre-cache full file content (base + head) for instant diff viewing.
+    ///
+    /// Iterates over each changed file in the diff, skips binary files,
+    /// and fetches both base and head versions from GitLab. Individual
+    /// file failures are logged but do not fail the entire sync.
+    ///
+    /// If `prev_shas` matches the current diff SHAs, all file fetching is
+    /// skipped entirely. If SHAs changed, only files without an existing
+    /// cached version are fetched.
+    async fn cache_file_contents(
+        &self,
+        mr_id: i64,
+        project_id: i64,
+        instance_id: i64,
+        client: &GitLabClient,
+        diff: &GitLabDiffVersion,
+        prev_shas: Option<&(String, String)>,
+    ) {
+        use sha2::{Sha256, Digest};
+
+        // If base_sha and head_sha are unchanged, skip all file fetching
+        if let Some((prev_base, prev_head)) = prev_shas {
+            if prev_base == &diff.base_commit_sha && prev_head == &diff.head_commit_sha {
+                log::debug!("SHAs unchanged for MR {}, skipping file content fetch", mr_id);
+                return;
+            }
+        }
+
+        let instance_id_str = instance_id.to_string();
+        let mut skipped = 0u32;
+
+        for file_diff in &diff.diffs {
+            // Skip binary files
+            if is_binary_extension(&file_diff.new_path) || is_binary_extension(&file_diff.old_path) {
+                continue;
+            }
+
+            let change_type = if file_diff.new_file {
+                "added"
+            } else if file_diff.deleted_file {
+                "deleted"
+            } else {
+                "modified"
+            };
+
+            // Fetch base version for non-added files
+            if change_type != "added" {
+                // Skip if already cached
+                let has_cached = crate::db::file_cache::has_cached_version(
+                    &self.pool, mr_id, &file_diff.old_path, "base",
+                ).await.unwrap_or(false);
+
+                if has_cached {
+                    skipped += 1;
+                } else {
+                    match client
+                        .get_file_content(project_id, &file_diff.old_path, &diff.base_commit_sha)
+                        .await
+                    {
+                        Ok(content) => {
+                            let mut hasher = Sha256::new();
+                            hasher.update(content.as_bytes());
+                            let sha = format!("{:x}", hasher.finalize());
+                            let size_bytes = content.len() as i64;
+
+                            if let Err(e) = crate::db::file_cache::upsert_file_blob(
+                                &self.pool, &sha, &content, size_bytes,
+                            ).await {
+                                log::warn!("Failed to cache base blob for {}: {}", file_diff.old_path, e);
+                            }
+                            if let Err(e) = crate::db::file_cache::upsert_file_version(
+                                &self.pool, mr_id, &file_diff.old_path, "base", &sha, &instance_id_str, project_id,
+                            ).await {
+                                log::warn!("Failed to cache base version for {}: {}", file_diff.old_path, e);
+                            }
+                        }
+                        Err(e) => {
+                            log::warn!("Failed to fetch base content for {}: {}", file_diff.old_path, e);
+                        }
+                    }
+                }
+            }
+
+            // Fetch head version for non-deleted files
+            if change_type != "deleted" {
+                // Skip if already cached
+                let has_cached = crate::db::file_cache::has_cached_version(
+                    &self.pool, mr_id, &file_diff.new_path, "head",
+                ).await.unwrap_or(false);
+
+                if has_cached {
+                    skipped += 1;
+                } else {
+                    match client
+                        .get_file_content(project_id, &file_diff.new_path, &diff.head_commit_sha)
+                        .await
+                    {
+                        Ok(content) => {
+                            let mut hasher = Sha256::new();
+                            hasher.update(content.as_bytes());
+                            let sha = format!("{:x}", hasher.finalize());
+                            let size_bytes = content.len() as i64;
+
+                            if let Err(e) = crate::db::file_cache::upsert_file_blob(
+                                &self.pool, &sha, &content, size_bytes,
+                            ).await {
+                                log::warn!("Failed to cache head blob for {}: {}", file_diff.new_path, e);
+                            }
+                            if let Err(e) = crate::db::file_cache::upsert_file_version(
+                                &self.pool, mr_id, &file_diff.new_path, "head", &sha, &instance_id_str, project_id,
+                            ).await {
+                                log::warn!("Failed to cache head version for {}: {}", file_diff.new_path, e);
+                            }
+                        }
+                        Err(e) => {
+                            log::warn!("Failed to fetch head content for {}: {}", file_diff.new_path, e);
+                        }
+                    }
+                }
+            }
+        }
+
+        if skipped > 0 {
+            log::debug!("Skipped {} already-cached file versions for MR {}", skipped, mr_id);
+        }
+    }
+
     /// Upsert discussions (comments) into the database.
     async fn upsert_discussions(
         &self,
@@ -950,34 +1137,59 @@ impl SyncEngine {
             .map(|mr| mr.id)
             .collect();
 
-        // Find cached MRs that are no longer open
-        // We delete MRs that:
-        // 1. Belong to this instance
-        // 2. Are NOT in the current open list from GitLab
-        // (Either they were merged/closed, or they no longer match our scope filters)
+        // Find MR IDs that will be purged (to clean up file cache)
+        let purge_ids: Vec<(i64,)> = if open_mr_ids.is_empty() {
+            sqlx::query_as("SELECT id FROM merge_requests WHERE instance_id = ?")
+                .bind(instance_id)
+                .fetch_all(&self.pool)
+                .await?
+        } else {
+            let placeholders: Vec<String> = (0..open_mr_ids.len()).map(|_| "?".to_string()).collect();
+            let query = format!(
+                "SELECT id FROM merge_requests WHERE instance_id = ? AND id NOT IN ({})",
+                placeholders.join(", ")
+            );
+            let mut q = sqlx::query_as(&query).bind(instance_id);
+            for id in &open_mr_ids {
+                q = q.bind(*id);
+            }
+            q.fetch_all(&self.pool).await?
+        };
+
+        // Delete file versions for each purged MR
+        for (mr_id,) in &purge_ids {
+            if let Err(e) = crate::db::file_cache::delete_file_versions_for_mr(&self.pool, *mr_id).await {
+                log::warn!("Failed to delete file versions for MR {}: {}", mr_id, e);
+            }
+        }
+
+        // Delete the MRs themselves
         let result = if open_mr_ids.is_empty() {
-            // If no open MRs, delete all MRs for this instance
             sqlx::query("DELETE FROM merge_requests WHERE instance_id = ?")
                 .bind(instance_id)
                 .execute(&self.pool)
                 .await?
         } else {
-            // Build placeholders for the IN clause
             let placeholders: Vec<String> = (0..open_mr_ids.len()).map(|_| "?".to_string()).collect();
             let query = format!(
                 "DELETE FROM merge_requests WHERE instance_id = ? AND id NOT IN ({})",
                 placeholders.join(", ")
             );
-
             let mut query_builder = sqlx::query(&query).bind(instance_id);
             for id in &open_mr_ids {
                 query_builder = query_builder.bind(*id);
             }
-
             query_builder.execute(&self.pool).await?
         };
 
         let purged = result.rows_affected() as i64;
+
+        // Clean up orphaned blobs after file version deletion
+        if !purge_ids.is_empty() {
+            if let Err(e) = crate::db::file_cache::delete_orphaned_blobs(&self.pool).await {
+                log::warn!("Failed to delete orphaned blobs: {}", e);
+            }
+        }
 
         if purged > 0 {
             self.log_sync_operation(
@@ -1187,6 +1399,24 @@ fn extract_project_path(web_url: &str) -> String {
         }
     }
     String::new()
+}
+
+/// Known binary file extensions to skip during file content caching.
+const BINARY_EXTENSIONS: &[&str] = &[
+    "png", "jpg", "jpeg", "gif", "svg", "ico", "webp", "bmp", "tiff",
+    "mp4", "mp3", "wav", "zip", "tar", "gz", "rar", "7z",
+    "exe", "dll", "so", "dylib",
+    "woff", "woff2", "ttf", "eot",
+    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+];
+
+/// Check if a file path has a known binary extension.
+fn is_binary_extension(path: &str) -> bool {
+    if let Some(ext) = path.rsplit('.').next() {
+        BINARY_EXTENSIONS.contains(&ext.to_lowercase().as_str())
+    } else {
+        false
+    }
 }
 
 /// Parse ISO 8601 timestamp to Unix timestamp.

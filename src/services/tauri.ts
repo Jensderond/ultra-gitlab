@@ -17,6 +17,7 @@ import type {
   DiffFileMetadata,
   DiffHunksResponse,
   DiffRefs,
+  CachedFilePair,
   Comment,
   AddCommentRequest,
   AddCommentResponse,
@@ -216,6 +217,17 @@ export async function getDiffRefs(mrId: number): Promise<DiffRefs> {
   return invoke<DiffRefs>('get_diff_refs', { mrId });
 }
 
+/**
+ * Get cached file content pair (base + head) from local cache.
+ * Returns null values for cache misses, signaling fallback to network fetch.
+ */
+export async function getCachedFilePair(
+  mrId: number,
+  filePath: string
+): Promise<CachedFilePair> {
+  return invoke<CachedFilePair>('get_cached_file_pair', { mrId, filePath });
+}
+
 // ============================================================================
 // Comment Commands
 // ============================================================================
@@ -299,6 +311,32 @@ export async function discardFailedAction(actionId: number): Promise<void> {
 }
 
 // ============================================================================
+// Gitattributes Commands
+// ============================================================================
+
+/**
+ * Get cached gitattributes patterns for a project.
+ * Returns empty array if no cache exists.
+ */
+export async function getGitattributes(
+  instanceId: number,
+  projectId: number
+): Promise<string[]> {
+  return invoke<string[]>('get_gitattributes', { instanceId, projectId });
+}
+
+/**
+ * Fetch .gitattributes from GitLab and update the local cache.
+ * Returns the parsed linguist-generated patterns.
+ */
+export async function refreshGitattributes(
+  instanceId: number,
+  projectId: number
+): Promise<string[]> {
+  return invoke<string[]>('refresh_gitattributes', { instanceId, projectId });
+}
+
+// ============================================================================
 // Settings Commands
 // ============================================================================
 
@@ -314,6 +352,24 @@ export async function getSettings(): Promise<Settings> {
  */
 export async function updateSettings(update: SettingsUpdate): Promise<Settings> {
   return invoke<Settings>('update_settings', { update });
+}
+
+// ============================================================================
+// Collapse Patterns Commands
+// ============================================================================
+
+/**
+ * Get the current collapse patterns for dimming generated files.
+ */
+export async function getCollapsePatterns(): Promise<string[]> {
+  return invoke<string[]>('get_collapse_patterns');
+}
+
+/**
+ * Update collapse patterns.
+ */
+export async function updateCollapsePatterns(patterns: string[]): Promise<void> {
+  return invoke<void>('update_collapse_patterns', { patterns });
 }
 
 // ============================================================================

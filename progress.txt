@@ -12,10 +12,13 @@
 - Use `Path` instead of `PathBuf` for function parameters per Clippy recommendation
 - SQL statements in migrations must be parsed carefully - semicolons inside parentheses (e.g., `strftime('%s', 'now')`) don't end statements
 - All database tests use `tempfile` crate for isolated test databases
+- Settings store uses separate keys per concern (e.g., `sync_config`, `collapse_patterns`) — add new keys for new settings groups
+- AppSettings struct uses `#[serde(rename_all = "camelCase")]` for consistent JSON serialization to frontend
 
 ### Gotchas
 - SQLite doesn't support executing multiple statements in a single query - must split and execute individually
 - When splitting SQL by `;`, need to track parenthesis depth to avoid splitting inside DEFAULT expressions
+- `State<'_, T>` can't be moved into `tokio::spawn` — clone inner value first with `pool.inner().clone()`
 
 ---
 
@@ -1262,5 +1265,134 @@ All 22 user stories completed:
 - US-015, US-019: Navigation and scroll preservation
 - US-016 to US-018: Comment indicators, hover, and input
 - US-020 to US-022: Cleanup and keyboard hints
+
+---
+
+## 2026-02-09 - US-001
+**Workflow**: PRD
+**Feature**: Collapse Generated Files in MR File Tree
+
+### Implemented
+- Created migration 0007_gitattributes_cache.sql with gitattributes_cache table
+- Table has id, instance_id, project_id, patterns (JSON text), fetched_at columns
+- UNIQUE constraint on (instance_id, project_id) for one cache entry per project per instance
+- FK on instance_id to gitlab_instances with ON DELETE CASCADE
+- Registered migration in db/mod.rs MIGRATIONS array
+
+### Files Changed
+- src-tauri/src/db/migrations/0007_gitattributes_cache.sql (new)
+- src-tauri/src/db/mod.rs (added migration entry)
+
+### Learnings for Future Iterations
+- projects table has composite PK (id, instance_id), so simple FK `REFERENCES projects(id)` won't work — omit FK on project_id like file_versions does
+- Migration numbering is sequential: check existing migrations before picking the next number
+- patterns stored as JSON text (TEXT NOT NULL DEFAULT '[]') matching existing pattern of labels/reviewers in merge_requests table
+
+---
+
+## 2026-02-09 - US-002
+**Workflow**: PRD
+**Feature**: Collapse Generated Files in MR File Tree
+
+### Implemented
+- Created `parse_gitattributes(content: &str) -> Vec<String>` function in `services/gitattributes.rs`
+- Parses `.gitattributes` lines for `linguist-generated` and `linguist-generated=true` patterns
+- Ignores `linguist-generated=false` (explicit opt-out), comments, and blank lines
+- 12 unit tests covering all edge cases: typical patterns, negation, comments, blank lines, empty input, multiple attributes, glob syntax, whitespace-only lines
+
+### Files Changed
+- src-tauri/src/services/gitattributes.rs (new)
+- src-tauri/src/services/mod.rs (added gitattributes module)
+
+### Learnings for Future Iterations
+- `.gitattributes` format: `<pattern> <attr1> <attr2>...` with attributes separated by whitespace
+- `linguist-generated` without `=` is equivalent to `linguist-generated=true`
+- Parser uses filter_map + split_whitespace for clean functional approach
+
+---
+
+## 2026-02-09 - US-003
+**Workflow**: PRD
+**Feature**: Collapse Generated Files in MR File Tree
+
+### Implemented
+- Created `get_gitattributes` Tauri command that reads cached patterns from `gitattributes_cache` table, returns empty Vec if no cache exists
+- Created `refresh_gitattributes` Tauri command that fetches `.gitattributes` from GitLab default branch (HEAD), parses with `parse_gitattributes`, and upserts into cache
+- Handles 404 gracefully — empty content from `get_file_content` produces empty patterns via parser
+- Uses `INSERT ... ON CONFLICT DO UPDATE` for upsert with the UNIQUE(instance_id, project_id) constraint
+- Added TypeScript invoke wrappers in `tauri.ts` (`getGitattributes`, `refreshGitattributes`)
+- Added high-level wrappers in `gitlab.ts` (`getGitattributesPatterns`, `refreshGitattributesPatterns`)
+- Registered commands in `commands/mod.rs` and `lib.rs`
+
+### Files Changed
+- src-tauri/src/commands/gitattributes.rs (new)
+- src-tauri/src/commands/mod.rs (added gitattributes module + re-exports)
+- src-tauri/src/lib.rs (imported and registered commands)
+- src/services/tauri.ts (added getGitattributes, refreshGitattributes)
+- src/services/gitlab.ts (added getGitattributesPatterns, refreshGitattributesPatterns)
+- src/services/index.ts (added re-exports)
+
+### Learnings for Future Iterations
+- GitLab Repository Files API uses `ref=HEAD` to fetch from default branch without needing to know the branch name
+- `get_file_content` already returns empty string for 404 — parser handles empty input gracefully, no need for special 404 handling
+- Each command module has its own `create_gitlab_client` helper (same pattern in mr.rs and gitattributes.rs)
+- `bunx tsc --noEmit` requires `bun install` first — node_modules must exist
+
+---
+
+## 2026-02-09 - US-004
+**Workflow**: PRD
+**Feature**: Collapse Generated Files in MR File Tree
+
+### Implemented
+- Added stale-while-revalidate logic to `get_gitattributes` Tauri command
+- Cache freshness check: compares `fetched_at` against 24-hour threshold (STALE_THRESHOLD_SECS)
+- Three behaviors:
+  - Fresh cache (< 24h): return immediately, no refresh
+  - Stale cache (>= 24h): return stale data immediately, spawn `tokio::spawn` background refresh
+  - No cache: fetch synchronously so first call gets data
+- Extracted `refresh_gitattributes_inner(&DbPool, ...)` helper for reuse by both Tauri command and background tasks
+- Renamed `create_gitlab_client` to `create_gitlab_client_from_pool` taking `&DbPool` directly (not `State<>`)
+- Background refresh errors logged via `eprintln!` but don't propagate to frontend
+
+### Files Changed
+- src-tauri/src/commands/gitattributes.rs (stale-while-revalidate logic, refactored helpers)
+- ralph/archive/2026-02-09-approval-immediate-sync/prd.json (marked US-004 passes: true)
+
+### Learnings for Future Iterations
+- `State<'_, T>` can't be moved into `tokio::spawn` — use `pool.inner().clone()` to get an owned `DbPool`
+- Separate inner functions (taking `&DbPool`) from Tauri commands (taking `State<>`) for reuse in background tasks
+- `chrono::Utc::now().timestamp()` returns Unix seconds as i64 — compare directly with stored `fetched_at`
+
+---
+
+## 2026-02-09 - US-005
+**Workflow**: PRD
+**Feature**: Collapse Generated Files in MR File Tree
+
+### Implemented
+- Extended `AppSettings` struct with `collapse_patterns: Vec<String>` field
+- Added sensible defaults: `*.lock`, `*-lock.json`, `*.min.js`, `*.min.css`, `*.map`, `*.generated.*`, `package-lock.json`, `bun.lockb`, `yarn.lock`, `pnpm-lock.yaml`, `Cargo.lock`
+- Added `COLLAPSE_PATTERNS_KEY` store key for persistence via tauri-plugin-store
+- Load/save collapse patterns in `load_settings` / `save_settings` alongside sync config
+- Added dedicated `get_collapse_patterns` and `update_collapse_patterns` Tauri commands
+- Added TypeScript invoke wrappers (`getCollapsePatterns`, `updateCollapsePatterns`) in tauri.ts
+- Added `collapsePatterns: string[]` to TypeScript `Settings` interface
+- Exported new functions from services/index.ts
+- Registered commands in commands/mod.rs and lib.rs generate_handler
+
+### Files Changed
+- src-tauri/src/commands/settings.rs (extended AppSettings, added collapse commands)
+- src-tauri/src/commands/mod.rs (added re-exports)
+- src-tauri/src/lib.rs (imported and registered new commands)
+- src/types/index.ts (added collapsePatterns to Settings)
+- src/services/tauri.ts (added getCollapsePatterns, updateCollapsePatterns)
+- src/services/index.ts (added re-exports)
+- ralph/archive/2026-02-09-approval-immediate-sync/prd.json (marked US-005 passes: true)
+
+### Learnings for Future Iterations
+- AppSettings uses `serde(rename_all = "camelCase")` — added to struct for consistent JSON serialization
+- Settings store uses separate keys per concern (SYNC_CONFIG_KEY, COLLAPSE_PATTERNS_KEY) — keeps entries independent
+- Convenience commands pattern: dedicated get/update commands that wrap load_settings + modify + save_settings
 
 ---

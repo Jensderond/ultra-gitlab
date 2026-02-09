@@ -5,6 +5,7 @@
 //! - Schema migrations
 //! - Query helpers
 
+pub mod file_cache;
 pub mod pool;
 
 use std::path::{Path, PathBuf};
@@ -61,6 +62,8 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("0003_add_user_has_approved", include_str!("migrations/0003_add_user_has_approved.sql")),
     ("0004_add_project_name", include_str!("migrations/0004_add_project_name.sql")),
     ("0005_create_projects_table", include_str!("migrations/0005_create_projects_table.sql")),
+    ("0006_file_content_cache", include_str!("migrations/0006_file_content_cache.sql")),
+    ("0007_gitattributes_cache", include_str!("migrations/0007_gitattributes_cache.sql")),
 ];
 
 /// Run all pending database migrations.

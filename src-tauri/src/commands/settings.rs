@@ -17,17 +17,41 @@ const SETTINGS_STORE: &str = "settings.json";
 /// Key for sync config in the store.
 const SYNC_CONFIG_KEY: &str = "sync_config";
 
+/// Key for collapse patterns in the store.
+const COLLAPSE_PATTERNS_KEY: &str = "collapse_patterns";
+
+/// Default glob patterns for identifying generated/lock files.
+fn default_collapse_patterns() -> Vec<String> {
+    vec![
+        "*.lock".to_string(),
+        "*-lock.json".to_string(),
+        "*.min.js".to_string(),
+        "*.min.css".to_string(),
+        "*.map".to_string(),
+        "*.generated.*".to_string(),
+        "package-lock.json".to_string(),
+        "bun.lockb".to_string(),
+        "yarn.lock".to_string(),
+        "pnpm-lock.yaml".to_string(),
+        "Cargo.lock".to_string(),
+    ]
+}
+
 /// Application settings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AppSettings {
     /// Sync configuration.
     pub sync: SyncConfig,
+    /// Glob patterns for collapsing generated files in the file tree.
+    pub collapse_patterns: Vec<String>,
 }
 
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
             sync: SyncConfig::default(),
+            collapse_patterns: default_collapse_patterns(),
         }
     }
 }
@@ -52,7 +76,13 @@ async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppError> {
         None => SyncConfig::default(),
     };
 
-    Ok(AppSettings { sync })
+    // Try to load collapse patterns
+    let collapse_patterns = match store.get(COLLAPSE_PATTERNS_KEY) {
+        Some(value) => serde_json::from_value(value.clone()).unwrap_or_else(|_| default_collapse_patterns()),
+        None => default_collapse_patterns(),
+    };
+
+    Ok(AppSettings { sync, collapse_patterns })
 }
 
 /// Save settings to store.
@@ -64,6 +94,10 @@ async fn save_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), Ap
     // Save sync config
     let sync_value = serde_json::to_value(&settings.sync)?;
     store.set(SYNC_CONFIG_KEY, sync_value);
+
+    // Save collapse patterns
+    let collapse_value = serde_json::to_value(&settings.collapse_patterns)?;
+    store.set(COLLAPSE_PATTERNS_KEY, collapse_value);
 
     // Persist to disk
     store
@@ -141,6 +175,36 @@ pub async fn update_sync_settings(
     Ok(())
 }
 
+/// Get the current collapse patterns.
+///
+/// Convenience method that returns just the collapse patterns.
+///
+/// # Returns
+/// Current collapse patterns
+#[tauri::command]
+pub async fn get_collapse_patterns(app: AppHandle) -> Result<Vec<String>, AppError> {
+    let settings = get_settings(app).await?;
+    Ok(settings.collapse_patterns)
+}
+
+/// Update the collapse patterns.
+///
+/// Convenience method that updates just the collapse patterns.
+///
+/// # Arguments
+/// * `patterns` - New list of glob patterns
+#[tauri::command]
+pub async fn update_collapse_patterns(
+    app: AppHandle,
+    patterns: Vec<String>,
+) -> Result<(), AppError> {
+    let mut settings = load_settings(&app).await?;
+    settings.collapse_patterns = patterns;
+    save_settings(&app, &settings).await?;
+    *settings_cache().write().await = settings;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -151,5 +215,14 @@ mod tests {
         assert!(!settings.sync.sync_authored); // Don't sync own MRs by default
         assert!(settings.sync.sync_reviewing);
         assert_eq!(settings.sync.interval_secs, 300);
+    }
+
+    #[test]
+    fn test_default_collapse_patterns() {
+        let settings = AppSettings::default();
+        assert!(!settings.collapse_patterns.is_empty());
+        assert!(settings.collapse_patterns.contains(&"*.lock".to_string()));
+        assert!(settings.collapse_patterns.contains(&"package-lock.json".to_string()));
+        assert!(settings.collapse_patterns.contains(&"Cargo.lock".to_string()));
     }
 }

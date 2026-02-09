@@ -4,7 +4,7 @@
  * Displays a merge request with file navigation and Monaco diff viewer.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { FileNavigation } from '../components/DiffViewer';
@@ -13,8 +13,9 @@ import type { editor } from 'monaco-editor';
 import { ImageDiffViewer } from '../components/Monaco/ImageDiffViewer';
 import { isImageFile, getImageMimeType } from '../components/Monaco/languageDetection';
 import { ApprovalButton, type ApprovalButtonRef } from '../components/Approval';
-import { getMergeRequestById, getMergeRequestFiles, getDiffRefs, getFileContent, getFileContentBase64 } from '../services/gitlab';
-import { invoke } from '../services/tauri';
+import { getMergeRequestById, getMergeRequestFiles, getDiffRefs, getFileContent, getFileContentBase64, getCachedFilePair, getGitattributesPatterns } from '../services/gitlab';
+import { invoke, getCollapsePatterns } from '../services/tauri';
+import { classifyFiles } from '../utils/classifyFiles';
 import type { MergeRequest, DiffFileSummary, DiffRefs, Comment, AddCommentRequest } from '../types';
 import './MRDetailPage.css';
 
@@ -35,6 +36,8 @@ export default function MRDetailPage() {
   const [viewMode, setViewMode] = useState<'unified' | 'split'>('unified');
   const [collapseState, setCollapseState] = useState<'collapsed' | 'expanded' | 'partial'>('collapsed');
   const [viewedPaths, setViewedPaths] = useState<Set<string>>(new Set());
+  const [generatedPaths, setGeneratedPaths] = useState<Set<string>>(new Set());
+  const [hideGenerated, setHideGenerated] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,9 +99,21 @@ export default function MRDetailPage() {
 
         setFiles(summaries);
 
-        // Auto-select first file if available
-        if (summaries.length > 0 && !selectedFile) {
-          setSelectedFile(summaries[0].newPath);
+        // Fetch gitattributes and user collapse patterns for file classification
+        const [gitattributes, userPatterns] = await Promise.all([
+          getGitattributesPatterns(mrData.instanceId, mrData.projectId).catch(() => []),
+          getCollapsePatterns().catch(() => []),
+        ]);
+
+        const { reviewable, generated } = classifyFiles(summaries, gitattributes, userPatterns);
+        setGeneratedPaths(generated);
+
+        // Auto-select first reviewable file (skip generated files)
+        if (!selectedFile && reviewable.length > 0) {
+          const firstReviewable = reviewable[0];
+          setSelectedFile(firstReviewable.newPath);
+          const fullIndex = summaries.findIndex((f) => f.newPath === firstReviewable.newPath);
+          if (fullIndex >= 0) setFileFocusIndex(fullIndex);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load merge request');
@@ -174,23 +189,38 @@ export default function MRDetailPage() {
           setOriginalContent('');
           setModifiedContent('');
         } else {
-          // Fetch original and modified content in parallel
-          const [original, modified] = await Promise.all([
-            // Original content (at base SHA) - empty for new files
-            isNewFile
-              ? Promise.resolve('')
-              : getFileContent(mr.instanceId, mr.projectId, oldPath, diffRefs.baseSha).catch(() => ''),
-            // Modified content (at head SHA) - empty for deleted files
-            isDeletedFile
-              ? Promise.resolve('')
-              : getFileContent(mr.instanceId, mr.projectId, selectedFile, diffRefs.headSha).catch(() => ''),
-          ]);
+          // Try loading from cache first for instant rendering
+          const cached = await getCachedFilePair(mrId, selectedFile).catch(() => null);
 
-          setOriginalContent(original);
-          setModifiedContent(modified);
-          // Clear image content
-          setOriginalImageBase64('');
-          setModifiedImageBase64('');
+          const needBase = !isNewFile;
+          const needHead = !isDeletedFile;
+          const cacheHit =
+            (!needBase || cached?.baseContent !== null) &&
+            (!needHead || cached?.headContent !== null);
+
+          if (cached && cacheHit) {
+            // Cache hit — render immediately without loading state
+            setOriginalContent(needBase ? (cached.baseContent ?? '') : '');
+            setModifiedContent(needHead ? (cached.headContent ?? '') : '');
+            setOriginalImageBase64('');
+            setModifiedImageBase64('');
+            setFileContentLoading(false);
+          } else {
+            // Cache miss — fall back to network fetch
+            const [original, modified] = await Promise.all([
+              isNewFile
+                ? Promise.resolve('')
+                : getFileContent(mr.instanceId, mr.projectId, oldPath, diffRefs.baseSha).catch(() => ''),
+              isDeletedFile
+                ? Promise.resolve('')
+                : getFileContent(mr.instanceId, mr.projectId, selectedFile, diffRefs.headSha).catch(() => ''),
+            ]);
+
+            setOriginalContent(original);
+            setModifiedContent(modified);
+            setOriginalImageBase64('');
+            setModifiedImageBase64('');
+          }
         }
       } catch (err) {
         setFileContentError(err instanceof Error ? err.message : 'Failed to load file content');
@@ -279,16 +309,42 @@ export default function MRDetailPage() {
     setCollapseState('expanded');
   }, []);
 
-  // Navigate to next/previous file
+  // Reviewable files for keyboard navigation (excludes generated files)
+  const reviewableFiles = useMemo(
+    () => files.filter((f) => !generatedPaths.has(f.newPath)),
+    [files, generatedPaths]
+  );
+
+  // Navigate to next/previous reviewable file
   const navigateFile = useCallback(
     (direction: 1 | -1) => {
-      const newIndex = fileFocusIndex + direction;
-      if (newIndex >= 0 && newIndex < files.length) {
-        setFileFocusIndex(newIndex);
-        setSelectedFile(files[newIndex].newPath);
+      if (reviewableFiles.length === 0) return;
+
+      // Find current position in reviewable list
+      const currentReviewableIndex = reviewableFiles.findIndex(
+        (f) => f.newPath === selectedFile
+      );
+
+      let nextReviewableIndex: number;
+      if (currentReviewableIndex === -1) {
+        // Current file is generated or none selected — go to first/last reviewable
+        nextReviewableIndex = direction === 1 ? 0 : reviewableFiles.length - 1;
+      } else {
+        nextReviewableIndex = currentReviewableIndex + direction;
+        // Wrap around
+        if (nextReviewableIndex < 0) nextReviewableIndex = reviewableFiles.length - 1;
+        if (nextReviewableIndex >= reviewableFiles.length) nextReviewableIndex = 0;
       }
+
+      const nextFile = reviewableFiles[nextReviewableIndex];
+      // Update focus index in the full file list for FileNavigation visual focus
+      const fullIndex = files.findIndex((f) => f.newPath === nextFile.newPath);
+      if (fullIndex >= 0) {
+        setFileFocusIndex(fullIndex);
+      }
+      setSelectedFile(nextFile.newPath);
     },
-    [fileFocusIndex, files]
+    [reviewableFiles, files, selectedFile]
   );
 
   // Mark current file as viewed and go to next file
@@ -389,6 +445,11 @@ export default function MRDetailPage() {
           e.preventDefault();
           markViewedAndNext();
           break;
+        case 'g':
+          // Toggle generated files visibility in file tree
+          e.preventDefault();
+          setHideGenerated((prev) => !prev);
+          break;
         case 'c':
           // Open comment input at current line
           e.preventDefault();
@@ -482,6 +543,9 @@ export default function MRDetailPage() {
             onSelect={handleFileSelect}
             focusIndex={fileFocusIndex}
             viewedPaths={viewedPaths}
+            generatedPaths={generatedPaths}
+            hideGenerated={hideGenerated}
+            onToggleHideGenerated={() => setHideGenerated((prev) => !prev)}
           />
         </aside>
 
@@ -535,6 +599,12 @@ export default function MRDetailPage() {
                 />
               </>
             )
+          ) : files.length > 0 && reviewableFiles.length === 0 ? (
+            <div className="all-generated-empty-state">
+              <div className="all-generated-icon">~</div>
+              <p className="all-generated-message">Nothing to see here &mdash; the robots wrote all of this.</p>
+              <p className="all-generated-hint">Click any file in the sidebar to peek anyway.</p>
+            </div>
           ) : (
             <div className="no-file-selected">
               Select a file to view its diff
@@ -601,6 +671,7 @@ export default function MRDetailPage() {
           <kbd>x</kbd> split/unified &middot;{' '}
           <kbd>a</kbd> approve &middot;{' '}
           <kbd>c</kbd> comment &middot;{' '}
+          <kbd>g</kbd> generated &middot;{' '}
           <kbd>o</kbd> open &middot;{' '}
           <kbd>⌘F</kbd> find &middot;{' '}
           <kbd>?</kbd> help

@@ -1,0 +1,121 @@
+{
+  "project": "Ultra GitLab",
+  "branchName": "ralph/full-file-caching",
+  "description": "Full File Content Caching - Pre-cache full file content (base + head) during background sync so file viewing in the Monaco diff viewer is instant (<100ms) with no network requests",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create file content cache database schema",
+      "description": "As a developer, I need database tables to store cached file content so that full file versions persist across sessions.",
+      "acceptanceCriteria": [
+        "Create migration file following existing pattern in src-tauri/migrations/ (e.g., 0007_file_content_cache.sql)",
+        "Create a `file_blobs` table with columns: `sha` (TEXT PRIMARY KEY), `content` (TEXT NOT NULL), `size_bytes` (INTEGER NOT NULL), `cached_at` (INTEGER NOT NULL)",
+        "Create a `file_versions` table with columns: `id` (INTEGER PRIMARY KEY AUTOINCREMENT), `mr_id` (INTEGER NOT NULL), `file_path` (TEXT NOT NULL), `version_type` (TEXT NOT NULL CHECK(version_type IN ('base', 'head'))), `sha` (TEXT NOT NULL REFERENCES file_blobs(sha)), `instance_id` (TEXT NOT NULL), `project_id` (INTEGER NOT NULL)",
+        "Add unique constraint on file_versions(mr_id, file_path, version_type) to prevent duplicates",
+        "Add index idx_file_versions_mr on file_versions(mr_id) for efficient lookup",
+        "Typecheck passes (cargo check)"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add Rust models and DB query functions for file content cache",
+      "description": "As a developer, I need Rust structs and database query functions so the sync engine and commands can read/write cached file content.",
+      "acceptanceCriteria": [
+        "Create a new file src-tauri/src/db/file_cache.rs with all file cache DB functions",
+        "Add the module to src-tauri/src/db/mod.rs",
+        "Implement upsert_file_blob(pool, sha, content, size_bytes) — INSERT OR IGNORE (deduplication by SHA primary key)",
+        "Implement upsert_file_version(pool, mr_id, file_path, version_type, sha, instance_id, project_id) — INSERT OR REPLACE using the unique constraint",
+        "Implement get_cached_file_content(pool, mr_id, file_path, version_type) -> Result<Option<String>> — joins file_versions + file_blobs to return content",
+        "Implement get_cached_file_pair(pool, mr_id, file_path) -> Result<(Option<String>, Option<String>)> — returns (base_content, head_content) in one call",
+        "Implement delete_file_versions_for_mr(pool, mr_id) — deletes all file_versions rows for a given MR",
+        "Implement delete_orphaned_blobs(pool) — DELETE FROM file_blobs WHERE sha NOT IN (SELECT sha FROM file_versions)",
+        "Typecheck passes (cargo check)"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Pre-fetch file content during background sync",
+      "description": "As a user, I want all changed text files to be pre-downloaded during background sync so they're ready when I open an MR.",
+      "acceptanceCriteria": [
+        "In sync_engine.rs sync_mr(), after the existing upsert_diff() call, add a new step to fetch and cache file content",
+        "Iterate over each diff_file entry from the diff version response",
+        "Skip binary files by checking file extension against a list of known binary extensions (png, jpg, jpeg, gif, svg, ico, webp, bmp, tiff, mp4, mp3, wav, zip, tar, gz, rar, 7z, exe, dll, so, dylib, woff, woff2, ttf, eot, pdf, doc, docx, xls, xlsx, ppt, pptx)",
+        "For non-added files (change_type != 'added'): fetch base version via client.get_file_content(project_id, old_path, base_sha), compute SHA-256 of content, store via upsert_file_blob and upsert_file_version with version_type='base'",
+        "For non-deleted files (change_type != 'deleted'): fetch head version via client.get_file_content(project_id, new_path, head_sha), compute SHA-256 of content, store via upsert_file_blob and upsert_file_version with version_type='head'",
+        "Individual file fetch failures log a warning with the file path but do NOT fail the entire MR sync — continue with remaining files",
+        "Typecheck passes (cargo check)"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Add Tauri command to serve cached file pairs",
+      "description": "As a user, I want file content to load instantly from cache when I select a file in the diff viewer.",
+      "acceptanceCriteria": [
+        "Add a new Tauri command get_cached_file_pair(mr_id: i64, file_path: String) in src-tauri/src/commands/mr.rs",
+        "The command calls db::file_cache::get_cached_file_pair() and returns a CachedFilePair struct with optional base_content and head_content fields",
+        "Create CachedFilePair response struct with #[serde(rename_all = \"camelCase\")] containing base_content: Option<String> and head_content: Option<String>",
+        "Register the command in src-tauri/src/commands/mod.rs (re-export) and src-tauri/src/lib.rs (generate_handler!)",
+        "If no cached content exists for either version, the corresponding field is None (null in JSON) — this signals a cache miss to the frontend",
+        "Typecheck passes (cargo check)"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Update frontend to use cached file loading",
+      "description": "As a user, I want the MR detail page to load files from cache so I see instant file switching with no loading spinners.",
+      "acceptanceCriteria": [
+        "Add getCachedFilePair invoke wrapper in src/services/tauri.ts that calls the get_cached_file_pair Tauri command",
+        "Add CachedFilePair TypeScript type in src/types/index.ts with baseContent: string | null and headContent: string | null",
+        "Export getCachedFilePair from src/services/gitlab.ts and src/services/index.ts",
+        "Update MRDetailPage.tsx file selection handler: first call getCachedFilePair(mrId, filePath)",
+        "If both base and head content are returned (non-null for the versions needed): render Monaco immediately without loading state",
+        "If cache miss (either value is null when it shouldn't be): fall back to existing getFileContent() calls with the current loading indicator",
+        "Typecheck passes (bunx tsc --noEmit)"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Purge cached file content with MR cleanup",
+      "description": "As a developer, I need cached file content to be cleaned up when MRs are purged so the database doesn't grow unbounded.",
+      "acceptanceCriteria": [
+        "In sync_engine.rs purge_closed_mrs(), after deleting MR data, also call delete_file_versions_for_mr() for each purged MR ID",
+        "After all file versions are deleted, call delete_orphaned_blobs() once to clean up unreferenced blobs",
+        "Update get_cache_size() in db to include file_blobs and file_versions tables in the size calculation (query page_count * page_size or sum of size_bytes from file_blobs)",
+        "Typecheck passes (cargo check)"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Skip re-fetching unchanged files on subsequent syncs",
+      "description": "As a developer, I want the sync to skip files that are already cached so we don't waste bandwidth or API calls.",
+      "acceptanceCriteria": [
+        "Before fetching file content during sync in sync_mr(), compare the current diff's base_sha and head_sha against the previously cached values from the diffs table",
+        "If base_sha and head_sha are unchanged since the last sync, skip all file content fetching for that MR entirely",
+        "If SHAs changed (new commits pushed), check each file_version entry — only fetch files where no cached version exists for the current SHA",
+        "Log the number of skipped files at debug level for observability",
+        "Typecheck passes (cargo check)"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

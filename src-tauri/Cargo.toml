@@ -69,6 +69,9 @@ urlencoding = "2"
 # Base64 Encoding
 base64 = "0.22"
 
+# Hashing (SHA-256 for file content dedup)
+sha2 = "0.10"
+
 # Secure Credential Storage (OS keychain)
 keyring = "3"
 
