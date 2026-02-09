@@ -58,3 +58,15 @@
   - Auth errors from sync_instance already propagate with instance info via `authentication_expired_for_instance()` constructor
   - The error handler in run_sync's instance loop already skips failed instances and continues
 ---
+
+## 2026-02-09 - US-006
+- What was implemented: Auto-refresh frontend components on sync events
+- Files changed:
+  - `src/components/MRList/MRList.tsx`: Added `listen` import from `@tauri-apps/api/event`. Added debounced (500ms) mr-updated event listener that triggers `loadMRs(true)` for background refresh.
+  - `src/pages/MRDetailPage.tsx`: Added `listen` import. Added mr-updated event listener that re-fetches MR data, files, and diff refs when the event matches the currently viewed MR ID.
+  - `src/hooks/useSyncStatus.ts`: No changes needed - already handles sync-progress (isSyncing, lastSyncTime, lastSyncMrCount, error), action-synced (fetchStatus for counts), and mr-updated (newMrsCount tracking)
+- **Learnings for future iterations:**
+  - MRList debounce pattern: clear timer on each event, only fire loadMRs after 500ms quiet period — handles bursts of 50-100+ events efficiently
+  - MRDetailPage filters events by `event.payload.mr_id !== mrId` to only re-fetch when the current MR is updated
+  - `listen()` returns a Promise<UnlistenFn> — must use `.then()` pattern since it can't go in useEffect's synchronous body
+---

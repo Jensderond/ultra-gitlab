@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { FileNavigation } from '../components/DiffViewer';
 import { MonacoDiffViewer, type MonacoDiffViewerRef, type LineComment, type CursorPosition } from '../components/Monaco/MonacoDiffViewer';
@@ -122,6 +123,47 @@ export default function MRDetailPage() {
       }
     }
     loadData();
+  }, [mrId]);
+
+  // Re-fetch MR data when mr-updated event matches the current MR
+  useEffect(() => {
+    if (!mrId) return;
+
+    let unlisten: UnlistenFn | undefined;
+    listen<{ mr_id: number; update_type: string; instance_id: number; iid: number }>(
+      'mr-updated',
+      async (event) => {
+        if (event.payload.mr_id !== mrId) return;
+
+        try {
+          const [mrData, filesData, diffRefsData] = await Promise.all([
+            getMergeRequestById(mrId),
+            getMergeRequestFiles(mrId),
+            getDiffRefs(mrId).catch(() => null),
+          ]);
+
+          setMr(mrData);
+          setDiffRefs(diffRefsData);
+
+          const summaries: DiffFileSummary[] = filesData.map((f) => ({
+            newPath: f.newPath,
+            oldPath: f.oldPath,
+            changeType: f.changeType,
+            additions: f.additions,
+            deletions: f.deletions,
+          }));
+          setFiles(summaries);
+        } catch (err) {
+          console.warn('Failed to refresh MR data on event:', err);
+        }
+      }
+    ).then((fn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      unlisten?.();
+    };
   }, [mrId]);
 
   // Handle file selection with view state preservation

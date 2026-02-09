@@ -102,7 +102,7 @@
         "Typecheck passes (bunx tsc --noEmit)"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

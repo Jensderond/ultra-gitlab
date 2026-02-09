@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { listMergeRequests } from '../../services/gitlab';
 import type { MergeRequest } from '../../types';
 import MRListItem from './MRListItem';
@@ -144,6 +145,29 @@ export default function MRList({
     }, AUTO_REFRESH_INTERVAL);
 
     return () => clearInterval(intervalId);
+  }, [loadMRs]);
+
+  // Re-fetch on mr-updated events (debounced at 500ms to handle bursts)
+  useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let unlisten: UnlistenFn | undefined;
+
+    listen<{ mr_id: number; update_type: string; instance_id: number; iid: number }>(
+      'mr-updated',
+      () => {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          loadMRs(true);
+        }, 500);
+      }
+    ).then((fn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      unlisten?.();
+    };
   }, [loadMRs]);
 
   // Update displayed sync time every 10 seconds
