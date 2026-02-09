@@ -616,6 +616,16 @@ impl SyncEngine {
         match client.get_merge_request_diff(mr.project_id, mr.iid).await {
             Ok(diff) => {
                 self.upsert_diff(mr.id, &diff).await?;
+
+                // Pre-cache full file content for instant viewing
+                self.cache_file_contents(
+                    mr.id,
+                    mr.project_id,
+                    instance_id,
+                    client,
+                    &diff,
+                )
+                .await;
             }
             Err(e) => {
                 self.log_sync_operation(
@@ -874,6 +884,97 @@ impl SyncEngine {
         }
 
         Ok(())
+    }
+
+    /// Pre-cache full file content (base + head) for instant diff viewing.
+    ///
+    /// Iterates over each changed file in the diff, skips binary files,
+    /// and fetches both base and head versions from GitLab. Individual
+    /// file failures are logged but do not fail the entire sync.
+    async fn cache_file_contents(
+        &self,
+        mr_id: i64,
+        project_id: i64,
+        instance_id: i64,
+        client: &GitLabClient,
+        diff: &GitLabDiffVersion,
+    ) {
+        use sha2::{Sha256, Digest};
+
+        let instance_id_str = instance_id.to_string();
+
+        for file_diff in &diff.diffs {
+            // Skip binary files
+            if is_binary_extension(&file_diff.new_path) || is_binary_extension(&file_diff.old_path) {
+                continue;
+            }
+
+            let change_type = if file_diff.new_file {
+                "added"
+            } else if file_diff.deleted_file {
+                "deleted"
+            } else {
+                "modified"
+            };
+
+            // Fetch base version for non-added files
+            if change_type != "added" {
+                match client
+                    .get_file_content(project_id, &file_diff.old_path, &diff.base_commit_sha)
+                    .await
+                {
+                    Ok(content) => {
+                        let mut hasher = Sha256::new();
+                        hasher.update(content.as_bytes());
+                        let sha = format!("{:x}", hasher.finalize());
+                        let size_bytes = content.len() as i64;
+
+                        if let Err(e) = crate::db::file_cache::upsert_file_blob(
+                            &self.pool, &sha, &content, size_bytes,
+                        ).await {
+                            log::warn!("Failed to cache base blob for {}: {}", file_diff.old_path, e);
+                        }
+                        if let Err(e) = crate::db::file_cache::upsert_file_version(
+                            &self.pool, mr_id, &file_diff.old_path, "base", &sha, &instance_id_str, project_id,
+                        ).await {
+                            log::warn!("Failed to cache base version for {}: {}", file_diff.old_path, e);
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to fetch base content for {}: {}", file_diff.old_path, e);
+                    }
+                }
+            }
+
+            // Fetch head version for non-deleted files
+            if change_type != "deleted" {
+                match client
+                    .get_file_content(project_id, &file_diff.new_path, &diff.head_commit_sha)
+                    .await
+                {
+                    Ok(content) => {
+                        let mut hasher = Sha256::new();
+                        hasher.update(content.as_bytes());
+                        let sha = format!("{:x}", hasher.finalize());
+                        let size_bytes = content.len() as i64;
+
+                        if let Err(e) = crate::db::file_cache::upsert_file_blob(
+                            &self.pool, &sha, &content, size_bytes,
+                        ).await {
+                            log::warn!("Failed to cache head blob for {}: {}", file_diff.new_path, e);
+                        }
+                        if let Err(e) = crate::db::file_cache::upsert_file_version(
+                            &self.pool, mr_id, &file_diff.new_path, "head", &sha, &instance_id_str, project_id,
+                        ).await {
+                            log::warn!("Failed to cache head version for {}: {}", file_diff.new_path, e);
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to fetch head content for {}: {}", file_diff.new_path, e);
+                    }
+                }
+            }
+        }
     }
 
     /// Upsert discussions (comments) into the database.
@@ -1187,6 +1288,24 @@ fn extract_project_path(web_url: &str) -> String {
         }
     }
     String::new()
+}
+
+/// Known binary file extensions to skip during file content caching.
+const BINARY_EXTENSIONS: &[&str] = &[
+    "png", "jpg", "jpeg", "gif", "svg", "ico", "webp", "bmp", "tiff",
+    "mp4", "mp3", "wav", "zip", "tar", "gz", "rar", "7z",
+    "exe", "dll", "so", "dylib",
+    "woff", "woff2", "ttf", "eot",
+    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+];
+
+/// Check if a file path has a known binary extension.
+fn is_binary_extension(path: &str) -> bool {
+    if let Some(ext) = path.rsplit('.').next() {
+        BINARY_EXTENSIONS.contains(&ext.to_lowercase().as_str())
+    } else {
+        false
+    }
 }
 
 /// Parse ISO 8601 timestamp to Unix timestamp.
