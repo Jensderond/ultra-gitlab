@@ -5,6 +5,7 @@
 //!
 //! Services are designed to be testable and independent of Tauri-specific code.
 
+pub mod gitattributes;
 pub mod gitlab_client;
 pub mod highlighter;
 pub mod sync_engine;
