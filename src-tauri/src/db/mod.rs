@@ -5,6 +5,7 @@
 //! - Schema migrations
 //! - Query helpers
 
+pub mod file_cache;
 pub mod pool;
 
 use std::path::{Path, PathBuf};
