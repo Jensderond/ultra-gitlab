@@ -17,8 +17,8 @@ use crate::services::gitlab_client::{
 use crate::models::project::{self, Project};
 use crate::models::sync_action::ActionType;
 use crate::services::sync_events::{
-    MrUpdatedPayload, MrUpdateType, SyncProgressPayload, SyncPhase,
-    MR_UPDATED_EVENT, SYNC_PROGRESS_EVENT,
+    ActionSyncedPayload, MrUpdatedPayload, MrUpdateType, SyncProgressPayload, SyncPhase,
+    ACTION_SYNCED_EVENT, MR_UPDATED_EVENT, SYNC_PROGRESS_EVENT,
 };
 use crate::services::sync_processor::{self, ProcessResult};
 use crate::services::sync_queue;
@@ -582,6 +582,21 @@ impl SyncEngine {
             .count() as i64;
 
         for push_result in &push_results {
+            // Emit action-synced event for each processed action
+            if let Err(e) = self.app_handle.emit(
+                ACTION_SYNCED_EVENT,
+                ActionSyncedPayload {
+                    action_id: push_result.action.id,
+                    action_type: push_result.action.action_type.clone(),
+                    success: push_result.success,
+                    error: push_result.error.clone(),
+                    mr_id: push_result.action.mr_id,
+                    local_reference_id: push_result.action.local_reference_id,
+                },
+            ) {
+                log::warn!("Failed to emit action-synced event: {}", e);
+            }
+
             if !push_result.success {
                 if let Some(err) = &push_result.error {
                     result.errors.push(format!("Action {}: {}", push_result.action.id, err));
@@ -1409,6 +1424,22 @@ impl SyncEngine {
             };
 
             let result = sync_processor::process_action(&client, &self.pool, action).await;
+
+            // Emit action-synced event
+            if let Err(e) = self.app_handle.emit(
+                ACTION_SYNCED_EVENT,
+                ActionSyncedPayload {
+                    action_id: action.id,
+                    action_type: action.action_type.clone(),
+                    success: result.success,
+                    error: result.error.clone(),
+                    mr_id: action.mr_id,
+                    local_reference_id: action.local_reference_id,
+                },
+            ) {
+                log::warn!("Failed to emit action-synced event: {}", e);
+            }
+
             if result.success {
                 eprintln!("[sync] Flushed approval action {} successfully", action.id);
             } else if let Some(err) = &result.error {

@@ -39,3 +39,12 @@
   - purge_closed_mrs needed `iid` in addition to `id` for the MrUpdatedPayload - changed to `(i64, i64)` tuple
   - emit_mr_updated() helper keeps calls clean: just pass mr_id, instance_id, iid, update_type
 ---
+
+## 2026-02-09 - US-004
+- What was implemented: Added action-synced event emissions during push_pending_actions and flush_approval_actions
+- Files changed:
+  - `src-tauri/src/services/sync_engine.rs`: Imported ActionSyncedPayload/ACTION_SYNCED_EVENT. Emit action-synced events after each action in push_pending_actions results loop and after each flush_approval_actions process_action call.
+- **Learnings for future iterations:**
+  - ProcessResult has `action: SyncAction` which has id, mr_id, action_type, local_reference_id - all needed for ActionSyncedPayload
+  - Both push_pending_actions (in sync_instance) and flush_approval_actions (FlushApprovals command) need action-synced events for consistency
+---
