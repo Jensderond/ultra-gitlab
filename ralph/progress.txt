@@ -29,3 +29,13 @@
   - Complete/failed events need special handling (processed/total/is_error fields) so they use direct emit calls
   - All event emissions use log::warn on failure, never abort sync
 ---
+
+## 2026-02-09 - US-003
+- What was implemented: Added mr-updated event emissions at each sync phase per MR
+- Files changed:
+  - `src-tauri/src/services/sync_engine.rs`: Added emit_mr_updated() helper, imported MrUpdatedPayload/MrUpdateType/MR_UPDATED_EVENT. Emit events for: created (new MR first insert), updated (existing MR metadata change), diff_updated (after diff upsert), comments_updated (after discussions upsert), purged (for each MR removed from cache). Changed purge query to SELECT id,iid for event payload.
+- **Learnings for future iterations:**
+  - To determine created vs updated: query `SELECT id FROM merge_requests WHERE id = ?` before upsert
+  - purge_closed_mrs needed `iid` in addition to `id` for the MrUpdatedPayload - changed to `(i64, i64)` tuple
+  - emit_mr_updated() helper keeps calls clean: just pass mr_id, instance_id, iid, update_type
+---

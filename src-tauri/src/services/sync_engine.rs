@@ -16,7 +16,10 @@ use crate::services::gitlab_client::{
 };
 use crate::models::project::{self, Project};
 use crate::models::sync_action::ActionType;
-use crate::services::sync_events::{SyncProgressPayload, SyncPhase, SYNC_PROGRESS_EVENT};
+use crate::services::sync_events::{
+    MrUpdatedPayload, MrUpdateType, SyncProgressPayload, SyncPhase,
+    MR_UPDATED_EVENT, SYNC_PROGRESS_EVENT,
+};
 use crate::services::sync_processor::{self, ProcessResult};
 use crate::services::sync_queue;
 use serde::{Deserialize, Serialize};
@@ -239,6 +242,23 @@ impl SyncEngine {
             },
         ) {
             log::warn!("Failed to emit sync-progress event: {}", e);
+        }
+    }
+
+    /// Emit an mr-updated event to the frontend.
+    ///
+    /// Failures are logged but never abort the sync.
+    fn emit_mr_updated(&self, mr_id: i64, instance_id: i64, iid: i64, update_type: MrUpdateType) {
+        if let Err(e) = self.app_handle.emit(
+            MR_UPDATED_EVENT,
+            MrUpdatedPayload {
+                mr_id,
+                update_type,
+                instance_id,
+                iid,
+            },
+        ) {
+            log::warn!("Failed to emit mr-updated event: {}", e);
         }
     }
 
@@ -647,8 +667,25 @@ impl SyncEngine {
     ) -> Result<(), AppError> {
         let start = Instant::now();
 
+        // Check if MR already exists (to determine created vs updated)
+        let existing: Option<(i64,)> = sqlx::query_as(
+            "SELECT id FROM merge_requests WHERE id = ?",
+        )
+        .bind(mr.id)
+        .fetch_optional(&self.pool)
+        .await?;
+        let is_new = existing.is_none();
+
         // Upsert MR metadata
         self.upsert_mr(instance_id, mr).await?;
+
+        // Emit created or updated event
+        self.emit_mr_updated(
+            mr.id,
+            instance_id,
+            mr.iid,
+            if is_new { MrUpdateType::Created } else { MrUpdateType::Updated },
+        );
 
         // Fetch and store approval status
         match client.get_mr_approvals(mr.project_id, mr.iid).await {
@@ -697,6 +734,9 @@ impl SyncEngine {
 
                 self.upsert_diff(mr.id, &diff).await?;
 
+                // Emit diff_updated event
+                self.emit_mr_updated(mr.id, instance_id, mr.iid, MrUpdateType::DiffUpdated);
+
                 // Pre-cache full file content for instant viewing
                 self.cache_file_contents(
                     mr.id,
@@ -727,6 +767,9 @@ impl SyncEngine {
         match client.list_discussions(mr.project_id, mr.iid).await {
             Ok(discussions) => {
                 self.upsert_discussions(mr.id, &discussions).await?;
+
+                // Emit comments_updated event
+                self.emit_mr_updated(mr.id, instance_id, mr.iid, MrUpdateType::CommentsUpdated);
             }
             Err(e) => {
                 self.log_sync_operation(
@@ -1212,16 +1255,16 @@ impl SyncEngine {
             .map(|mr| mr.id)
             .collect();
 
-        // Find MR IDs that will be purged (to clean up file cache)
-        let purge_ids: Vec<(i64,)> = if open_mr_ids.is_empty() {
-            sqlx::query_as("SELECT id FROM merge_requests WHERE instance_id = ?")
+        // Find MR IDs (and iids) that will be purged (to clean up file cache and emit events)
+        let purge_rows: Vec<(i64, i64)> = if open_mr_ids.is_empty() {
+            sqlx::query_as("SELECT id, iid FROM merge_requests WHERE instance_id = ?")
                 .bind(instance_id)
                 .fetch_all(&self.pool)
                 .await?
         } else {
             let placeholders: Vec<String> = (0..open_mr_ids.len()).map(|_| "?".to_string()).collect();
             let query = format!(
-                "SELECT id FROM merge_requests WHERE instance_id = ? AND id NOT IN ({})",
+                "SELECT id, iid FROM merge_requests WHERE instance_id = ? AND id NOT IN ({})",
                 placeholders.join(", ")
             );
             let mut q = sqlx::query_as(&query).bind(instance_id);
@@ -1232,7 +1275,7 @@ impl SyncEngine {
         };
 
         // Delete file versions for each purged MR
-        for (mr_id,) in &purge_ids {
+        for (mr_id, _iid) in &purge_rows {
             if let Err(e) = crate::db::file_cache::delete_file_versions_for_mr(&self.pool, *mr_id).await {
                 log::warn!("Failed to delete file versions for MR {}: {}", mr_id, e);
             }
@@ -1259,8 +1302,13 @@ impl SyncEngine {
 
         let purged = result.rows_affected() as i64;
 
+        // Emit purged events for each removed MR
+        for (mr_id, iid) in &purge_rows {
+            self.emit_mr_updated(*mr_id, instance_id, *iid, MrUpdateType::Purged);
+        }
+
         // Clean up orphaned blobs after file version deletion
-        if !purge_ids.is_empty() {
+        if !purge_rows.is_empty() {
             if let Err(e) = crate::db::file_cache::delete_orphaned_blobs(&self.pool).await {
                 log::warn!("Failed to delete orphaned blobs: {}", e);
             }
