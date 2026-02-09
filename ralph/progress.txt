@@ -70,3 +70,14 @@
   - MRDetailPage filters events by `event.payload.mr_id !== mrId` to only re-fetch when the current MR is updated
   - `listen()` returns a Promise<UnlistenFn> — must use `.then()` pattern since it can't go in useEffect's synchronous body
 ---
+
+## 2026-02-09 - US-007
+- What was implemented: Removed polling from useSyncStatus, replaced with event-driven-only updates
+- Files changed:
+  - `src/hooks/useSyncStatus.ts`: Removed `UseSyncStatusOptions` interface (pollInterval, autoPoll options). Removed options parameter from `useSyncStatus()`. Replaced polling `useEffect` (setInterval) with simple one-time `fetchStatus()` on mount.
+- **Learnings for future iterations:**
+  - No callers were passing options to useSyncStatus, so removing the interface was clean
+  - The sync-progress event listener already handles isSyncing/lastSyncTime/error updates
+  - The action-synced event listener already calls fetchStatus() for action counts
+  - Initial fetch on mount is still needed to populate state before any events fire
+---

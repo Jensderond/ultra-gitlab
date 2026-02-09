@@ -37,14 +37,6 @@ export interface SyncLogEntry {
   timestamp: number;
 }
 
-/** Options for useSyncStatus hook */
-interface UseSyncStatusOptions {
-  /** Poll interval in milliseconds (default: 5000) */
-  pollInterval?: number;
-  /** Whether to automatically poll (default: true) */
-  autoPoll?: boolean;
-}
-
 /** Payload for sync-progress events */
 interface SyncProgressPayload {
   phase: string;
@@ -75,9 +67,7 @@ interface MrUpdatedPayload {
 /**
  * Hook for tracking sync status.
  */
-export default function useSyncStatus(options: UseSyncStatusOptions = {}) {
-  const { pollInterval = 5000, autoPoll = true } = options;
-
+export default function useSyncStatus() {
   const [status, setStatus] = useState<SyncStatus>({
     isSyncing: false,
     pendingCount: 0,
@@ -226,16 +216,10 @@ export default function useSyncStatus(options: UseSyncStatusOptions = {}) {
     };
   }, [fetchStatus]);
 
-  // Poll for status updates
+  // Fetch initial status on mount
   useEffect(() => {
-    // Initial fetch
     fetchStatus();
-
-    if (!autoPoll) return;
-
-    const interval = setInterval(fetchStatus, pollInterval);
-    return () => clearInterval(interval);
-  }, [fetchStatus, pollInterval, autoPoll]);
+  }, [fetchStatus]);
 
   return {
     ...status,
