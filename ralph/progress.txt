@@ -19,3 +19,13 @@
   - `get_sync_status` command creates a temporary SyncEngine just for DB log queries - it needs AppHandle too
   - Warnings about unused `app_handle` and `Emitter` are expected until US-002 starts using them
 ---
+
+## 2026-02-09 - US-002
+- What was implemented: Added sync-progress event emissions throughout run_sync flow
+- Files changed:
+  - `src-tauri/src/services/sync_engine.rs`: Added emit_progress() helper, imported SyncProgressPayload/SyncPhase/SYNC_PROGRESS_EVENT. Emit events for: starting, fetching_mrs (per instance with URL), fetching_diff (per MR), fetching_comments (per MR), pushing_actions, purging, complete (with MR count and duration), failed (with error message)
+- **Learnings for future iterations:**
+  - emit_progress() helper keeps emit calls concise - just pass phase + message
+  - Complete/failed events need special handling (processed/total/is_error fields) so they use direct emit calls
+  - All event emissions use log::warn on failure, never abort sync
+---

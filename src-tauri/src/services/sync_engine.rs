@@ -16,6 +16,7 @@ use crate::services::gitlab_client::{
 };
 use crate::models::project::{self, Project};
 use crate::models::sync_action::ActionType;
+use crate::services::sync_events::{SyncProgressPayload, SyncPhase, SYNC_PROGRESS_EVENT};
 use crate::services::sync_processor::{self, ProcessResult};
 use crate::services::sync_queue;
 use serde::{Deserialize, Serialize};
@@ -223,6 +224,24 @@ impl SyncEngine {
         }
     }
 
+    /// Emit a sync-progress event to the frontend.
+    ///
+    /// Failures are logged but never abort the sync.
+    fn emit_progress(&self, phase: SyncPhase, message: impl Into<String>) {
+        if let Err(e) = self.app_handle.emit(
+            SYNC_PROGRESS_EVENT,
+            SyncProgressPayload {
+                phase,
+                message: message.into(),
+                processed: None,
+                total: None,
+                is_error: false,
+            },
+        ) {
+            log::warn!("Failed to emit sync-progress event: {}", e);
+        }
+    }
+
     /// Start the background sync loop.
     ///
     /// Spawns a background task that owns the engine and runs sync at the
@@ -317,6 +336,9 @@ impl SyncEngine {
     pub async fn run_sync(&self) -> Result<SyncResult, AppError> {
         let start = Instant::now();
 
+        // Emit starting event
+        self.emit_progress(SyncPhase::Starting, "Starting sync...");
+
         // Mark sync as in progress
         {
             let mut status = self.status.write().await;
@@ -389,6 +411,38 @@ impl SyncEngine {
             }
         }
 
+        // Emit complete or failed event
+        if result.errors.is_empty() {
+            if let Err(e) = self.app_handle.emit(
+                SYNC_PROGRESS_EVENT,
+                SyncProgressPayload {
+                    phase: SyncPhase::Complete,
+                    message: format!(
+                        "Sync complete: {} MRs in {}ms",
+                        result.mr_count, result.duration_ms
+                    ),
+                    processed: Some(result.mr_count),
+                    total: Some(result.mr_count),
+                    is_error: false,
+                },
+            ) {
+                log::warn!("Failed to emit sync-progress complete event: {}", e);
+            }
+        } else {
+            if let Err(e) = self.app_handle.emit(
+                SYNC_PROGRESS_EVENT,
+                SyncProgressPayload {
+                    phase: SyncPhase::Failed,
+                    message: result.errors.join("; "),
+                    processed: Some(result.mr_count),
+                    total: None,
+                    is_error: true,
+                },
+            ) {
+                log::warn!("Failed to emit sync-progress failed event: {}", e);
+            }
+        }
+
         // Log the sync operation
         self.log_sync_operation(
             "sync_complete",
@@ -453,6 +507,9 @@ impl SyncEngine {
             duration_ms: 0,
         };
 
+        // Emit fetching_mrs event
+        self.emit_progress(SyncPhase::FetchingMrs, format!("Fetching MRs from {}", instance.url));
+
         // Fetch MRs based on scope
         let mrs = match self.fetch_mrs_for_instance(&client, &config).await {
             Ok(mrs) => mrs,
@@ -488,8 +545,14 @@ impl SyncEngine {
         // Refresh gitattributes cache for projects with MRs (if stale or missing)
         self.refresh_gitattributes_for_projects(instance.id, &mrs).await;
 
+        // Emit purging event
+        self.emit_progress(SyncPhase::Purging, "Purging merged/closed MRs");
+
         // Purge merged/closed MRs
         result.purged_count = self.purge_closed_mrs(instance.id, &mrs).await?;
+
+        // Emit pushing_actions event
+        self.emit_progress(SyncPhase::PushingActions, "Processing sync queue");
 
         // Push pending actions for this instance
         let push_results = self.push_pending_actions(&client).await?;
@@ -621,6 +684,9 @@ impl SyncEngine {
             }
         }
 
+        // Emit fetching_diff event
+        self.emit_progress(SyncPhase::FetchingDiff, format!("Fetching diff for MR !{}", mr.iid));
+
         // Fetch and store diff
         match client.get_merge_request_diff(mr.project_id, mr.iid).await {
             Ok(diff) => {
@@ -653,6 +719,9 @@ impl SyncEngine {
                 .await?;
             }
         }
+
+        // Emit fetching_comments event
+        self.emit_progress(SyncPhase::FetchingComments, format!("Fetching comments for MR !{}", mr.iid));
 
         // Fetch and store comments
         match client.list_discussions(mr.project_id, mr.iid).await {
