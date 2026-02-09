@@ -47,13 +47,14 @@ pub fn run() {
             println!("Database path: {}", db_path.display());
 
             // Run async initialization in a blocking context
+            let app_handle = app.handle().clone();
             let (pool, sync_handle) = tauri::async_runtime::block_on(async {
                 let pool = db::initialize(&db_path)
                     .await
                     .expect("Failed to initialize database");
 
                 // Start background sync engine (needs active Tokio runtime for tokio::spawn)
-                let sync_handle = SyncEngine::start_background(pool.clone(), SyncConfig::default());
+                let sync_handle = SyncEngine::start_background(pool.clone(), SyncConfig::default(), app_handle);
                 eprintln!("[sync] Background sync engine started");
 
                 (pool, sync_handle)

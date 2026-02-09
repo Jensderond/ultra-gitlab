@@ -83,13 +83,14 @@ pub async fn trigger_sync(
 /// Current sync status
 #[tauri::command]
 pub async fn get_sync_status(
+    app: AppHandle,
     pool: State<'_, DbPool>,
 ) -> Result<GetSyncStatusResponse, AppError> {
     // Get action counts
     let (pending, failed) = sync_queue::get_action_counts(pool.inner()).await?;
 
     // Get recent sync logs
-    let engine = SyncEngine::new(pool.inner().clone());
+    let engine = SyncEngine::new(pool.inner().clone(), app);
     let recent_logs = engine.get_sync_log(50).await?;
 
     // Find the last successful sync time from logs

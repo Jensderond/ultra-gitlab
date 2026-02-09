@@ -1,0 +1,125 @@
+{
+  "project": "Ultra GitLab",
+  "branchName": "ralph/event-driven-sync",
+  "description": "Event-Driven UI Updates from Sync Engine - Wire up existing Tauri event infrastructure so the sync engine emits events at each phase and per MR, enabling real-time frontend updates without polling",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Pass AppHandle to SyncEngine",
+      "description": "As a developer, I need the sync engine to have access to AppHandle so it can emit events to the frontend.",
+      "acceptanceCriteria": [
+        "SyncEngine struct stores a tauri::AppHandle field",
+        "start_background() accepts AppHandle as a parameter",
+        "AppHandle is passed from lib.rs setup where the sync engine is started",
+        "use tauri::Emitter is imported where emit() is called",
+        "Existing sync functionality is unchanged (sync still runs on schedule, commands still work)",
+        "cargo check passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Emit sync-progress events from run_sync",
+      "description": "As a user, I want the UI to show real-time sync progress so I know what the app is doing in the background.",
+      "acceptanceCriteria": [
+        "run_sync() emits sync-progress with phase 'starting' when sync begins",
+        "Emits 'fetching_mrs' when fetching MR list for each instance (payload includes instance URL)",
+        "Emits 'fetching_diff' when fetching diffs for an MR",
+        "Emits 'fetching_comments' when fetching comments for an MR",
+        "Emits 'pushing_actions' when processing the sync queue",
+        "Emits 'purging' when purging merged/closed MRs",
+        "Emits 'complete' when sync finishes successfully (payload includes MR count and duration)",
+        "Emits 'failed' when sync encounters an unrecoverable error (payload includes error message)",
+        "Uses the existing SyncProgressPayload struct from sync_events.rs",
+        "Event emission failures are logged but do not abort the sync",
+        "cargo check passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Emit mr-updated events per MR",
+      "description": "As a user, I want the MR list and detail view to update automatically as each MR is synced, so I see changes progressively.",
+      "acceptanceCriteria": [
+        "Emits mr-updated with kind 'created' when a new MR is inserted into the cache",
+        "Emits mr-updated with kind 'updated' when MR metadata changes (title, description, state, labels, reviewers, approval)",
+        "Emits mr-updated with kind 'diff_updated' when diff data is cached or changed",
+        "Emits mr-updated with kind 'comments_updated' when discussions/comments are synced for an MR",
+        "Emits mr-updated with kind 'purged' when a merged/closed MR is removed from cache",
+        "Each event payload includes mr_id and instance_url (matching existing MrUpdatedPayload)",
+        "Event emission failures are logged but do not abort the sync",
+        "cargo check passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Emit action-synced events during sync queue processing",
+      "description": "As a user, I want to know when my queued actions (approvals, comments) are pushed to GitLab during background sync.",
+      "acceptanceCriteria": [
+        "Emits action-synced for each action processed during push_pending_actions in the sync loop",
+        "Payload includes action type, success/failure status, and error message if failed",
+        "Uses existing ActionSyncedPayload struct from sync_events.rs",
+        "The flush_approvals code path also emits action-synced events for consistency",
+        "Event emission failures are logged but do not abort the sync",
+        "cargo check passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Emit auth-expired events on 401 during sync",
+      "description": "As a user, I want to be prompted to re-authenticate when my GitLab token expires during background sync.",
+      "acceptanceCriteria": [
+        "When a GitLab API call returns 401 during sync, emits auth-expired event",
+        "Payload includes instance URL and a descriptive message",
+        "Sync skips the affected instance and continues with remaining instances",
+        "Uses existing AuthExpiredPayload struct from sync_events.rs",
+        "cargo check passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Auto-refresh frontend on sync events",
+      "description": "As a user, I want the MR list and detail views to automatically update when sync events arrive, without manually refreshing.",
+      "acceptanceCriteria": [
+        "useSyncStatus updates isSyncing state based on sync-progress phase (true for starting through purging, false for complete/failed)",
+        "useSyncStatus updates lastSyncTime, lastError, lastSyncMrCount from sync-progress complete/failed payloads",
+        "MR list re-fetches data when mr-updated events arrive (debounced at 500ms to handle bursts of 50-100+ events)",
+        "MR detail view re-fetches when an mr-updated event matches the currently viewed MR",
+        "Pending/failed action counts update when action-synced events arrive",
+        "Typecheck passes (bunx tsc --noEmit)"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Remove polling from useSyncStatus",
+      "description": "As a developer, I want to remove the 5-second polling interval so the app relies entirely on events for sync status updates.",
+      "acceptanceCriteria": [
+        "The setInterval / polling logic in useSyncStatus is removed",
+        "Initial status is still fetched on mount (one-time get_sync_status call)",
+        "Manual triggerSync() still works and updates status via events",
+        "retryAllActions() and discardAction() still work",
+        "No pollInterval option remains in the hook API",
+        "Typecheck passes (bunx tsc --noEmit)"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

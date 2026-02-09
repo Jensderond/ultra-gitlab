@@ -21,6 +21,7 @@ use crate::services::sync_queue;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use tauri::Emitter;
 use tokio::sync::{mpsc, RwLock};
 use tokio::time;
 
@@ -206,15 +207,19 @@ pub struct SyncEngine {
 
     /// Sync status.
     status: Arc<RwLock<SyncStatus>>,
+
+    /// Tauri app handle for emitting events to the frontend.
+    app_handle: tauri::AppHandle,
 }
 
 impl SyncEngine {
     /// Create a new sync engine.
-    pub fn new(pool: DbPool) -> Self {
+    pub fn new(pool: DbPool, app_handle: tauri::AppHandle) -> Self {
         Self {
             pool,
             config: Arc::new(RwLock::new(SyncConfig::default())),
             status: Arc::new(RwLock::new(SyncStatus::default())),
+            app_handle,
         }
     }
 
@@ -223,7 +228,7 @@ impl SyncEngine {
     /// Spawns a background task that owns the engine and runs sync at the
     /// configured interval. Returns a lightweight `SyncHandle` for sending
     /// commands (trigger, config update, stop) without holding a lock.
-    pub fn start_background(pool: DbPool, config: SyncConfig) -> SyncHandle {
+    pub fn start_background(pool: DbPool, config: SyncConfig, app_handle: tauri::AppHandle) -> SyncHandle {
         let (tx, mut rx) = mpsc::channel::<SyncCommand>(16);
         let config_shared = Arc::new(RwLock::new(config.clone()));
         let config_for_task = config_shared.clone();
@@ -236,6 +241,7 @@ impl SyncEngine {
                 pool,
                 config: config_for_task,
                 status: Arc::new(RwLock::new(SyncStatus::default())),
+                app_handle,
             };
 
             // Run initial sync immediately

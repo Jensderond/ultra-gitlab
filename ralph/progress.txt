@@ -1,0 +1,21 @@
+## Codebase Patterns
+- SyncEngine::new() requires (DbPool, AppHandle) - AppHandle needed for event emission
+- SyncEngine::start_background() requires (DbPool, SyncConfig, AppHandle)
+- get_sync_status command creates ephemeral SyncEngine just for log queries - must pass AppHandle
+- `use tauri::Emitter` is needed wherever `app_handle.emit()` is called
+- sync_events.rs defines all event constants and payload structs - use those, don't create new ones
+- Event emission failures should be logged but never abort sync (use `let _ = app_handle.emit(...)` or log on Err)
+
+---
+
+## 2026-02-09 - US-001
+- What was implemented: Added AppHandle field to SyncEngine struct and threaded it through start_background() and lib.rs setup
+- Files changed:
+  - `src-tauri/src/services/sync_engine.rs`: Added `app_handle: tauri::AppHandle` field to SyncEngine, updated `new()` and `start_background()` signatures, added `use tauri::Emitter`
+  - `src-tauri/src/lib.rs`: Pass `app.handle().clone()` to `SyncEngine::start_background()`
+  - `src-tauri/src/commands/sync.rs`: Updated `get_sync_status` to accept `AppHandle` and pass it to `SyncEngine::new()`
+- **Learnings for future iterations:**
+  - `app.handle().clone()` in Tauri v2 setup closure gives you the AppHandle
+  - `get_sync_status` command creates a temporary SyncEngine just for DB log queries - it needs AppHandle too
+  - Warnings about unused `app_handle` and `Emitter` are expected until US-002 starts using them
+---
