@@ -1,4 +1,21 @@
 ## Codebase Patterns
+- Settings page uses sub-components (ShortcutEditor, CollapsePatternsEditor) for each settings section
+- Service wrappers in tauri.ts provide typed invoke calls; export from index.ts for consumers
+- Settings store uses separate keys per concern — collapse patterns stored independently from sync config
+
+---
+
+## 2026-02-09 - US-006
+- Added CollapsePatternsEditor component to Settings page
+- Displays list of glob patterns with text input + remove button per row
+- "Add pattern" button appends new empty row
+- Changes save immediately on blur (trimming empty patterns) or on remove
+- Loads patterns on mount via getCollapsePatterns()
+- Added CSS styles for the collapse patterns editor section
+- **Learnings for future iterations:**
+  - handlePatternKeyDown doesn't need the index param — just blur the target on Enter
+  - autoFocus on empty patterns works well for newly added rows
+  - Save on blur pattern avoids needing a dedicated save button
 
 ---
 
