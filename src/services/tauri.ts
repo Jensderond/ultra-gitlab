@@ -20,7 +20,6 @@ import type {
   CachedFilePair,
   Comment,
   AddCommentRequest,
-  AddCommentResponse,
   ReplyToCommentRequest,
   ResolveDiscussionRequest,
   SyncStatusResponse,
@@ -242,15 +241,15 @@ export async function getComments(mrId: number): Promise<Comment[]> {
 /**
  * Add a new comment to a merge request.
  */
-export async function addComment(request: AddCommentRequest): Promise<AddCommentResponse> {
-  return invoke<AddCommentResponse>('add_comment', { input: request });
+export async function addComment(request: AddCommentRequest): Promise<Comment> {
+  return invoke<Comment>('add_comment', { input: request });
 }
 
 /**
  * Reply to an existing discussion.
  */
-export async function replyToComment(request: ReplyToCommentRequest): Promise<AddCommentResponse> {
-  return invoke<AddCommentResponse>('reply_to_comment', { input: request });
+export async function replyToComment(request: ReplyToCommentRequest): Promise<Comment> {
+  return invoke<Comment>('reply_to_comment', { input: request });
 }
 
 /**

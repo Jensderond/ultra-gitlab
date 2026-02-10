@@ -135,41 +135,79 @@ async fn get_comment_sync_status(pool: &DbPool, comment_id: i64) -> Result<Strin
         .unwrap_or_else(|| "pending".to_string()))
 }
 
+/// MR info needed for comment operations, looked up from DB.
+struct MrInfo {
+    project_id: i64,
+    iid: i64,
+    instance_id: i64,
+}
+
+/// Look up project_id, iid, and instance_id for a merge request.
+async fn get_mr_info(pool: &DbPool, mr_id: i64) -> Result<MrInfo, AppError> {
+    let row = sqlx::query("SELECT project_id, iid, instance_id FROM merge_requests WHERE id = ?")
+        .bind(mr_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::not_found_with_id("MergeRequest", mr_id.to_string()))?;
+
+    Ok(MrInfo {
+        project_id: row.get("project_id"),
+        iid: row.get("iid"),
+        instance_id: row.get("instance_id"),
+    })
+}
+
+/// Look up diff refs (base_sha, head_sha, start_sha) for a merge request.
+async fn get_diff_shas(pool: &DbPool, mr_id: i64) -> Result<(String, String, String), AppError> {
+    let row = sqlx::query("SELECT base_sha, head_sha, start_sha FROM diffs WHERE mr_id = ?")
+        .bind(mr_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::not_found_with_id("Diff", mr_id.to_string()))?;
+
+    Ok((
+        row.get("base_sha"),
+        row.get("head_sha"),
+        row.get("start_sha"),
+    ))
+}
+
+/// Get the authenticated username for the instance associated with an MR.
+async fn get_authenticated_username(pool: &DbPool, instance_id: i64) -> Result<String, AppError> {
+    let row = sqlx::query("SELECT authenticated_username FROM gitlab_instances WHERE id = ?")
+        .bind(instance_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::not_found_with_id("GitLabInstance", instance_id.to_string()))?;
+
+    let username: Option<String> = row.get("authenticated_username");
+    Ok(username.unwrap_or_else(|| "You".to_string()))
+}
+
 /// Input for add_comment command.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AddCommentInput {
-    /// Merge request ID.
+    /// Merge request ID (local database ID).
     pub mr_id: i64,
-    /// Project ID for API call.
-    pub project_id: i64,
-    /// MR IID for API call.
-    pub mr_iid: i64,
     /// Comment body.
     pub body: String,
-    /// Current user's username (for optimistic display).
-    pub author_username: String,
     /// File path for inline comments.
     pub file_path: Option<String>,
     /// Line in old version.
     pub old_line: Option<i64>,
     /// Line in new version.
     pub new_line: Option<i64>,
-    /// Type of line: added, removed, context.
-    pub line_type: Option<String>,
-    /// SHA info for inline comments (required if file_path is set).
-    pub base_sha: Option<String>,
-    pub head_sha: Option<String>,
-    pub start_sha: Option<String>,
 }
 
 /// Add a new comment to a merge request.
 ///
 /// The comment is inserted immediately into the local database (optimistic update)
-/// and queued for synchronization to GitLab.
+/// and queued for synchronization to GitLab. MR details (project_id, iid, SHAs)
+/// are looked up from the database automatically.
 ///
 /// # Arguments
-/// * `input` - Comment details
+/// * `input` - Comment details (mr_id, body, optional position)
 ///
 /// # Returns
 /// The created comment with pending sync status
@@ -178,14 +216,19 @@ pub async fn add_comment(
     pool: State<'_, DbPool>,
     input: AddCommentInput,
 ) -> Result<CommentResponse, AppError> {
-    // Validate inline comment has required SHA info
-    if input.file_path.is_some() {
-        if input.base_sha.is_none() || input.head_sha.is_none() || input.start_sha.is_none() {
-            return Err(AppError::invalid_input(
-                "Inline comments require base_sha, head_sha, and start_sha",
-            ));
-        }
-    }
+    // Look up MR info from database
+    let mr_info = get_mr_info(pool.inner(), input.mr_id).await?;
+
+    // Look up diff SHAs for inline comments
+    let (base_sha, head_sha, start_sha) = if input.file_path.is_some() {
+        let shas = get_diff_shas(pool.inner(), input.mr_id).await?;
+        (Some(shas.0), Some(shas.1), Some(shas.2))
+    } else {
+        (None, None, None)
+    };
+
+    // Get the authenticated username for optimistic display
+    let author_username = get_authenticated_username(pool.inner(), mr_info.instance_id).await?;
 
     let timestamp = now();
     let local_id = generate_local_id();
@@ -196,17 +239,16 @@ pub async fn add_comment(
         INSERT INTO comments (id, mr_id, discussion_id, parent_id, author_username, body,
                               file_path, old_line, new_line, line_type, resolved, resolvable,
                               system, created_at, updated_at, cached_at, is_local)
-        VALUES (?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, 0, 1, 0, ?, ?, ?, 1)
+        VALUES (?, ?, NULL, NULL, ?, ?, ?, ?, ?, NULL, 0, 1, 0, ?, ?, ?, 1)
         "#,
     )
     .bind(local_id)
     .bind(input.mr_id)
-    .bind(&input.author_username)
+    .bind(&author_username)
     .bind(&input.body)
     .bind(&input.file_path)
     .bind(input.old_line)
     .bind(input.new_line)
-    .bind(&input.line_type)
     .bind(timestamp)
     .bind(timestamp)
     .bind(timestamp)
@@ -215,15 +257,15 @@ pub async fn add_comment(
 
     // Build payload for sync queue (includes SHA info for inline comments)
     let payload = serde_json::to_string(&serde_json::json!({
-        "project_id": input.project_id,
-        "mr_iid": input.mr_iid,
+        "project_id": mr_info.project_id,
+        "mr_iid": mr_info.iid,
         "body": input.body,
         "file_path": input.file_path,
         "old_line": input.old_line,
         "new_line": input.new_line,
-        "base_sha": input.base_sha,
-        "head_sha": input.head_sha,
-        "start_sha": input.start_sha,
+        "base_sha": base_sha,
+        "head_sha": head_sha,
+        "start_sha": start_sha,
     }))?;
 
     // Queue for sync
@@ -243,12 +285,12 @@ pub async fn add_comment(
         mr_id: input.mr_id,
         discussion_id: None,
         parent_id: None,
-        author_username: input.author_username,
+        author_username,
         body: input.body,
         file_path: input.file_path,
         old_line: input.old_line,
         new_line: input.new_line,
-        line_type: input.line_type,
+        line_type: None,
         resolved: false,
         resolvable: true,
         system: false,
@@ -263,26 +305,20 @@ pub async fn add_comment(
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReplyInput {
-    /// Merge request ID.
+    /// Merge request ID (local database ID).
     pub mr_id: i64,
-    /// Project ID for API call.
-    pub project_id: i64,
-    /// MR IID for API call.
-    pub mr_iid: i64,
     /// Discussion ID to reply to.
     pub discussion_id: String,
     /// Parent comment ID.
     pub parent_id: i64,
     /// Reply body.
     pub body: String,
-    /// Current user's username.
-    pub author_username: String,
 }
 
 /// Reply to an existing discussion thread.
 ///
 /// The reply is inserted immediately into the local database (optimistic update)
-/// and queued for synchronization to GitLab.
+/// and queued for synchronization to GitLab. MR details are looked up from the database.
 ///
 /// # Arguments
 /// * `input` - Reply details
@@ -294,6 +330,9 @@ pub async fn reply_to_comment(
     pool: State<'_, DbPool>,
     input: ReplyInput,
 ) -> Result<CommentResponse, AppError> {
+    let mr_info = get_mr_info(pool.inner(), input.mr_id).await?;
+    let author_username = get_authenticated_username(pool.inner(), mr_info.instance_id).await?;
+
     let timestamp = now();
     let local_id = generate_local_id();
 
@@ -325,7 +364,7 @@ pub async fn reply_to_comment(
     .bind(input.mr_id)
     .bind(&input.discussion_id)
     .bind(input.parent_id)
-    .bind(&input.author_username)
+    .bind(&author_username)
     .bind(&input.body)
     .bind(&parent.file_path)
     .bind(parent.old_line)
@@ -339,8 +378,8 @@ pub async fn reply_to_comment(
 
     // Build payload for sync queue
     let payload = serde_json::to_string(&ReplyPayload {
-        project_id: input.project_id,
-        mr_iid: input.mr_iid,
+        project_id: mr_info.project_id,
+        mr_iid: mr_info.iid,
         discussion_id: input.discussion_id.clone(),
         body: input.body.clone(),
     })?;
@@ -362,7 +401,7 @@ pub async fn reply_to_comment(
         mr_id: input.mr_id,
         discussion_id: Some(input.discussion_id),
         parent_id: Some(input.parent_id),
-        author_username: input.author_username,
+        author_username,
         body: input.body,
         file_path: parent.file_path,
         old_line: parent.old_line,
@@ -382,12 +421,8 @@ pub async fn reply_to_comment(
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolveInput {
-    /// Merge request ID.
+    /// Merge request ID (local database ID).
     pub mr_id: i64,
-    /// Project ID for API call.
-    pub project_id: i64,
-    /// MR IID for API call.
-    pub mr_iid: i64,
     /// Discussion ID to resolve.
     pub discussion_id: String,
     /// Whether to resolve (true) or unresolve (false).
@@ -397,6 +432,7 @@ pub struct ResolveInput {
 /// Resolve or unresolve a discussion thread.
 ///
 /// Updates the resolved status optimistically and queues for sync.
+/// MR details are looked up from the database.
 ///
 /// # Arguments
 /// * `input` - Resolve details
@@ -408,6 +444,8 @@ pub async fn resolve_discussion(
     pool: State<'_, DbPool>,
     input: ResolveInput,
 ) -> Result<(), AppError> {
+    let mr_info = get_mr_info(pool.inner(), input.mr_id).await?;
+
     // Update all comments in the discussion optimistically
     sqlx::query("UPDATE comments SET resolved = ? WHERE discussion_id = ?")
         .bind(input.resolved)
@@ -417,8 +455,8 @@ pub async fn resolve_discussion(
 
     // Build payload for sync queue
     let payload = serde_json::to_string(&ResolvePayload {
-        project_id: input.project_id,
-        mr_iid: input.mr_iid,
+        project_id: mr_info.project_id,
+        mr_iid: mr_info.iid,
         discussion_id: input.discussion_id,
     })?;
 

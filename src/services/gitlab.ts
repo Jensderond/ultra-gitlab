@@ -42,7 +42,6 @@ import type {
   CachedFilePair,
   Comment,
   AddCommentRequest,
-  AddCommentResponse,
   ReplyToCommentRequest,
   ResolveDiscussionRequest,
 } from '../types';
@@ -291,12 +290,12 @@ export async function listComments(mrId: number): Promise<Comment[]> {
  *
  * @param mrId - The merge request ID
  * @param body - The comment text
- * @returns The created comment reference
+ * @returns The created comment
  */
 export async function addGeneralComment(
   mrId: number,
   body: string
-): Promise<AddCommentResponse> {
+): Promise<Comment> {
   const request: AddCommentRequest = { mrId, body };
   return addComment(request);
 }
@@ -309,7 +308,7 @@ export async function addGeneralComment(
  * @param filePath - The file path
  * @param line - The line number (newLine for additions, oldLine for deletions)
  * @param isOldLine - Whether this is a line in the old version
- * @returns The created comment reference
+ * @returns The created comment
  */
 export async function addInlineComment(
   mrId: number,
@@ -317,14 +316,12 @@ export async function addInlineComment(
   filePath: string,
   line: number,
   isOldLine = false
-): Promise<AddCommentResponse> {
+): Promise<Comment> {
   const request: AddCommentRequest = {
     mrId,
     body,
-    position: {
-      filePath,
-      ...(isOldLine ? { oldLine: line } : { newLine: line }),
-    },
+    filePath,
+    ...(isOldLine ? { oldLine: line } : { newLine: line }),
   };
   return addComment(request);
 }
@@ -334,15 +331,17 @@ export async function addInlineComment(
  *
  * @param mrId - The merge request ID
  * @param discussionId - The discussion thread ID
+ * @param parentId - The parent comment ID
  * @param body - The reply text
- * @returns The created reply reference
+ * @returns The created reply
  */
 export async function replyToDiscussion(
   mrId: number,
   discussionId: string,
+  parentId: number,
   body: string
-): Promise<AddCommentResponse> {
-  const request: ReplyToCommentRequest = { mrId, discussionId, body };
+): Promise<Comment> {
+  const request: ReplyToCommentRequest = { mrId, discussionId, parentId, body };
   return replyToComment(request);
 }
 

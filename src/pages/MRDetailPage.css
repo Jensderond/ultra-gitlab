@@ -730,6 +730,30 @@
   color: var(--kw-fg-dim);
 }
 
+.comment-input-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.comment-suggest-btn {
+  padding: 5px 12px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--kw-spring-green);
+  background: rgba(152, 187, 108, 0.1);
+  border: 1px solid rgba(152, 187, 108, 0.25);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.comment-suggest-btn:hover {
+  background: rgba(152, 187, 108, 0.2);
+  border-color: rgba(152, 187, 108, 0.4);
+}
+
 .comment-input-close {
   background: transparent;
   border: none;
@@ -746,33 +770,16 @@
   background: rgba(255, 255, 255, 0.05);
 }
 
-.comment-input-textarea {
-  width: 100%;
-  min-height: 120px;
-  padding: 14px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 13px;
-  color: var(--kw-fg-default);
-  background: var(--kw-bg-default);
+.comment-editor-wrapper {
   border: 1px solid var(--kw-sumi-ink);
   border-radius: 8px;
-  resize: vertical;
-  outline: none;
+  overflow: hidden;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.comment-input-textarea::placeholder {
-  color: var(--kw-fg-comment);
-}
-
-.comment-input-textarea:focus {
+.comment-editor-wrapper:focus-within {
   border-color: var(--kw-wave-blue);
   box-shadow: 0 0 0 3px var(--kw-wave-glow);
-}
-
-.comment-input-textarea:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .comment-input-actions {

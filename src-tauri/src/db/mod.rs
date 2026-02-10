@@ -64,6 +64,7 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("0005_create_projects_table", include_str!("migrations/0005_create_projects_table.sql")),
     ("0006_file_content_cache", include_str!("migrations/0006_file_content_cache.sql")),
     ("0007_gitattributes_cache", include_str!("migrations/0007_gitattributes_cache.sql")),
+    ("0008_add_authenticated_username", include_str!("migrations/0008_add_authenticated_username.sql")),
 ];
 
 /// Run all pending database migrations.

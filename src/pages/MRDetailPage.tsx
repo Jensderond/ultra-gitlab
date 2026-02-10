@@ -9,7 +9,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { FileNavigation } from '../components/DiffViewer';
-import { MonacoDiffViewer, type MonacoDiffViewerRef, type LineComment, type CursorPosition } from '../components/Monaco/MonacoDiffViewer';
+import { MonacoDiffViewer, type MonacoDiffViewerRef, type LineComment, type CursorPosition, type LineSelection } from '../components/Monaco/MonacoDiffViewer';
+import Editor from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { ImageDiffViewer } from '../components/Monaco/ImageDiffViewer';
 import { isImageFile, getImageMimeType } from '../components/Monaco/languageDetection';
@@ -18,6 +19,13 @@ import { getMergeRequestById, getMergeRequestFiles, getDiffRefs, getFileContent,
 import { invoke, getCollapsePatterns } from '../services/tauri';
 import { classifyFiles } from '../utils/classifyFiles';
 import type { MergeRequest, DiffFileSummary, DiffRefs, Comment, AddCommentRequest } from '../types';
+
+/** Shape of the CommentResponse from the backend add_comment command. */
+interface CommentResponse {
+  id: number;
+  authorUsername: string;
+  createdAt: number;
+}
 import './MRDetailPage.css';
 
 /**
@@ -66,10 +74,11 @@ export default function MRDetailPage() {
   const [commentInput, setCommentInput] = useState<{
     visible: boolean;
     position: CursorPosition | null;
+    selection: LineSelection | null;
     text: string;
     submitting: boolean;
-  }>({ visible: false, position: null, text: '', submitting: false });
-  const commentInputRef = useRef<HTMLTextAreaElement>(null);
+  }>({ visible: false, position: null, selection: null, text: '', submitting: false });
+  const commentEditorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
 
   // Load MR data
   useEffect(() => {
@@ -399,7 +408,7 @@ export default function MRDetailPage() {
 
   // Submit a new comment
   const submitComment = useCallback(async () => {
-    if (!commentInput.text.trim() || !commentInput.position || !selectedFile) return;
+    if (!commentInput.text.trim() || !selectedFile) return;
 
     setCommentInput((prev) => ({ ...prev, submitting: true }));
 
@@ -407,28 +416,30 @@ export default function MRDetailPage() {
       const request: AddCommentRequest = {
         mrId,
         body: commentInput.text.trim(),
-        position: {
-          filePath: selectedFile,
-          ...(commentInput.position.isOriginal
-            ? { oldLine: commentInput.position.line }
-            : { newLine: commentInput.position.line }),
-        },
+        filePath: selectedFile,
+        ...(commentInput.position?.isOriginal
+          ? { oldLine: commentInput.position.line }
+          : commentInput.position
+            ? { newLine: commentInput.position.line }
+            : {}),
       };
 
-      await invoke<{ localId: number }>('add_comment', { input: request });
+      const response = await invoke<CommentResponse>('add_comment', { input: request });
 
-      // Add optimistic update to comments
-      const newComment: LineComment = {
-        id: -Date.now(), // Temporary local ID
-        line: commentInput.position.line,
-        isOldLine: commentInput.position.isOriginal,
-        authorUsername: 'You',
-        body: commentInput.text.trim(),
-        createdAt: Math.floor(Date.now() / 1000),
-      };
+      // Use the response from backend for optimistic display
+      if (commentInput.position) {
+        const newComment: LineComment = {
+          id: response.id,
+          line: commentInput.position.line,
+          isOldLine: commentInput.position.isOriginal,
+          authorUsername: response.authorUsername,
+          body: commentInput.text.trim(),
+          createdAt: response.createdAt,
+        };
+        setFileComments((prev) => [...prev, newComment]);
+      }
 
-      setFileComments((prev) => [...prev, newComment]);
-      setCommentInput({ visible: false, position: null, text: '', submitting: false });
+      setCommentInput({ visible: false, position: null, selection: null, text: '', submitting: false });
     } catch (err) {
       console.error('Failed to add comment:', err);
       setCommentInput((prev) => ({ ...prev, submitting: false }));
@@ -438,10 +449,11 @@ export default function MRDetailPage() {
   // Keyboard navigation
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      // Ignore if typing in an input
+      // Ignore if typing in an input or Monaco comment editor
       if (
         e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
+        e.target instanceof HTMLTextAreaElement ||
+        (commentInput.visible && e.key !== 'Escape')
       ) {
         return;
       }
@@ -497,11 +509,52 @@ export default function MRDetailPage() {
           e.preventDefault();
           if (selectedFile) {
             const pos = diffViewerRef.current?.getCursorPosition();
+            const sel = diffViewerRef.current?.getSelectedLines() ?? null;
             if (pos) {
-              setCommentInput({ visible: true, position: pos, text: '', submitting: false });
-              // Focus textarea after render
+              setCommentInput({ visible: true, position: pos, selection: sel, text: '', submitting: false });
+              // Focus comment editor after render
               requestAnimationFrame(() => {
-                commentInputRef.current?.focus();
+                commentEditorRef.current?.focus();
+              });
+            }
+          }
+          break;
+        case 's':
+          // Open comment input with suggestion template
+          e.preventDefault();
+          if (selectedFile) {
+            const sel = diffViewerRef.current?.getSelectedLines();
+            const pos = diffViewerRef.current?.getCursorPosition();
+            if (pos && sel && !sel.isOriginal) {
+              // Build suggestion block: comment position is the start line, range covers selection
+              const linesAbove = 0;
+              const linesBelow = sel.endLine - sel.startLine;
+              const suggestionText = `\`\`\`suggestion:-${linesAbove}+${linesBelow}\n${sel.text}\n\`\`\`\n`;
+              const cursorPos = { line: sel.startLine, isOriginal: false };
+              setCommentInput({
+                visible: true,
+                position: cursorPos,
+                selection: sel,
+                text: suggestionText,
+                submitting: false,
+              });
+              requestAnimationFrame(() => {
+                commentEditorRef.current?.focus();
+              });
+            } else if (pos) {
+              // Single line suggestion from cursor position
+              const singleSel = diffViewerRef.current?.getSelectedLines();
+              const lineText = singleSel?.text ?? '';
+              const suggestionText = `\`\`\`suggestion:-0+0\n${lineText}\n\`\`\`\n`;
+              setCommentInput({
+                visible: true,
+                position: pos,
+                selection: singleSel ?? null,
+                text: suggestionText,
+                submitting: false,
+              });
+              requestAnimationFrame(() => {
+                commentEditorRef.current?.focus();
               });
             }
           }
@@ -510,7 +563,7 @@ export default function MRDetailPage() {
           // Close comment input if visible, otherwise go back
           if (commentInput.visible) {
             e.preventDefault();
-            setCommentInput({ visible: false, position: null, text: '', submitting: false });
+            setCommentInput({ visible: false, position: null, selection: null, text: '', submitting: false });
           } else {
             // Go back to list, focus on latest item
             navigate('/mrs', { state: { focusLatest: true } });
@@ -663,36 +716,87 @@ export default function MRDetailPage() {
               <span>
                 Add comment on {commentInput.position.isOriginal ? 'old' : 'new'} line{' '}
                 {commentInput.position.line}
+                {commentInput.selection && commentInput.selection.endLine > commentInput.selection.startLine && (
+                  <span> &ndash; {commentInput.selection.endLine}</span>
+                )}
               </span>
-              <button
-                className="comment-input-close"
-                onClick={() => setCommentInput({ visible: false, position: null, text: '', submitting: false })}
-              >
-                ✕
-              </button>
+              <div className="comment-input-header-actions">
+                <button
+                  className="comment-suggest-btn"
+                  title="Insert suggestion block"
+                  onClick={() => {
+                    const sel = commentInput.selection;
+                    if (sel) {
+                      const linesAbove = 0;
+                      const linesBelow = sel.endLine - sel.startLine;
+                      const suggestion = `\`\`\`suggestion:-${linesAbove}+${linesBelow}\n${sel.text}\n\`\`\`\n`;
+                      setCommentInput((prev) => ({
+                        ...prev,
+                        text: prev.text + suggestion,
+                      }));
+                    } else {
+                      setCommentInput((prev) => ({
+                        ...prev,
+                        text: prev.text + '```suggestion:-0+0\n\n```\n',
+                      }));
+                    }
+                  }}
+                >
+                  Suggest
+                </button>
+                <button
+                  className="comment-input-close"
+                  onClick={() => setCommentInput({ visible: false, position: null, selection: null, text: '', submitting: false })}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
-            <textarea
-              ref={commentInputRef}
-              className="comment-input-textarea"
-              placeholder="Write a comment..."
-              value={commentInput.text}
-              onChange={(e) => setCommentInput((prev) => ({ ...prev, text: e.target.value }))}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                  e.preventDefault();
-                  submitComment();
-                }
-                if (e.key === 'Escape') {
-                  e.preventDefault();
-                  setCommentInput({ visible: false, position: null, text: '', submitting: false });
-                }
-              }}
-              disabled={commentInput.submitting}
-              rows={4}
-            />
+            <div className="comment-editor-wrapper">
+              <Editor
+                height="180px"
+                defaultLanguage="markdown"
+                theme="vs-dark"
+                value={commentInput.text}
+                onChange={(value) => setCommentInput((prev) => ({ ...prev, text: value ?? '' }))}
+                onMount={(ed) => {
+                  commentEditorRef.current = ed;
+                  ed.focus();
+                  // Move cursor to end
+                  const model = ed.getModel();
+                  if (model) {
+                    const lastLine = model.getLineCount();
+                    const lastCol = model.getLineMaxColumn(lastLine);
+                    ed.setPosition({ lineNumber: lastLine, column: lastCol });
+                  }
+                  // Cmd/Ctrl+Enter to submit
+                  ed.addCommand(
+                    // Monaco.KeyMod.CtrlCmd | Monaco.KeyCode.Enter
+                    2048 | 3,
+                    () => { submitComment(); }
+                  );
+                }}
+                options={{
+                  minimap: { enabled: false },
+                  lineNumbers: 'off',
+                  scrollBeyondLastLine: false,
+                  wordWrap: 'on',
+                  fontSize: 13,
+                  fontFamily: '"SF Mono", Menlo, Monaco, "Courier New", monospace',
+                  padding: { top: 8, bottom: 8 },
+                  renderLineHighlight: 'none',
+                  overviewRulerLanes: 0,
+                  hideCursorInOverviewRuler: true,
+                  scrollbar: { vertical: 'auto', horizontal: 'hidden' },
+                  folding: false,
+                  glyphMargin: false,
+                  readOnly: commentInput.submitting,
+                }}
+              />
+            </div>
             <div className="comment-input-actions">
               <span className="comment-input-hint">
-                <kbd>⌘</kbd>+<kbd>Enter</kbd> to submit · <kbd>Esc</kbd> to cancel
+                <kbd>⌘</kbd>+<kbd>Enter</kbd> to submit · <kbd>Esc</kbd> to cancel · <kbd>s</kbd> suggest
               </span>
               <button
                 className="comment-input-submit"
@@ -713,6 +817,7 @@ export default function MRDetailPage() {
           <kbd>x</kbd> split/unified &middot;{' '}
           <kbd>a</kbd> approve &middot;{' '}
           <kbd>c</kbd> comment &middot;{' '}
+          <kbd>s</kbd> suggest &middot;{' '}
           <kbd>g</kbd> generated &middot;{' '}
           <kbd>o</kbd> open &middot;{' '}
           <kbd>⌘F</kbd> find &middot;{' '}

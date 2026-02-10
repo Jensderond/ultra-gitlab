@@ -21,6 +21,9 @@ pub struct GitLabInstance {
 
     /// Unix timestamp of creation.
     pub created_at: i64,
+
+    /// Authenticated username (cached from GitLab API).
+    pub authenticated_username: Option<String>,
 }
 
 /// Data required to create a new GitLab instance.

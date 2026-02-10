@@ -159,7 +159,7 @@ async fn create_gitlab_client_from_pool(
     instance_id: i64,
 ) -> Result<GitLabClient, AppError> {
     let instance: Option<GitLabInstance> = sqlx::query_as(
-        "SELECT id, url, name, token, created_at FROM gitlab_instances WHERE id = $1",
+        "SELECT id, url, name, token, created_at, authenticated_username FROM gitlab_instances WHERE id = $1",
     )
     .bind(instance_id)
     .fetch_optional(pool)

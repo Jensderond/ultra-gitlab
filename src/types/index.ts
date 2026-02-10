@@ -195,26 +195,18 @@ export interface Comment {
   syncStatus: SyncStatus | null;
 }
 
-export interface CommentPosition {
-  filePath: string;
-  oldLine?: number;
-  newLine?: number;
-}
-
 export interface AddCommentRequest {
   mrId: number;
   body: string;
-  position?: CommentPosition;
-}
-
-export interface AddCommentResponse {
-  localId: number;
-  syncActionId: number;
+  filePath?: string;
+  oldLine?: number;
+  newLine?: number;
 }
 
 export interface ReplyToCommentRequest {
   mrId: number;
   discussionId: string;
+  parentId: number;
   body: string;
 }
 

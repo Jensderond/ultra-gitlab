@@ -10,6 +10,18 @@ export interface CursorPosition {
   isOriginal: boolean;
 }
 
+/** Information about a line selection in the diff viewer */
+export interface LineSelection {
+  /** Starting line number */
+  startLine: number;
+  /** Ending line number */
+  endLine: number;
+  /** Whether the selection is on the original (old) side */
+  isOriginal: boolean;
+  /** The selected text content */
+  text: string;
+}
+
 /** Ref handle for MonacoDiffViewer */
 export interface MonacoDiffViewerRef {
   /** Navigate to next change */
@@ -24,6 +36,8 @@ export interface MonacoDiffViewerRef {
   setScrollTop: (top: number) => void;
   /** Get current cursor position */
   getCursorPosition: () => CursorPosition | null;
+  /** Get the currently selected lines (for suggestion support) */
+  getSelectedLines: () => LineSelection | null;
   /** Collapse unchanged regions back to initial state (5 lines context) */
   collapseUnchanged: () => void;
   /** Expand all regions, showing the complete file */
@@ -212,6 +226,55 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
       return null;
     }, []);
 
+    // Get the currently selected lines for suggestion support
+    const getSelectedLines = useCallback((): LineSelection | null => {
+      const diffEditor = editorRef.current;
+      if (!diffEditor) return null;
+
+      const modifiedEditor = diffEditor.getModifiedEditor();
+      const originalEditor = diffEditor.getOriginalEditor();
+
+      // Check modified editor first
+      for (const [ed, isOriginal] of [[modifiedEditor, false], [originalEditor, true]] as const) {
+        const selection = ed.getSelection();
+        if (selection && !selection.isEmpty()) {
+          const model = ed.getModel();
+          if (!model) continue;
+
+          const startLine = selection.startLineNumber;
+          const endLine = selection.endLineNumber;
+          // Get the full lines content (not just the selection within lines)
+          const lines: string[] = [];
+          for (let i = startLine; i <= endLine; i++) {
+            lines.push(model.getLineContent(i));
+          }
+
+          return {
+            startLine,
+            endLine,
+            isOriginal,
+            text: lines.join('\n'),
+          };
+        }
+      }
+
+      // Fallback to cursor line on modified editor
+      const pos = modifiedEditor.getPosition();
+      if (pos) {
+        const model = modifiedEditor.getModel();
+        if (model) {
+          return {
+            startLine: pos.lineNumber,
+            endLine: pos.lineNumber,
+            isOriginal: false,
+            text: model.getLineContent(pos.lineNumber),
+          };
+        }
+      }
+
+      return null;
+    }, []);
+
     // Expose ref methods
     useImperativeHandle(ref, () => ({
       goToNextChange,
@@ -220,11 +283,12 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
       getScrollTop,
       setScrollTop,
       getCursorPosition,
+      getSelectedLines,
       collapseUnchanged,
       expandAll,
       saveViewState,
       restoreViewState,
-    }), [goToNextChange, goToPreviousChange, getScrollTop, setScrollTop, getCursorPosition, collapseUnchanged, expandAll, saveViewState, restoreViewState]);
+    }), [goToNextChange, goToPreviousChange, getScrollTop, setScrollTop, getCursorPosition, getSelectedLines, collapseUnchanged, expandAll, saveViewState, restoreViewState]);
 
     // Handle editor mount
     const handleMount: DiffOnMount = useCallback((editor, monaco) => {

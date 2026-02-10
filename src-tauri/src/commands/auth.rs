@@ -65,16 +65,17 @@ pub async fn setup_gitlab_instance(
     let now = chrono::Utc::now().timestamp();
     let result = sqlx::query_as::<_, GitLabInstance>(
         r#"
-        INSERT INTO gitlab_instances (url, name, token, created_at)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (url) DO UPDATE SET name = $2, token = $3
-        RETURNING id, url, name, token, created_at
+        INSERT INTO gitlab_instances (url, name, token, created_at, authenticated_username)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (url) DO UPDATE SET name = $2, token = $3, authenticated_username = $5
+        RETURNING id, url, name, token, created_at, authenticated_username
         "#,
     )
     .bind(&url)
     .bind(&input.name)
     .bind(&input.token)
     .bind(now)
+    .bind(&user.username)
     .fetch_one(pool.inner())
     .await?;
 
@@ -107,7 +108,7 @@ pub async fn get_gitlab_instances(
     pool: State<'_, DbPool>,
 ) -> Result<Vec<GitLabInstanceWithStatus>, AppError> {
     let instances: Vec<GitLabInstance> =
-        sqlx::query_as("SELECT id, url, name, token, created_at FROM gitlab_instances ORDER BY created_at DESC")
+        sqlx::query_as("SELECT id, url, name, token, created_at, authenticated_username FROM gitlab_instances ORDER BY created_at DESC")
             .fetch_all(pool.inner())
             .await?;
 
@@ -162,7 +163,7 @@ pub async fn get_token_info(
     instance_id: i64,
 ) -> Result<TokenInfoResponse, AppError> {
     let instance: GitLabInstance = sqlx::query_as(
-        "SELECT id, url, name, token, created_at FROM gitlab_instances WHERE id = $1",
+        "SELECT id, url, name, token, created_at, authenticated_username FROM gitlab_instances WHERE id = $1",
     )
     .bind(instance_id)
     .fetch_optional(pool.inner())
@@ -194,7 +195,7 @@ pub async fn update_instance_token(
     token: String,
 ) -> Result<String, AppError> {
     let instance: GitLabInstance = sqlx::query_as(
-        "SELECT id, url, name, token, created_at FROM gitlab_instances WHERE id = $1",
+        "SELECT id, url, name, token, created_at, authenticated_username FROM gitlab_instances WHERE id = $1",
     )
     .bind(instance_id)
     .fetch_optional(pool.inner())
@@ -210,9 +211,10 @@ pub async fn update_instance_token(
 
     let user = client.validate_token().await?;
 
-    // Update the token in the database
-    sqlx::query("UPDATE gitlab_instances SET token = $1 WHERE id = $2")
+    // Update the token and authenticated username in the database
+    sqlx::query("UPDATE gitlab_instances SET token = $1, authenticated_username = $2 WHERE id = $3")
         .bind(&token)
+        .bind(&user.username)
         .bind(instance_id)
         .execute(pool.inner())
         .await?;

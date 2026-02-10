@@ -14,12 +14,6 @@ import './CommentPanel.css';
 interface CommentPanelProps {
   /** Merge request ID */
   mrId: number;
-  /** Project ID for API calls */
-  projectId: number;
-  /** MR IID for API calls */
-  mrIid: number;
-  /** Current user's username */
-  currentUser: string;
   /** Optional file path to filter inline comments */
   filePath?: string;
   /** Called when comments change */
@@ -47,9 +41,6 @@ function groupByDiscussion(comments: Comment[]): Map<string | null, Comment[]> {
  */
 export default function CommentPanel({
   mrId,
-  projectId,
-  mrIid,
-  currentUser,
   filePath,
   onCommentsChange,
 }: CommentPanelProps) {
@@ -87,13 +78,7 @@ export default function CommentPanel({
     try {
       setSubmitting(true);
       await invoke('add_comment', {
-        input: {
-          mrId,
-          projectId,
-          mrIid,
-          body,
-          authorUsername: currentUser,
-        },
+        input: { mrId, body },
       });
       await fetchComments();
     } catch (e) {
@@ -108,15 +93,7 @@ export default function CommentPanel({
     try {
       setReplyingTo(discussionId);
       await invoke('reply_to_comment', {
-        input: {
-          mrId,
-          projectId,
-          mrIid,
-          discussionId,
-          parentId,
-          body,
-          authorUsername: currentUser,
-        },
+        input: { mrId, discussionId, parentId, body },
       });
       await fetchComments();
     } catch (e) {
@@ -130,13 +107,7 @@ export default function CommentPanel({
   const handleResolve = async (discussionId: string, resolved: boolean) => {
     try {
       await invoke('resolve_discussion', {
-        input: {
-          mrId,
-          projectId,
-          mrIid,
-          discussionId,
-          resolved,
-        },
+        input: { mrId, discussionId, resolved },
       });
       await fetchComments();
     } catch (e) {
@@ -207,7 +178,6 @@ export default function CommentPanel({
               comments={threadComments}
               discussionId={discussionId}
               resolved={isResolved}
-              currentUser={currentUser}
               onReply={(body) => {
                 if (rootComment) {
                   handleReply(discussionId, rootComment.id, body);
