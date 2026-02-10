@@ -11,9 +11,6 @@ import type { MergeRequest } from '../../types';
 import MRListItem from './MRListItem';
 import './MRList.css';
 
-/** Auto-refresh interval in milliseconds */
-const AUTO_REFRESH_INTERVAL = 30000;
-
 /**
  * Format a timestamp as relative time string.
  */
@@ -136,15 +133,6 @@ export default function MRList({
   // Initial load
   useEffect(() => {
     loadMRs(false);
-  }, [loadMRs]);
-
-  // Auto-refresh on interval
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      loadMRs(true);
-    }, AUTO_REFRESH_INTERVAL);
-
-    return () => clearInterval(intervalId);
   }, [loadMRs]);
 
   // Re-fetch on mr-updated events (debounced at 500ms to handle bursts)

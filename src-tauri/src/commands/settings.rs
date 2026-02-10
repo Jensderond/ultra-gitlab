@@ -4,10 +4,11 @@
 //! Settings are persisted using the tauri-plugin-store.
 
 use crate::error::AppError;
-use crate::services::sync_engine::SyncConfig;
+use crate::services::sync_engine::{SyncConfig, SyncHandle};
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 use tauri::AppHandle;
+use tauri::State;
 use tauri_plugin_store::StoreExt;
 use tokio::sync::RwLock;
 
@@ -158,19 +159,23 @@ pub async fn get_sync_settings(app: AppHandle) -> Result<SyncConfig, AppError> {
 #[tauri::command]
 pub async fn update_sync_settings(
     app: AppHandle,
+    sync_handle: State<'_, SyncHandle>,
     sync_config: SyncConfig,
 ) -> Result<(), AppError> {
     // Get current settings
     let mut settings = load_settings(&app).await?;
 
     // Update sync config
-    settings.sync = sync_config;
+    settings.sync = sync_config.clone();
 
     // Save
     save_settings(&app, &settings).await?;
 
     // Update cache
     *settings_cache().write().await = settings;
+
+    // Notify the running sync engine so it picks up the new interval
+    sync_handle.update_config(sync_config).await?;
 
     Ok(())
 }
