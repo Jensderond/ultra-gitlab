@@ -95,6 +95,7 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
   ) {
     const editorRef = useRef<editor.IStandaloneDiffEditor | null>(null);
     const currentChangeIndexRef = useRef<number>(-1);
+    const keyForwardDisposablesRef = useRef<{ dispose(): void }[]>([]);
     const [editorReady, setEditorReady] = useState(false);
 
     // Detect language from file path, fallback to plaintext
@@ -294,9 +295,43 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
     const handleMount: DiffOnMount = useCallback((editor, monaco) => {
       editorRef.current = editor;
       currentChangeIndexRef.current = -1;
+
+      // Clean up any previous disposables (e.g. from HMR)
+      for (const d of keyForwardDisposablesRef.current) d.dispose();
+      keyForwardDisposablesRef.current = [];
+
+      // Forward single-letter keypresses from read-only sub-editors to window.
+      // Without this, Monaco intercepts them (showing a "Cannot edit in read-only
+      // editor" toast) and they never reach the app-level keyboard handler.
+      const forwardKeys = (ed: editor.ICodeEditor) =>
+        ed.onKeyDown((e) => {
+          if (e.ctrlKey || e.metaKey || e.altKey) return;
+          const key = e.browserEvent.key;
+          if (key.length === 1 && key >= 'a' && key <= 'z') {
+            e.preventDefault();
+            e.stopPropagation();
+            window.dispatchEvent(
+              new KeyboardEvent('keydown', { key, code: e.browserEvent.code, bubbles: true })
+            );
+          }
+        });
+
+      keyForwardDisposablesRef.current.push(
+        forwardKeys(editor.getModifiedEditor()),
+        forwardKeys(editor.getOriginalEditor()),
+      );
+
       setEditorReady(true);
       onMount?.(editor, monaco);
     }, [onMount]);
+
+    // Clean up key forwarding disposables on unmount
+    useEffect(() => {
+      return () => {
+        for (const d of keyForwardDisposablesRef.current) d.dispose();
+        keyForwardDisposablesRef.current = [];
+      };
+    }, []);
 
     // Reset change index when content changes
     useEffect(() => {
