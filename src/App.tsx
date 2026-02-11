@@ -8,6 +8,7 @@ import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import Settings from './pages/Settings';
 import MRListPage from './pages/MRListPage';
 import MRDetailPage from './pages/MRDetailPage';
+import { AppSidebar } from './components/AppSidebar';
 import { CommandPalette, type Command } from './components/CommandPalette';
 import { KeyboardHelp } from './components/KeyboardHelp';
 import { ReAuthPrompt } from './components/ReAuthPrompt';
@@ -166,19 +167,22 @@ function AppContent() {
   return (
     <div className="app">
       <div className="titlebar-drag-region" data-tauri-drag-region />
-      <Routes>
-        {/* Redirect root to MR list */}
-        <Route path="/" element={<Navigate to="/mrs" replace />} />
+      <AppSidebar />
+      <div className="app-content">
+        <Routes>
+          {/* Redirect root to MR list */}
+          <Route path="/" element={<Navigate to="/mrs" replace />} />
 
-        {/* MR list page */}
-        <Route path="/mrs" element={<MRListPage />} />
+          {/* MR list page */}
+          <Route path="/mrs" element={<MRListPage />} />
 
-        {/* MR detail page */}
-        <Route path="/mrs/:id" element={<MRDetailPage />} />
+          {/* MR detail page */}
+          <Route path="/mrs/:id" element={<MRDetailPage />} />
 
-        {/* Settings page */}
-        <Route path="/settings" element={<Settings />} />
-      </Routes>
+          {/* Settings page */}
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
+      </div>
 
       <CommandPalette
         isOpen={commandPaletteOpen}

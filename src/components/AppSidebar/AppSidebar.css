@@ -1,0 +1,68 @@
+.app-sidebar {
+  position: fixed;
+  top: 28px; /* below titlebar drag region */
+  left: 0;
+  bottom: 0;
+  width: 56px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 100;
+  padding: 12px 0;
+}
+
+.app-sidebar-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.app-sidebar-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.app-sidebar-item {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+  box-shadow: none;
+}
+
+.app-sidebar-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  box-shadow: none;
+  border: none;
+}
+
+.app-sidebar-item:focus {
+  box-shadow: none;
+  border: none;
+  outline: none;
+}
+
+.app-sidebar-item.active {
+  background: var(--accent-bg);
+  color: var(--accent-color);
+}
+
+.app-sidebar-item.active:hover {
+  background: var(--accent-bg);
+  color: var(--accent-hover);
+}

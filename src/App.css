@@ -20,6 +20,13 @@ html, body, #root, .app {
   -webkit-app-region: drag;
 }
 
+/* Main content area shifted right for sidebar */
+.app-content {
+  margin-left: 56px;
+  height: 100%;
+  overflow: hidden;
+}
+
 :root {
   /* Font */
   font-family: 'Noto Sans JP', -apple-system, sans-serif;
