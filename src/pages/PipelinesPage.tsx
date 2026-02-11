@@ -1,20 +1,301 @@
 /**
  * Pipelines dashboard page.
  *
- * Displays pipeline status for tracked GitLab projects.
+ * Displays pipeline status for tracked GitLab projects in a responsive card grid.
+ * Pinned projects appear first, then recent projects sorted by last visited.
  */
 
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { listInstances, type GitLabInstanceWithStatus } from '../services/gitlab';
+import {
+  listPipelineProjects,
+  getPipelineStatuses,
+} from '../services/tauri';
+import type { PipelineProject, PipelineStatus } from '../types';
 import './PipelinesPage.css';
 
+type PipelineStatusName = PipelineStatus['status'];
+
+/**
+ * Format an ISO 8601 date string as a relative time string.
+ */
+function formatRelativeTime(isoString: string): string {
+  const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return new Date(isoString).toLocaleDateString();
+}
+
+/**
+ * Human-readable status label.
+ */
+function statusLabel(status: PipelineStatusName): string {
+  switch (status) {
+    case 'success': return 'passed';
+    case 'failed': return 'failed';
+    case 'running': return 'running';
+    case 'pending': return 'pending';
+    case 'canceled': return 'canceled';
+    case 'skipped': return 'skipped';
+  }
+}
+
+/**
+ * Format pipeline duration in human-readable form.
+ */
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m < 60) return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  const h = Math.floor(m / 60);
+  const rm = m % 60;
+  return rm > 0 ? `${h}h ${rm}m` : `${h}h`;
+}
+
+// SVG icon components
+function PinIcon({ filled }: { filled: boolean }) {
+  if (filled) {
+    return (
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M4.146.146A.5.5 0 0 1 4.5 0h7a.5.5 0 0 1 .5.5c0 .68-.342 1.174-.646 1.479-.126.125-.25.224-.354.298v4.431l.078.048c.203.127.476.314.751.555C12.36 7.775 13 8.527 13 9.5a.5.5 0 0 1-.5.5h-4v4.5a.5.5 0 0 1-1 0V10h-4A.5.5 0 0 1 3 9.5c0-.973.64-1.725 1.17-2.189A5.921 5.921 0 0 1 5 6.708V2.277a2.77 2.77 0 0 1-.354-.298C4.342 1.674 4 1.179 4 .5a.5.5 0 0 1 .146-.354z"/>
+      </svg>
+    );
+  }
+  return null;
+}
+
+function BranchIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" opacity="0.6">
+      <path d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.493 2.493 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25z"/>
+    </svg>
+  );
+}
+
 export default function PipelinesPage() {
+  const navigate = useNavigate();
+  const [instances, setInstances] = useState<GitLabInstanceWithStatus[]>([]);
+  const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
+  const [projects, setProjects] = useState<PipelineProject[]>([]);
+  const [statuses, setStatuses] = useState<Map<number, PipelineStatus>>(new Map());
+  const [loading, setLoading] = useState(true);
+  const [statusesLoading, setStatusesLoading] = useState(false);
+  const [lastFetched, setLastFetched] = useState<Date | null>(null);
+
+  // Load instances
+  useEffect(() => {
+    async function loadInstances() {
+      try {
+        const data = await listInstances();
+        setInstances(data);
+        if (data.length > 0 && !selectedInstanceId) {
+          setSelectedInstanceId(data[0].id);
+        }
+      } catch (error) {
+        console.error('Failed to load instances:', error);
+      }
+    }
+    loadInstances();
+  }, [selectedInstanceId]);
+
+  // Load projects and their pipeline statuses
+  const loadProjects = useCallback(async () => {
+    if (!selectedInstanceId) return;
+    try {
+      setLoading(true);
+      const projectList = await listPipelineProjects(selectedInstanceId);
+      setProjects(projectList);
+
+      // Fetch statuses for all projects
+      const projectIds = projectList.map((p) => p.projectId);
+      if (projectIds.length > 0) {
+        setStatusesLoading(true);
+        const statusList = await getPipelineStatuses(selectedInstanceId, projectIds);
+        const statusMap = new Map(statusList.map((s) => [s.projectId, s]));
+        setStatuses(statusMap);
+        setLastFetched(new Date());
+        setStatusesLoading(false);
+      }
+    } catch (error) {
+      console.error('Failed to load pipeline projects:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedInstanceId]);
+
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
+
+  if (loading && instances.length === 0) {
+    return (
+      <div className="pipelines-page">
+        <div className="pipelines-loading">Loading...</div>
+      </div>
+    );
+  }
+
+  if (instances.length === 0) {
+    return (
+      <div className="pipelines-page">
+        <div className="pipelines-empty">
+          <h2>No GitLab Instances Configured</h2>
+          <p>Add a GitLab instance in Settings to get started.</p>
+          <button onClick={() => navigate('/settings')} className="primary-button">
+            Go to Settings
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const pinnedProjects = projects.filter((p) => p.pinned);
+  const recentProjects = projects.filter((p) => !p.pinned);
+
   return (
     <div className="pipelines-page">
-      <div className="pipelines-header">
-        <h1>Pipelines</h1>
+      <header className="pipelines-header">
+        <div className="pipelines-header-left">
+          <h1>Pipelines</h1>
+          {lastFetched && (
+            <span className="pipelines-freshness">
+              updated {formatRelativeTime(lastFetched.toISOString())}
+            </span>
+          )}
+        </div>
+        {instances.length > 1 && (
+          <select
+            value={selectedInstanceId ?? ''}
+            onChange={(e) => setSelectedInstanceId(Number(e.target.value))}
+            className="instance-selector"
+          >
+            {instances.map((instance) => (
+              <option key={instance.id} value={instance.id}>
+                {instance.name || instance.url}
+              </option>
+            ))}
+          </select>
+        )}
+      </header>
+
+      <main className="pipelines-content">
+        {loading ? (
+          <div className="pipelines-loading">Loading pipeline projects...</div>
+        ) : projects.length === 0 ? (
+          <div className="pipelines-empty">
+            <p>No projects tracked yet.</p>
+            <p className="pipelines-empty-hint">
+              Use the search above to add projects to your dashboard.
+            </p>
+          </div>
+        ) : (
+          <div className="pipelines-grid-container">
+            {pinnedProjects.length > 0 && (
+              <section className="pipelines-section">
+                <h2 className="pipelines-section-title">Pinned</h2>
+                <div className="pipelines-grid">
+                  {pinnedProjects.map((project) => (
+                    <ProjectCard
+                      key={project.projectId}
+                      project={project}
+                      status={statuses.get(project.projectId)}
+                      statusLoading={statusesLoading}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+            {recentProjects.length > 0 && (
+              <section className="pipelines-section">
+                {pinnedProjects.length > 0 && (
+                  <h2 className="pipelines-section-title">Recent</h2>
+                )}
+                <div className="pipelines-grid">
+                  {recentProjects.map((project) => (
+                    <ProjectCard
+                      key={project.projectId}
+                      project={project}
+                      status={statuses.get(project.projectId)}
+                      statusLoading={statusesLoading}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ProjectCard
+// ---------------------------------------------------------------------------
+
+interface ProjectCardProps {
+  project: PipelineProject;
+  status?: PipelineStatus;
+  statusLoading: boolean;
+}
+
+function ProjectCard({ project, status, statusLoading }: ProjectCardProps) {
+  const statusName = status?.status;
+
+  return (
+    <div className={`pipeline-card ${statusName ? `pipeline-card--${statusName}` : ''}`}>
+      <div className="pipeline-card-header">
+        <span className="pipeline-card-name" title={project.nameWithNamespace}>
+          {project.pinned && (
+            <span className="pipeline-card-pin">
+              <PinIcon filled />
+            </span>
+          )}
+          {project.nameWithNamespace}
+        </span>
       </div>
-      <div className="pipelines-empty">
-        <p>No projects tracked yet.</p>
-        <p className="pipelines-empty-hint">Use the search above to add projects to your dashboard.</p>
+
+      <div className="pipeline-card-status-row">
+        {statusLoading && !status ? (
+          <span className="pipeline-badge pipeline-badge--loading">loading</span>
+        ) : status ? (
+          <span className={`pipeline-badge pipeline-badge--${statusName}`}>
+            {statusName === 'running' && <span className="pipeline-badge-pulse" />}
+            {statusLabel(statusName!)}
+          </span>
+        ) : (
+          <span className="pipeline-badge pipeline-badge--none">no pipeline</span>
+        )}
+        {status?.duration != null && (
+          <span className="pipeline-card-duration">{formatDuration(status.duration)}</span>
+        )}
+      </div>
+
+      {status && (
+        <div className="pipeline-card-meta">
+          <span className="pipeline-card-ref">
+            <BranchIcon />
+            {status.refName}
+          </span>
+          <span className="pipeline-card-sha">{status.sha}</span>
+        </div>
+      )}
+
+      <div className="pipeline-card-footer">
+        {status && (
+          <span className="pipeline-card-time">
+            {formatRelativeTime(status.createdAt)}
+          </span>
+        )}
+        {project.lastVisitedAt && !status && (
+          <span className="pipeline-card-time">
+            visited {formatRelativeTime(project.lastVisitedAt)}
+          </span>
+        )}
       </div>
     </div>
   );

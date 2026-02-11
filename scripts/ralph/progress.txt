@@ -14,6 +14,9 @@ Started: Wed Feb 11 21:22:47 CET 2026
 - Sidebar: `navItems` array in `AppSidebar.tsx`, items with `bottom: true` go to bottom section
 - Keyboard shortcuts: 3 places to register — `App.tsx` (handler), `commands/registry.ts` (CommandId + definition), `config/shortcuts.ts` (help overlay)
 - Command palette: actions bound via `actionMap` in `AppContent()` useMemo
+- Page instance pattern: `listInstances()` from `services/gitlab.ts`, useState for `selectedInstanceId`, auto-select first on mount
+- Pipeline status badges: CSS classes `.pipeline-badge--{status}`, card left-border accent `.pipeline-card--{status}`
+- PipelineStatus timestamps are ISO 8601 strings (not Unix like MR fields)
 
 ---
 
@@ -89,4 +92,22 @@ Started: Wed Feb 11 21:22:47 CET 2026
   - Sidebar nav items: `navItems` array in `AppSidebar.tsx`, `bottom: true` for bottom-aligned items
   - Keyboard shortcuts need 3 registrations: App.tsx handler, commands/registry.ts, config/shortcuts.ts
   - Command palette actions bound in `AppContent()` via `actionMap` useMemo
+---
+
+## 2026-02-11 - US-008
+- Built full PipelinesPage with project cards in responsive CSS grid layout
+- Each card shows: project name (with namespace), pipeline status badge (color-coded), branch/ref, SHA, duration, relative time
+- Status badges: green (success), red (failed), blue (running), amber (pending), gray (canceled/skipped)
+- Running pipelines show a pulse animation on the badge dot
+- Pinned projects appear first in a "Pinned" section with pin icon; recent projects in "Recent" section
+- Empty state shown when no projects tracked, with prompt to use search
+- Instance selector follows same pattern as MyMRsPage (auto-select first, dropdown if multiple)
+- "Updated X ago" freshness timestamp in header
+- Files changed: `src/pages/PipelinesPage.tsx`, `src/pages/PipelinesPage.css`, `scripts/ralph/prd.json`
+- **Learnings for future iterations:**
+  - PipelineStatus timestamps are ISO 8601 strings (not Unix timestamps like MR fields) — need ISO-aware `formatRelativeTime`
+  - Page layout pattern: header with `padding: 24px 32px`, scrollable content area with `flex: 1 1 0; min-height: 0; overflow-y: auto`
+  - Status colors: use CSS variables `--success-color`, `--error-color`, `--accent-color` (blue for running), `--warning-color`
+  - Grid: `repeat(auto-fill, minmax(260px, 1fr))` gives good responsive behavior for cards
+  - `listInstances` is in `services/gitlab.ts`, pipeline commands are in `services/tauri.ts`
 ---

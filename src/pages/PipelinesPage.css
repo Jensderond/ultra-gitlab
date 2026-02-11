@@ -1,12 +1,26 @@
+/* ============================================================================
+   Pipelines Page
+   ============================================================================ */
+
 .pipelines-page {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 24px;
+  background: var(--kw-bg-default, var(--bg-primary));
 }
 
+/* Header */
 .pipelines-header {
-  margin-bottom: 24px;
+  padding: 24px 32px 20px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.pipelines-header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
 }
 
 .pipelines-header h1 {
@@ -16,14 +30,46 @@
   color: var(--text-primary);
 }
 
+.pipelines-freshness {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* Content area */
+.pipelines-content {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 32px 32px;
+}
+
+/* Loading state */
+.pipelines-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* Empty state */
 .pipelines-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   flex: 1;
+  min-height: 200px;
   color: var(--text-secondary);
   gap: 4px;
+}
+
+.pipelines-empty h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--text-primary);
 }
 
 .pipelines-empty p {
@@ -33,4 +79,222 @@
 .pipelines-empty-hint {
   font-size: 13px;
   opacity: 0.7;
+}
+
+/* ============================================================================
+   Grid Layout
+   ============================================================================ */
+
+.pipelines-grid-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.pipelines-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  margin: 0 0 12px;
+}
+
+.pipelines-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+/* ============================================================================
+   Project Card
+   ============================================================================ */
+
+.pipeline-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.pipeline-card:hover {
+  border-color: var(--border-color-light, var(--border-color));
+  background: var(--bg-tertiary);
+}
+
+/* Subtle left-border accent based on status */
+.pipeline-card--success {
+  border-left: 3px solid var(--success-color);
+}
+.pipeline-card--failed {
+  border-left: 3px solid var(--error-color);
+}
+.pipeline-card--running {
+  border-left: 3px solid var(--accent-color);
+}
+.pipeline-card--pending {
+  border-left: 3px solid var(--warning-color);
+}
+.pipeline-card--canceled,
+.pipeline-card--skipped {
+  border-left: 3px solid var(--text-tertiary);
+}
+
+/* Card header */
+.pipeline-card-header {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.pipeline-card-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pipeline-card-pin {
+  color: var(--warning-color);
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
+/* Status row */
+.pipeline-card-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pipeline-card-duration {
+  font-size: 11px;
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--text-tertiary);
+}
+
+/* Meta row (branch + sha) */
+.pipeline-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pipeline-card-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.pipeline-card-sha {
+  font-size: 11px;
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+/* Footer */
+.pipeline-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pipeline-card-time {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* ============================================================================
+   Pipeline Status Badges
+   ============================================================================ */
+
+.pipeline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.pipeline-badge--success {
+  background: rgba(152, 187, 108, 0.12);
+  color: var(--success-color);
+}
+
+.pipeline-badge--failed {
+  background: rgba(195, 64, 67, 0.12);
+  color: var(--error-color);
+}
+
+.pipeline-badge--running {
+  background: rgba(126, 156, 216, 0.12);
+  color: var(--accent-color);
+}
+
+.pipeline-badge--pending {
+  background: rgba(230, 195, 132, 0.12);
+  color: var(--warning-color);
+}
+
+.pipeline-badge--canceled,
+.pipeline-badge--skipped {
+  background: rgba(114, 113, 105, 0.12);
+  color: var(--text-tertiary);
+}
+
+.pipeline-badge--none {
+  background: rgba(114, 113, 105, 0.08);
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.pipeline-badge--loading {
+  background: rgba(114, 113, 105, 0.08);
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Running pulse animation */
+.pipeline-badge-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  animation: pipelinePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pipelinePulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.75);
+  }
 }
