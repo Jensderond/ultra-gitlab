@@ -158,3 +158,17 @@ Started: Wed Feb 11 21:22:47 CET 2026
   - The opener plugin was already installed and configured (Cargo.toml, lib.rs, capabilities/default.json with `opener:default`)
   - Pattern already used in `MRDetailPage.tsx` and `MyMRDetailPage.tsx` — follow same import pattern
 ---
+
+## 2026-02-11 - US-012
+- Added auto-refresh polling to PipelinesPage for pipeline statuses
+- Adaptive interval: 30s when any pipeline is running/pending, 120s when all idle
+- Uses `document.visibilitychange` to pause when page hidden, resume with immediate fetch when visible
+- `refreshStatuses` callback only fetches statuses (not full project list) for smooth updates
+- Uses `statusesRef` (ref) to read latest statuses inside interval without retriggering effect
+- Polling timer cleaned up on unmount via `pollTimerRef`
+- Files changed: `src/pages/PipelinesPage.tsx`
+- **Learnings for future iterations:**
+  - When reading state inside setInterval/setTimeout callbacks within useEffect, use a ref to avoid stale closures and effect re-triggering
+  - `setTimeout` chain (recursive) is better than `setInterval` for adaptive timing since interval can change after each poll
+  - `document.visibilityState === 'visible'` check inside timer + `visibilitychange` listener for pause/resume
+---
