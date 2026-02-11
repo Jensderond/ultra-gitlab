@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { getMergeRequest, getMrReviewers, getComments, getCollapsePatterns } from '../services/tauri';
 import { getMergeRequestFiles, getDiffRefs, getFileContent, getFileContentBase64, getCachedFilePair, getGitattributesPatterns } from '../services/gitlab';
 import { FileNavigation } from '../components/DiffViewer';
@@ -130,18 +131,6 @@ export default function MyMRDetailPage() {
     navigate('/my-mrs');
   }, [navigate]);
 
-  // Handle Escape to go back
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        goBack();
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goBack]);
-
   // Lazy-load Code tab data on first activation
   useEffect(() => {
     if (activeTab !== 'code' || codeTabLoaded || !mr) return;
@@ -261,6 +250,84 @@ export default function MyMRDetailPage() {
     [files, generatedPaths]
   );
 
+  // Navigate to next/previous reviewable file (Code tab)
+  const navigateFile = useCallback(
+    (direction: 1 | -1) => {
+      if (reviewableFiles.length === 0) return;
+      const currentIdx = reviewableFiles.findIndex((f) => f.newPath === selectedFile);
+      let nextIdx: number;
+      if (currentIdx === -1) {
+        nextIdx = direction === 1 ? 0 : reviewableFiles.length - 1;
+      } else {
+        nextIdx = currentIdx + direction;
+        if (nextIdx < 0) nextIdx = reviewableFiles.length - 1;
+        if (nextIdx >= reviewableFiles.length) nextIdx = 0;
+      }
+      const nextFile = reviewableFiles[nextIdx];
+      const fullIndex = files.findIndex((f) => f.newPath === nextFile.newPath);
+      if (fullIndex >= 0) setFileFocusIndex(fullIndex);
+      setSelectedFile(nextFile.newPath);
+    },
+    [reviewableFiles, files, selectedFile]
+  );
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const tabs: TabId[] = ['overview', 'comments', 'code'];
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      switch (e.key) {
+        case 'Escape':
+          e.preventDefault();
+          goBack();
+          break;
+        case '1':
+        case '2':
+        case '3': {
+          e.preventDefault();
+          const tabIndex = parseInt(e.key, 10) - 1;
+          setActiveTab(tabs[tabIndex]);
+          break;
+        }
+        case 'o':
+          e.preventDefault();
+          if (mr?.webUrl) openUrl(mr.webUrl);
+          break;
+        case 'n':
+        case 'j':
+        case 'ArrowDown':
+          if (activeTab === 'code') {
+            e.preventDefault();
+            navigateFile(1);
+          }
+          break;
+        case 'p':
+        case 'k':
+        case 'ArrowUp':
+          if (activeTab === 'code') {
+            e.preventDefault();
+            navigateFile(-1);
+          }
+          break;
+        case 'g':
+          if (activeTab === 'code') {
+            e.preventDefault();
+            setHideGenerated((prev) => !prev);
+          }
+          break;
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [goBack, mr, activeTab, navigateFile]);
+
   if (loading) {
     return (
       <div className="my-mr-detail">
@@ -371,13 +438,16 @@ export default function MyMRDetailPage() {
                 <ul className="my-mr-reviewer-list">
                   {reviewers.map(reviewer => (
                     <li key={reviewer.username} className={`my-mr-reviewer ${reviewerStatusClass(reviewer.status)}`}>
-                      {reviewer.avatarUrl && (
-                        <img
-                          src={reviewer.avatarUrl}
-                          alt={reviewer.username}
-                          className="my-mr-reviewer-avatar"
-                        />
-                      )}
+                      <div className="my-mr-reviewer-avatar">
+                        {reviewer.avatarUrl && (
+                          <img
+                            src={reviewer.avatarUrl}
+                            alt=""
+                            onError={(e) => { e.currentTarget.hidden = true; }}
+                          />
+                        )}
+                        <span>{reviewer.username.charAt(0).toUpperCase()}</span>
+                      </div>
                       <span className="my-mr-reviewer-name">{reviewer.username}</span>
                       <span className="my-mr-reviewer-status">
                         {reviewerStatusLabel(reviewer.status)}
@@ -474,6 +544,16 @@ export default function MyMRDetailPage() {
           </div>
         )}
       </div>
+
+      <footer className="my-mr-detail-footer">
+        <span className="keyboard-hint">
+          <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> tab &middot;{' '}
+          <kbd>j</kbd>/<kbd>k</kbd> file &middot;{' '}
+          <kbd>g</kbd> generated &middot;{' '}
+          <kbd>o</kbd> open &middot;{' '}
+          <kbd>Esc</kbd> back
+        </span>
+      </footer>
     </div>
   );
 }
