@@ -446,6 +446,10 @@ export default function MRDetailPage() {
     }
   }, [commentInput.text, commentInput.position, selectedFile, mrId]);
 
+  // Keep a stable ref so Monaco's onMount command always calls the latest version
+  const submitCommentRef = useRef<() => void>(() => {});
+  submitCommentRef.current = submitComment;
+
   // Keyboard navigation
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -773,7 +777,7 @@ export default function MRDetailPage() {
                   ed.addCommand(
                     // Monaco.KeyMod.CtrlCmd | Monaco.KeyCode.Enter
                     2048 | 3,
-                    () => { submitComment(); }
+                    () => { submitCommentRef.current(); }
                   );
                 }}
                 options={{
