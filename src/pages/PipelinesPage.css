@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700;800&display=swap');
+
 /* ============================================================================
    Pipelines Page
    ============================================================================ */
@@ -15,6 +17,31 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  position: relative;
+  z-index: 10;
+  animation: pipelinesHeaderReveal 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Ink-wash bottom border */
+.pipelines-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 32px;
+  right: 32px;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    #363646 15%,
+    #54546d 50%,
+    #363646 85%,
+    transparent 100%);
+  opacity: 0.6;
+}
+
+@keyframes pipelinesHeaderReveal {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .pipelines-header-left {
@@ -24,10 +51,37 @@
 }
 
 .pipelines-header h1 {
-  font-size: 20px;
-  font-weight: 600;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
   margin: 0;
   color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  line-height: 1;
+}
+
+/* Vertical accent — glowing wave bar */
+.pipelines-header h1::before {
+  content: '';
+  display: block;
+  width: 3px;
+  height: 22px;
+  background: linear-gradient(180deg,
+    #7e9cd8 0%,
+    #7fb4ca 60%,
+    transparent 100%);
+  border-radius: 1.5px;
+  box-shadow: 0 0 14px rgba(126, 156, 216, 0.3);
+  flex-shrink: 0;
+  animation: pipelinesBarBreath 4s ease-in-out infinite;
+}
+
+@keyframes pipelinesBarBreath {
+  0%, 100% { opacity: 1; height: 22px; }
+  50% { opacity: 0.6; height: 18px; }
 }
 
 .pipelines-freshness {
@@ -64,9 +118,11 @@
   border: none;
   background: none;
   outline: none;
+  box-shadow: none;
   font-size: 13px;
   color: var(--text-primary);
   font-family: inherit;
+  padding: 0;
 }
 
 .pipelines-search-input::placeholder {
@@ -120,6 +176,7 @@
   padding: 10px 14px;
   border: none;
   background: none;
+  box-shadow: none;
   cursor: pointer;
   text-align: left;
   font-family: inherit;
@@ -235,6 +292,7 @@
    ============================================================================ */
 
 .pipeline-card {
+  position: relative;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -250,22 +308,42 @@
   background: var(--bg-tertiary);
 }
 
-/* Subtle left-border accent based on status */
-.pipeline-card--success {
-  border-left: 3px solid var(--success-color);
+/* Wave accent bar — left edge indicator (matching MRListItem) */
+.pipeline-card--success::before,
+.pipeline-card--failed::before,
+.pipeline-card--running::before,
+.pipeline-card--pending::before,
+.pipeline-card--canceled::before,
+.pipeline-card--skipped::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 0 1px 1px 0;
 }
-.pipeline-card--failed {
-  border-left: 3px solid var(--error-color);
+
+.pipeline-card--success::before {
+  background: linear-gradient(180deg, #98bb6c 0%, #7aa89f 60%, transparent 100%);
+  box-shadow: 0 0 10px rgba(152, 187, 108, 0.5);
 }
-.pipeline-card--running {
-  border-left: 3px solid var(--accent-color);
+.pipeline-card--failed::before {
+  background: linear-gradient(180deg, #c34043 0%, #e46876 60%, transparent 100%);
+  box-shadow: 0 0 10px rgba(195, 64, 67, 0.5);
 }
-.pipeline-card--pending {
-  border-left: 3px solid var(--warning-color);
+.pipeline-card--running::before {
+  background: linear-gradient(180deg, #7e9cd8 0%, #7fb4ca 60%, transparent 100%);
+  box-shadow: 0 0 10px rgba(126, 156, 216, 0.5);
 }
-.pipeline-card--canceled,
-.pipeline-card--skipped {
-  border-left: 3px solid var(--text-tertiary);
+.pipeline-card--pending::before {
+  background: linear-gradient(180deg, #e6c384 0%, #c0a36e 60%, transparent 100%);
+  box-shadow: 0 0 10px rgba(230, 195, 132, 0.5);
+}
+.pipeline-card--canceled::before,
+.pipeline-card--skipped::before {
+  background: linear-gradient(180deg, #727169 0%, #54546d 60%, transparent 100%);
+  box-shadow: 0 0 10px rgba(114, 113, 105, 0.3);
 }
 
 /* Card header */
@@ -305,6 +383,7 @@
   padding: 0;
   border: none;
   background: none;
+  box-shadow: none;
   border-radius: 4px;
   color: var(--text-tertiary);
   cursor: pointer;
