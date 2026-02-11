@@ -7,6 +7,7 @@ use crate::db::pool::DbPool;
 use crate::error::AppError;
 use crate::models::sync_action::ActionType;
 use crate::models::Comment;
+use crate::services::sync_engine::SyncHandle;
 use crate::services::sync_queue::{self, EnqueueInput, ReplyPayload, ResolvePayload};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
@@ -214,6 +215,7 @@ pub struct AddCommentInput {
 #[tauri::command]
 pub async fn add_comment(
     pool: State<'_, DbPool>,
+    sync_handle: State<'_, SyncHandle>,
     input: AddCommentInput,
 ) -> Result<CommentResponse, AppError> {
     // Look up MR info from database
@@ -280,6 +282,11 @@ pub async fn add_comment(
     )
     .await?;
 
+    // Fire-and-forget: flush comment actions immediately
+    if let Err(e) = sync_handle.flush_comments().await {
+        eprintln!("[comment] Failed to send flush signal: {}", e);
+    }
+
     Ok(CommentResponse {
         id: local_id,
         mr_id: input.mr_id,
@@ -328,6 +335,7 @@ pub struct ReplyInput {
 #[tauri::command]
 pub async fn reply_to_comment(
     pool: State<'_, DbPool>,
+    sync_handle: State<'_, SyncHandle>,
     input: ReplyInput,
 ) -> Result<CommentResponse, AppError> {
     let mr_info = get_mr_info(pool.inner(), input.mr_id).await?;
@@ -396,6 +404,11 @@ pub async fn reply_to_comment(
     )
     .await?;
 
+    // Fire-and-forget: flush comment actions immediately
+    if let Err(e) = sync_handle.flush_comments().await {
+        eprintln!("[comment] Failed to send flush signal: {}", e);
+    }
+
     Ok(CommentResponse {
         id: local_id,
         mr_id: input.mr_id,
@@ -442,6 +455,7 @@ pub struct ResolveInput {
 #[tauri::command]
 pub async fn resolve_discussion(
     pool: State<'_, DbPool>,
+    sync_handle: State<'_, SyncHandle>,
     input: ResolveInput,
 ) -> Result<(), AppError> {
     let mr_info = get_mr_info(pool.inner(), input.mr_id).await?;
@@ -477,6 +491,11 @@ pub async fn resolve_discussion(
         },
     )
     .await?;
+
+    // Fire-and-forget: flush comment actions immediately
+    if let Err(e) = sync_handle.flush_comments().await {
+        eprintln!("[comment] Failed to send flush signal: {}", e);
+    }
 
     Ok(())
 }

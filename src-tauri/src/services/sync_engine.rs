@@ -142,8 +142,8 @@ pub enum SyncCommand {
     /// Trigger an immediate sync.
     TriggerSync,
 
-    /// Flush only approval-type actions immediately (approve/unapprove).
-    FlushApprovals,
+    /// Flush pending actions of the given types immediately.
+    FlushActions(Vec<ActionType>),
 
     /// Update the sync configuration.
     UpdateConfig(SyncConfig),
@@ -174,12 +174,28 @@ impl SyncHandle {
             .map_err(|_| AppError::internal("Sync engine not running"))
     }
 
-    /// Flush only pending approval actions immediately.
-    pub async fn flush_approvals(&self) -> Result<(), AppError> {
+    /// Flush pending actions of the given types immediately.
+    pub async fn flush_actions(&self, types: Vec<ActionType>) -> Result<(), AppError> {
         self.command_tx
-            .send(SyncCommand::FlushApprovals)
+            .send(SyncCommand::FlushActions(types))
             .await
             .map_err(|_| AppError::internal("Sync engine not running"))
+    }
+
+    /// Flush only pending approval actions immediately.
+    pub async fn flush_approvals(&self) -> Result<(), AppError> {
+        self.flush_actions(vec![ActionType::Approve]).await
+    }
+
+    /// Flush pending comment-related actions (comment, reply, resolve, unresolve) immediately.
+    pub async fn flush_comments(&self) -> Result<(), AppError> {
+        self.flush_actions(vec![
+            ActionType::Comment,
+            ActionType::Reply,
+            ActionType::Resolve,
+            ActionType::Unresolve,
+        ])
+        .await
     }
 
     /// Update the sync configuration.
@@ -319,10 +335,10 @@ impl SyncEngine {
                                     eprintln!("[sync] Manual sync error: {}", e);
                                 }
                             }
-                            SyncCommand::FlushApprovals => {
-                                eprintln!("[sync] Flushing approval actions immediately");
-                                if let Err(e) = engine.flush_approval_actions().await {
-                                    eprintln!("[sync] Flush approvals error: {}", e);
+                            SyncCommand::FlushActions(action_types) => {
+                                eprintln!("[sync] Flushing {:?} actions immediately", action_types);
+                                if let Err(e) = engine.flush_actions_by_types(&action_types).await {
+                                    eprintln!("[sync] Flush actions error: {}", e);
                                 }
                             }
                         SyncCommand::UpdateConfig(new_config) => {
@@ -1372,29 +1388,37 @@ impl SyncEngine {
 
     /// Flush only approval-type pending actions immediately.
     ///
-    /// Fetches pending actions with action_type = 'approve', creates a GitLab
-    /// client for each instance, and processes each approval action. Other
-    /// queued action types are left untouched. If no approval actions are
+    /// Fetches pending actions matching any of the given types, creates a
+    /// GitLab client for each instance, and processes each action. Other
+    /// queued action types are left untouched. If no matching actions are
     /// pending, this is a no-op.
-    async fn flush_approval_actions(&self) -> Result<(), AppError> {
-        // Get only pending approval actions (filtered at the DB level)
-        let approval_actions =
-            sync_queue::get_pending_actions_by_type(&self.pool, ActionType::Approve).await?;
+    async fn flush_actions_by_types(&self, action_types: &[ActionType]) -> Result<(), AppError> {
+        // Collect pending actions for all requested types
+        let mut actions = Vec::new();
+        for action_type in action_types {
+            actions.extend(
+                sync_queue::get_pending_actions_by_type(&self.pool, *action_type).await?,
+            );
+        }
 
-        if approval_actions.is_empty() {
-            eprintln!("[sync] No pending approval actions to flush");
+        if actions.is_empty() {
+            eprintln!("[sync] No pending actions to flush for {:?}", action_types);
             return Ok(());
         }
 
+        // Sort by created_at so actions are processed in order
+        actions.sort_by_key(|a| a.created_at);
+
         eprintln!(
-            "[sync] Flushing {} approval action(s)",
-            approval_actions.len()
+            "[sync] Flushing {} action(s) for {:?}",
+            actions.len(),
+            action_types
         );
 
         // Get all instances to create clients
         let instances = self.get_gitlab_instances().await?;
 
-        for action in &approval_actions {
+        for action in &actions {
             // Find the instance for this action's MR
             let instance_id: Option<i64> = sqlx::query_scalar(
                 "SELECT instance_id FROM merge_requests WHERE id = ?",
@@ -1460,9 +1484,9 @@ impl SyncEngine {
             }
 
             if result.success {
-                eprintln!("[sync] Flushed approval action {} successfully", action.id);
+                eprintln!("[sync] Flushed action {} ({}) successfully", action.id, action.action_type);
             } else if let Some(err) = &result.error {
-                eprintln!("[sync] Approval action {} failed: {}", action.id, err);
+                eprintln!("[sync] Action {} ({}) failed: {}", action.id, action.action_type, err);
             }
         }
 
