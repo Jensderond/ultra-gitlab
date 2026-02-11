@@ -1,0 +1,52 @@
+/* My MRs Page - Draft indicator and approval badges */
+
+.my-mr-item-wrapper {
+  position: relative;
+}
+
+/* Draft/WIP indicator - brown-orange accent on left */
+.my-mr-item-wrapper.is-draft::after {
+  content: 'Draft';
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #c0a36e;
+  background: rgba(192, 163, 110, 0.12);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(192, 163, 110, 0.2);
+}
+
+/* Approval summary badge */
+.my-mr-approval-badge {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--kw-spring-green, #98bb6c);
+  background: rgba(152, 187, 108, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(152, 187, 108, 0.2);
+}
+
+/* When both draft and approval badge exist, shift badge down */
+.my-mr-item-wrapper.is-draft .my-mr-approval-badge {
+  top: 36px;
+}
+
+/* Loading state for MR list content */
+.mr-list-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  color: var(--kw-fg-muted, #727169);
+  font-size: 13px;
+}

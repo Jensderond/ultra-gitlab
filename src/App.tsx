@@ -8,6 +8,7 @@ import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import Settings from './pages/Settings';
 import MRListPage from './pages/MRListPage';
 import MRDetailPage from './pages/MRDetailPage';
+import MyMRsPage from './pages/MyMRsPage';
 import { AppSidebar } from './components/AppSidebar';
 import { CommandPalette, type Command } from './components/CommandPalette';
 import { KeyboardHelp } from './components/KeyboardHelp';
@@ -186,6 +187,9 @@ function AppContent() {
 
           {/* MR detail page */}
           <Route path="/mrs/:id" element={<MRDetailPage />} />
+
+          {/* My MRs pages */}
+          <Route path="/my-mrs" element={<MyMRsPage />} />
 
           {/* Settings page */}
           <Route path="/settings" element={<Settings />} />
