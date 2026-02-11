@@ -13,6 +13,8 @@ import {
   getPipelineStatuses,
   searchProjects,
   visitPipelineProject,
+  togglePinPipelineProject,
+  removePipelineProject,
 } from '../services/tauri';
 import type { PipelineProject, PipelineStatus, ProjectSearchResult } from '../types';
 import './PipelinesPage.css';
@@ -67,7 +69,19 @@ function PinIcon({ filled }: { filled: boolean }) {
       </svg>
     );
   }
-  return null;
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+      <path d="M4.146.146A.5.5 0 0 1 4.5 0h7a.5.5 0 0 1 .5.5c0 .68-.342 1.174-.646 1.479-.126.125-.25.224-.354.298v4.431l.078.048c.203.127.476.314.751.555C12.36 7.775 13 8.527 13 9.5a.5.5 0 0 1-.5.5h-4v4.5a.5.5 0 0 1-1 0V10h-4A.5.5 0 0 1 3 9.5c0-.973.64-1.725 1.17-2.189A5.921 5.921 0 0 1 5 6.708V2.277a2.77 2.77 0 0 1-.354-.298C4.342 1.674 4 1.179 4 .5a.5.5 0 0 1 .146-.354zm1.853 1.853L6 6.96a.5.5 0 0 1-.243.412 4.93 4.93 0 0 0-.606.436C4.648 8.251 4.199 8.836 4.069 9.5H8v4l.5.5.5-.5V9.5h3.931c-.13-.664-.579-1.249-1.082-1.692a4.93 4.93 0 0 0-.606-.436A.5.5 0 0 1 11 6.96l.001-4.96A1.28 1.28 0 0 0 11.354 2H5.646a1.28 1.28 0 0 0 .353 0z"/>
+    </svg>
+  );
+}
+
+function RemoveIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+      <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+    </svg>
+  );
 }
 
 function SearchIcon() {
@@ -230,6 +244,36 @@ export default function PipelinesPage() {
     [selectedInstanceId, loadProjects]
   );
 
+  // Handle pin/unpin toggle
+  const handleTogglePin = useCallback(
+    async (projectId: number) => {
+      if (!selectedInstanceId) return;
+      try {
+        await togglePinPipelineProject(selectedInstanceId, projectId);
+        // Reload to get updated sort order
+        const projectList = await listPipelineProjects(selectedInstanceId);
+        setProjects(projectList);
+      } catch (error) {
+        console.error('Failed to toggle pin:', error);
+      }
+    },
+    [selectedInstanceId]
+  );
+
+  // Handle remove project from dashboard
+  const handleRemoveProject = useCallback(
+    async (projectId: number) => {
+      if (!selectedInstanceId) return;
+      try {
+        await removePipelineProject(selectedInstanceId, projectId);
+        setProjects((prev) => prev.filter((p) => p.projectId !== projectId));
+      } catch (error) {
+        console.error('Failed to remove project:', error);
+      }
+    },
+    [selectedInstanceId]
+  );
+
   if (loading && instances.length === 0) {
     return (
       <div className="pipelines-page">
@@ -359,6 +403,8 @@ export default function PipelinesPage() {
                       project={project}
                       status={statuses.get(project.projectId)}
                       statusLoading={statusesLoading}
+                      onTogglePin={handleTogglePin}
+                      onRemove={handleRemoveProject}
                     />
                   ))}
                 </div>
@@ -376,6 +422,8 @@ export default function PipelinesPage() {
                       project={project}
                       status={statuses.get(project.projectId)}
                       statusLoading={statusesLoading}
+                      onTogglePin={handleTogglePin}
+                      onRemove={handleRemoveProject}
                     />
                   ))}
                 </div>
@@ -396,9 +444,11 @@ interface ProjectCardProps {
   project: PipelineProject;
   status?: PipelineStatus;
   statusLoading: boolean;
+  onTogglePin: (projectId: number) => void;
+  onRemove: (projectId: number) => void;
 }
 
-function ProjectCard({ project, status, statusLoading }: ProjectCardProps) {
+function ProjectCard({ project, status, statusLoading, onTogglePin, onRemove }: ProjectCardProps) {
   const statusName = status?.status;
 
   return (
@@ -412,6 +462,22 @@ function ProjectCard({ project, status, statusLoading }: ProjectCardProps) {
           )}
           {project.nameWithNamespace}
         </span>
+        <div className="pipeline-card-actions">
+          <button
+            className={`pipeline-card-action-btn ${project.pinned ? 'pipeline-card-action-btn--active' : ''}`}
+            onClick={() => onTogglePin(project.projectId)}
+            title={project.pinned ? 'Unpin project' : 'Pin project'}
+          >
+            <PinIcon filled={project.pinned} />
+          </button>
+          <button
+            className="pipeline-card-action-btn pipeline-card-action-btn--remove"
+            onClick={() => onRemove(project.projectId)}
+            title="Remove from dashboard"
+          >
+            <RemoveIcon />
+          </button>
+        </div>
       </div>
 
       <div className="pipeline-card-status-row">

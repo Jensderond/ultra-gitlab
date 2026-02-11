@@ -129,3 +129,18 @@ Started: Wed Feb 11 21:22:47 CET 2026
   - Click-outside-to-close: use `mousedown` event (not `click`) with `contains()` check on container ref
   - The backend `searchProjects` already handles local-first + API-fallback in one call — no need for separate local/API calls on frontend
 ---
+
+## 2026-02-11 - US-010
+- Added pin/unpin toggle and remove action buttons to project cards on PipelinesPage
+- Pin button: toggles pinned state via `togglePinPipelineProject`, re-fetches project list for correct sort order
+- Remove button: removes project via `removePipelineProject`, optimistically removes from local state
+- Action buttons appear on card hover (CSS opacity transition), pinned button stays visible when active
+- Pin icon has filled (pinned) and outline (unpinned) variants; remove uses X icon
+- Added `RemoveIcon` SVG component and expanded `PinIcon` with outline variant
+- CSS: `.pipeline-card-actions` with hover reveal, `.pipeline-card-action-btn` with active/remove states
+- Files changed: `src/pages/PipelinesPage.tsx`, `src/pages/PipelinesPage.css`, `scripts/ralph/prd.json`
+- **Learnings for future iterations:**
+  - CSS `:has()` selector works well for "keep visible when child has active state" patterns
+  - For pin toggle, re-fetch the full list from backend to get correct sort order rather than trying to sort locally
+  - Optimistic removal (filter state locally) works well since `removePipelineProject` is a simple delete
+---
