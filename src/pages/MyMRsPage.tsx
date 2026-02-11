@@ -32,6 +32,13 @@ function isDraft(mr: MergeRequest): boolean {
   return mr.title.startsWith('Draft:') || mr.title.startsWith('WIP:');
 }
 
+/**
+ * Check if an MR has enough approvals.
+ */
+function isFullyApproved(mr: MergeRequest): boolean {
+  return mr.approvalStatus === 'approved';
+}
+
 export default function MyMRsPage() {
   const navigate = useNavigate();
   const [instances, setInstances] = useState<GitLabInstanceWithStatus[]>([]);
@@ -170,7 +177,7 @@ export default function MyMRsPage() {
               {mrs.map((mr, index) => (
                 <div
                   key={mr.id}
-                  className={`my-mr-item-wrapper ${isDraft(mr) ? 'is-draft' : ''}`}
+                  className={['my-mr-item-wrapper', isDraft(mr) && 'is-draft', isFullyApproved(mr) && 'is-approved'].filter(Boolean).join(' ')}
                 >
                   <MRListItem
                     mr={mr}

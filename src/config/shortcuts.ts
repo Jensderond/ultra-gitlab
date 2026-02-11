@@ -81,6 +81,13 @@ export const defaultShortcuts: ShortcutDefinition[] = [
     context: 'global',
   },
   {
+    id: 'go-to-mr-list',
+    description: 'Go to MR list',
+    defaultKey: 'Cmd+L',
+    category: 'navigation',
+    context: 'global',
+  },
+  {
     id: 'go-to-my-mrs',
     description: 'Go to My MRs',
     defaultKey: 'Cmd+M',

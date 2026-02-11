@@ -286,11 +286,8 @@ export default function MyMRDetailPage() {
   return (
     <div className="my-mr-detail">
       <header className="my-mr-detail-header">
-        <button className="my-mr-back-btn" onClick={goBack}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          My MRs
+        <button className="back-button" onClick={goBack}>
+          ← Back
         </button>
         <div className="my-mr-detail-title-row">
           <span className="my-mr-detail-iid">!{mr.iid}</span>

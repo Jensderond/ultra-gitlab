@@ -1,3 +1,87 @@
-# Ralph Progress Log
-Started: Thu Feb  5 21:10:49 CET 2026
+## Codebase Patterns
+- GitLabUser struct now includes optional `avatar_url` field
+- Per-reviewer data comes from combining MR `reviewers` list with `approved_by` from approvals endpoint
+- Sync engine uses delete + re-insert pattern for reviewer data (not upsert) to handle removed reviewers
+- `mr_reviewers` table has composite PK (mr_id, username) and CASCADE on mr delete
+- Diff viewer components (FileNavigation, MonacoDiffViewer, ImageDiffViewer) are reusable across pages — import from components/DiffViewer and components/Monaco
+- For lazy tab loading, use a `loaded` boolean guard to avoid re-fetching on subsequent tab switches
+
 ---
+
+## 2026-02-11 - US-001
+- Implemented mr_reviewers DB table, sync engine reviewer fetch, and get_mr_reviewers Tauri command
+- Files changed:
+  - `src-tauri/src/db/migrations/0009_create_mr_reviewers.sql` (new)
+  - `src-tauri/src/db/mod.rs` (added migration to MIGRATIONS array)
+  - `src-tauri/src/models/mr_reviewer.rs` (new model)
+  - `src-tauri/src/models/mod.rs` (registered module + re-export)
+  - `src-tauri/src/services/gitlab_client.rs` (added avatar_url to GitLabUser)
+  - `src-tauri/src/services/sync_engine.rs` (added upsert_reviewers method + call in sync_mr)
+  - `src-tauri/src/commands/reviewers.rs` (new command)
+  - `src-tauri/src/commands/mod.rs` (registered module + re-export)
+  - `src-tauri/src/lib.rs` (added import + generate_handler registration)
+- **Learnings for future iterations:**
+  - GitLab approvals endpoint gives approved_by list but NOT a list of "pending" reviewers - need to combine with MR reviewers field
+  - The 3-step registration pattern for Tauri commands: function → mod.rs re-export → lib.rs handler
+  - Using `INSERT OR IGNORE` for approved-only reviewers prevents duplicates when they're also in the reviewers list
+---
+
+## 2026-02-11 - US-002
+- Implemented list_my_merge_requests Tauri command + frontend service wrappers
+- Files changed:
+  - `src-tauri/src/commands/mr.rs` (added list_my_merge_requests command)
+  - `src-tauri/src/commands/mod.rs` (re-export)
+  - `src-tauri/src/lib.rs` (import + handler registration)
+  - `src/types/index.ts` (added MrReviewer type)
+  - `src/services/tauri.ts` (added listMyMergeRequests + getMrReviewers wrappers)
+  - `src/services/index.ts` (re-exports)
+- **Learnings for future iterations:**
+  - authenticated_username is stored on gitlab_instances table, queried via `SELECT authenticated_username FROM gitlab_instances WHERE id = ?`
+  - Use `fetch_optional` + `.flatten()` for nullable scalar queries in sqlx
+  - MrReviewer type added to frontend types for future US-006
+---
+
+## 2026-02-11 - US-003
+- Implemented AppSidebar component with icon navigation
+- Files changed:
+  - `src/components/AppSidebar/AppSidebar.tsx` (new - sidebar with InboxIcon, UserIcon, GearIcon)
+  - `src/components/AppSidebar/AppSidebar.css` (new - fixed left sidebar styling)
+  - `src/components/AppSidebar/index.ts` (new - barrel export)
+  - `src/App.tsx` (added sidebar + wrapped routes in .app-content)
+  - `src/App.css` (added .app-content with margin-left: 56px)
+- **Learnings for future iterations:**
+  - Sidebar is 56px wide (not 80px as spec said - 80px felt too wide for icon-only)
+  - Content is shifted right via `margin-left: 56px` on `.app-content`
+  - Titlebar drag region is 28px, sidebar starts below it
+  - Active state uses matchPrefix logic to handle sub-routes (e.g., /mrs/123 highlights /mrs)
+---
+
+## 2026-02-11 - US-007
+- Comments tab was already fully implemented as part of US-006 (MyMRDetailPage.tsx)
+- No code changes needed — all acceptance criteria verified against existing implementation:
+  - Comments fetched via `getComments(mrId)` in the existing useEffect
+  - System comments filtered out, grouped by `discussionId`
+  - Threads sorted: unresolved first, then by date
+  - Each comment shows author, relative time, body, file path + line number
+  - Resolved threads have opacity: 0.6 + "Resolved" badge
+  - Unresolved count displayed on tab label: `Comments (N)`
+  - Comments are read-only (no actions)
+- Typecheck (bunx tsc --noEmit) and cargo check both pass
+- **Learnings for future iterations:**
+  - When implementing tab-based views, consider implementing all tab content in the initial story to avoid split stories with no actual work
+  - No markdown rendering library in the project — comment bodies use `white-space: pre-wrap` consistently across all components (CommentPanel, InlineComment, MyMRDetailPage)
+---
+
+## 2026-02-11 - US-008
+- Implemented Code tab in MyMRDetailPage with full diff viewing capability
+- Files changed:
+  - `src/pages/MyMRDetailPage.tsx` (added Code tab with FileNavigation + MonacoDiffViewer + ImageDiffViewer, also committed pending Comments tab implementation from US-007)
+  - `src/pages/MyMRDetailPage.css` (added Code tab layout styles: sidebar/main split, loading states)
+- **Learnings for future iterations:**
+  - Code tab data loads lazily (only when tab first activated) via `codeTabLoaded` guard flag — avoids unnecessary API calls when user stays on Overview/Comments
+  - Reuses existing components: `FileNavigation`, `MonacoDiffViewer`, `ImageDiffViewer` from MRDetailPage — no new components needed
+  - The Code tab needs `margin: -24px -32px` to break out of the tab-content padding for full-bleed sidebar+diff layout
+  - When narrowing types for async closures, capture non-null values as `const` before the async function to satisfy TypeScript's flow analysis (e.g., `const currentMr = mr; const currentFile = selectedFile;`)
+  - `classifyFiles()` needs both gitattributes patterns and user collapse patterns to properly separate generated from reviewable files
+---
+

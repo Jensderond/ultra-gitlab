@@ -4,28 +4,29 @@
   position: relative;
 }
 
-/* Draft/WIP indicator - brown-orange accent on left */
-.my-mr-item-wrapper.is-draft::after {
-  content: 'Draft';
-  position: absolute;
-  top: 12px;
-  right: 16px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #c0a36e;
-  background: rgba(192, 163, 110, 0.12);
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid rgba(192, 163, 110, 0.2);
+/* Draft/WIP — warm amber accent bar on selection */
+.my-mr-item-wrapper.is-draft .mr-list-item.selected::before {
+  background: linear-gradient(180deg,
+    #c0a36e 0%,
+    #d4b97a 60%,
+    transparent 100%);
+  box-shadow: 0 0 10px rgba(192, 163, 110, 0.5);
 }
 
-/* Approval summary badge */
+/* Fully approved — green accent bar on selection */
+.my-mr-item-wrapper.is-approved .mr-list-item.selected::before {
+  background: linear-gradient(180deg,
+    #98bb6c 0%,
+    #7aa89f 60%,
+    transparent 100%);
+  box-shadow: 0 0 10px rgba(152, 187, 108, 0.5);
+}
+
+/* Approval summary badge — bottom-right to avoid overlapping timestamp */
 .my-mr-approval-badge {
   position: absolute;
-  top: 12px;
-  right: 16px;
+  bottom: 12px;
+  right: 32px;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
   font-weight: 500;
@@ -34,11 +35,6 @@
   padding: 2px 8px;
   border-radius: 4px;
   border: 1px solid rgba(152, 187, 108, 0.2);
-}
-
-/* When both draft and approval badge exist, shift badge down */
-.my-mr-item-wrapper.is-draft .my-mr-approval-badge {
-  top: 36px;
 }
 
 /* Loading state for MR list content */

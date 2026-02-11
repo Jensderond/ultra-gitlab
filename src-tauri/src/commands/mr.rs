@@ -119,6 +119,10 @@ pub async fn get_merge_requests(
         FROM merge_requests mr
         LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
         WHERE mr.instance_id = $1
+          AND mr.author_username != COALESCE(
+              (SELECT authenticated_username FROM gitlab_instances WHERE id = mr.instance_id),
+              ''
+          )
         "#,
     );
 

@@ -92,6 +92,7 @@ export const commandDefinitions: CommandDefinition[] = [
     id: CommandId.GoToMRList,
     label: 'Go to Merge Requests',
     description: 'View the list of merge requests',
+    shortcut: 'Cmd+L',
     category: CommandCategory.Navigation,
   },
   {

@@ -1,0 +1,153 @@
+{
+  "project": "Ultra GitLab",
+  "branchName": "ralph/my-mrs-screen",
+  "description": "My MRs Screen & Global Navigation Sidebar - A dedicated screen for authors to monitor their own MRs with approval status and comments, plus a persistent icon sidebar for app-wide navigation",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add mr_reviewers DB table, GitLab API fetch, and Tauri command",
+      "description": "As a developer, I need to fetch and store per-reviewer approval statuses from the GitLab API so the frontend can display who approved, who hasn't, and who requested changes.",
+      "acceptanceCriteria": [
+        "New migration creates mr_reviewers table with columns: mr_id (FK), username (TEXT), status (TEXT: approved/pending/changes_requested), avatar_url (TEXT nullable), cached_at (INTEGER)",
+        "Migration is added to the MIGRATIONS array in db/migrations/mod.rs",
+        "New Rust model MrReviewer with serde(rename_all = camelCase) for frontend consumption",
+        "Sync engine fetches /projects/:id/merge_requests/:iid/approvals endpoint per MR and upserts reviewer rows",
+        "Reviewer data refreshes each sync cycle (delete + re-insert per MR to handle removed reviewers)",
+        "New Tauri command get_mr_reviewers(mr_id) returns Vec<MrReviewer>",
+        "Command registered in commands/mod.rs and lib.rs generate_handler!",
+        "cargo check passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add backend command to list MRs by author",
+      "description": "As a developer, I need a Tauri command to query only MRs authored by the authenticated user so the My MRs page can display them.",
+      "acceptanceCriteria": [
+        "New Tauri command list_my_merge_requests(instance_id) that queries open MRs where author_username matches the instance's authenticated_username",
+        "Returns the same MergeRequest DTO as list_merge_requests (reuse existing model)",
+        "Does NOT filter out userHasApproved MRs (unlike the review list)",
+        "Command registered in commands/mod.rs and lib.rs generate_handler!",
+        "Frontend service wrapper listMyMergeRequests(instanceId) added to services/tauri.ts",
+        "Re-exported from services/index.ts",
+        "cargo check passes",
+        "Typecheck passes (bunx tsc --noEmit)"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Add global navigation sidebar component",
+      "description": "As a user, I want a persistent icon sidebar on the left edge of the app so I can quickly navigate between MR List, My MRs, and Settings.",
+      "acceptanceCriteria": [
+        "New AppSidebar component rendered in App.tsx wrapping all page content",
+        "Sidebar is ~80px wide, fixed on the left edge",
+        "First icon: list/inbox icon navigating to /mrs",
+        "Second icon: user/person icon navigating to /my-mrs",
+        "Bottom-pinned icon: cog/gear icon navigating to /settings",
+        "Active page is visually indicated with highlight/accent on the active icon",
+        "Sidebar is visible on every screen including Settings and detail views",
+        "Existing page layouts shift right to accommodate the sidebar",
+        "Typecheck passes (bunx tsc --noEmit)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "No browser dev tools available; manual verification needed"
+    },
+    {
+      "id": "US-004",
+      "title": "Add Cmd+M / Ctrl+M shortcut to navigate to My MRs",
+      "description": "As a user, I want to press Cmd+M (macOS) / Ctrl+M (Linux/Windows) to jump to the My MRs screen from anywhere.",
+      "acceptanceCriteria": [
+        "Cmd+M / Ctrl+M navigates to /my-mrs from any screen",
+        "Shortcut is registered in the global keyboard shortcut system (App.tsx or shortcuts config)",
+        "Shortcut appears in the keyboard help overlay (? key)",
+        "Shortcut is listed in the command palette (Cmd+P)",
+        "If already on My MRs, shortcut is a no-op",
+        "Typecheck passes (bunx tsc --noEmit)"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Create My MRs page with author-filtered list",
+      "description": "As a user, I want to see a list of my authored open MRs so I can monitor their approval status and feedback.",
+      "acceptanceCriteria": [
+        "New route /my-mrs renders MyMRsPage component",
+        "Page calls listMyMergeRequests(instanceId) to fetch author's open MRs",
+        "MR list items show: state badge, MR IID, project name, title, relative time, branch info, labels, approval summary (e.g. 2/3 approved)",
+        "Draft/WIP MRs are visually distinguished via a ::after pseudo-element with brown-orange color on the list item",
+        "Supports keyboard navigation (j/k/up/down to move, Enter to open detail)",
+        "Instance selector shown if multiple instances configured",
+        "Empty state message when user has no authored MRs",
+        "Typecheck passes (bunx tsc --noEmit)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "No browser dev tools available; manual verification needed"
+    },
+    {
+      "id": "US-006",
+      "title": "Create My MR detail view with tab structure and Overview tab",
+      "description": "As an MR author, I want to open one of my MRs and see an Overview tab showing per-reviewer approval status so I know what's blocking my MR.",
+      "acceptanceCriteria": [
+        "New route /my-mrs/:id renders MyMRDetailPage component",
+        "Detail view has a horizontal tab bar with three tabs: Overview (default), Comments, Code",
+        "Overview tab shows: MR title, description/body, state, source/target branches, labels",
+        "Overview tab shows reviewer list with each reviewer's username and individual status (approved / pending / changes_requested)",
+        "Approvals required vs received is visible (e.g. '2 of 3 required approvals')",
+        "Reviewer data fetched via get_mr_reviewers Tauri command",
+        "Back navigation returns to /my-mrs list",
+        "Typecheck passes (bunx tsc --noEmit)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "No browser dev tools available; manual verification needed"
+    },
+    {
+      "id": "US-007",
+      "title": "Add Comments tab to My MR detail view",
+      "description": "As an MR author, I want to see all comments and discussions on my MR so I can track feedback without opening code diffs.",
+      "acceptanceCriteria": [
+        "Comments tab shows all comments for the MR (inline code comments and general discussion)",
+        "Each comment shows: author username, relative timestamp, body (rendered as markdown), file path + line number if inline",
+        "Comments are grouped by discussion thread",
+        "Resolved threads are visually distinguished from unresolved (e.g. muted style, strikethrough, or collapse)",
+        "Unresolved thread count shown on the tab label (e.g. 'Comments (3)')",
+        "Comments are read-only (no reply or resolve actions)",
+        "Comments fetched via existing get_comments Tauri command",
+        "Typecheck passes (bunx tsc --noEmit)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "Already implemented as part of US-006; all acceptance criteria verified"
+    },
+    {
+      "id": "US-008",
+      "title": "Add Code tab to My MR detail view",
+      "description": "As an MR author, I occasionally want to look at the code diff of my own MR from the My MRs screen.",
+      "acceptanceCriteria": [
+        "Code tab is available in the My MR detail view tab bar",
+        "Code tab reuses the existing diff viewer and file navigation components from MRDetailPage",
+        "Tab is not the default — user must explicitly click it",
+        "File list with change type badges renders correctly",
+        "Diff viewer (Monaco) renders for selected file",
+        "Typecheck passes (bunx tsc --noEmit)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "No browser dev tools available; manual verification needed"
+    }
+  ]
+}

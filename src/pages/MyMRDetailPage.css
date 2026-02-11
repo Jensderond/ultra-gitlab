@@ -27,26 +27,8 @@
   border-bottom: 1px solid var(--border-color);
 }
 
-.my-mr-back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
+.my-mr-detail .back-button {
   margin-bottom: 12px;
-  font-size: 12px;
-  color: var(--text-tertiary);
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  box-shadow: none;
-}
-
-.my-mr-back-btn:hover {
-  color: var(--text-secondary);
-  background: var(--bg-hover);
-  box-shadow: none;
-  border: none;
 }
 
 .my-mr-detail-title-row {

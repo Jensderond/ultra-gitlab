@@ -562,6 +562,19 @@ impl SyncEngine {
             duration_ms: 0,
         };
 
+        // Validate token and ensure authenticated_username is persisted
+        // (may be NULL for instances created before migration 0008)
+        if let Ok(user) = client.validate_token().await {
+            let _ = sqlx::query(
+                "UPDATE gitlab_instances SET authenticated_username = ? WHERE id = ? AND (authenticated_username IS NULL OR authenticated_username != ?)"
+            )
+            .bind(&user.username)
+            .bind(instance.id)
+            .bind(&user.username)
+            .execute(&self.pool)
+            .await;
+        }
+
         // Emit fetching_mrs event
         self.emit_progress(SyncPhase::FetchingMrs, format!("Fetching MRs from {}", instance.url));
 
@@ -663,7 +676,17 @@ impl SyncEngine {
                 ..Default::default()
             };
 
+            eprintln!(
+                "[sync] Fetching authored MRs for user '{}', query: {}",
+                current_user.username,
+                serde_json::to_string(&query).unwrap_or_default()
+            );
+
             let response = client.list_merge_requests(&query).await?;
+            eprintln!(
+                "[sync] Received {} authored MRs from GitLab",
+                response.data.len()
+            );
             all_mrs.extend(response.data);
         }
 

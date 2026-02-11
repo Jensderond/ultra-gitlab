@@ -25,6 +25,7 @@ use commands::{
 };
 use services::sync_engine::{SyncConfig, SyncEngine};
 use tauri::{Manager, TitleBarStyle, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_store::StoreExt;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -54,8 +55,17 @@ pub fn run() {
                     .await
                     .expect("Failed to initialize database");
 
+                // Load persisted sync config from settings store (fall back to defaults)
+                let sync_config: SyncConfig = app_handle
+                    .store("settings.json")
+                    .ok()
+                    .and_then(|store| store.get("sync_config"))
+                    .and_then(|v| serde_json::from_value(v.clone()).ok())
+                    .unwrap_or_default();
+                eprintln!("[sync] Loaded sync config: sync_authored={}, sync_reviewing={}", sync_config.sync_authored, sync_config.sync_reviewing);
+
                 // Start background sync engine (needs active Tokio runtime for tokio::spawn)
-                let sync_handle = SyncEngine::start_background(pool.clone(), SyncConfig::default(), app_handle);
+                let sync_handle = SyncEngine::start_background(pool.clone(), sync_config, app_handle);
                 eprintln!("[sync] Background sync engine started");
 
                 (pool, sync_handle)

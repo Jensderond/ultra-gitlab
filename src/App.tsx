@@ -90,6 +90,13 @@ function AppContent() {
         return;
       }
 
+      // Cmd+L or Ctrl+L to go to MR list
+      if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
+        e.preventDefault();
+        navigate('/mrs');
+        return;
+      }
+
       // Cmd+M or Ctrl+M to go to My MRs
       if ((e.metaKey || e.ctrlKey) && e.key === 'm') {
         e.preventDefault();
