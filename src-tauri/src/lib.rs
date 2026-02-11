@@ -18,7 +18,7 @@ use commands::{
     get_gitattributes, get_gitlab_instances, get_memory_stats, get_merge_request_detail,
     get_merge_requests, get_settings, get_sync_config, get_sync_settings, get_sync_status,
     get_mr_reviewers, get_token_info, list_my_merge_requests, list_pipeline_projects,
-    visit_pipeline_project, toggle_pin_pipeline_project, remove_pipeline_project,
+    visit_pipeline_project, toggle_pin_pipeline_project, remove_pipeline_project, search_projects,
     refresh_gitattributes, reply_to_comment,
     resolve_discussion, retry_failed_actions, setup_gitlab_instance, trigger_sync,
     unapprove_mr, update_collapse_patterns, update_instance_token, update_settings,
@@ -163,6 +163,7 @@ pub fn run() {
             visit_pipeline_project,
             toggle_pin_pipeline_project,
             remove_pipeline_project,
+            search_projects,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -416,6 +416,17 @@ impl GitLabClient {
         self.handle_response(response, &endpoint).await
     }
 
+    /// Search for projects by name.
+    pub async fn search_projects(&self, query: &str, per_page: u32) -> Result<Vec<GitLabProject>, AppError> {
+        let endpoint = "/projects";
+        let url = self.api_url(endpoint);
+        let response = self.client.get(&url)
+            .query(&[("search", query), ("per_page", &per_page.to_string())])
+            .send()
+            .await?;
+        self.handle_response(response, endpoint).await
+    }
+
     /// List merge requests.
     pub async fn list_merge_requests(
         &self,
