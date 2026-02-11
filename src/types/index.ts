@@ -374,6 +374,42 @@ export interface CachedFilePair {
 }
 
 // ============================================================================
+// Pipeline Dashboard
+// ============================================================================
+
+export interface PipelineProject {
+  projectId: number;
+  instanceId: number;
+  pinned: boolean;
+  lastVisitedAt: string | null;
+  sortOrder: number | null;
+  name: string;
+  nameWithNamespace: string;
+  pathWithNamespace: string;
+  webUrl: string;
+}
+
+export interface PipelineStatus {
+  id: number;
+  projectId: number;
+  status: 'success' | 'failed' | 'running' | 'pending' | 'canceled' | 'skipped';
+  refName: string;
+  sha: string;
+  webUrl: string;
+  createdAt: string;
+  updatedAt: string | null;
+  duration: number | null;
+}
+
+export interface ProjectSearchResult {
+  id: number;
+  name: string;
+  nameWithNamespace: string;
+  pathWithNamespace: string;
+  webUrl: string;
+}
+
+// ============================================================================
 // Error Types
 // ============================================================================
 

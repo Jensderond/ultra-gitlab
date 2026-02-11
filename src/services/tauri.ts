@@ -30,6 +30,9 @@ import type {
   CacheStats,
   DiagnosticsReport,
   TestDataResult,
+  PipelineProject,
+  PipelineStatus,
+  ProjectSearchResult,
 } from '../types';
 
 // ============================================================================
@@ -426,4 +429,50 @@ export async function generateTestData(mrCount?: number): Promise<TestDataResult
  */
 export async function clearTestData(): Promise<number> {
   return invoke<number>('clear_test_data');
+}
+
+// ============================================================================
+// Pipeline Dashboard Commands
+// ============================================================================
+
+/**
+ * List tracked pipeline projects for an instance.
+ */
+export async function listPipelineProjects(instanceId: number): Promise<PipelineProject[]> {
+  return invoke<PipelineProject[]>('list_pipeline_projects', { instanceId });
+}
+
+/**
+ * Visit (add/touch) a pipeline project on the dashboard.
+ */
+export async function visitPipelineProject(instanceId: number, projectId: number): Promise<void> {
+  return invoke<void>('visit_pipeline_project', { instanceId, projectId });
+}
+
+/**
+ * Toggle pin state of a pipeline project.
+ */
+export async function togglePinPipelineProject(instanceId: number, projectId: number): Promise<void> {
+  return invoke<void>('toggle_pin_pipeline_project', { instanceId, projectId });
+}
+
+/**
+ * Remove a pipeline project from the dashboard.
+ */
+export async function removePipelineProject(instanceId: number, projectId: number): Promise<void> {
+  return invoke<void>('remove_pipeline_project', { instanceId, projectId });
+}
+
+/**
+ * Search for projects with local cache + GitLab API fallback.
+ */
+export async function searchProjects(instanceId: number, query: string): Promise<ProjectSearchResult[]> {
+  return invoke<ProjectSearchResult[]>('search_projects', { instanceId, query });
+}
+
+/**
+ * Get latest pipeline statuses for multiple projects.
+ */
+export async function getPipelineStatuses(instanceId: number, projectIds: number[]): Promise<PipelineStatus[]> {
+  return invoke<PipelineStatus[]>('get_pipeline_statuses', { instanceId, projectIds });
 }

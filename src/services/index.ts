@@ -45,6 +45,12 @@ export {
   getDiagnosticsReport,
   generateTestData,
   clearTestData,
+  listPipelineProjects,
+  visitPipelineProject,
+  togglePinPipelineProject,
+  removePipelineProject,
+  searchProjects,
+  getPipelineStatuses,
 } from './tauri';
 
 // GitLab operations (high-level)
