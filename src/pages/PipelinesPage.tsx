@@ -128,6 +128,9 @@ export default function PipelinesPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const statusesRef = useRef(statuses);
+  statusesRef.current = statuses;
 
   // Load instances
   useEffect(() => {
@@ -173,6 +176,58 @@ export default function PipelinesPage() {
   useEffect(() => {
     loadProjects();
   }, [loadProjects]);
+
+  // Refresh only pipeline statuses (used by polling)
+  const refreshStatuses = useCallback(async () => {
+    if (!selectedInstanceId || projects.length === 0) return;
+    try {
+      const projectIds = projects.map((p) => p.projectId);
+      const statusList = await getPipelineStatuses(selectedInstanceId, projectIds);
+      const statusMap = new Map(statusList.map((s) => [s.projectId, s]));
+      setStatuses(statusMap);
+      setLastFetched(new Date());
+    } catch (error) {
+      console.error('Failed to refresh pipeline statuses:', error);
+    }
+  }, [selectedInstanceId, projects]);
+
+  // Auto-refresh polling with adaptive interval
+  useEffect(() => {
+    if (!selectedInstanceId || projects.length === 0) return;
+
+    function getInterval() {
+      const hasActive = Array.from(statusesRef.current.values()).some(
+        (s) => s.status === 'running' || s.status === 'pending'
+      );
+      return hasActive ? 30_000 : 120_000;
+    }
+
+    function scheduleNextPoll() {
+      pollTimerRef.current = setTimeout(async () => {
+        if (document.visibilityState === 'visible') {
+          await refreshStatuses();
+        }
+        scheduleNextPoll();
+      }, getInterval());
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+        refreshStatuses().then(scheduleNextPoll);
+      } else {
+        if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+      }
+    }
+
+    scheduleNextPoll();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [selectedInstanceId, projects, refreshStatuses]);
 
   // Search: debounced call to searchProjects
   useEffect(() => {
