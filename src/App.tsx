@@ -10,6 +10,7 @@ import MRListPage from './pages/MRListPage';
 import MRDetailPage from './pages/MRDetailPage';
 import MyMRsPage from './pages/MyMRsPage';
 import MyMRDetailPage from './pages/MyMRDetailPage';
+import PipelinesPage from './pages/PipelinesPage';
 import { AppSidebar } from './components/AppSidebar';
 import { CommandPalette, type Command } from './components/CommandPalette';
 import { KeyboardHelp } from './components/KeyboardHelp';
@@ -104,6 +105,13 @@ function AppContent() {
         return;
       }
 
+      // Cmd+I or Ctrl+I to go to Pipelines
+      if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
+        e.preventDefault();
+        navigate('/pipelines');
+        return;
+      }
+
       // Cmd+R or Ctrl+R to trigger sync (prevent browser refresh)
       if ((e.metaKey || e.ctrlKey) && e.key === 'r') {
         e.preventDefault();
@@ -143,6 +151,7 @@ function AppContent() {
       // Navigation commands always available
       [CommandId.GoToMRList]: () => navigate('/mrs'),
       [CommandId.GoToMyMRs]: () => navigate('/my-mrs'),
+      [CommandId.GoToPipelines]: () => navigate('/pipelines'),
       [CommandId.GoToSettings]: () => navigate('/settings'),
       [CommandId.OpenSettings]: () => navigate('/settings'),
       [CommandId.OpenCommandPalette]: () => setCommandPaletteOpen(true),
@@ -199,6 +208,9 @@ function AppContent() {
           {/* My MRs pages */}
           <Route path="/my-mrs" element={<MyMRsPage />} />
           <Route path="/my-mrs/:id" element={<MyMRDetailPage />} />
+
+          {/* Pipelines dashboard */}
+          <Route path="/pipelines" element={<PipelinesPage />} />
 
           {/* Settings page */}
           <Route path="/settings" element={<Settings />} />

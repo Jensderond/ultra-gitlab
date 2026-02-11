@@ -1,20 +1,19 @@
 {
   "project": "Ultra GitLab",
-  "branchName": "ralph/my-mrs-screen",
-  "description": "My MRs Screen & Global Navigation Sidebar - A dedicated screen for authors to monitor their own MRs with approval status and comments, plus a persistent icon sidebar for app-wide navigation",
+  "branchName": "ralph/pipelines-overview",
+  "description": "Pipelines Overview Screen - A dashboard for monitoring the latest pipeline status across GitLab projects, with smart project search, pinning, and auto-refresh",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Add mr_reviewers DB table, GitLab API fetch, and Tauri command",
-      "description": "As a developer, I need to fetch and store per-reviewer approval statuses from the GitLab API so the frontend can display who approved, who hasn't, and who requested changes.",
+      "title": "Add pipeline_projects database migration",
+      "description": "As a developer, I need to store which projects appear on the pipelines dashboard, with pinned state and visit tracking, so it persists across sessions.",
       "acceptanceCriteria": [
-        "New migration creates mr_reviewers table with columns: mr_id (FK), username (TEXT), status (TEXT: approved/pending/changes_requested), avatar_url (TEXT nullable), cached_at (INTEGER)",
-        "Migration is added to the MIGRATIONS array in db/migrations/mod.rs",
-        "New Rust model MrReviewer with serde(rename_all = camelCase) for frontend consumption",
-        "Sync engine fetches /projects/:id/merge_requests/:iid/approvals endpoint per MR and upserts reviewer rows",
-        "Reviewer data refreshes each sync cycle (delete + re-insert per MR to handle removed reviewers)",
-        "New Tauri command get_mr_reviewers(mr_id) returns Vec<MrReviewer>",
-        "Command registered in commands/mod.rs and lib.rs generate_handler!",
+        "New migration 0010_create_pipeline_projects.sql adds a pipeline_projects table",
+        "Table columns: project_id INTEGER, instance_id INTEGER, pinned INTEGER DEFAULT 0, last_visited_at TEXT, sort_order INTEGER",
+        "Composite PK on (project_id, instance_id)",
+        "FK to projects(id, instance_id) and gitlab_instances(id) with ON DELETE CASCADE",
+        "Migration added to MIGRATIONS array in db/mod.rs",
+        "Migration runs cleanly on existing databases",
         "cargo check passes"
       ],
       "priority": 1,
@@ -23,17 +22,17 @@
     },
     {
       "id": "US-002",
-      "title": "Add backend command to list MRs by author",
-      "description": "As a developer, I need a Tauri command to query only MRs authored by the authenticated user so the My MRs page can display them.",
+      "title": "Add Rust model and DB queries for pipeline projects",
+      "description": "As a developer, I need a model and DB query functions for pipeline_projects so commands can list, upsert, toggle pin, and remove tracked projects.",
       "acceptanceCriteria": [
-        "New Tauri command list_my_merge_requests(instance_id) that queries open MRs where author_username matches the instance's authenticated_username",
-        "Returns the same MergeRequest DTO as list_merge_requests (reuse existing model)",
-        "Does NOT filter out userHasApproved MRs (unlike the review list)",
-        "Command registered in commands/mod.rs and lib.rs generate_handler!",
-        "Frontend service wrapper listMyMergeRequests(instanceId) added to services/tauri.ts",
-        "Re-exported from services/index.ts",
-        "cargo check passes",
-        "Typecheck passes (bunx tsc --noEmit)"
+        "New PipelineProject model in src-tauri/src/models/pipeline_project.rs with serde(rename_all = camelCase)",
+        "Model fields: project_id (i64), instance_id (i64), pinned (bool), last_visited_at (Option<String>), sort_order (Option<i64>)",
+        "DB query: list_pipeline_projects(pool, instance_id) returns projects joined with projects table for name/url, pinned first then by last_visited_at desc",
+        "DB query: upsert_pipeline_project(pool, project_id, instance_id) sets last_visited_at to current timestamp",
+        "DB query: toggle_pin(pool, project_id, instance_id) flips the pinned flag",
+        "DB query: remove_pipeline_project(pool, project_id, instance_id) deletes the row",
+        "Model registered in models/mod.rs",
+        "cargo check passes"
       ],
       "priority": 2,
       "passes": true,
@@ -41,35 +40,33 @@
     },
     {
       "id": "US-003",
-      "title": "Add global navigation sidebar component",
-      "description": "As a user, I want a persistent icon sidebar on the left edge of the app so I can quickly navigate between MR List, My MRs, and Settings.",
+      "title": "Add Tauri commands for pipeline project management",
+      "description": "As a developer, I need Tauri commands exposing pipeline project CRUD operations so the frontend can manage the dashboard.",
       "acceptanceCriteria": [
-        "New AppSidebar component rendered in App.tsx wrapping all page content",
-        "Sidebar is ~80px wide, fixed on the left edge",
-        "First icon: list/inbox icon navigating to /mrs",
-        "Second icon: user/person icon navigating to /my-mrs",
-        "Bottom-pinned icon: cog/gear icon navigating to /settings",
-        "Active page is visually indicated with highlight/accent on the active icon",
-        "Sidebar is visible on every screen including Settings and detail views",
-        "Existing page layouts shift right to accommodate the sidebar",
-        "Typecheck passes (bunx tsc --noEmit)",
-        "Verify in browser using dev-browser skill"
+        "New commands/pipeline.rs with commands: list_pipeline_projects, visit_pipeline_project, toggle_pin_pipeline_project, remove_pipeline_project",
+        "list_pipeline_projects(instance_id) returns tracked projects with project metadata (name, namespace, web_url) joined from projects table",
+        "visit_pipeline_project(instance_id, project_id) upserts into pipeline_projects with current timestamp; also upserts project metadata into projects table if not cached",
+        "toggle_pin_pipeline_project(instance_id, project_id) toggles pinned flag",
+        "remove_pipeline_project(instance_id, project_id) removes from dashboard",
+        "Commands registered in commands/mod.rs and lib.rs generate_handler!",
+        "cargo check passes"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "No browser dev tools available; manual verification needed"
+      "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Add Cmd+M / Ctrl+M shortcut to navigate to My MRs",
-      "description": "As a user, I want to press Cmd+M (macOS) / Ctrl+M (Linux/Windows) to jump to the My MRs screen from anywhere.",
+      "title": "Add Tauri command for project search with local cache + GitLab API fallback",
+      "description": "As a developer, I need a search command that queries the local projects SQLite cache first, then falls back to GitLab API for additional results.",
       "acceptanceCriteria": [
-        "Cmd+M / Ctrl+M navigates to /my-mrs from any screen",
-        "Shortcut is registered in the global keyboard shortcut system (App.tsx or shortcuts config)",
-        "Shortcut appears in the keyboard help overlay (? key)",
-        "Shortcut is listed in the command palette (Cmd+P)",
-        "If already on My MRs, shortcut is a no-op",
-        "Typecheck passes (bunx tsc --noEmit)"
+        "New command search_projects(instance_id, query) in commands/pipeline.rs",
+        "First queries projects table using LIKE '%query%' on name_with_namespace, limited to 10 results",
+        "If local results < 5, also queries GitLab API GET /projects?search=query&per_page=10",
+        "API results are upserted into the projects cache table via existing upsert_project function",
+        "Returns combined, deduplicated results (local matches first, then API-only results)",
+        "Each result includes: id, name, name_with_namespace, path_with_namespace, web_url",
+        "cargo check passes"
       ],
       "priority": 4,
       "passes": true,
@@ -77,77 +74,156 @@
     },
     {
       "id": "US-005",
-      "title": "Create My MRs page with author-filtered list",
-      "description": "As a user, I want to see a list of my authored open MRs so I can monitor their approval status and feedback.",
+      "title": "Add Tauri command to fetch latest pipeline status for projects",
+      "description": "As a developer, I need a command that fetches the latest pipeline status for one or more projects from the GitLab API.",
       "acceptanceCriteria": [
-        "New route /my-mrs renders MyMRsPage component",
-        "Page calls listMyMergeRequests(instanceId) to fetch author's open MRs",
-        "MR list items show: state badge, MR IID, project name, title, relative time, branch info, labels, approval summary (e.g. 2/3 approved)",
-        "Draft/WIP MRs are visually distinguished via a ::after pseudo-element with brown-orange color on the list item",
-        "Supports keyboard navigation (j/k/up/down to move, Enter to open detail)",
-        "Instance selector shown if multiple instances configured",
-        "Empty state message when user has no authored MRs",
-        "Typecheck passes (bunx tsc --noEmit)",
-        "Verify in browser using dev-browser skill"
+        "New PipelineStatus model with serde(rename_all = camelCase): id (i64), project_id (i64), status (String: success/failed/running/pending/canceled/skipped), ref_name (String), sha (String, first 8 chars), web_url (String), created_at (String), updated_at (Option<String>), duration (Option<i64>)",
+        "New command get_pipeline_statuses(instance_id, project_ids: Vec<i64>) fetches latest pipeline per project via GET /projects/:id/pipelines?per_page=1",
+        "Requests are parallelized using futures::join_all or similar",
+        "Returns Vec<PipelineStatus> (one per project, projects with no pipelines are omitted)",
+        "Command registered in commands/mod.rs and lib.rs generate_handler!",
+        "cargo check passes"
       ],
       "priority": 5,
       "passes": true,
-      "notes": "No browser dev tools available; manual verification needed"
+      "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Create My MR detail view with tab structure and Overview tab",
-      "description": "As an MR author, I want to open one of my MRs and see an Overview tab showing per-reviewer approval status so I know what's blocking my MR.",
+      "title": "Add frontend service wrappers for pipeline commands",
+      "description": "As a developer, I need TypeScript service functions and types so the frontend can call all pipeline-related Tauri commands.",
       "acceptanceCriteria": [
-        "New route /my-mrs/:id renders MyMRDetailPage component",
-        "Detail view has a horizontal tab bar with three tabs: Overview (default), Comments, Code",
-        "Overview tab shows: MR title, description/body, state, source/target branches, labels",
-        "Overview tab shows reviewer list with each reviewer's username and individual status (approved / pending / changes_requested)",
-        "Approvals required vs received is visible (e.g. '2 of 3 required approvals')",
-        "Reviewer data fetched via get_mr_reviewers Tauri command",
-        "Back navigation returns to /my-mrs list",
-        "Typecheck passes (bunx tsc --noEmit)",
-        "Verify in browser using dev-browser skill"
+        "New types in src/types/index.ts: PipelineProject (with project metadata), PipelineStatus, ProjectSearchResult",
+        "New service functions in src/services/tauri.ts: listPipelineProjects, visitPipelineProject, togglePinPipelineProject, removePipelineProject, searchProjects, getPipelineStatuses",
+        "All functions re-exported from src/services/index.ts",
+        "bunx tsc --noEmit passes"
       ],
       "priority": 6,
       "passes": true,
-      "notes": "No browser dev tools available; manual verification needed"
+      "notes": ""
     },
     {
       "id": "US-007",
-      "title": "Add Comments tab to My MR detail view",
-      "description": "As an MR author, I want to see all comments and discussions on my MR so I can track feedback without opening code diffs.",
+      "title": "Add Pipelines route and sidebar navigation entry",
+      "description": "As a user, I want to access the Pipelines screen from the sidebar and via keyboard shortcut.",
       "acceptanceCriteria": [
-        "Comments tab shows all comments for the MR (inline code comments and general discussion)",
-        "Each comment shows: author username, relative timestamp, body (rendered as markdown), file path + line number if inline",
-        "Comments are grouped by discussion thread",
-        "Resolved threads are visually distinguished from unresolved (e.g. muted style, strikethrough, or collapse)",
-        "Unresolved thread count shown on the tab label (e.g. 'Comments (3)')",
-        "Comments are read-only (no reply or resolve actions)",
-        "Comments fetched via existing get_comments Tauri command",
-        "Typecheck passes (bunx tsc --noEmit)",
+        "New route /pipelines in App.tsx renders a PipelinesPage component",
+        "New PipelinesPage placeholder component in src/pages/PipelinesPage.tsx with basic layout",
+        "New Pipelines icon entry in AppSidebar between My MRs and Settings",
+        "Active state highlights when on /pipelines route",
+        "Keyboard shortcut Cmd+I / Ctrl+I navigates to /pipelines (registered in App.tsx)",
+        "Shortcut listed in keyboard help overlay",
+        "bunx tsc --noEmit passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
       "passes": true,
-      "notes": "Already implemented as part of US-006; all acceptance criteria verified"
+      "notes": ""
     },
     {
       "id": "US-008",
-      "title": "Add Code tab to My MR detail view",
-      "description": "As an MR author, I occasionally want to look at the code diff of my own MR from the My MRs screen.",
+      "title": "Build pipeline project cards with status badges",
+      "description": "As a user, I want to see project cards on the Pipelines dashboard showing color-coded pipeline status so I can assess project health at a glance.",
       "acceptanceCriteria": [
-        "Code tab is available in the My MR detail view tab bar",
-        "Code tab reuses the existing diff viewer and file navigation components from MRDetailPage",
-        "Tab is not the default — user must explicitly click it",
-        "File list with change type badges renders correctly",
-        "Diff viewer (Monaco) renders for selected file",
-        "Typecheck passes (bunx tsc --noEmit)",
+        "PipelinesPage fetches pipeline projects and their statuses on mount",
+        "Each project renders as a card in a responsive CSS grid layout",
+        "Card shows: project name (name_with_namespace), pipeline status badge, branch/ref name, pipeline relative time (e.g. '3 min ago'), and 'updated X ago' freshness timestamp",
+        "Status badges use distinct colors: green (success), red (failed), blue (running), amber (pending), gray (canceled/skipped)",
+        "Running pipelines show a subtle pulse CSS animation on the badge",
+        "Pinned projects appear first with a pin icon indicator, then recent projects by last_visited_at",
+        "Empty state shown when no projects tracked, with prompt to use search",
+        "PipelinesPage.css created with card grid and badge styles",
+        "bunx tsc --noEmit passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "No browser dev tools available; manual verification needed"
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Add project search with instant local + debounced API results",
+      "description": "As a user, I want to search for projects to add to my dashboard with instant cached results and async GitLab API fallback.",
+      "acceptanceCriteria": [
+        "Search input at the top of PipelinesPage, focusable with / keyboard shortcut",
+        "Typing instantly shows local cached results (no debounce for local)",
+        "After 300ms debounce, GitLab API search fires and results merge below local results",
+        "Loading spinner shown while API search is in progress",
+        "Search results appear in a dropdown/overlay below the input",
+        "Clicking a result calls visitPipelineProject and adds it to the dashboard",
+        "Search clears and dropdown closes after selecting a result",
+        "bunx tsc --noEmit passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Add pin/unpin and remove actions to project cards",
+      "description": "As a user, I want to pin important projects to the top and remove projects I no longer need.",
+      "acceptanceCriteria": [
+        "Each project card has a pin/unpin toggle icon button",
+        "Clicking pin calls togglePinPipelineProject and re-sorts the grid immediately",
+        "Pinned cards show a filled pin icon, unpinned show outline or no icon",
+        "Each project card has a remove/dismiss icon button (e.g. X icon on hover)",
+        "Clicking remove calls removePipelineProject and removes the card from the grid",
+        "Removed projects can be re-added via search",
+        "bunx tsc --noEmit passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Add open-in-browser button to project cards",
+      "description": "As a user, I want to quickly open a project's GitLab pipelines page in my browser.",
+      "acceptanceCriteria": [
+        "Each project card has an 'open in browser' icon button (external link icon)",
+        "Clicking opens {project.web_url}/-/pipelines in the system default browser",
+        "Uses Tauri shell open API (@tauri-apps/plugin-shell open())",
+        "If @tauri-apps/plugin-shell is not installed, add it to the project dependencies",
+        "bunx tsc --noEmit passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Add auto-refresh with adaptive polling",
+      "description": "As a user, I want pipeline statuses to update automatically so I see changes without manual refreshing.",
+      "acceptanceCriteria": [
+        "Dashboard polls getPipelineStatuses every 30 seconds when any pipeline has status 'running' or 'pending'",
+        "Poll interval increases to 120 seconds when all pipelines are idle (success/failed/canceled/skipped)",
+        "Polling pauses when the Pipelines page is not visible (use document.visibilitychange event)",
+        "Polling resumes immediately when page becomes visible again (with an immediate fetch)",
+        "Status transitions update smoothly without full re-render flicker",
+        "Polling cleans up on component unmount",
+        "bunx tsc --noEmit passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Add pipeline projects to command palette",
+      "description": "As a user, I want to quickly jump to a project's pipelines from the command palette for keyboard-driven navigation.",
+      "acceptanceCriteria": [
+        "Pinned and recently visited pipeline projects appear in the command palette (Cmd+P)",
+        "Projects listed with a pipeline/CI icon to distinguish from MR-related entries",
+        "Selecting a project navigates to /pipelines and visits that project (calls visitPipelineProject)",
+        "Pipeline projects appear in a 'Pipelines' group/section in the command palette",
+        "bunx tsc --noEmit passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
     }
   ]
 }

@@ -1,87 +1,92 @@
+# Ralph Progress Log
+Started: Wed Feb 11 21:22:47 CET 2026
+
 ## Codebase Patterns
-- GitLabUser struct now includes optional `avatar_url` field
-- Per-reviewer data comes from combining MR `reviewers` list with `approved_by` from approvals endpoint
-- Sync engine uses delete + re-insert pattern for reviewer data (not upsert) to handle removed reviewers
-- `mr_reviewers` table has composite PK (mr_id, username) and CASCADE on mr delete
-- Diff viewer components (FileNavigation, MonacoDiffViewer, ImageDiffViewer) are reusable across pages — import from components/DiffViewer and components/Monaco
-- For lazy tab loading, use a `loaded` boolean guard to avoid re-fetching on subsequent tab switches
+- Migrations use `CREATE TABLE IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS`
+- Migration files: `src-tauri/src/db/migrations/NNNN_name.sql`
+- Register migrations in `MIGRATIONS` array in `src-tauri/src/db/mod.rs` via `include_str!`
+- Composite FK references (e.g., `FOREIGN KEY (a, b) REFERENCES table(a, b)`) are supported
+- Models: derive `Debug, Clone, Serialize, Deserialize, FromRow` with `#[serde(rename_all = "camelCase")]`
+- DB queries: functions take `&DbPool`, return `Result<T, AppError>`
+- Commands: `#[tauri::command]` with `pool: State<'_, DbPool>`, return `Result<T, AppError>`
+- 3 registrations for new commands: commands/<file>.rs, commands/mod.rs, lib.rs generate_handler!
+- Project model in `src-tauri/src/models/project.rs` has `upsert_project()` and `get_project()`
+- Sidebar: `navItems` array in `AppSidebar.tsx`, items with `bottom: true` go to bottom section
+- Keyboard shortcuts: 3 places to register — `App.tsx` (handler), `commands/registry.ts` (CommandId + definition), `config/shortcuts.ts` (help overlay)
+- Command palette: actions bound via `actionMap` in `AppContent()` useMemo
 
 ---
 
 ## 2026-02-11 - US-001
-- Implemented mr_reviewers DB table, sync engine reviewer fetch, and get_mr_reviewers Tauri command
-- Files changed:
-  - `src-tauri/src/db/migrations/0009_create_mr_reviewers.sql` (new)
-  - `src-tauri/src/db/mod.rs` (added migration to MIGRATIONS array)
-  - `src-tauri/src/models/mr_reviewer.rs` (new model)
-  - `src-tauri/src/models/mod.rs` (registered module + re-export)
-  - `src-tauri/src/services/gitlab_client.rs` (added avatar_url to GitLabUser)
-  - `src-tauri/src/services/sync_engine.rs` (added upsert_reviewers method + call in sync_mr)
-  - `src-tauri/src/commands/reviewers.rs` (new command)
-  - `src-tauri/src/commands/mod.rs` (registered module + re-export)
-  - `src-tauri/src/lib.rs` (added import + generate_handler registration)
+- Created migration `0010_create_pipeline_projects.sql` with pipeline_projects table
+- Composite PK (project_id, instance_id), FK to projects(id, instance_id) and gitlab_instances(id)
+- Registered in MIGRATIONS array in db/mod.rs
+- Files changed: `src-tauri/src/db/migrations/0010_create_pipeline_projects.sql`, `src-tauri/src/db/mod.rs`
 - **Learnings for future iterations:**
-  - GitLab approvals endpoint gives approved_by list but NOT a list of "pending" reviewers - need to combine with MR reviewers field
-  - The 3-step registration pattern for Tauri commands: function → mod.rs re-export → lib.rs handler
-  - Using `INSERT OR IGNORE` for approved-only reviewers prevents duplicates when they're also in the reviewers list
+  - The projects table already has composite PK `(id, instance_id)` so FK references must use both columns
+  - Migration parser handles semicolons inside parentheses correctly
 ---
 
 ## 2026-02-11 - US-002
-- Implemented list_my_merge_requests Tauri command + frontend service wrappers
-- Files changed:
-  - `src-tauri/src/commands/mr.rs` (added list_my_merge_requests command)
-  - `src-tauri/src/commands/mod.rs` (re-export)
-  - `src-tauri/src/lib.rs` (import + handler registration)
-  - `src/types/index.ts` (added MrReviewer type)
-  - `src/services/tauri.ts` (added listMyMergeRequests + getMrReviewers wrappers)
-  - `src/services/index.ts` (re-exports)
+- Created `PipelineProject` model in `src-tauri/src/models/pipeline_project.rs`
+- Model includes joined project metadata fields (name, name_with_namespace, path_with_namespace, web_url)
+- DB queries: `list_pipeline_projects`, `upsert_pipeline_project`, `toggle_pin`, `remove_pipeline_project`
+- Registered model in `models/mod.rs`
+- Files changed: `src-tauri/src/models/pipeline_project.rs`, `src-tauri/src/models/mod.rs`
 - **Learnings for future iterations:**
-  - authenticated_username is stored on gitlab_instances table, queried via `SELECT authenticated_username FROM gitlab_instances WHERE id = ?`
-  - Use `fetch_optional` + `.flatten()` for nullable scalar queries in sqlx
-  - MrReviewer type added to frontend types for future US-006
+  - project.rs uses `sqlx::Error` directly (not `AppError`) for return types — follow same pattern for consistency
+  - JOIN queries work with `sqlx::query_as` as long as the struct fields match the SELECT columns in order
+  - `datetime('now')` returns ISO 8601 text in SQLite, matching our TEXT column type
 ---
 
 ## 2026-02-11 - US-003
-- Implemented AppSidebar component with icon navigation
-- Files changed:
-  - `src/components/AppSidebar/AppSidebar.tsx` (new - sidebar with InboxIcon, UserIcon, GearIcon)
-  - `src/components/AppSidebar/AppSidebar.css` (new - fixed left sidebar styling)
-  - `src/components/AppSidebar/index.ts` (new - barrel export)
-  - `src/App.tsx` (added sidebar + wrapped routes in .app-content)
-  - `src/App.css` (added .app-content with margin-left: 56px)
+- Created `commands/pipeline.rs` with 4 commands: list, visit, toggle_pin, remove
+- `visit_pipeline_project` checks project cache, fetches from GitLab API if missing, then upserts
+- Helper `create_gitlab_client` follows same pattern as mr.rs
+- Registered in commands/mod.rs and lib.rs generate_handler!
+- Files changed: `src-tauri/src/commands/pipeline.rs`, `src-tauri/src/commands/mod.rs`, `src-tauri/src/lib.rs`
 - **Learnings for future iterations:**
-  - Sidebar is 56px wide (not 80px as spec said - 80px felt too wide for icon-only)
-  - Content is shifted right via `margin-left: 56px` on `.app-content`
-  - Titlebar drag region is 28px, sidebar starts below it
-  - Active state uses matchPrefix logic to handle sub-routes (e.g., /mrs/123 highlights /mrs)
+  - `GitLabProject` (API response) is in `services::gitlab_client`, converts to `models::Project` for DB storage
+  - Reuse `create_gitlab_client` helper for any pipeline command needing API access
+---
+
+## 2026-02-11 - US-004
+- Added `search_projects` command in `commands/pipeline.rs`
+- Added `search_projects` method to `GitLabClient` in `services/gitlab_client.rs`
+- Created `ProjectSearchResult` DTO with camelCase serde
+- Local LIKE search on `name_with_namespace`, then GitLab API fallback if < 5 results
+- API results cached via `upsert_project`, deduplicated by project ID
+- Files changed: `src-tauri/src/commands/pipeline.rs`, `src-tauri/src/commands/mod.rs`, `src-tauri/src/lib.rs`, `src-tauri/src/services/gitlab_client.rs`
+- **Learnings for future iterations:**
+  - GitLab client uses `self.client.get(&url).query(&[...]).send()` for query params
+  - `HashSet::insert` returns `true` if the value was new — useful for dedup
+---
+
+## 2026-02-11 - US-005
+- Added `PipelineStatus` DTO and `get_pipeline_statuses` command in `commands/pipeline.rs`
+- Added `GitLabPipeline` struct and `get_latest_pipeline` method in `services/gitlab_client.rs`
+- Uses `futures::future::join_all` for parallel pipeline fetching
+- SHA truncated to 8 chars; added `futures` crate
+- **Learnings for future iterations:**
+  - GitLab `ref` field needs `#[serde(rename = "ref")]` on `ref_name`
+  - `join_all` from futures crate for dynamic vec of futures
+---
+
+## 2026-02-11 - US-006
+- Already implemented in previous commit (90cf1d8), just marked as passing
+- All types, service wrappers, and re-exports were already in place
 ---
 
 ## 2026-02-11 - US-007
-- Comments tab was already fully implemented as part of US-006 (MyMRDetailPage.tsx)
-- No code changes needed — all acceptance criteria verified against existing implementation:
-  - Comments fetched via `getComments(mrId)` in the existing useEffect
-  - System comments filtered out, grouped by `discussionId`
-  - Threads sorted: unresolved first, then by date
-  - Each comment shows author, relative time, body, file path + line number
-  - Resolved threads have opacity: 0.6 + "Resolved" badge
-  - Unresolved count displayed on tab label: `Comments (N)`
-  - Comments are read-only (no actions)
-- Typecheck (bunx tsc --noEmit) and cargo check both pass
+- Created `PipelinesPage` placeholder component in `src/pages/PipelinesPage.tsx` with CSS
+- Added `/pipelines` route in `App.tsx`
+- Added Pipeline icon and sidebar entry in `AppSidebar.tsx` between My MRs and Settings
+- Added `Cmd+I` / `Ctrl+I` keyboard shortcut in `App.tsx`
+- Added `GoToPipelines` command in `commands/registry.ts` (CommandId + definition)
+- Added `go-to-pipelines` shortcut in `config/shortcuts.ts` for keyboard help overlay
+- Files changed: `src/pages/PipelinesPage.tsx`, `src/pages/PipelinesPage.css`, `src/App.tsx`, `src/components/AppSidebar/AppSidebar.tsx`, `src/commands/registry.ts`, `src/config/shortcuts.ts`, `scripts/ralph/prd.json`
 - **Learnings for future iterations:**
-  - When implementing tab-based views, consider implementing all tab content in the initial story to avoid split stories with no actual work
-  - No markdown rendering library in the project — comment bodies use `white-space: pre-wrap` consistently across all components (CommentPanel, InlineComment, MyMRDetailPage)
+  - Sidebar nav items: `navItems` array in `AppSidebar.tsx`, `bottom: true` for bottom-aligned items
+  - Keyboard shortcuts need 3 registrations: App.tsx handler, commands/registry.ts, config/shortcuts.ts
+  - Command palette actions bound in `AppContent()` via `actionMap` useMemo
 ---
-
-## 2026-02-11 - US-008
-- Implemented Code tab in MyMRDetailPage with full diff viewing capability
-- Files changed:
-  - `src/pages/MyMRDetailPage.tsx` (added Code tab with FileNavigation + MonacoDiffViewer + ImageDiffViewer, also committed pending Comments tab implementation from US-007)
-  - `src/pages/MyMRDetailPage.css` (added Code tab layout styles: sidebar/main split, loading states)
-- **Learnings for future iterations:**
-  - Code tab data loads lazily (only when tab first activated) via `codeTabLoaded` guard flag — avoids unnecessary API calls when user stays on Overview/Comments
-  - Reuses existing components: `FileNavigation`, `MonacoDiffViewer`, `ImageDiffViewer` from MRDetailPage — no new components needed
-  - The Code tab needs `margin: -24px -32px` to break out of the tab-content padding for full-bleed sidebar+diff layout
-  - When narrowing types for async closures, capture non-null values as `const` before the async function to satisfy TypeScript's flow analysis (e.g., `const currentMr = mr; const currentFile = selectedFile;`)
-  - `classifyFiles()` needs both gitattributes patterns and user collapse patterns to properly separate generated from reviewable files
----
-

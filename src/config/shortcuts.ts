@@ -95,6 +95,13 @@ export const defaultShortcuts: ShortcutDefinition[] = [
     context: 'global',
   },
   {
+    id: 'go-to-pipelines',
+    description: 'Go to Pipelines',
+    defaultKey: 'Cmd+I',
+    category: 'navigation',
+    context: 'global',
+  },
+  {
     id: 'trigger-sync',
     description: 'Sync with GitLab',
     defaultKey: 'Cmd+R',

@@ -29,6 +29,7 @@ export const CommandId = {
   // Navigation
   GoToMRList: 'navigation.go-to-mr-list',
   GoToMyMRs: 'navigation.go-to-my-mrs',
+  GoToPipelines: 'navigation.go-to-pipelines',
   GoToSettings: 'navigation.go-to-settings',
   GoBack: 'navigation.go-back',
   NextFile: 'navigation.next-file',
@@ -100,6 +101,13 @@ export const commandDefinitions: CommandDefinition[] = [
     label: 'Go to My MRs',
     description: 'View your authored merge requests',
     shortcut: 'Cmd+M',
+    category: CommandCategory.Navigation,
+  },
+  {
+    id: CommandId.GoToPipelines,
+    label: 'Go to Pipelines',
+    description: 'View pipeline status dashboard',
+    shortcut: 'Cmd+I',
     category: CommandCategory.Navigation,
   },
   {

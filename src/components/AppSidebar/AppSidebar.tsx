@@ -30,6 +30,18 @@ const UserIcon = () => (
   </svg>
 );
 
+const PipelineIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="5" cy="6" r="2" />
+    <circle cx="12" cy="6" r="2" />
+    <circle cx="19" cy="6" r="2" />
+    <circle cx="12" cy="18" r="2" />
+    <line x1="5" y1="8" x2="12" y2="16" />
+    <line x1="12" y1="8" x2="12" y2="16" />
+    <line x1="19" y1="8" x2="12" y2="16" />
+  </svg>
+);
+
 const GearIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="3" />
@@ -40,6 +52,7 @@ const GearIcon = () => (
 const navItems: NavItem[] = [
   { path: '/mrs', matchPrefix: '/mrs', label: 'Reviews', icon: <InboxIcon /> },
   { path: '/my-mrs', matchPrefix: '/my-mrs', label: 'My MRs', icon: <UserIcon /> },
+  { path: '/pipelines', matchPrefix: '/pipelines', label: 'Pipelines', icon: <PipelineIcon /> },
   { path: '/settings', matchPrefix: '/settings', label: 'Settings', icon: <GearIcon />, bottom: true },
 ];
 
