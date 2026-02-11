@@ -6,6 +6,7 @@ use crate::models::pipeline_project::{self, PipelineProject};
 use crate::models::project::{self, Project};
 use crate::models::GitLabInstance;
 use crate::services::gitlab_client::{GitLabClient, GitLabClientConfig};
+use futures::future::join_all;
 use serde::Serialize;
 use std::collections::HashSet;
 use tauri::State;
@@ -159,6 +160,58 @@ pub async fn search_projects(
     }
 
     Ok(results)
+}
+
+/// Pipeline status DTO returned to the frontend.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PipelineStatus {
+    pub id: i64,
+    pub project_id: i64,
+    pub status: String,
+    pub ref_name: String,
+    pub sha: String,
+    pub web_url: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+    pub duration: Option<i64>,
+}
+
+/// Fetch latest pipeline status for multiple projects in parallel.
+#[tauri::command]
+pub async fn get_pipeline_statuses(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_ids: Vec<i64>,
+) -> Result<Vec<PipelineStatus>, AppError> {
+    let client = create_gitlab_client(&pool, instance_id).await?;
+
+    let futures = project_ids.iter().map(|&pid| {
+        let client = client.clone();
+        async move {
+            client.get_latest_pipeline(pid).await.ok().flatten()
+        }
+    });
+
+    let results = join_all(futures).await;
+
+    let statuses: Vec<PipelineStatus> = results
+        .into_iter()
+        .flatten()
+        .map(|p| PipelineStatus {
+            id: p.id,
+            project_id: p.project_id,
+            status: p.status,
+            ref_name: p.ref_name,
+            sha: if p.sha.len() > 8 { p.sha[..8].to_string() } else { p.sha },
+            web_url: p.web_url,
+            created_at: p.created_at,
+            updated_at: p.updated_at,
+            duration: p.duration,
+        })
+        .collect();
+
+    Ok(statuses)
 }
 
 /// Helper to create a GitLab API client from an instance ID.

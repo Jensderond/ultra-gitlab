@@ -241,6 +241,21 @@ pub struct GitLabProject {
     pub updated_at: Option<String>,
 }
 
+/// GitLab pipeline from API (GET /projects/:id/pipelines).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitLabPipeline {
+    pub id: i64,
+    pub project_id: i64,
+    pub status: String,
+    #[serde(rename = "ref")]
+    pub ref_name: String,
+    pub sha: String,
+    pub web_url: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+    pub duration: Option<i64>,
+}
+
 /// Personal access token info from GET /personal_access_tokens/self.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersonalAccessTokenInfo {
@@ -425,6 +440,18 @@ impl GitLabClient {
             .send()
             .await?;
         self.handle_response(response, endpoint).await
+    }
+
+    /// Get the latest pipeline for a project.
+    pub async fn get_latest_pipeline(&self, project_id: i64) -> Result<Option<GitLabPipeline>, AppError> {
+        let endpoint = format!("/projects/{}/pipelines", project_id);
+        let url = self.api_url(&endpoint);
+        let response = self.client.get(&url)
+            .query(&[("per_page", "1")])
+            .send()
+            .await?;
+        let pipelines: Vec<GitLabPipeline> = self.handle_response(response, &endpoint).await?;
+        Ok(pipelines.into_iter().next())
     }
 
     /// List merge requests.
