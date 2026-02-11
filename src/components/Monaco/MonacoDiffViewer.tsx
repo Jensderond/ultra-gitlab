@@ -421,9 +421,14 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
       };
     }, [comments, editorReady]);
 
+    // When a file is new (empty original), pass identical content for both
+    // sides so Monaco shows no diff color overlays (green/red).
+    const isNewFile = !originalContent;
+    const effectiveOriginal = isNewFile ? modifiedContent : originalContent;
+
     return (
     <DiffEditor
-      original={originalContent}
+      original={effectiveOriginal}
       modified={modifiedContent}
       language={detectedLanguage}
       theme={KANAGAWA_THEME_NAME}
