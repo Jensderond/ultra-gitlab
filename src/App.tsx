@@ -9,6 +9,7 @@ import Settings from './pages/Settings';
 import MRListPage from './pages/MRListPage';
 import MRDetailPage from './pages/MRDetailPage';
 import MyMRsPage from './pages/MyMRsPage';
+import MyMRDetailPage from './pages/MyMRDetailPage';
 import { AppSidebar } from './components/AppSidebar';
 import { CommandPalette, type Command } from './components/CommandPalette';
 import { KeyboardHelp } from './components/KeyboardHelp';
@@ -190,6 +191,7 @@ function AppContent() {
 
           {/* My MRs pages */}
           <Route path="/my-mrs" element={<MyMRsPage />} />
+          <Route path="/my-mrs/:id" element={<MyMRDetailPage />} />
 
           {/* Settings page */}
           <Route path="/settings" element={<Settings />} />
