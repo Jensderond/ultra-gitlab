@@ -9,23 +9,16 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { FileNavigation } from '../components/DiffViewer';
-import { MonacoDiffViewer, type MonacoDiffViewerRef, type LineComment, type CursorPosition, type LineSelection } from '../components/Monaco/MonacoDiffViewer';
-import Editor from '@monaco-editor/react';
+import { MonacoDiffViewer, type MonacoDiffViewerRef, type LineComment } from '../components/Monaco/MonacoDiffViewer';
 import type { editor } from 'monaco-editor';
 import { ImageDiffViewer } from '../components/Monaco/ImageDiffViewer';
 import { isImageFile, getImageMimeType } from '../components/Monaco/languageDetection';
 import { ApprovalButton, type ApprovalButtonRef } from '../components/Approval';
+import { CommentOverlay, type CommentOverlayRef } from '../components/CommentOverlay';
 import { getMergeRequestById, getMergeRequestFiles, getDiffRefs, getFileContent, getFileContentBase64, getCachedFilePair, getGitattributesPatterns } from '../services/gitlab';
 import { invoke, getCollapsePatterns } from '../services/tauri';
 import { classifyFiles } from '../utils/classifyFiles';
-import type { MergeRequest, DiffFileSummary, DiffRefs, Comment, AddCommentRequest } from '../types';
-
-/** Shape of the CommentResponse from the backend add_comment command. */
-interface CommentResponse {
-  id: number;
-  authorUsername: string;
-  createdAt: number;
-}
+import type { MergeRequest, DiffFileSummary, DiffRefs, Comment } from '../types';
 import './MRDetailPage.css';
 
 /**
@@ -69,16 +62,7 @@ export default function MRDetailPage() {
 
   // Comments state for current file
   const [fileComments, setFileComments] = useState<LineComment[]>([]);
-
-  // Comment input state
-  const [commentInput, setCommentInput] = useState<{
-    visible: boolean;
-    position: CursorPosition | null;
-    selection: LineSelection | null;
-    text: string;
-    submitting: boolean;
-  }>({ visible: false, position: null, selection: null, text: '', submitting: false });
-  const commentEditorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const commentOverlayRef = useRef<CommentOverlayRef>(null);
 
   // Load MR data
   useEffect(() => {
@@ -199,6 +183,8 @@ export default function MRDetailPage() {
 
   // Load file content when selected file changes
   useEffect(() => {
+    let cancelled = false;
+
     async function loadFileContent() {
       if (!selectedFile || !mr || !diffRefs) {
         setOriginalContent('');
@@ -234,6 +220,7 @@ export default function MRDetailPage() {
               : getFileContentBase64(mr.instanceId, mr.projectId, selectedFile, diffRefs.headSha).catch(() => ''),
           ]);
 
+          if (cancelled) return;
           setOriginalImageBase64(originalBase64);
           setModifiedImageBase64(modifiedBase64);
           // Clear text content
@@ -242,6 +229,7 @@ export default function MRDetailPage() {
         } else {
           // Try loading from cache first for instant rendering
           const cached = await getCachedFilePair(mrId, selectedFile).catch(() => null);
+          if (cancelled) return;
 
           const needBase = !isNewFile;
           const needHead = !isDeletedFile;
@@ -267,6 +255,7 @@ export default function MRDetailPage() {
                 : getFileContent(mr.instanceId, mr.projectId, selectedFile, diffRefs.headSha).catch(() => ''),
             ]);
 
+            if (cancelled) return;
             setOriginalContent(original);
             setModifiedContent(modified);
             setOriginalImageBase64('');
@@ -274,12 +263,15 @@ export default function MRDetailPage() {
           }
         }
       } catch (err) {
+        if (cancelled) return;
         setFileContentError(err instanceof Error ? err.message : 'Failed to load file content');
       } finally {
-        setFileContentLoading(false);
+        if (!cancelled) setFileContentLoading(false);
       }
     }
     loadFileContent();
+
+    return () => { cancelled = true; };
   }, [selectedFile, mr, diffRefs, files]);
 
   // Restore view state (scroll, cursor, collapsed regions) after content loads
@@ -406,179 +398,116 @@ export default function MRDetailPage() {
     }
   }, [selectedFile, navigateFile]);
 
-  // Submit a new comment
-  const submitComment = useCallback(async () => {
-    if (!commentInput.text.trim() || !selectedFile) return;
+  // Callback for when a comment is added via the overlay
+  const handleCommentAdded = useCallback((comment: LineComment) => {
+    setFileComments((prev) => [...prev, comment]);
+  }, []);
 
-    setCommentInput((prev) => ({ ...prev, submitting: true }));
-
-    try {
-      const request: AddCommentRequest = {
-        mrId,
-        body: commentInput.text.trim(),
-        filePath: selectedFile,
-        ...(commentInput.position?.isOriginal
-          ? { oldLine: commentInput.position.line }
-          : commentInput.position
-            ? { newLine: commentInput.position.line }
-            : {}),
-      };
-
-      const response = await invoke<CommentResponse>('add_comment', { input: request });
-
-      // Use the response from backend for optimistic display
-      if (commentInput.position) {
-        const newComment: LineComment = {
-          id: response.id,
-          line: commentInput.position.line,
-          isOldLine: commentInput.position.isOriginal,
-          authorUsername: response.authorUsername,
-          body: commentInput.text.trim(),
-          createdAt: response.createdAt,
-        };
-        setFileComments((prev) => [...prev, newComment]);
-      }
-
-      setCommentInput({ visible: false, position: null, selection: null, text: '', submitting: false });
-    } catch (err) {
-      console.error('Failed to add comment:', err);
-      setCommentInput((prev) => ({ ...prev, submitting: false }));
+  // Keyboard navigation — ref pattern avoids listener churn
+  const keydownRef = useRef<(e: KeyboardEvent) => void>(undefined);
+  keydownRef.current = (e: KeyboardEvent) => {
+    // Ignore if typing in an input or Monaco comment editor
+    if (
+      e.target instanceof HTMLInputElement ||
+      e.target instanceof HTMLTextAreaElement ||
+      (commentOverlayRef.current?.isVisible() && e.key !== 'Escape')
+    ) {
+      return;
     }
-  }, [commentInput.text, commentInput.position, selectedFile, mrId]);
 
-  // Keep a stable ref so Monaco's onMount command always calls the latest version
-  const submitCommentRef = useRef<() => void>(() => {});
-  submitCommentRef.current = submitComment;
+    switch (e.key) {
+      case 'n':
+      case 'j':
+      case 'ArrowDown':
+        // Next file
+        e.preventDefault();
+        navigateFile(1);
+        break;
+      case 'p':
+      case 'k':
+      case 'ArrowUp':
+        // Previous file
+        e.preventDefault();
+        navigateFile(-1);
+        break;
+      case 'x':
+        // Toggle unified/split view, preserving collapse state
+        e.preventDefault();
+        if (diffViewerRef.current) {
+          pendingViewStateRef.current = diffViewerRef.current.saveViewState();
+        }
+        setViewMode((prev) => prev === 'unified' ? 'split' : 'unified');
+        break;
+      case 'a':
+        // Approve/unapprove MR
+        e.preventDefault();
+        approvalButtonRef.current?.toggle();
+        break;
+      case 'o':
+        // Open MR in browser
+        e.preventDefault();
+        if (mr?.webUrl) {
+          openUrl(mr.webUrl);
+        }
+        break;
+      case 'v':
+        // Mark file as viewed and go to next
+        e.preventDefault();
+        markViewedAndNext();
+        break;
+      case 'g':
+        // Toggle generated files visibility in file tree
+        e.preventDefault();
+        setHideGenerated((prev) => !prev);
+        break;
+      case 'c':
+        // Open comment input at current line
+        e.preventDefault();
+        if (selectedFile) {
+          const pos = diffViewerRef.current?.getCursorPosition();
+          const sel = diffViewerRef.current?.getSelectedLines() ?? null;
+          if (pos) {
+            commentOverlayRef.current?.open(pos, sel);
+          }
+        }
+        break;
+      case 's':
+        // Open comment input with suggestion template
+        e.preventDefault();
+        if (selectedFile) {
+          const sel = diffViewerRef.current?.getSelectedLines();
+          const pos = diffViewerRef.current?.getCursorPosition();
+          if (pos && sel && !sel.isOriginal) {
+            const linesAbove = 0;
+            const linesBelow = sel.endLine - sel.startLine;
+            const suggestionText = `\`\`\`suggestion:-${linesAbove}+${linesBelow}\n${sel.text}\n\`\`\`\n`;
+            const cursorPos = { line: sel.startLine, isOriginal: false };
+            commentOverlayRef.current?.open(cursorPos, sel, suggestionText);
+          } else if (pos) {
+            const singleSel = diffViewerRef.current?.getSelectedLines();
+            const lineText = singleSel?.text ?? '';
+            const suggestionText = `\`\`\`suggestion:-0+0\n${lineText}\n\`\`\`\n`;
+            commentOverlayRef.current?.open(pos, singleSel ?? null, suggestionText);
+          }
+        }
+        break;
+      case 'Escape':
+        // Close comment overlay if visible, otherwise go back
+        if (commentOverlayRef.current?.isVisible()) {
+          e.preventDefault();
+          commentOverlayRef.current.close();
+        } else {
+          navigate('/mrs', { state: { focusLatest: true } });
+        }
+        break;
+    }
+  };
 
-  // Keyboard navigation
   useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      // Ignore if typing in an input or Monaco comment editor
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        (commentInput.visible && e.key !== 'Escape')
-      ) {
-        return;
-      }
-
-      switch (e.key) {
-        case 'n':
-        case 'j':
-        case 'ArrowDown':
-          // Next file
-          e.preventDefault();
-          navigateFile(1);
-          break;
-        case 'p':
-        case 'k':
-        case 'ArrowUp':
-          // Previous file
-          e.preventDefault();
-          navigateFile(-1);
-          break;
-        case 'x':
-          // Toggle unified/split view, preserving collapse state
-          e.preventDefault();
-          // Save view state before mode switch so collapsed regions survive
-          if (diffViewerRef.current) {
-            pendingViewStateRef.current = diffViewerRef.current.saveViewState();
-          }
-          setViewMode(viewMode === 'unified' ? 'split' : 'unified');
-          break;
-        case 'a':
-          // Approve/unapprove MR
-          e.preventDefault();
-          approvalButtonRef.current?.toggle();
-          break;
-        case 'o':
-          // Open MR in browser
-          e.preventDefault();
-          if (mr?.webUrl) {
-            openUrl(mr.webUrl);
-          }
-          break;
-        case 'v':
-          // Mark file as viewed and go to next
-          e.preventDefault();
-          markViewedAndNext();
-          break;
-        case 'g':
-          // Toggle generated files visibility in file tree
-          e.preventDefault();
-          setHideGenerated((prev) => !prev);
-          break;
-        case 'c':
-          // Open comment input at current line
-          e.preventDefault();
-          if (selectedFile) {
-            const pos = diffViewerRef.current?.getCursorPosition();
-            const sel = diffViewerRef.current?.getSelectedLines() ?? null;
-            if (pos) {
-              setCommentInput({ visible: true, position: pos, selection: sel, text: '', submitting: false });
-              // Focus comment editor after render
-              requestAnimationFrame(() => {
-                commentEditorRef.current?.focus();
-              });
-            }
-          }
-          break;
-        case 's':
-          // Open comment input with suggestion template
-          e.preventDefault();
-          if (selectedFile) {
-            const sel = diffViewerRef.current?.getSelectedLines();
-            const pos = diffViewerRef.current?.getCursorPosition();
-            if (pos && sel && !sel.isOriginal) {
-              // Build suggestion block: comment position is the start line, range covers selection
-              const linesAbove = 0;
-              const linesBelow = sel.endLine - sel.startLine;
-              const suggestionText = `\`\`\`suggestion:-${linesAbove}+${linesBelow}\n${sel.text}\n\`\`\`\n`;
-              const cursorPos = { line: sel.startLine, isOriginal: false };
-              setCommentInput({
-                visible: true,
-                position: cursorPos,
-                selection: sel,
-                text: suggestionText,
-                submitting: false,
-              });
-              requestAnimationFrame(() => {
-                commentEditorRef.current?.focus();
-              });
-            } else if (pos) {
-              // Single line suggestion from cursor position
-              const singleSel = diffViewerRef.current?.getSelectedLines();
-              const lineText = singleSel?.text ?? '';
-              const suggestionText = `\`\`\`suggestion:-0+0\n${lineText}\n\`\`\`\n`;
-              setCommentInput({
-                visible: true,
-                position: pos,
-                selection: singleSel ?? null,
-                text: suggestionText,
-                submitting: false,
-              });
-              requestAnimationFrame(() => {
-                commentEditorRef.current?.focus();
-              });
-            }
-          }
-          break;
-        case 'Escape':
-          // Close comment input if visible, otherwise go back
-          if (commentInput.visible) {
-            e.preventDefault();
-            setCommentInput({ visible: false, position: null, selection: null, text: '', submitting: false });
-          } else {
-            // Go back to list, focus on latest item
-            navigate('/mrs', { state: { focusLatest: true } });
-          }
-          break;
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [navigateFile, navigate, viewMode, markViewedAndNext, selectedFile, commentInput.visible]);
+    const handler = (e: KeyboardEvent) => keydownRef.current?.(e);
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   // Loading state
   if (loading) {
@@ -712,107 +641,12 @@ export default function MRDetailPage() {
         </main>
       </div>
 
-      {/* Comment input overlay */}
-      {commentInput.visible && commentInput.position && (
-        <div className="comment-input-overlay">
-          <div className="comment-input-container">
-            <div className="comment-input-header">
-              <span>
-                Add comment on {commentInput.position.isOriginal ? 'old' : 'new'} line{' '}
-                {commentInput.position.line}
-                {commentInput.selection && commentInput.selection.endLine > commentInput.selection.startLine && (
-                  <span> &ndash; {commentInput.selection.endLine}</span>
-                )}
-              </span>
-              <div className="comment-input-header-actions">
-                <button
-                  className="comment-suggest-btn"
-                  title="Insert suggestion block"
-                  onClick={() => {
-                    const sel = commentInput.selection;
-                    if (sel) {
-                      const linesAbove = 0;
-                      const linesBelow = sel.endLine - sel.startLine;
-                      const suggestion = `\`\`\`suggestion:-${linesAbove}+${linesBelow}\n${sel.text}\n\`\`\`\n`;
-                      setCommentInput((prev) => ({
-                        ...prev,
-                        text: prev.text + suggestion,
-                      }));
-                    } else {
-                      setCommentInput((prev) => ({
-                        ...prev,
-                        text: prev.text + '```suggestion:-0+0\n\n```\n',
-                      }));
-                    }
-                  }}
-                >
-                  Suggest
-                </button>
-                <button
-                  className="comment-input-close"
-                  onClick={() => setCommentInput({ visible: false, position: null, selection: null, text: '', submitting: false })}
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-            <div className="comment-editor-wrapper">
-              <Editor
-                height="180px"
-                defaultLanguage="markdown"
-                theme="vs-dark"
-                value={commentInput.text}
-                onChange={(value) => setCommentInput((prev) => ({ ...prev, text: value ?? '' }))}
-                onMount={(ed) => {
-                  commentEditorRef.current = ed;
-                  ed.focus();
-                  // Move cursor to end
-                  const model = ed.getModel();
-                  if (model) {
-                    const lastLine = model.getLineCount();
-                    const lastCol = model.getLineMaxColumn(lastLine);
-                    ed.setPosition({ lineNumber: lastLine, column: lastCol });
-                  }
-                  // Cmd/Ctrl+Enter to submit
-                  ed.addCommand(
-                    // Monaco.KeyMod.CtrlCmd | Monaco.KeyCode.Enter
-                    2048 | 3,
-                    () => { submitCommentRef.current(); }
-                  );
-                }}
-                options={{
-                  minimap: { enabled: false },
-                  lineNumbers: 'off',
-                  scrollBeyondLastLine: false,
-                  wordWrap: 'on',
-                  fontSize: 13,
-                  fontFamily: '"SF Mono", Menlo, Monaco, "Courier New", monospace',
-                  padding: { top: 8, bottom: 8 },
-                  renderLineHighlight: 'none',
-                  overviewRulerLanes: 0,
-                  hideCursorInOverviewRuler: true,
-                  scrollbar: { vertical: 'auto', horizontal: 'hidden' },
-                  folding: false,
-                  glyphMargin: false,
-                  readOnly: commentInput.submitting,
-                }}
-              />
-            </div>
-            <div className="comment-input-actions">
-              <span className="comment-input-hint">
-                <kbd>⌘</kbd>+<kbd>Enter</kbd> to submit · <kbd>Esc</kbd> to cancel · <kbd>s</kbd> suggest
-              </span>
-              <button
-                className="comment-input-submit"
-                onClick={submitComment}
-                disabled={!commentInput.text.trim() || commentInput.submitting}
-              >
-                {commentInput.submitting ? 'Submitting...' : 'Add Comment'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CommentOverlay
+        ref={commentOverlayRef}
+        mrId={mrId}
+        selectedFile={selectedFile}
+        onCommentAdded={handleCommentAdded}
+      />
 
       <footer className="mr-detail-footer">
         <span className="keyboard-hint">

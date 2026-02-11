@@ -22,6 +22,11 @@
   box-shadow: 0 0 10px rgba(152, 187, 108, 0.5);
 }
 
+/* Reserve space in footer row so labels don't flow under the badge */
+.my-mr-item-wrapper .mr-item-footer {
+  padding-right: 56px;
+}
+
 /* Approval summary badge — bottom-right to avoid overlapping timestamp */
 .my-mr-approval-badge {
   position: absolute;

@@ -45,7 +45,8 @@ export default function MRListPage() {
       }
     }
     loadInstances();
-  }, [selectedInstanceId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Sync MRs from MRList component (for keyboard navigation)
   const handleMRsLoaded = useCallback((loadedMrs: MergeRequest[]) => {
@@ -131,7 +132,7 @@ export default function MRListPage() {
       </header>
 
       <main className="mr-list-page-content">
-        {selectedInstanceId && (
+        {selectedInstanceId != null ? (
           <MRList
             instanceId={selectedInstanceId}
             onSelect={handleSelectMR}
@@ -139,7 +140,7 @@ export default function MRListPage() {
             onFocusChange={setFocusIndex}
             onMRsLoaded={handleMRsLoaded}
           />
-        )}
+        ) : null}
       </main>
 
       <footer className="mr-list-page-footer">

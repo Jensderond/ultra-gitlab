@@ -106,7 +106,7 @@ export default function MyMRDetailPage() {
   }, [mrId]);
 
   // Group comments by discussion thread
-  const threads = (() => {
+  const threads = useMemo(() => {
     const threadMap = new Map<string, Comment[]>();
     for (const c of comments) {
       if (c.system) continue;
@@ -121,11 +121,19 @@ export default function MyMRDetailPage() {
       if (aResolved !== bResolved) return aResolved ? 1 : -1;
       return (a[0]?.createdAt ?? 0) - (b[0]?.createdAt ?? 0);
     });
-  })();
+  }, [comments]);
 
-  const unresolvedCount = threads.filter(
-    t => t.some(c => c.discussionId) && !t.some(c => c.resolved)
-  ).length;
+  const unresolvedCount = useMemo(
+    () => threads.filter(
+      t => t.some(c => c.discussionId) && !t.some(c => c.resolved)
+    ).length,
+    [threads]
+  );
+
+  const approvedCount = useMemo(
+    () => reviewers.filter(r => r.status === 'approved').length,
+    [reviewers]
+  );
 
   const goBack = useCallback(() => {
     navigate('/my-mrs');
@@ -271,62 +279,64 @@ export default function MyMRDetailPage() {
     [reviewableFiles, files, selectedFile]
   );
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const tabs: TabId[] = ['overview', 'comments', 'code'];
-
-    function handleKeyDown(e: KeyboardEvent) {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      ) {
-        return;
-      }
-
-      switch (e.key) {
-        case 'Escape':
-          e.preventDefault();
-          goBack();
-          break;
-        case '1':
-        case '2':
-        case '3': {
-          e.preventDefault();
-          const tabIndex = parseInt(e.key, 10) - 1;
-          setActiveTab(tabs[tabIndex]);
-          break;
-        }
-        case 'o':
-          e.preventDefault();
-          if (mr?.webUrl) openUrl(mr.webUrl);
-          break;
-        case 'n':
-        case 'j':
-        case 'ArrowDown':
-          if (activeTab === 'code') {
-            e.preventDefault();
-            navigateFile(1);
-          }
-          break;
-        case 'p':
-        case 'k':
-        case 'ArrowUp':
-          if (activeTab === 'code') {
-            e.preventDefault();
-            navigateFile(-1);
-          }
-          break;
-        case 'g':
-          if (activeTab === 'code') {
-            e.preventDefault();
-            setHideGenerated((prev) => !prev);
-          }
-          break;
-      }
+  // Keyboard shortcuts — ref pattern avoids listener churn
+  const keydownRef = useRef<(e: KeyboardEvent) => void>(undefined);
+  keydownRef.current = (e: KeyboardEvent) => {
+    if (
+      e.target instanceof HTMLInputElement ||
+      e.target instanceof HTMLTextAreaElement
+    ) {
+      return;
     }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goBack, mr, activeTab, navigateFile]);
+
+    switch (e.key) {
+      case 'Escape':
+        e.preventDefault();
+        goBack();
+        break;
+      case '1':
+      case '2':
+      case '3': {
+        e.preventDefault();
+        const tabs: TabId[] = ['overview', 'comments', 'code'];
+        const tabIndex = parseInt(e.key, 10) - 1;
+        setActiveTab(tabs[tabIndex]);
+        break;
+      }
+      case 'o':
+        e.preventDefault();
+        if (mr?.webUrl) openUrl(mr.webUrl);
+        break;
+      case 'n':
+      case 'j':
+      case 'ArrowDown':
+        if (activeTab === 'code') {
+          e.preventDefault();
+          navigateFile(1);
+        }
+        break;
+      case 'p':
+      case 'k':
+      case 'ArrowUp':
+        if (activeTab === 'code') {
+          e.preventDefault();
+          navigateFile(-1);
+        }
+        break;
+      case 'g':
+        if (activeTab === 'code') {
+          e.preventDefault();
+          setHideGenerated((prev) => !prev);
+        }
+        break;
+    }
+  };
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => keydownRef.current?.(e);
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   if (loading) {
     return (
@@ -347,7 +357,6 @@ export default function MyMRDetailPage() {
     );
   }
 
-  const approvedCount = reviewers.filter(r => r.status === 'approved').length;
   const requiredCount = mr.approvalsRequired ?? 0;
 
   return (
