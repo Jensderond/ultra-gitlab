@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { listInstances, type GitLabInstanceWithStatus } from '../services/gitlab';
 import {
   listPipelineProjects,
@@ -88,6 +89,15 @@ function SearchIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" opacity="0.5">
       <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+    </svg>
+  );
+}
+
+function ExternalLinkIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+      <path d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
+      <path d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
     </svg>
   );
 }
@@ -463,6 +473,13 @@ function ProjectCard({ project, status, statusLoading, onTogglePin, onRemove }: 
           {project.nameWithNamespace}
         </span>
         <div className="pipeline-card-actions">
+          <button
+            className="pipeline-card-action-btn"
+            onClick={() => openUrl(`${project.webUrl}/-/pipelines`)}
+            title="Open in browser"
+          >
+            <ExternalLinkIcon />
+          </button>
           <button
             className={`pipeline-card-action-btn ${project.pinned ? 'pipeline-card-action-btn--active' : ''}`}
             onClick={() => onTogglePin(project.projectId)}
