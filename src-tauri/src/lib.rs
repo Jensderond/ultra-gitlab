@@ -17,10 +17,10 @@ use commands::{
     get_diff_refs, get_file_comments, get_file_content, get_file_content_base64,
     get_gitattributes, get_gitlab_instances, get_memory_stats, get_merge_request_detail,
     get_merge_requests, get_settings, get_sync_config, get_sync_settings, get_sync_status,
-    get_token_info, refresh_gitattributes, reply_to_comment, resolve_discussion,
-    retry_failed_actions, setup_gitlab_instance, trigger_sync, unapprove_mr,
-    update_collapse_patterns, update_instance_token, update_settings, update_sync_config,
-    update_sync_settings,
+    get_mr_reviewers, get_token_info, refresh_gitattributes, reply_to_comment,
+    resolve_discussion, retry_failed_actions, setup_gitlab_instance, trigger_sync,
+    unapprove_mr, update_collapse_patterns, update_instance_token, update_settings,
+    update_sync_config, update_sync_settings,
 };
 use services::sync_engine::{SyncConfig, SyncEngine};
 use tauri::{Manager, TitleBarStyle, WebviewUrl, WebviewWindowBuilder};
@@ -143,6 +143,8 @@ pub fn run() {
             clear_test_data,
             get_token_info,
             update_instance_token,
+            // Reviewers
+            get_mr_reviewers,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

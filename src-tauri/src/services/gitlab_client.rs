@@ -146,6 +146,7 @@ pub struct GitLabUser {
     pub id: i64,
     pub username: String,
     pub name: String,
+    pub avatar_url: Option<String>,
 }
 
 /// GitLab diff from API (version endpoint).

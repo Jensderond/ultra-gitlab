@@ -737,7 +737,7 @@ impl SyncEngine {
             if is_new { MrUpdateType::Created } else { MrUpdateType::Updated },
         );
 
-        // Fetch and store approval status
+        // Fetch and store approval status + per-reviewer data
         match client.get_mr_approvals(mr.project_id, mr.iid).await {
             Ok(approvals) => {
                 // Get current user to check if they've approved
@@ -764,6 +764,9 @@ impl SyncEngine {
                 .bind(mr.id)
                 .execute(&self.pool)
                 .await?;
+
+                // Upsert per-reviewer status
+                self.upsert_reviewers(mr.id, mr, &approvals).await;
             }
             Err(e) => {
                 // Non-critical - log and continue
@@ -1288,6 +1291,88 @@ impl SyncEngine {
         }
 
         Ok(())
+    }
+
+    /// Upsert per-reviewer approval statuses for a merge request.
+    ///
+    /// Combines the MR's assigned reviewers list with the approvals endpoint data
+    /// to determine each reviewer's status: approved, pending, or (future) changes_requested.
+    async fn upsert_reviewers(
+        &self,
+        mr_id: i64,
+        mr: &GitLabMergeRequest,
+        approvals: &crate::services::gitlab_client::MergeRequestApprovals,
+    ) {
+        // Delete existing reviewers for this MR (full replace per sync cycle)
+        if let Err(e) = sqlx::query("DELETE FROM mr_reviewers WHERE mr_id = ?")
+            .bind(mr_id)
+            .execute(&self.pool)
+            .await
+        {
+            log::warn!("Failed to delete old reviewers for MR {}: {}", mr_id, e);
+            return;
+        }
+
+        // Build a set of approved usernames for quick lookup
+        let approved_usernames: std::collections::HashSet<&str> = approvals
+            .approved_by
+            .iter()
+            .map(|a| a.user.username.as_str())
+            .collect();
+
+        // Use the MR's reviewers list as the source of truth for who is assigned
+        let reviewers = mr.reviewers.as_deref().unwrap_or(&[]);
+        for reviewer in reviewers {
+            let status = if approved_usernames.contains(reviewer.username.as_str()) {
+                "approved"
+            } else {
+                "pending"
+            };
+
+            if let Err(e) = sqlx::query(
+                r#"
+                INSERT INTO mr_reviewers (mr_id, username, status, avatar_url, cached_at)
+                VALUES (?, ?, ?, ?, ?)
+                "#,
+            )
+            .bind(mr_id)
+            .bind(&reviewer.username)
+            .bind(status)
+            .bind(&reviewer.avatar_url)
+            .bind(now())
+            .execute(&self.pool)
+            .await
+            {
+                log::warn!(
+                    "Failed to upsert reviewer {} for MR {}: {}",
+                    reviewer.username, mr_id, e
+                );
+            }
+        }
+
+        // Also add approved users who may not be in the reviewers list
+        for approved in &approvals.approved_by {
+            if !reviewers.iter().any(|r| r.username == approved.user.username) {
+                if let Err(e) = sqlx::query(
+                    r#"
+                    INSERT OR IGNORE INTO mr_reviewers (mr_id, username, status, avatar_url, cached_at)
+                    VALUES (?, ?, 'approved', ?, ?)
+                    "#,
+                )
+                .bind(mr_id)
+                .bind(&approved.user.username)
+                .bind(&approved.user.avatar_url)
+                .bind(now())
+                .execute(&self.pool)
+                .await
+                {
+                    log::warn!(
+                        "Failed to upsert approved-only reviewer {} for MR {}: {}",
+                        approved.user.username, mr_id, e
+                    );
+                }
+            }
+        }
     }
 
     /// Purge merged/closed MRs that are no longer open on GitLab.
