@@ -12,6 +12,7 @@ import type {
   TokenInfo,
   MergeRequest,
   MRFilter,
+  MrReviewer,
   DiffFile,
   DiffFileContent,
   DiffFileMetadata,
@@ -214,6 +215,22 @@ export async function getFileContentBase64(
  */
 export async function getDiffRefs(mrId: number): Promise<DiffRefs> {
   return invoke<DiffRefs>('get_diff_refs', { mrId });
+}
+
+/**
+ * Get merge requests authored by the current user.
+ */
+export async function listMyMergeRequests(
+  instanceId: number
+): Promise<MergeRequest[]> {
+  return invoke<MergeRequest[]>('list_my_merge_requests', { instanceId });
+}
+
+/**
+ * Get per-reviewer approval statuses for a merge request.
+ */
+export async function getMrReviewers(mrId: number): Promise<MrReviewer[]> {
+  return invoke<MrReviewer[]>('get_mr_reviewers', { mrId });
 }
 
 /**

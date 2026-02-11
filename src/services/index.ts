@@ -18,6 +18,8 @@ export {
   updateInstanceToken,
   getMergeRequests,
   getMergeRequest,
+  listMyMergeRequests,
+  getMrReviewers,
   getDiffFiles,
   getDiffFileContent,
   getDiffFileMetadata,

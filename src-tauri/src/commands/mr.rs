@@ -187,6 +187,59 @@ pub async fn get_merge_requests(
     Ok(items)
 }
 
+/// Get merge requests authored by the authenticated user.
+///
+/// Queries open MRs where author_username matches the instance's authenticated_username.
+/// Returns the same MergeRequestListItem DTO as get_merge_requests.
+///
+/// # Arguments
+/// * `instance_id` - GitLab instance to query
+///
+/// # Returns
+/// Array of authored merge requests.
+#[tauri::command]
+pub async fn list_my_merge_requests(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+) -> Result<Vec<MergeRequestListItem>, AppError> {
+    // Get the authenticated username for this instance
+    let username: Option<String> = sqlx::query_scalar(
+        "SELECT authenticated_username FROM gitlab_instances WHERE id = ?",
+    )
+    .bind(instance_id)
+    .fetch_optional(pool.inner())
+    .await?
+    .flatten();
+
+    let username = username.ok_or_else(|| {
+        AppError::not_found("No authenticated username found. Please re-authenticate.")
+    })?;
+
+    let mrs: Vec<MergeRequest> = sqlx::query_as(
+        r#"
+        SELECT
+            mr.id, mr.instance_id, mr.iid, mr.project_id,
+            COALESCE(p.name_with_namespace, mr.project_name) AS project_name,
+            mr.title, mr.description,
+            mr.author_username, mr.source_branch, mr.target_branch, mr.state,
+            mr.web_url, mr.created_at, mr.updated_at, mr.merged_at,
+            mr.approval_status, mr.approvals_required, mr.approvals_count,
+            mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved
+        FROM merge_requests mr
+        LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
+        WHERE mr.instance_id = ? AND mr.state = 'opened' AND mr.author_username = ?
+        ORDER BY mr.updated_at DESC
+        "#,
+    )
+    .bind(instance_id)
+    .bind(&username)
+    .fetch_all(pool.inner())
+    .await?;
+
+    let items = mrs.into_iter().map(MergeRequestListItem::from).collect();
+    Ok(items)
+}
+
 /// Diff summary information for an MR.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

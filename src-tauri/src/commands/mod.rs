@@ -26,7 +26,7 @@ pub use auth::{delete_gitlab_instance, get_gitlab_instances, get_token_info, set
 pub use comments::{add_comment, get_comments, get_file_comments, reply_to_comment, resolve_discussion};
 pub use diagnostics::{clear_test_data, generate_test_data, get_cache_stats, get_diagnostics_report, get_memory_stats};
 pub use gitattributes::{get_gitattributes, refresh_gitattributes};
-pub use mr::{get_cached_file_pair, get_diff_content, get_diff_file, get_diff_file_metadata, get_diff_files, get_diff_hunks, get_diff_refs, get_file_content, get_file_content_base64, get_merge_request_detail, get_merge_requests};
+pub use mr::{get_cached_file_pair, get_diff_content, get_diff_file, get_diff_file_metadata, get_diff_files, get_diff_hunks, get_diff_refs, get_file_content, get_file_content_base64, get_merge_request_detail, get_merge_requests, list_my_merge_requests};
 pub use reviewers::get_mr_reviewers;
 pub use settings::{get_collapse_patterns, get_settings, get_sync_settings, update_collapse_patterns, update_settings, update_sync_settings};
 pub use sync::{
