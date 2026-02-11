@@ -5,10 +5,16 @@
  * Tabs: Overview (default), Comments, Code
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getMergeRequest, getMrReviewers } from '../services/tauri';
-import type { MergeRequest, MrReviewer } from '../types';
+import { getMergeRequest, getMrReviewers, getComments, getCollapsePatterns } from '../services/tauri';
+import { getMergeRequestFiles, getDiffRefs, getFileContent, getFileContentBase64, getCachedFilePair, getGitattributesPatterns } from '../services/gitlab';
+import { FileNavigation } from '../components/DiffViewer';
+import { MonacoDiffViewer, type MonacoDiffViewerRef } from '../components/Monaco/MonacoDiffViewer';
+import { ImageDiffViewer } from '../components/Monaco/ImageDiffViewer';
+import { isImageFile, getImageMimeType } from '../components/Monaco/languageDetection';
+import { classifyFiles } from '../utils/classifyFiles';
+import type { MergeRequest, MrReviewer, Comment, DiffFileSummary, DiffRefs } from '../types';
 import './MyMRDetailPage.css';
 
 type TabId = 'overview' | 'comments' | 'code';
@@ -55,22 +61,40 @@ export default function MyMRDetailPage() {
 
   const [mr, setMr] = useState<MergeRequest | null>(null);
   const [reviewers, setReviewers] = useState<MrReviewer[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load MR and reviewers
+  // Code tab state
+  const diffViewerRef = useRef<MonacoDiffViewerRef>(null);
+  const [files, setFiles] = useState<DiffFileSummary[]>([]);
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [fileFocusIndex, setFileFocusIndex] = useState(0);
+  const [generatedPaths, setGeneratedPaths] = useState<Set<string>>(new Set());
+  const [hideGenerated, setHideGenerated] = useState(true);
+  const [diffRefs, setDiffRefs] = useState<DiffRefs | null>(null);
+  const [originalContent, setOriginalContent] = useState('');
+  const [modifiedContent, setModifiedContent] = useState('');
+  const [originalImageBase64, setOriginalImageBase64] = useState('');
+  const [modifiedImageBase64, setModifiedImageBase64] = useState('');
+  const [fileContentLoading, setFileContentLoading] = useState(false);
+  const [codeTabLoaded, setCodeTabLoaded] = useState(false);
+
+  // Load MR, reviewers, and comments
   useEffect(() => {
     async function load() {
       try {
         setLoading(true);
         setError(null);
-        const [mrData, reviewerData] = await Promise.all([
+        const [mrData, reviewerData, commentData] = await Promise.all([
           getMergeRequest(mrId),
           getMrReviewers(mrId),
+          getComments(mrId),
         ]);
         setMr(mrData);
         setReviewers(reviewerData);
+        setComments(commentData);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load MR');
       } finally {
@@ -79,6 +103,28 @@ export default function MyMRDetailPage() {
     }
     if (mrId) load();
   }, [mrId]);
+
+  // Group comments by discussion thread
+  const threads = (() => {
+    const threadMap = new Map<string, Comment[]>();
+    for (const c of comments) {
+      if (c.system) continue;
+      const key = c.discussionId ?? `standalone-${c.id}`;
+      if (!threadMap.has(key)) threadMap.set(key, []);
+      threadMap.get(key)!.push(c);
+    }
+    // Sort threads: unresolved first, then by earliest comment date
+    return Array.from(threadMap.values()).sort((a, b) => {
+      const aResolved = a.some(c => c.resolved);
+      const bResolved = b.some(c => c.resolved);
+      if (aResolved !== bResolved) return aResolved ? 1 : -1;
+      return (a[0]?.createdAt ?? 0) - (b[0]?.createdAt ?? 0);
+    });
+  })();
+
+  const unresolvedCount = threads.filter(
+    t => t.some(c => c.discussionId) && !t.some(c => c.resolved)
+  ).length;
 
   const goBack = useCallback(() => {
     navigate('/my-mrs');
@@ -95,6 +141,125 @@ export default function MyMRDetailPage() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [goBack]);
+
+  // Lazy-load Code tab data on first activation
+  useEffect(() => {
+    if (activeTab !== 'code' || codeTabLoaded || !mr) return;
+    const currentMr = mr;
+
+    async function loadCodeData() {
+      try {
+        const [filesData, diffRefsData] = await Promise.all([
+          getMergeRequestFiles(mrId),
+          getDiffRefs(mrId).catch(() => null),
+        ]);
+
+        setDiffRefs(diffRefsData);
+
+        const summaries: DiffFileSummary[] = filesData.map((f) => ({
+          newPath: f.newPath,
+          oldPath: f.oldPath,
+          changeType: f.changeType,
+          additions: f.additions,
+          deletions: f.deletions,
+        }));
+        setFiles(summaries);
+
+        const [gitattributes, userPatterns] = await Promise.all([
+          getGitattributesPatterns(currentMr.instanceId, currentMr.projectId).catch(() => []),
+          getCollapsePatterns().catch(() => []),
+        ]);
+
+        const { reviewable, generated } = classifyFiles(summaries, gitattributes, userPatterns);
+        setGeneratedPaths(generated);
+
+        if (reviewable.length > 0) {
+          setSelectedFile(reviewable[0].newPath);
+          const fullIndex = summaries.findIndex((f) => f.newPath === reviewable[0].newPath);
+          if (fullIndex >= 0) setFileFocusIndex(fullIndex);
+        }
+
+        setCodeTabLoaded(true);
+      } catch {
+        // Silently handle — files just won't load
+      }
+    }
+    loadCodeData();
+  }, [activeTab, codeTabLoaded, mr, mrId]);
+
+  // Load file content when selected file changes (Code tab)
+  useEffect(() => {
+    if (activeTab !== 'code' || !selectedFile || !mr || !diffRefs) {
+      return;
+    }
+
+    const currentFile = selectedFile;
+    const currentMr = mr;
+    const currentDiffRefs = diffRefs;
+    const fileInfo = files.find((f) => f.newPath === currentFile);
+    const isNewFile = fileInfo?.changeType === 'added';
+    const isDeletedFile = fileInfo?.changeType === 'deleted';
+    const oldPath = fileInfo?.oldPath ?? currentFile;
+    const isImage = isImageFile(currentFile);
+
+    async function loadContent() {
+      try {
+        setFileContentLoading(true);
+
+        if (isImage) {
+          const [origB64, modB64] = await Promise.all([
+            isNewFile ? Promise.resolve('') : getFileContentBase64(currentMr.instanceId, currentMr.projectId, oldPath, currentDiffRefs.baseSha).catch(() => ''),
+            isDeletedFile ? Promise.resolve('') : getFileContentBase64(currentMr.instanceId, currentMr.projectId, currentFile, currentDiffRefs.headSha).catch(() => ''),
+          ]);
+          setOriginalImageBase64(origB64);
+          setModifiedImageBase64(modB64);
+          setOriginalContent('');
+          setModifiedContent('');
+        } else {
+          const cached = await getCachedFilePair(mrId, currentFile).catch(() => null);
+          const needBase = !isNewFile;
+          const needHead = !isDeletedFile;
+          const cacheHit = (!needBase || cached?.baseContent !== null) && (!needHead || cached?.headContent !== null);
+
+          if (cached && cacheHit) {
+            setOriginalContent(needBase ? (cached.baseContent ?? '') : '');
+            setModifiedContent(needHead ? (cached.headContent ?? '') : '');
+            setOriginalImageBase64('');
+            setModifiedImageBase64('');
+            setFileContentLoading(false);
+            return;
+          }
+
+          const [original, modified] = await Promise.all([
+            isNewFile ? Promise.resolve('') : getFileContent(currentMr.instanceId, currentMr.projectId, oldPath, currentDiffRefs.baseSha).catch(() => ''),
+            isDeletedFile ? Promise.resolve('') : getFileContent(currentMr.instanceId, currentMr.projectId, currentFile, currentDiffRefs.headSha).catch(() => ''),
+          ]);
+          setOriginalContent(original);
+          setModifiedContent(modified);
+          setOriginalImageBase64('');
+          setModifiedImageBase64('');
+        }
+      } catch {
+        // Silently handle
+      } finally {
+        setFileContentLoading(false);
+      }
+    }
+    loadContent();
+  }, [activeTab, selectedFile, mr, diffRefs, files, mrId]);
+
+  // File selection handler for Code tab
+  const handleFileSelect = useCallback((filePath: string) => {
+    setSelectedFile(filePath);
+    const index = files.findIndex((f) => f.newPath === filePath);
+    if (index >= 0) setFileFocusIndex(index);
+  }, [files]);
+
+  // Reviewable files (excludes generated)
+  const reviewableFiles = useMemo(
+    () => files.filter((f) => !generatedPaths.has(f.newPath)),
+    [files, generatedPaths]
+  );
 
   if (loading) {
     return (
@@ -144,7 +309,7 @@ export default function MyMRDetailPage() {
           className={`my-mr-tab ${activeTab === 'comments' ? 'active' : ''}`}
           onClick={() => setActiveTab('comments')}
         >
-          Comments
+          Comments{unresolvedCount > 0 ? ` (${unresolvedCount})` : ''}
         </button>
         <button
           className={`my-mr-tab ${activeTab === 'code' ? 'active' : ''}`}
@@ -229,14 +394,86 @@ export default function MyMRDetailPage() {
         )}
 
         {activeTab === 'comments' && (
-          <div className="my-mr-tab-placeholder">
-            Comments tab (US-007)
+          <div className="my-mr-comments">
+            {threads.length === 0 ? (
+              <p className="my-mr-no-comments">No comments on this merge request.</p>
+            ) : (
+              threads.map((thread) => {
+                const isResolved = thread.some(c => c.resolved);
+                return (
+                  <div
+                    key={thread[0].discussionId ?? thread[0].id}
+                    className={`my-mr-thread ${isResolved ? 'resolved' : ''}`}
+                  >
+                    {thread[0].filePath && (
+                      <div className="my-mr-thread-file">
+                        {thread[0].filePath}
+                        {thread[0].newLine != null && `:${thread[0].newLine}`}
+                      </div>
+                    )}
+                    {thread.map(comment => (
+                      <div key={comment.id} className="my-mr-comment">
+                        <div className="my-mr-comment-header">
+                          <span className="my-mr-comment-author">{comment.authorUsername}</span>
+                          <span className="my-mr-comment-time">{formatRelativeTime(comment.createdAt)}</span>
+                        </div>
+                        <div className="my-mr-comment-body">{comment.body}</div>
+                      </div>
+                    ))}
+                    {isResolved && (
+                      <div className="my-mr-thread-resolved-badge">Resolved</div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
         )}
 
         {activeTab === 'code' && (
-          <div className="my-mr-tab-placeholder">
-            Code tab (US-008)
+          <div className="my-mr-code-tab">
+            <aside className="my-mr-code-sidebar">
+              <FileNavigation
+                files={files}
+                selectedPath={selectedFile ?? undefined}
+                onSelect={handleFileSelect}
+                focusIndex={fileFocusIndex}
+                generatedPaths={generatedPaths}
+                hideGenerated={hideGenerated}
+                onToggleHideGenerated={() => setHideGenerated((prev) => !prev)}
+              />
+            </aside>
+            <main className="my-mr-code-main">
+              {!codeTabLoaded ? (
+                <div className="my-mr-code-loading">Loading files...</div>
+              ) : selectedFile ? (
+                fileContentLoading ? (
+                  <div className="my-mr-code-loading">Loading file content...</div>
+                ) : !diffRefs ? (
+                  <div className="my-mr-code-loading">Diff information not available. Please sync first.</div>
+                ) : isImageFile(selectedFile) ? (
+                  <ImageDiffViewer
+                    originalBase64={originalImageBase64}
+                    modifiedBase64={modifiedImageBase64}
+                    filePath={selectedFile}
+                    mimeType={getImageMimeType(selectedFile)}
+                  />
+                ) : (
+                  <MonacoDiffViewer
+                    ref={diffViewerRef}
+                    originalContent={originalContent}
+                    modifiedContent={modifiedContent}
+                    filePath={selectedFile}
+                    viewMode="unified"
+                    comments={[]}
+                  />
+                )
+              ) : files.length > 0 && reviewableFiles.length === 0 ? (
+                <div className="my-mr-code-loading">All files are generated. Click a file to view.</div>
+              ) : (
+                <div className="my-mr-code-loading">Select a file to view its diff</div>
+              )}
+            </main>
           </div>
         )}
       </div>

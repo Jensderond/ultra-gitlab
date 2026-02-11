@@ -112,11 +112,34 @@
   padding: 24px 32px;
 }
 
-.my-mr-tab-placeholder {
+/* Code tab layout */
+.my-mr-code-tab {
+  display: flex;
+  height: 100%;
+  margin: -24px -32px;
+  overflow: hidden;
+}
+
+.my-mr-code-sidebar {
+  width: 280px;
+  min-width: 200px;
+  border-right: 1px solid var(--border-color);
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.my-mr-code-main {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.my-mr-code-loading {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 200px;
+  height: 100%;
   color: var(--text-tertiary);
   font-size: 13px;
 }
@@ -293,4 +316,82 @@
 .my-mr-reviewer.reviewer-changes .my-mr-reviewer-status {
   color: var(--warning-color);
   background: var(--warning-bg);
+}
+
+/* Comments tab */
+.my-mr-comments {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.my-mr-no-comments {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  text-align: center;
+  padding: 48px 0;
+}
+
+.my-mr-thread {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.my-mr-thread.resolved {
+  opacity: 0.6;
+}
+
+.my-mr-thread-file {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  padding: 8px 16px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.my-mr-comment {
+  padding: 12px 16px;
+}
+
+.my-mr-comment + .my-mr-comment {
+  border-top: 1px solid var(--border-color-light);
+}
+
+.my-mr-comment-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.my-mr-comment-author {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.my-mr-comment-time {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.my-mr-comment-body {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.my-mr-thread-resolved-badge {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-align: right;
+  padding: 6px 16px;
+  border-top: 1px solid var(--border-color-light);
+  font-style: italic;
 }
