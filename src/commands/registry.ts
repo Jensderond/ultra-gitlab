@@ -28,6 +28,7 @@ export type CommandCategory = (typeof CommandCategory)[keyof typeof CommandCateg
 export const CommandId = {
   // Navigation
   GoToMRList: 'navigation.go-to-mr-list',
+  GoToMyMRs: 'navigation.go-to-my-mrs',
   GoToSettings: 'navigation.go-to-settings',
   GoBack: 'navigation.go-back',
   NextFile: 'navigation.next-file',
@@ -91,6 +92,13 @@ export const commandDefinitions: CommandDefinition[] = [
     id: CommandId.GoToMRList,
     label: 'Go to Merge Requests',
     description: 'View the list of merge requests',
+    category: CommandCategory.Navigation,
+  },
+  {
+    id: CommandId.GoToMyMRs,
+    label: 'Go to My MRs',
+    description: 'View your authored merge requests',
+    shortcut: 'Cmd+M',
     category: CommandCategory.Navigation,
   },
   {

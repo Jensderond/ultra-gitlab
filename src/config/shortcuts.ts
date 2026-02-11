@@ -81,6 +81,13 @@ export const defaultShortcuts: ShortcutDefinition[] = [
     context: 'global',
   },
   {
+    id: 'go-to-my-mrs',
+    description: 'Go to My MRs',
+    defaultKey: 'Cmd+M',
+    category: 'navigation',
+    context: 'global',
+  },
+  {
     id: 'trigger-sync',
     description: 'Sync with GitLab',
     defaultKey: 'Cmd+R',

@@ -88,6 +88,13 @@ function AppContent() {
         return;
       }
 
+      // Cmd+M or Ctrl+M to go to My MRs
+      if ((e.metaKey || e.ctrlKey) && e.key === 'm') {
+        e.preventDefault();
+        navigate('/my-mrs');
+        return;
+      }
+
       // Cmd+R or Ctrl+R to trigger sync (prevent browser refresh)
       if ((e.metaKey || e.ctrlKey) && e.key === 'r') {
         e.preventDefault();
@@ -126,6 +133,7 @@ function AppContent() {
     const actionMap: Partial<Record<CommandId, () => void>> = {
       // Navigation commands always available
       [CommandId.GoToMRList]: () => navigate('/mrs'),
+      [CommandId.GoToMyMRs]: () => navigate('/my-mrs'),
       [CommandId.GoToSettings]: () => navigate('/settings'),
       [CommandId.OpenSettings]: () => navigate('/settings'),
       [CommandId.OpenCommandPalette]: () => setCommandPaletteOpen(true),
