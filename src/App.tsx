@@ -15,10 +15,12 @@ import { AppSidebar } from './components/AppSidebar';
 import { CommandPalette, type Command } from './components/CommandPalette';
 import { KeyboardHelp } from './components/KeyboardHelp';
 import { ReAuthPrompt } from './components/ReAuthPrompt';
-import { CommandId, commandDefinitions } from './commands/registry';
+import { CommandId, CommandCategory, commandDefinitions } from './commands/registry';
 import { manualSync } from './services/storage';
+import { listInstances } from './services/gitlab';
+import { listPipelineProjects, visitPipelineProject } from './services/tauri';
 import { MonacoProvider } from './components/Monaco';
-import type { AuthExpiredPayload } from './types';
+import type { AuthExpiredPayload, PipelineProject } from './types';
 import './App.css';
 
 /** Auth expired state for re-auth prompt */
@@ -38,6 +40,7 @@ function AppContent() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
   const [authExpired, setAuthExpired] = useState<AuthExpiredState | null>(null);
+  const [pipelineProjects, setPipelineProjects] = useState<PipelineProject[]>([]);
 
   // Listen for auth-expired events from the backend
   useEffect(() => {
@@ -59,6 +62,24 @@ function AppContent() {
         unlisten();
       }
     };
+  }, []);
+
+  // Load pipeline projects for command palette
+  useEffect(() => {
+    async function loadPipelineProjects() {
+      try {
+        const instances = await listInstances();
+        const allProjects: PipelineProject[] = [];
+        for (const inst of instances) {
+          const projects = await listPipelineProjects(inst.id);
+          allProjects.push(...projects);
+        }
+        setPipelineProjects(allProjects);
+      } catch {
+        // Non-critical — command palette just won't show pipeline projects
+      }
+    }
+    loadPipelineProjects();
   }, []);
 
   // Clear auth expired state
@@ -178,7 +199,7 @@ function AppContent() {
     }
 
     // Build commands from definitions with bound actions
-    return commandDefinitions
+    const staticCommands: Command[] = commandDefinitions
       .filter((def) => actionMap[def.id] !== undefined)
       .map((def) => ({
         id: def.id,
@@ -188,7 +209,21 @@ function AppContent() {
         category: def.category,
         action: actionMap[def.id]!,
       }));
-  }, [location.pathname, navigate]);
+
+    // Add dynamic pipeline project commands
+    const pipelineCommands: Command[] = pipelineProjects.map((project) => ({
+      id: `pipeline.project.${project.instanceId}.${project.projectId}`,
+      label: project.nameWithNamespace,
+      description: project.pinned ? 'Pinned pipeline project' : 'Recent pipeline project',
+      category: CommandCategory.Pipelines,
+      action: () => {
+        visitPipelineProject(project.instanceId, project.projectId).catch(console.error);
+        navigate('/pipelines');
+      },
+    }));
+
+    return [...staticCommands, ...pipelineCommands];
+  }, [location.pathname, navigate, pipelineProjects]);
 
   return (
     <div className="app">

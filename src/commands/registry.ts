@@ -16,6 +16,7 @@ export const CommandCategory = {
   Navigation: 'Navigation',
   MergeRequest: 'Merge Request',
   Review: 'Review',
+  Pipelines: 'Pipelines',
   Sync: 'Sync',
   Settings: 'Settings',
 } as const;
