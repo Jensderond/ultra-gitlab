@@ -284,6 +284,7 @@
   padding: 20px;
   overflow: hidden;
   background: rgba(22, 22, 29, 0.3);
+  position: relative;
 }
 
 /* DiffViewer wrapper */
@@ -593,6 +594,38 @@
   outline: none;
   border-color: var(--kw-wave-blue);
   box-shadow: 0 0 0 3px var(--kw-wave-glow);
+}
+
+/* File content loading overlay — positioned over the editor area */
+.file-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(22, 22, 29, 0.75);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 5;
+  animation: fadeIn 0.15s ease;
+}
+
+.file-loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--kw-sumi-ink);
+  border-top-color: var(--kw-wave-blue);
+  border-right-color: var(--kw-wave-cyan);
+  border-radius: 50%;
+  animation: waveSpinner 1s ease-in-out infinite;
+}
+
+/* Monaco diff wrapper — always mounted, hidden when viewing images */
+.monaco-diff-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .no-file-selected::before {

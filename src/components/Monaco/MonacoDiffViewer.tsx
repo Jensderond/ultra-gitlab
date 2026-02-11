@@ -46,6 +46,8 @@ export interface MonacoDiffViewerRef {
   saveViewState: () => editor.IDiffEditorViewState | null;
   /** Restore a previously saved view state */
   restoreViewState: (state: editor.IDiffEditorViewState | null) => void;
+  /** Force recalculate layout (needed after display:none → visible transitions) */
+  layout: () => void;
 }
 
 /** Comment data for a line */
@@ -198,6 +200,11 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
       ed.restoreViewState(state);
     }, []);
 
+    // Force recalculate layout (needed after display:none → visible)
+    const layout = useCallback(() => {
+      editorRef.current?.layout();
+    }, []);
+
     // Get current cursor position
     const getCursorPosition = useCallback((): CursorPosition | null => {
       const editor = editorRef.current;
@@ -289,7 +296,8 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
       expandAll,
       saveViewState,
       restoreViewState,
-    }), [goToNextChange, goToPreviousChange, getScrollTop, setScrollTop, getCursorPosition, getSelectedLines, collapseUnchanged, expandAll, saveViewState, restoreViewState]);
+      layout,
+    }), [goToNextChange, goToPreviousChange, getScrollTop, setScrollTop, getCursorPosition, getSelectedLines, collapseUnchanged, expandAll, saveViewState, restoreViewState, layout]);
 
     // Handle editor mount
     const handleMount: DiffOnMount = useCallback((editor, monaco) => {

@@ -9,12 +9,13 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { getMergeRequest, getMrReviewers, getComments, getCollapsePatterns } from '../services/tauri';
-import { getMergeRequestFiles, getDiffRefs, getFileContent, getFileContentBase64, getCachedFilePair, getGitattributesPatterns } from '../services/gitlab';
+import { getMergeRequestFiles, getDiffRefs, getGitattributesPatterns } from '../services/gitlab';
 import { FileNavigation } from '../components/DiffViewer';
 import { MonacoDiffViewer, type MonacoDiffViewerRef } from '../components/Monaco/MonacoDiffViewer';
 import { ImageDiffViewer } from '../components/Monaco/ImageDiffViewer';
 import { isImageFile, getImageMimeType } from '../components/Monaco/languageDetection';
 import { classifyFiles } from '../utils/classifyFiles';
+import { useFileContent } from '../hooks/useFileContent';
 import type { MergeRequest, MrReviewer, Comment, DiffFileSummary, DiffRefs } from '../types';
 import './MyMRDetailPage.css';
 
@@ -75,12 +76,32 @@ export default function MyMRDetailPage() {
   const [generatedPaths, setGeneratedPaths] = useState<Set<string>>(new Set());
   const [hideGenerated, setHideGenerated] = useState(true);
   const [diffRefs, setDiffRefs] = useState<DiffRefs | null>(null);
-  const [originalContent, setOriginalContent] = useState('');
-  const [modifiedContent, setModifiedContent] = useState('');
-  const [originalImageBase64, setOriginalImageBase64] = useState('');
-  const [modifiedImageBase64, setModifiedImageBase64] = useState('');
-  const [fileContentLoading, setFileContentLoading] = useState(false);
   const [codeTabLoaded, setCodeTabLoaded] = useState(false);
+
+  // Reviewable files (excludes generated)
+  const reviewableFiles = useMemo(
+    () => files.filter((f) => !generatedPaths.has(f.newPath)),
+    [files, generatedPaths]
+  );
+
+  // File content with in-memory cache for instant navigation
+  const {
+    content: fileContent,
+    imageContent,
+    isLoading: fileContentLoading,
+  } = useFileContent(mrId, mr, diffRefs, files, selectedFile, reviewableFiles);
+
+  // Track image→text transitions to re-layout Monaco
+  const wasImageRef = useRef(false);
+  useEffect(() => {
+    const isImage = selectedFile ? isImageFile(selectedFile) : false;
+    if (wasImageRef.current && !isImage && selectedFile) {
+      requestAnimationFrame(() => {
+        diffViewerRef.current?.layout();
+      });
+    }
+    wasImageRef.current = isImage;
+  }, [selectedFile]);
 
   // Load MR, reviewers, and comments
   useEffect(() => {
@@ -184,79 +205,12 @@ export default function MyMRDetailPage() {
     loadCodeData();
   }, [activeTab, codeTabLoaded, mr, mrId]);
 
-  // Load file content when selected file changes (Code tab)
-  useEffect(() => {
-    if (activeTab !== 'code' || !selectedFile || !mr || !diffRefs) {
-      return;
-    }
-
-    const currentFile = selectedFile;
-    const currentMr = mr;
-    const currentDiffRefs = diffRefs;
-    const fileInfo = files.find((f) => f.newPath === currentFile);
-    const isNewFile = fileInfo?.changeType === 'added';
-    const isDeletedFile = fileInfo?.changeType === 'deleted';
-    const oldPath = fileInfo?.oldPath ?? currentFile;
-    const isImage = isImageFile(currentFile);
-
-    async function loadContent() {
-      try {
-        setFileContentLoading(true);
-
-        if (isImage) {
-          const [origB64, modB64] = await Promise.all([
-            isNewFile ? Promise.resolve('') : getFileContentBase64(currentMr.instanceId, currentMr.projectId, oldPath, currentDiffRefs.baseSha).catch(() => ''),
-            isDeletedFile ? Promise.resolve('') : getFileContentBase64(currentMr.instanceId, currentMr.projectId, currentFile, currentDiffRefs.headSha).catch(() => ''),
-          ]);
-          setOriginalImageBase64(origB64);
-          setModifiedImageBase64(modB64);
-          setOriginalContent('');
-          setModifiedContent('');
-        } else {
-          const cached = await getCachedFilePair(mrId, currentFile).catch(() => null);
-          const needBase = !isNewFile;
-          const needHead = !isDeletedFile;
-          const cacheHit = (!needBase || cached?.baseContent !== null) && (!needHead || cached?.headContent !== null);
-
-          if (cached && cacheHit) {
-            setOriginalContent(needBase ? (cached.baseContent ?? '') : '');
-            setModifiedContent(needHead ? (cached.headContent ?? '') : '');
-            setOriginalImageBase64('');
-            setModifiedImageBase64('');
-            setFileContentLoading(false);
-            return;
-          }
-
-          const [original, modified] = await Promise.all([
-            isNewFile ? Promise.resolve('') : getFileContent(currentMr.instanceId, currentMr.projectId, oldPath, currentDiffRefs.baseSha).catch(() => ''),
-            isDeletedFile ? Promise.resolve('') : getFileContent(currentMr.instanceId, currentMr.projectId, currentFile, currentDiffRefs.headSha).catch(() => ''),
-          ]);
-          setOriginalContent(original);
-          setModifiedContent(modified);
-          setOriginalImageBase64('');
-          setModifiedImageBase64('');
-        }
-      } catch {
-        // Silently handle
-      } finally {
-        setFileContentLoading(false);
-      }
-    }
-    loadContent();
-  }, [activeTab, selectedFile, mr, diffRefs, files, mrId]);
-
   // File selection handler for Code tab
   const handleFileSelect = useCallback((filePath: string) => {
     setSelectedFile(filePath);
     const index = files.findIndex((f) => f.newPath === filePath);
     if (index >= 0) setFileFocusIndex(index);
   }, [files]);
-
-  // Reviewable files (excludes generated)
-  const reviewableFiles = useMemo(
-    () => files.filter((f) => !generatedPaths.has(f.newPath)),
-    [files, generatedPaths]
-  );
 
   // Navigate to next/previous reviewable file (Code tab)
   const navigateFile = useCallback(
@@ -523,27 +477,46 @@ export default function MyMRDetailPage() {
               {!codeTabLoaded ? (
                 <div className="my-mr-code-loading">Loading files...</div>
               ) : selectedFile ? (
-                fileContentLoading ? (
-                  <div className="my-mr-code-loading">Loading file content...</div>
-                ) : !diffRefs ? (
-                  <div className="my-mr-code-loading">Diff information not available. Please sync first.</div>
-                ) : isImageFile(selectedFile) ? (
-                  <ImageDiffViewer
-                    originalBase64={originalImageBase64}
-                    modifiedBase64={modifiedImageBase64}
-                    filePath={selectedFile}
-                    mimeType={getImageMimeType(selectedFile)}
-                  />
-                ) : (
-                  <MonacoDiffViewer
-                    ref={diffViewerRef}
-                    originalContent={originalContent}
-                    modifiedContent={modifiedContent}
-                    filePath={selectedFile}
-                    viewMode="unified"
-                    comments={[]}
-                  />
-                )
+                <>
+                  {/* Loading overlay */}
+                  {fileContentLoading && (
+                    <div className="my-mr-code-overlay">
+                      <div className="my-mr-code-spinner" />
+                    </div>
+                  )}
+
+                  {/* No diff refs overlay */}
+                  {!fileContentLoading && !diffRefs && (
+                    <div className="my-mr-code-overlay">
+                      <div className="my-mr-code-loading">Diff information not available. Please sync first.</div>
+                    </div>
+                  )}
+
+                  {/* Image diff viewer (mounts/unmounts freely) */}
+                  {isImageFile(selectedFile) && !fileContentLoading && diffRefs && (
+                    <ImageDiffViewer
+                      originalBase64={imageContent.originalBase64}
+                      modifiedBase64={imageContent.modifiedBase64}
+                      filePath={selectedFile}
+                      mimeType={getImageMimeType(selectedFile)}
+                    />
+                  )}
+
+                  {/* Monaco diff wrapper — always mounted, hidden for images */}
+                  <div
+                    className="my-mr-monaco-wrapper"
+                    style={{ display: isImageFile(selectedFile) ? 'none' : undefined }}
+                  >
+                    <MonacoDiffViewer
+                      ref={diffViewerRef}
+                      originalContent={fileContent.original}
+                      modifiedContent={fileContent.modified}
+                      filePath={selectedFile}
+                      viewMode="unified"
+                      comments={[]}
+                    />
+                  </div>
+                </>
               ) : files.length > 0 && reviewableFiles.length === 0 ? (
                 <div className="my-mr-code-loading">All files are generated. Click a file to view.</div>
               ) : (

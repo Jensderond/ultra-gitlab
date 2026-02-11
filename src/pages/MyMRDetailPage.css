@@ -115,6 +115,41 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+.my-mr-code-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(22, 22, 29, 0.75);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 5;
+}
+
+.my-mr-code-spinner {
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--kw-sumi-ink, #363646);
+  border-top-color: var(--kw-wave-blue, #7e9cd8);
+  border-right-color: var(--kw-wave-cyan, #7fb4ca);
+  border-radius: 50%;
+  animation: my-mr-spin 1s ease-in-out infinite;
+}
+
+@keyframes my-mr-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.my-mr-monaco-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .my-mr-code-loading {

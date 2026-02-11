@@ -15,9 +15,10 @@ import { ImageDiffViewer } from '../components/Monaco/ImageDiffViewer';
 import { isImageFile, getImageMimeType } from '../components/Monaco/languageDetection';
 import { ApprovalButton, type ApprovalButtonRef } from '../components/Approval';
 import { CommentOverlay, type CommentOverlayRef } from '../components/CommentOverlay';
-import { getMergeRequestById, getMergeRequestFiles, getDiffRefs, getFileContent, getFileContentBase64, getCachedFilePair, getGitattributesPatterns } from '../services/gitlab';
+import { getMergeRequestById, getMergeRequestFiles, getDiffRefs, getGitattributesPatterns } from '../services/gitlab';
 import { invoke, getCollapsePatterns } from '../services/tauri';
 import { classifyFiles } from '../utils/classifyFiles';
+import { useFileContent } from '../hooks/useFileContent';
 import type { MergeRequest, DiffFileSummary, DiffRefs, Comment } from '../types';
 import './MRDetailPage.css';
 
@@ -45,14 +46,6 @@ export default function MRDetailPage() {
 
   // Monaco diff viewer state
   const [diffRefs, setDiffRefs] = useState<DiffRefs | null>(null);
-  const [originalContent, setOriginalContent] = useState<string>('');
-  const [modifiedContent, setModifiedContent] = useState<string>('');
-  const [fileContentLoading, setFileContentLoading] = useState(false);
-  const [fileContentError, setFileContentError] = useState<string | null>(null);
-
-  // Image diff viewer state (base64 content)
-  const [originalImageBase64, setOriginalImageBase64] = useState<string>('');
-  const [modifiedImageBase64, setModifiedImageBase64] = useState<string>('');
 
   // View state per file (scroll, cursor, collapsed regions)
   const viewStatesRef = useRef<Map<string, editor.IDiffEditorViewState>>(new Map());
@@ -63,6 +56,33 @@ export default function MRDetailPage() {
   // Comments state for current file
   const [fileComments, setFileComments] = useState<LineComment[]>([]);
   const commentOverlayRef = useRef<CommentOverlayRef>(null);
+
+  // Reviewable files for keyboard navigation (excludes generated files)
+  const reviewableFiles = useMemo(
+    () => files.filter((f) => !generatedPaths.has(f.newPath)),
+    [files, generatedPaths]
+  );
+
+  // File content with in-memory cache for instant navigation
+  const {
+    content: fileContent,
+    imageContent,
+    isLoading: fileContentLoading,
+    error: fileContentError,
+    clearCache: clearFileCache,
+  } = useFileContent(mrId, mr, diffRefs, files, selectedFile, reviewableFiles);
+
+  // Track image→text transitions to re-layout Monaco
+  const wasImageRef = useRef(false);
+  useEffect(() => {
+    const isImage = selectedFile ? isImageFile(selectedFile) : false;
+    if (wasImageRef.current && !isImage && selectedFile) {
+      requestAnimationFrame(() => {
+        diffViewerRef.current?.layout();
+      });
+    }
+    wasImageRef.current = isImage;
+  }, [selectedFile]);
 
   // Load MR data
   useEffect(() => {
@@ -146,6 +166,7 @@ export default function MRDetailPage() {
             deletions: f.deletions,
           }));
           setFiles(summaries);
+          clearFileCache();
         } catch (err) {
           console.warn('Failed to refresh MR data on event:', err);
         }
@@ -181,99 +202,6 @@ export default function MRDetailPage() {
     }
   }, [files]);
 
-  // Load file content when selected file changes
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadFileContent() {
-      if (!selectedFile || !mr || !diffRefs) {
-        setOriginalContent('');
-        setModifiedContent('');
-        setOriginalImageBase64('');
-        setModifiedImageBase64('');
-        return;
-      }
-
-      // Find the file info to check if it's added/deleted
-      const fileInfo = files.find((f) => f.newPath === selectedFile);
-      const isNewFile = fileInfo?.changeType === 'added';
-      const isDeletedFile = fileInfo?.changeType === 'deleted';
-      const oldPath = fileInfo?.oldPath || selectedFile;
-
-      // Check if this is an image file
-      const isImage = isImageFile(selectedFile);
-
-      try {
-        setFileContentLoading(true);
-        setFileContentError(null);
-
-        if (isImage) {
-          // Fetch image content as base64
-          const [originalBase64, modifiedBase64] = await Promise.all([
-            // Original image (at base SHA) - empty for new files
-            isNewFile
-              ? Promise.resolve('')
-              : getFileContentBase64(mr.instanceId, mr.projectId, oldPath, diffRefs.baseSha).catch(() => ''),
-            // Modified image (at head SHA) - empty for deleted files
-            isDeletedFile
-              ? Promise.resolve('')
-              : getFileContentBase64(mr.instanceId, mr.projectId, selectedFile, diffRefs.headSha).catch(() => ''),
-          ]);
-
-          if (cancelled) return;
-          setOriginalImageBase64(originalBase64);
-          setModifiedImageBase64(modifiedBase64);
-          // Clear text content
-          setOriginalContent('');
-          setModifiedContent('');
-        } else {
-          // Try loading from cache first for instant rendering
-          const cached = await getCachedFilePair(mrId, selectedFile).catch(() => null);
-          if (cancelled) return;
-
-          const needBase = !isNewFile;
-          const needHead = !isDeletedFile;
-          const cacheHit =
-            (!needBase || cached?.baseContent !== null) &&
-            (!needHead || cached?.headContent !== null);
-
-          if (cached && cacheHit) {
-            // Cache hit — render immediately without loading state
-            setOriginalContent(needBase ? (cached.baseContent ?? '') : '');
-            setModifiedContent(needHead ? (cached.headContent ?? '') : '');
-            setOriginalImageBase64('');
-            setModifiedImageBase64('');
-            setFileContentLoading(false);
-          } else {
-            // Cache miss — fall back to network fetch
-            const [original, modified] = await Promise.all([
-              isNewFile
-                ? Promise.resolve('')
-                : getFileContent(mr.instanceId, mr.projectId, oldPath, diffRefs.baseSha).catch(() => ''),
-              isDeletedFile
-                ? Promise.resolve('')
-                : getFileContent(mr.instanceId, mr.projectId, selectedFile, diffRefs.headSha).catch(() => ''),
-            ]);
-
-            if (cancelled) return;
-            setOriginalContent(original);
-            setModifiedContent(modified);
-            setOriginalImageBase64('');
-            setModifiedImageBase64('');
-          }
-        }
-      } catch (err) {
-        if (cancelled) return;
-        setFileContentError(err instanceof Error ? err.message : 'Failed to load file content');
-      } finally {
-        if (!cancelled) setFileContentLoading(false);
-      }
-    }
-    loadFileContent();
-
-    return () => { cancelled = true; };
-  }, [selectedFile, mr, diffRefs, files]);
-
   // Restore view state (scroll, cursor, collapsed regions) after content loads
   useEffect(() => {
     if (!fileContentLoading && selectedFile && diffViewerRef.current) {
@@ -285,7 +213,7 @@ export default function MRDetailPage() {
         });
       }
     }
-  }, [fileContentLoading, selectedFile, originalContent, modifiedContent]);
+  }, [fileContentLoading, selectedFile, fileContent]);
 
   // Restore view state after view mode toggle (split ↔ unified)
   useEffect(() => {
@@ -298,11 +226,12 @@ export default function MRDetailPage() {
     });
   }, [viewMode]);
 
-  // Clear view states when MR changes
+  // Clear view states and file content cache when MR changes
   useEffect(() => {
     viewStatesRef.current.clear();
     previousFileRef.current = null;
-  }, [mrId]);
+    clearFileCache();
+  }, [mrId, clearFileCache]);
 
   // Fetch comments for the current file
   useEffect(() => {
@@ -351,12 +280,6 @@ export default function MRDetailPage() {
     diffViewerRef.current?.expandAll();
     setCollapseState('expanded');
   }, []);
-
-  // Reviewable files for keyboard navigation (excludes generated files)
-  const reviewableFiles = useMemo(
-    () => files.filter((f) => !generatedPaths.has(f.newPath)),
-    [files, generatedPaths]
-  );
 
   // Navigate to next/previous reviewable file
   const navigateFile = useCallback(
@@ -579,26 +502,48 @@ export default function MRDetailPage() {
 
         <main className="mr-detail-main">
           {selectedFile ? (
-            fileContentLoading ? (
-              <div className="file-loading">Loading file content...</div>
-            ) : fileContentError ? (
-              <div className="file-error">
-                <p>{fileContentError}</p>
-                <button onClick={() => handleFileSelect(selectedFile)}>Retry</button>
-              </div>
-            ) : !diffRefs ? (
-              <div className="file-error">
-                <p>Diff information not available. Please sync the merge request first.</p>
-              </div>
-            ) : isImageFile(selectedFile) ? (
-              <ImageDiffViewer
-                originalBase64={originalImageBase64}
-                modifiedBase64={modifiedImageBase64}
-                filePath={selectedFile}
-                mimeType={getImageMimeType(selectedFile)}
-              />
-            ) : (
-              <>
+            <>
+              {/* Loading overlay — sits on top of the editor, doesn't unmount it */}
+              {fileContentLoading && (
+                <div className="file-loading-overlay">
+                  <div className="file-loading-spinner" />
+                </div>
+              )}
+
+              {/* Error overlay */}
+              {fileContentError && !fileContentLoading && (
+                <div className="file-loading-overlay">
+                  <div className="file-error">
+                    <p>{fileContentError}</p>
+                    <button onClick={() => handleFileSelect(selectedFile)}>Retry</button>
+                  </div>
+                </div>
+              )}
+
+              {/* No diff refs overlay */}
+              {!fileContentError && !fileContentLoading && !diffRefs && (
+                <div className="file-loading-overlay">
+                  <div className="file-error">
+                    <p>Diff information not available. Please sync the merge request first.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Image diff viewer (mounts/unmounts freely — images render instantly) */}
+              {isImageFile(selectedFile) && !fileContentLoading && !fileContentError && diffRefs && (
+                <ImageDiffViewer
+                  originalBase64={imageContent.originalBase64}
+                  modifiedBase64={imageContent.modifiedBase64}
+                  filePath={selectedFile}
+                  mimeType={getImageMimeType(selectedFile)}
+                />
+              )}
+
+              {/* Monaco diff wrapper — always mounted, hidden when viewing images */}
+              <div
+                className="monaco-diff-wrapper"
+                style={{ display: isImageFile(selectedFile) ? 'none' : undefined }}
+              >
                 <div className="diff-toolbar">
                   <button
                     className="diff-toolbar-btn"
@@ -619,14 +564,14 @@ export default function MRDetailPage() {
                 </div>
                 <MonacoDiffViewer
                   ref={diffViewerRef}
-                  originalContent={originalContent}
-                  modifiedContent={modifiedContent}
+                  originalContent={fileContent.original}
+                  modifiedContent={fileContent.modified}
                   filePath={selectedFile}
                   viewMode={viewMode}
                   comments={fileComments}
                 />
-              </>
-            )
+              </div>
+            </>
           ) : files.length > 0 && reviewableFiles.length === 0 ? (
             <div className="all-generated-empty-state">
               <div className="all-generated-icon">~</div>
