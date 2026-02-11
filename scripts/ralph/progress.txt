@@ -17,6 +17,7 @@ Started: Wed Feb 11 21:22:47 CET 2026
 - Page instance pattern: `listInstances()` from `services/gitlab.ts`, useState for `selectedInstanceId`, auto-select first on mount
 - Pipeline status badges: CSS classes `.pipeline-badge--{status}`, card left-border accent `.pipeline-card--{status}`
 - PipelineStatus timestamps are ISO 8601 strings (not Unix like MR fields)
+- React 19 `useRef` requires initial value: `useRef<T | undefined>(undefined)` for optional refs
 
 ---
 
@@ -110,4 +111,21 @@ Started: Wed Feb 11 21:22:47 CET 2026
   - Status colors: use CSS variables `--success-color`, `--error-color`, `--accent-color` (blue for running), `--warning-color`
   - Grid: `repeat(auto-fill, minmax(260px, 1fr))` gives good responsive behavior for cards
   - `listInstances` is in `services/gitlab.ts`, pipeline commands are in `services/tauri.ts`
+---
+
+## 2026-02-11 - US-009
+- Added project search with debounced API results to PipelinesPage
+- Search input at top of page with `/` keyboard shortcut to focus
+- 300ms debounce before calling `searchProjects` (which handles local cache + API fallback)
+- Loading spinner shown during search, results in a dropdown overlay
+- Clicking a result calls `visitPipelineProject` and reloads the dashboard
+- Escape key clears search; click outside closes dropdown
+- Added SearchIcon SVG component
+- CSS: search bar, dropdown, result items, spinner animation, `/` keyboard hint badge
+- Files changed: `src/pages/PipelinesPage.tsx`, `src/pages/PipelinesPage.css`, `scripts/ralph/prd.json`
+- **Learnings for future iterations:**
+  - React 19 `useRef` requires an initial value argument — use `useRef<T | undefined>(undefined)` for optional refs
+  - Search dropdown pattern: `position: relative` on container, `position: absolute` on dropdown, `z-index: 100` to overlay content
+  - Click-outside-to-close: use `mousedown` event (not `click`) with `contains()` check on container ref
+  - The backend `searchProjects` already handles local-first + API-fallback in one call — no need for separate local/API calls on frontend
 ---
