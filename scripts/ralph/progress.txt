@@ -19,6 +19,7 @@ Started: Wed Feb 11 21:22:47 CET 2026
 - PipelineStatus timestamps are ISO 8601 strings (not Unix like MR fields)
 - React 19 `useRef` requires initial value: `useRef<T | undefined>(undefined)` for optional refs
 - Open URLs in browser: use `openUrl` from `@tauri-apps/plugin-opener` (NOT plugin-shell)
+- Command palette dynamic entries: append to static commands array in `AppContent` useMemo, use unique ID prefix
 
 ---
 
@@ -171,4 +172,18 @@ Started: Wed Feb 11 21:22:47 CET 2026
   - When reading state inside setInterval/setTimeout callbacks within useEffect, use a ref to avoid stale closures and effect re-triggering
   - `setTimeout` chain (recursive) is better than `setInterval` for adaptive timing since interval can change after each poll
   - `document.visibilityState === 'visible'` check inside timer + `visibilitychange` listener for pause/resume
+---
+
+## 2026-02-11 - US-013
+- Added pipeline projects (pinned + recent) to command palette under "Pipelines" category
+- Added `Pipelines` to `CommandCategory` in `commands/registry.ts`
+- In `AppContent` (App.tsx): fetch pipeline projects from all instances on mount
+- Dynamic `Command` entries created per project with `visitPipelineProject` + navigate to `/pipelines`
+- Pinned projects described as "Pinned pipeline project", others as "Recent pipeline project"
+- Projects appear in "Pipelines" group in command palette, searchable by project name
+- Files changed: `src/App.tsx`, `src/commands/registry.ts`
+- **Learnings for future iterations:**
+  - Command palette supports dynamic commands by appending to the static array in the `useMemo`
+  - Pipeline projects are fetched across all instances and flattened into a single list
+  - Dynamic command IDs should use a unique prefix pattern like `pipeline.project.{instanceId}.{projectId}`
 ---
