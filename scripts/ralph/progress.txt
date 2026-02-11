@@ -18,6 +18,7 @@ Started: Wed Feb 11 21:22:47 CET 2026
 - Pipeline status badges: CSS classes `.pipeline-badge--{status}`, card left-border accent `.pipeline-card--{status}`
 - PipelineStatus timestamps are ISO 8601 strings (not Unix like MR fields)
 - React 19 `useRef` requires initial value: `useRef<T | undefined>(undefined)` for optional refs
+- Open URLs in browser: use `openUrl` from `@tauri-apps/plugin-opener` (NOT plugin-shell)
 
 ---
 
@@ -143,4 +144,17 @@ Started: Wed Feb 11 21:22:47 CET 2026
   - CSS `:has()` selector works well for "keep visible when child has active state" patterns
   - For pin toggle, re-fetch the full list from backend to get correct sort order rather than trying to sort locally
   - Optimistic removal (filter state locally) works well since `removePipelineProject` is a simple delete
+---
+
+## 2026-02-11 - US-011
+- Added "open in browser" icon button (external link icon) to each project card in PipelinesPage
+- Clicking opens `{project.webUrl}/-/pipelines` in the system default browser
+- Uses `openUrl` from `@tauri-apps/plugin-opener` (already installed in project, used by MR pages)
+- Button added to `.pipeline-card-actions` alongside pin and remove buttons
+- ExternalLinkIcon SVG component added
+- Files changed: `src/pages/PipelinesPage.tsx`
+- **Learnings for future iterations:**
+  - Tauri v2 uses `@tauri-apps/plugin-opener` (with `openUrl`), NOT `@tauri-apps/plugin-shell` — the PRD referenced the older v1 API
+  - The opener plugin was already installed and configured (Cargo.toml, lib.rs, capabilities/default.json with `opener:default`)
+  - Pattern already used in `MRDetailPage.tsx` and `MyMRDetailPage.tsx` — follow same import pattern
 ---
