@@ -447,6 +447,7 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
 
         // View mode
         renderSideBySide: viewMode === "split",
+        useInlineViewWhenSpaceIsLimited: false,
 
         // Line numbers on both sides
         lineNumbers: "on",
