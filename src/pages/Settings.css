@@ -1,97 +1,281 @@
-/* Settings page styles */
+/* Settings Page - Kanagawa Wave Theme */
+/* Consistent with MRListPage and MRDetailPage */
+
+/* ================================================
+   PAGE SHELL
+   ================================================ */
 
 .settings-page {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 1rem;
+  display: flex;
+  flex-direction: column;
   height: 100%;
-  overflow-y: auto;
+  background: var(--kw-bg-default);
+  font-family: 'Noto Sans JP', -apple-system, sans-serif;
+  color: var(--kw-fg-default);
+  overflow: hidden;
 }
 
+/* ================================================
+   HEADER
+   ================================================ */
+
 .settings-header {
-  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  background: linear-gradient(180deg,
+    rgba(31, 31, 40, 0.95) 0%,
+    rgba(31, 31, 40, 0.75) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--kw-sumi-ink);
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+  animation: settingsHeaderSlide 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes settingsHeaderSlide {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .settings-header h1 {
-  margin: 0.5rem 0;
+  margin: 0;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--kw-fg-default);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  line-height: 1;
 }
 
+/* Vertical accent bar */
+.settings-header h1::before {
+  content: '';
+  display: block;
+  width: 3px;
+  height: 20px;
+  background: linear-gradient(180deg,
+    var(--kw-wave-blue) 0%,
+    var(--kw-wave-cyan) 60%,
+    transparent 100%);
+  border-radius: 1.5px;
+  box-shadow: 0 0 14px var(--kw-wave-glow-strong);
+  flex-shrink: 0;
+}
+
+/* Back link — styled as back button */
 .back-link {
-  color: var(--link-color, #0066cc);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--kw-fg-muted);
+  background: rgba(42, 42, 55, 0.6);
+  border: 1px solid var(--kw-sumi-ink);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
   text-decoration: none;
-  font-size: 0.9rem;
 }
 
 .back-link:hover {
-  text-decoration: underline;
+  color: var(--kw-fg-dim);
+  background: rgba(42, 42, 55, 0.9);
+  border-color: var(--kw-fuji-gray);
+  transform: translateX(-3px);
 }
+
+.back-link:focus {
+  outline: none;
+  border-color: var(--kw-wave-blue);
+  box-shadow: 0 0 0 3px var(--kw-wave-glow);
+}
+
+/* ================================================
+   CONTENT AREA
+   ================================================ */
 
 .settings-content {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 12px;
+  box-sizing: border-box;
+  animation: settingsContentReveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
 }
 
+@keyframes settingsContentReveal {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Custom scrollbar */
+.settings-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-content::-webkit-scrollbar-thumb {
+  background: rgba(126, 156, 216, 0.2);
+  border-radius: 4px;
+}
+
+.settings-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(126, 156, 216, 0.35);
+}
+
+/* ================================================
+   SECTIONS
+   ================================================ */
+
 .settings-section {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 1.5rem;
+  background: linear-gradient(165deg,
+    rgba(42, 42, 55, 0.4) 0%,
+    rgba(31, 31, 40, 0.3) 100%);
+  border: 1px solid var(--kw-sumi-ink);
+  border-radius: 10px;
+  padding: 20px 24px;
+  /* align-self: stretch; */
+  max-width: 960px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 auto;
+  /* margin-left: auto; */
+  /* margin-right: auto; */
 }
 
 .settings-section h2 {
-  margin: 0 0 1rem;
-  font-size: 1.25rem;
+  margin: 0 0 16px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--kw-fg-dim);
 }
 
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 16px;
 }
 
 .section-header h2 {
   margin: 0;
 }
 
+/* ================================================
+   BUTTONS
+   ================================================ */
+
+/* Add Instance button */
 .add-button {
-  background: var(--primary-color, #0066cc);
-  color: #fff;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  padding: 8px 18px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  border: 1px solid rgba(126, 156, 216, 0.35);
+  border-radius: 7px;
+  background: linear-gradient(135deg,
+    rgba(126, 156, 216, 0.15) 0%,
+    rgba(127, 180, 202, 0.1) 100%);
+  color: var(--kw-wave-cyan);
   cursor: pointer;
-  font-size: 0.9rem;
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .add-button:hover:not(:disabled) {
-  background: var(--primary-hover, #0052a3);
+  background: linear-gradient(135deg,
+    rgba(126, 156, 216, 0.25) 0%,
+    rgba(127, 180, 202, 0.18) 100%);
+  border-color: var(--kw-wave-blue);
+  color: var(--kw-crystal-blue);
+  box-shadow: 0 4px 20px var(--kw-wave-glow);
+  transform: translateY(-1px);
+}
+
+.add-button:active {
+  transform: translateY(0);
 }
 
 .add-button:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
+/* Delete button */
+.delete-button {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--kw-fg-comment);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 10px;
+  line-height: 1;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.delete-button:hover {
+  color: var(--kw-autumn-red);
+  background: rgba(195, 64, 67, 0.1);
+  border-color: rgba(195, 64, 67, 0.25);
+}
+
+/* ================================================
+   STATUS MESSAGES
+   ================================================ */
+
 .error-message {
-  background: var(--error-bg, #fee);
-  color: var(--error-color, #c00);
-  padding: 0.75rem 1rem;
-  border-radius: 4px;
-  margin-bottom: 1rem;
+  background: rgba(195, 64, 67, 0.1);
+  color: var(--kw-autumn-red);
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(195, 64, 67, 0.2);
+  font-size: 13px;
+  margin-bottom: 12px;
 }
 
 .loading {
-  color: var(--text-muted, #666);
-  font-style: italic;
+  color: var(--kw-fg-muted);
+  font-size: 13px;
+  letter-spacing: 0.02em;
 }
 
 .empty-state {
-  color: var(--text-muted, #666);
+  color: var(--kw-fg-muted);
   text-align: center;
-  padding: 2rem;
+  padding: 32px 24px;
+  font-size: 13px;
+  line-height: 1.7;
 }
+
+.saving-indicator {
+  color: var(--kw-fg-muted);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+/* ================================================
+   INSTANCE LIST
+   ================================================ */
 
 .instance-list {
   list-style: none;
@@ -103,390 +287,449 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  border-bottom: 1px solid var(--border-color, #eee);
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(54, 54, 70, 0.4);
+  transition: background 0.15s ease;
 }
 
 .instance-item:last-child {
   border-bottom: none;
 }
 
+.instance-item:hover {
+  background: rgba(42, 42, 55, 0.3);
+}
+
 .instance-info {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 4px;
+  min-width: 0;
 }
 
 .instance-name {
   font-weight: 600;
+  font-size: 14px;
+  color: var(--kw-fg-default);
 }
 
 .instance-url {
-  color: var(--text-muted, #666);
-  font-size: 0.9rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--kw-fg-muted);
 }
 
 .instance-meta {
-  color: var(--text-muted, #888);
-  font-size: 0.8rem;
+  font-size: 12px;
+  color: var(--kw-fg-comment);
 }
 
 .token-warning {
-  color: var(--warning-color, #f90);
+  color: var(--kw-roninYellow);
 }
 
 .instance-expiration {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-  color: var(--text-muted, #888);
+  gap: 8px;
+  font-size: 12px;
+  color: var(--kw-fg-comment);
 }
 
 .token-badge {
   display: inline-block;
-  padding: 0.1rem 0.4rem;
-  border-radius: 3px;
-  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.4px;
 }
 
 .token-badge-warning {
-  background: #fff3cd;
-  color: #856404;
+  background: rgba(255, 158, 59, 0.12);
+  color: var(--kw-roninYellow);
+  border: 1px solid rgba(255, 158, 59, 0.2);
 }
 
 .token-badge-expired {
-  background: #f8d7da;
-  color: #842029;
+  background: rgba(195, 64, 67, 0.12);
+  color: var(--kw-autumn-red);
+  border: 1px solid rgba(195, 64, 67, 0.2);
 }
 
-.delete-button {
-  background: none;
-  border: none;
-  color: var(--error-color, #c00);
-  font-size: 1.5rem;
-  cursor: pointer;
-  padding: 0.25rem 0.5rem;
-  line-height: 1;
-  border-radius: 4px;
-}
+/* ================================================
+   EDIT TOKEN FORM
+   ================================================ */
 
-.delete-button:hover {
-  background: var(--error-bg, #fee);
-}
-
-/* Edit token inline form */
 .edit-token-button {
-  background: none;
-  border: 1px solid var(--border-color, #ccc);
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  color: var(--text-secondary, #555);
+  padding: 5px 12px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--kw-fg-muted);
+  background: rgba(42, 42, 55, 0.6);
+  border: 1px solid var(--kw-sumi-ink);
+  border-radius: 6px;
   cursor: pointer;
-  margin-top: 0.25rem;
+  margin-top: 4px;
   align-self: flex-start;
+  transition: all 0.2s ease;
 }
 
 .edit-token-button:hover {
-  background: var(--bg-hover);
-  border-color: var(--primary-color, #0066cc);
-  color: var(--primary-color, #0066cc);
+  color: var(--kw-wave-cyan);
+  border-color: var(--kw-fuji-gray);
+  background: rgba(42, 42, 55, 0.9);
 }
 
 .edit-token-form {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  margin-top: 0.5rem;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .edit-token-input {
-  padding: 0.4rem 0.5rem;
-  border: 1px solid var(--border-color, #ccc);
-  border-radius: 4px;
-  font-size: 0.85rem;
-  font-family: var(--font-mono, 'SF Mono', 'Monaco', 'Consolas', monospace);
-  background: var(--input-bg);
-  color: var(--text-primary);
-  max-width: 300px;
+  padding: 8px 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--kw-fg-default);
+  background: var(--kw-bg-dim);
+  border: 1px solid var(--kw-sumi-ink);
+  border-radius: 6px;
+  max-width: 320px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .edit-token-input:focus {
-  border-color: var(--primary-color, #0066cc);
+  border-color: var(--kw-wave-blue);
+  box-shadow: 0 0 0 3px var(--kw-wave-glow);
   outline: none;
 }
 
 .edit-token-input:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 .edit-token-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .edit-token-save {
-  background: var(--primary-color, #0066cc);
-  color: #fff;
+  padding: 6px 16px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--kw-bg-dark);
+  background: linear-gradient(135deg,
+    var(--kw-wave-blue) 0%,
+    var(--kw-wave-cyan) 100%);
   border: none;
-  padding: 0.3rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
+  border-radius: 6px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .edit-token-save:hover:not(:disabled) {
-  background: var(--primary-hover, #0052a3);
+  box-shadow: 0 4px 16px var(--kw-wave-glow);
+  transform: translateY(-1px);
 }
 
 .edit-token-save:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .edit-token-cancel {
-  background: none;
-  border: 1px solid var(--border-color, #ccc);
-  padding: 0.3rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
+  padding: 6px 14px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--kw-fg-muted);
+  background: rgba(42, 42, 55, 0.6);
+  border: 1px solid var(--kw-sumi-ink);
+  border-radius: 6px;
   cursor: pointer;
-  color: var(--text-secondary, #555);
+  transition: all 0.2s ease;
 }
 
 .edit-token-cancel:hover:not(:disabled) {
-  background: var(--bg-hover);
+  color: var(--kw-fg-dim);
+  background: rgba(42, 42, 55, 0.9);
+  border-color: var(--kw-fuji-gray);
 }
 
 .edit-token-cancel:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .edit-token-error {
-  font-size: 0.8rem;
-  color: var(--error-color, #c00);
+  font-size: 12px;
+  color: var(--kw-autumn-red);
 }
 
 .edit-token-success {
-  font-size: 0.8rem;
-  color: var(--success-color, #090);
+  font-size: 12px;
+  color: var(--kw-spring-green);
 }
 
-.coming-soon {
-  color: var(--text-muted, #666);
-  font-style: italic;
-}
+/* ================================================
+   SYNC SETTINGS
+   ================================================ */
 
-/* Sync settings form */
 .sync-settings-form {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 16px;
 }
 
 .setting-row {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .setting-row > label {
   font-weight: 500;
-  color: var(--text-primary, #333);
+  font-size: 13px;
+  color: var(--kw-fg-dim);
 }
 
 .setting-row select {
-  padding: 0.5rem;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  font-size: 0.9rem;
-  max-width: 200px;
-  background: var(--input-bg);
-  color: var(--text-primary);
+  padding: 8px 32px 8px 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--kw-fg-muted);
+  background: var(--kw-bg-dim);
+  border: 1px solid var(--kw-sumi-ink);
+  border-radius: 6px;
+  max-width: 220px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23727169' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+.setting-row select:hover {
+  border-color: var(--kw-fuji-gray);
+  color: var(--kw-fg-dim);
+}
+
+.setting-row select:focus {
+  outline: none;
+  border-color: var(--kw-wave-blue);
+  box-shadow: 0 0 0 2px var(--kw-wave-glow);
+  color: var(--kw-fg-default);
 }
 
 .setting-row select:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .checkbox-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .checkbox-label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-weight: normal;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--kw-fg-dim);
   cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.checkbox-label:hover {
+  color: var(--kw-fg-default);
 }
 
 .checkbox-label input[type="checkbox"] {
   width: 16px;
   height: 16px;
   cursor: pointer;
+  accent-color: var(--kw-wave-blue);
 }
 
 .checkbox-label input[type="checkbox"]:disabled {
   cursor: not-allowed;
 }
 
-.saving-indicator {
-  color: var(--text-muted, #666);
-  font-size: 0.9rem;
-  font-style: italic;
-  margin: 0;
-}
+/* ================================================
+   COLLAPSE PATTERNS EDITOR
+   ================================================ */
 
-/* Collapse patterns editor */
 .collapse-patterns-description {
-  font-size: 0.85rem;
-  color: var(--text-muted, #666);
-  margin: 0 0 1rem;
-  line-height: 1.4;
+  font-size: 12px;
+  color: var(--kw-fg-muted);
+  margin: 0 0 14px;
+  line-height: 1.6;
 }
 
 .collapse-patterns-description code {
-  font-size: 0.8rem;
-  background: var(--bg-secondary);
-  padding: 0.1rem 0.3rem;
-  border-radius: 3px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  background: rgba(42, 42, 55, 0.6);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(54, 54, 70, 0.5);
+  color: var(--kw-wave-cyan);
 }
 
 .collapse-patterns-list {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  margin-bottom: 0.75rem;
+  gap: 6px;
+  margin-bottom: 10px;
 }
 
 .collapse-pattern-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .collapse-pattern-input {
   flex: 1;
-  padding: 0.4rem 0.5rem;
-  border: 1px solid var(--border-color, #ccc);
-  border-radius: 4px;
-  font-size: 0.85rem;
-  font-family: var(--font-mono, 'SF Mono', 'Monaco', 'Consolas', monospace);
-  background: var(--input-bg);
-  color: var(--text-primary);
+  padding: 8px 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--kw-fg-default);
+  background: var(--kw-bg-dim);
+  border: 1px solid var(--kw-sumi-ink);
+  border-radius: 6px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .collapse-pattern-input:focus {
-  border-color: var(--primary-color, #0066cc);
+  border-color: var(--kw-wave-blue);
+  box-shadow: 0 0 0 3px var(--kw-wave-glow);
   outline: none;
 }
 
 .collapse-pattern-input:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 .collapse-pattern-remove {
   background: none;
-  border: none;
-  color: var(--text-muted, #888);
-  font-size: 1.2rem;
+  border: 1px solid transparent;
+  color: var(--kw-fg-comment);
+  font-size: 16px;
   cursor: pointer;
-  padding: 0.2rem 0.4rem;
+  padding: 4px 8px;
   line-height: 1;
-  border-radius: 4px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
 }
 
 .collapse-pattern-remove:hover:not(:disabled) {
-  background: var(--error-bg, #fee);
-  color: var(--error-color, #c00);
+  color: var(--kw-autumn-red);
+  background: rgba(195, 64, 67, 0.1);
+  border-color: rgba(195, 64, 67, 0.25);
 }
 
 .collapse-pattern-remove:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .collapse-pattern-add {
+  padding: 7px 14px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--kw-fg-muted);
   background: none;
-  border: 1px dashed var(--border-color, #ccc);
-  padding: 0.4rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  color: var(--text-muted, #666);
+  border: 1px dashed var(--kw-sumi-ink);
+  border-radius: 6px;
   cursor: pointer;
   align-self: flex-start;
+  transition: all 0.2s ease;
 }
 
 .collapse-pattern-add:hover:not(:disabled) {
-  border-color: var(--primary-color, #0066cc);
-  color: var(--primary-color, #0066cc);
+  border-color: var(--kw-wave-blue);
+  color: var(--kw-wave-cyan);
+  border-style: solid;
 }
 
 .collapse-pattern-add:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
-/* Shortcut editor */
+/* ================================================
+   SHORTCUT EDITOR
+   ================================================ */
+
 .shortcuts-editor {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 20px;
 }
 
 .shortcut-category-section {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 6px;
 }
 
 .shortcut-category-header {
   margin: 0;
-  font-size: 0.75rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted, #888);
+  letter-spacing: 0.8px;
+  color: var(--kw-fg-comment);
 }
 
 .shortcut-items {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 3px;
 }
 
 .shortcut-editor-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.5rem 0.75rem;
-  background: var(--bg-secondary);
-  border-radius: 4px;
+  padding: 8px 12px;
+  background: rgba(42, 42, 55, 0.3);
+  border-radius: 6px;
   min-height: 36px;
+  transition: background 0.15s ease;
+}
+
+.shortcut-editor-item:hover {
+  background: rgba(42, 42, 55, 0.5);
 }
 
 .shortcut-editor-item.editing {
-  background: var(--bg-selected);
+  background: rgba(126, 156, 216, 0.08);
+  border: 1px solid rgba(126, 156, 216, 0.15);
 }
 
 .shortcut-description {
-  font-size: 0.9rem;
-  color: var(--text-primary);
+  font-size: 13px;
+  color: var(--kw-fg-dim);
 }
 
 .shortcut-display-controls {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .shortcut-key-display {
@@ -496,195 +739,239 @@
   min-width: 24px;
   height: 24px;
   padding: 0 8px;
-  font-size: 11px;
-  font-family: var(--font-mono, 'SF Mono', 'Monaco', 'Consolas', monospace);
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--kw-fg-muted);
+  background: linear-gradient(180deg,
+    rgba(42, 42, 55, 0.8) 0%,
+    rgba(31, 31, 40, 0.9) 100%);
+  border: 1px solid rgba(54, 54, 70, 0.6);
+  border-bottom-width: 2px;
+  border-bottom-color: rgba(30, 30, 40, 0.9);
+  border-radius: 5px;
   cursor: pointer;
-  transition: border-color 0.1s;
+  transition: all 0.15s ease;
 }
 
 .shortcut-key-display:hover {
-  border-color: var(--primary-color, #0066cc);
+  color: var(--kw-wave-blue);
+  border-color: rgba(126, 156, 216, 0.3);
+  box-shadow: 0 0 10px var(--kw-wave-glow);
 }
 
 .shortcut-key-display.custom {
-  background: var(--accent-bg);
-  border-color: var(--primary-color);
+  color: var(--kw-wave-cyan);
+  background: linear-gradient(180deg,
+    rgba(126, 156, 216, 0.12) 0%,
+    rgba(126, 156, 216, 0.06) 100%);
+  border-color: rgba(126, 156, 216, 0.3);
 }
 
 .shortcut-reset-button {
   background: none;
-  border: none;
+  border: 1px solid transparent;
   font-size: 14px;
-  color: var(--text-muted, #888);
+  color: var(--kw-fg-comment);
   cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 2px 8px;
+  border-radius: 5px;
   line-height: 1;
+  transition: all 0.15s ease;
 }
 
 .shortcut-reset-button:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+  color: var(--kw-fg-dim);
+  background: rgba(42, 42, 55, 0.6);
+  border-color: var(--kw-sumi-ink);
 }
 
 .shortcut-reset-button:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .reset-all-button {
-  background: none;
-  border: 1px solid var(--border-color, #ccc);
-  padding: 0.35rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  color: var(--text-secondary, #555);
+  padding: 6px 14px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--kw-fg-muted);
+  background: rgba(42, 42, 55, 0.6);
+  border: 1px solid var(--kw-sumi-ink);
+  border-radius: 6px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .reset-all-button:hover:not(:disabled) {
-  background: var(--bg-hover);
+  color: var(--kw-fg-dim);
+  background: rgba(42, 42, 55, 0.9);
+  border-color: var(--kw-fuji-gray);
 }
 
 .reset-all-button:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .shortcut-edit-controls {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .shortcut-input {
-  padding: 4px 8px;
+  padding: 5px 10px;
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
-  font-family: var(--font-mono, 'SF Mono', 'Monaco', 'Consolas', monospace);
-  border: 2px solid var(--primary-color, #0066cc);
-  border-radius: 4px;
+  color: var(--kw-fg-default);
+  background: var(--kw-bg-dim);
+  border: 2px solid var(--kw-wave-blue);
+  border-radius: 5px;
   outline: none;
   min-width: 100px;
   text-align: center;
+  box-shadow: 0 0 0 3px var(--kw-wave-glow);
 }
 
 .shortcut-error {
-  font-size: 0.75rem;
-  color: var(--error-color, #c00);
+  font-size: 11px;
+  color: var(--kw-autumn-red);
 }
 
 .shortcut-hint {
-  font-size: 0.85rem;
-  color: var(--text-muted, #666);
-  font-style: italic;
-  margin-top: 1rem;
+  font-size: 12px;
+  color: var(--kw-fg-comment);
+  margin-top: 12px;
   margin-bottom: 0;
 }
 
-/* Updates section */
+/* ================================================
+   UPDATES SECTION
+   ================================================ */
+
 .update-version-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
 .update-current-version {
-  font-size: 0.9rem;
-  color: var(--text-primary);
+  font-size: 13px;
+  color: var(--kw-fg-dim);
+}
+
+.update-current-version strong {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  color: var(--kw-fg-default);
 }
 
 .update-badge {
   display: inline-block;
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
+  padding: 3px 10px;
+  border-radius: 5px;
+  font-size: 11px;
   font-weight: 600;
-  background: rgba(245, 166, 35, 0.15);
-  color: var(--warning-color, #f5a623);
+  background: rgba(255, 158, 59, 0.12);
+  color: var(--kw-roninYellow);
+  border: 1px solid rgba(255, 158, 59, 0.2);
 }
 
 .update-up-to-date {
-  font-size: 0.85rem;
-  color: var(--text-muted, #888);
+  font-size: 12px;
+  color: var(--kw-fg-comment);
 }
 
 .update-release-notes {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 0.75rem 1rem;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
+  background: var(--kw-bg-dim);
+  border: 1px solid var(--kw-sumi-ink);
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--kw-fg-muted);
   max-height: 200px;
   overflow-y: auto;
   white-space: pre-wrap;
   word-wrap: break-word;
-  margin: 0 0 1rem;
-  font-family: var(--font-mono, 'SF Mono', 'Monaco', 'Consolas', monospace);
+  margin: 0 0 14px;
 }
 
 .update-install-button {
-  background: var(--primary-color, #0066cc);
-  color: #fff;
+  padding: 10px 22px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--kw-bg-dark);
+  background: linear-gradient(135deg,
+    var(--kw-wave-blue) 0%,
+    var(--kw-wave-cyan) 100%);
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 0.9rem;
+  transition: all 0.2s ease;
 }
 
 .update-install-button:hover {
-  background: var(--primary-hover, #0052a3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px var(--kw-wave-glow);
 }
 
 .update-progress {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 6px;
 }
 
 .update-progress-bar {
   height: 6px;
-  background: var(--bg-tertiary, #333);
+  background: var(--kw-sumi-ink);
   border-radius: 3px;
   overflow: hidden;
 }
 
 .update-progress-fill {
   height: 100%;
-  background: var(--accent-color, #4c9aff);
+  background: linear-gradient(90deg,
+    var(--kw-wave-blue) 0%,
+    var(--kw-wave-cyan) 100%);
   border-radius: 3px;
   transition: width 0.2s ease;
+  box-shadow: 0 0 8px var(--kw-wave-glow);
 }
 
 .update-progress-text {
-  font-size: 0.8rem;
-  color: var(--text-muted, #888);
+  font-size: 12px;
+  color: var(--kw-fg-muted);
 }
 
 .update-error {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  font-size: 0.85rem;
-  color: var(--error-color, #c00);
-  margin-top: 0.5rem;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--kw-autumn-red);
+  margin-top: 8px;
 }
 
 .update-retry-button {
-  background: none;
-  border: 1px solid var(--border-color, #ccc);
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  color: var(--text-secondary, #555);
+  padding: 5px 12px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--kw-fg-muted);
+  background: rgba(42, 42, 55, 0.6);
+  border: 1px solid var(--kw-sumi-ink);
+  border-radius: 6px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .update-retry-button:hover {
-  background: var(--bg-hover);
+  color: var(--kw-fg-dim);
+  background: rgba(42, 42, 55, 0.9);
+  border-color: var(--kw-fuji-gray);
 }
