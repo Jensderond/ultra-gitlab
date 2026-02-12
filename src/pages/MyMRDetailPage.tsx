@@ -248,8 +248,10 @@ export default function MyMRDetailPage() {
 
     switch (e.key) {
       case 'Escape':
-        e.preventDefault();
-        goBack();
+        if (!document.querySelector('.keyboard-help-overlay')) {
+          e.preventDefault();
+          goBack();
+        }
         break;
       case '1':
       case '2':

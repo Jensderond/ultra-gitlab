@@ -426,10 +426,11 @@ export default function MRDetailPage() {
         break;
       case 'Escape':
         // Close comment overlay if visible, otherwise go back
+        // Skip if a modal (e.g. keyboard help) is open — let it handle its own Escape
         if (commentOverlayRef.current?.isVisible()) {
           e.preventDefault();
           commentOverlayRef.current.close();
-        } else {
+        } else if (!document.querySelector('.keyboard-help-overlay')) {
           navigate('/mrs', { state: { focusLatest: true } });
         }
         break;

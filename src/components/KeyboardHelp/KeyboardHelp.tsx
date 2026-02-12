@@ -73,6 +73,7 @@ export default function KeyboardHelp({ isOpen, onClose }: KeyboardHelpProps) {
     (e: KeyboardEvent) => {
       if (e.key === 'Escape' || e.key === '?') {
         e.preventDefault();
+        e.stopImmediatePropagation();
         onClose();
       }
     },
