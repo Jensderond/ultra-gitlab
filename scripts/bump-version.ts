@@ -47,4 +47,17 @@ for (const file of files) {
   console.log(`  done  ${file.path}`);
 }
 
+// Update Cargo.lock to reflect the new version
+console.log("\nUpdating lock files...");
+const cargo = Bun.spawnSync(["cargo", "check", "--manifest-path", "src-tauri/Cargo.toml"], {
+  stdout: "ignore",
+  stderr: "pipe",
+});
+if (cargo.exitCode === 0) {
+  console.log("  done  Cargo.lock");
+} else {
+  console.error("  fail  Cargo.lock — run `cargo check` manually");
+  console.error(cargo.stderr.toString());
+}
+
 console.log(`\nVersion bumped to ${version}`);
