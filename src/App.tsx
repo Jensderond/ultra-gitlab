@@ -240,7 +240,7 @@ function AppContent() {
           <Route path="/mrs" element={<MRListPage />} />
 
           {/* MR detail page */}
-          <Route path="/mrs/:id" element={<MRDetailPage />} />
+          <Route path="/mrs/:id" element={<MRDetailPage updateAvailable={updateChecker.available} />} />
 
           {/* My MRs pages */}
           <Route path="/my-mrs" element={<MyMRsPage />} />

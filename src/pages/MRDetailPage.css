@@ -226,6 +226,18 @@
   border: 1px solid rgba(54, 54, 70, 0.5);
 }
 
+/* Update available tag */
+.mr-update-tag {
+  padding: 2px 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 3px;
+  background: rgba(118, 148, 106, 0.15);
+  color: #76946a;
+}
+
 /* Actions section */
 .mr-detail-actions {
   display: flex;

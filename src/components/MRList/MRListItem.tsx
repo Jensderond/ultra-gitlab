@@ -5,7 +5,7 @@
  */
 
 import { forwardRef } from 'react';
-import type { MergeRequest, ApprovalStatus, MRState } from '../../types';
+import type { MergeRequest, ApprovalStatus } from '../../types';
 import './MRListItem.css';
 
 interface MRListItemProps {
@@ -49,21 +49,6 @@ function getApprovalClass(status: ApprovalStatus | null): string {
 }
 
 /**
- * Get status indicator class for MR state.
- */
-function getStateClass(state: MRState): string {
-  switch (state) {
-    case 'merged':
-      return 'state-merged';
-    case 'closed':
-      return 'state-closed';
-    case 'opened':
-    default:
-      return 'state-open';
-  }
-}
-
-/**
  * Single merge request list item.
  */
 const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
@@ -86,9 +71,6 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
         }}
       >
       <div className="mr-item-header">
-        <span className={`mr-state ${getStateClass(mr.state)}`}>
-          {mr.state === 'opened' ? 'Open' : mr.state}
-        </span>
         <span className="mr-iid">!{mr.iid}</span>
         {mr.projectName && (
           <span className="mr-project">{mr.projectName.replace(/^Customers\s*\/\s*/, '')}</span>

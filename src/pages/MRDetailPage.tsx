@@ -23,10 +23,14 @@ import { useCopyToast } from '../hooks/useCopyToast';
 import type { MergeRequest, DiffFileSummary, DiffRefs, Comment } from '../types';
 import './MRDetailPage.css';
 
+interface MRDetailPageProps {
+  updateAvailable?: boolean;
+}
+
 /**
  * Page for viewing a single merge request with diffs.
  */
-export default function MRDetailPage() {
+export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const mrId = parseInt(id || '0', 10);
@@ -481,6 +485,9 @@ export default function MRDetailPage() {
           </span>
         </div>
         <div className="mr-detail-actions">
+          {updateAvailable && (
+            <span className="mr-update-tag">Update available</span>
+          )}
           <ApprovalButton
             ref={approvalButtonRef}
             mrId={mrId}

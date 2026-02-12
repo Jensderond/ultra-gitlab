@@ -111,32 +111,6 @@
   font-size: 12px;
 }
 
-/* State badges — Minimal pill */
-.mr-state {
-  padding: 2px 8px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  border-radius: 3px;
-}
-
-.state-open {
-  background: rgba(152, 187, 108, 0.12);
-  color: #98bb6c;
-}
-
-.state-merged {
-  background: rgba(210, 126, 153, 0.12);
-  color: #d27e99;
-}
-
-.state-closed {
-  background: rgba(195, 64, 67, 0.12);
-  color: #c34043;
-}
-
 /* MR IID */
 .mr-iid {
   font-family: 'IBM Plex Mono', monospace;
