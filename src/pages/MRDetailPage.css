@@ -95,7 +95,8 @@
 .mr-detail-header {
   display: flex;
   align-items: center;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 10px 16px;
   padding: 16px 24px;
   background: linear-gradient(180deg,
     rgba(31, 31, 40, 0.95) 0%,
@@ -151,7 +152,7 @@
 
 /* Title section */
 .mr-detail-title {
-  flex: 1;
+  flex: 1 0 300px;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -190,8 +191,6 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 0 18px;
-  border-left: 1px solid var(--kw-sumi-ink);
 }
 
 .mr-author {
@@ -232,6 +231,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-left: auto;
   animation: fadeIn 0.5s ease-out 0.2s backwards;
 }
 
@@ -672,6 +672,7 @@
 .keyboard-hint {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 11px;

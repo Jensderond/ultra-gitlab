@@ -609,16 +609,9 @@ export default function MRDetailPage() {
 
       <footer className="mr-detail-footer">
         <span className="keyboard-hint">
-          <kbd>j</kbd>/<kbd>k</kbd> or <kbd>↑</kbd>/<kbd>↓</kbd> file &middot;{' '}
-          <kbd>v</kbd> viewed &middot;{' '}
-          <kbd>x</kbd> split/unified &middot;{' '}
-          <kbd>a</kbd> approve &middot;{' '}
           <kbd>c</kbd> comment &middot;{' '}
           <kbd>s</kbd> suggest &middot;{' '}
-          <kbd>g</kbd> generated &middot;{' '}
-          <kbd>o</kbd> open &middot;{' '}
           <kbd>y</kbd> copy link &middot;{' '}
-          <kbd>⌘F</kbd> find &middot;{' '}
           <kbd>?</kbd> help
         </span>
       </footer>
