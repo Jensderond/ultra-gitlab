@@ -1,16 +1,17 @@
 .app-sidebar {
   position: fixed;
-  top: 28px; /* below titlebar drag region */
+  top: 0;
   left: 0;
   bottom: 0;
   width: 56px;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
+  border-top: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   align-items: center;
   z-index: 100;
-  padding: 12px 0;
+  padding: 28px 0 12px; /* clearance for macOS traffic lights */
 }
 
 .app-sidebar-top {

@@ -86,7 +86,7 @@ pub fn run() {
                 .title_bar_style(TitleBarStyle::Transparent)
                 .build()?;
 
-            // Set macOS window background color to match app theme (#16161d)
+            // Set macOS window background color to match sidebar/titlebar (#1f1f28)
             #[cfg(target_os = "macos")]
             {
                 #[allow(deprecated)]
@@ -97,9 +97,9 @@ pub fn run() {
                     unsafe {
                         let bg_color = NSColor::colorWithSRGBRed_green_blue_alpha_(
                             nil,
-                            22.0 / 255.0,
-                            22.0 / 255.0,
-                            29.0 / 255.0,
+                            31.0 / 255.0,
+                            31.0 / 255.0,
+                            40.0 / 255.0,
                             1.0,
                         );
                         ns_win.setBackgroundColor_(bg_color);

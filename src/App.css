@@ -9,9 +9,9 @@ html, body, #root, .app {
   overflow: hidden;
 }
 
-/* Transparent titlebar drag region */
+/* Titlebar drag region — no visual height, just enables window dragging */
 .titlebar-drag-region {
-  height: 28px;
+  height: 0;
   position: fixed;
   top: 0;
   left: 0;
@@ -25,6 +25,8 @@ html, body, #root, .app {
   margin-left: 56px;
   height: 100%;
   overflow: hidden;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
 }
 
 :root {
