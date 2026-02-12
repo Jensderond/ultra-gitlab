@@ -143,6 +143,8 @@
   border: 1px solid #393836;
   border-radius: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  background:
+    repeating-conic-gradient(#2a2a2a 0% 25%, #1f1f1f 0% 50%) 0 0 / 16px 16px;
 }
 
 /* Side by side view */
@@ -183,6 +185,8 @@
 .image-diff-panel img {
   max-width: 100%;
   max-height: 70vh;
+  background:
+    repeating-conic-gradient(#2a2a2a 0% 25%, #1f1f1f 0% 50%) 0 0 / 16px 16px;
 }
 
 /* Overlay view */
@@ -241,6 +245,8 @@
   max-height: 70vh;
   border: 1px solid #393836;
   border-radius: 4px;
+  background:
+    repeating-conic-gradient(#2a2a2a 0% 25%, #1f1f1f 0% 50%) 0 0 / 16px 16px;
 }
 
 .image-diff-overlay-original {
@@ -274,6 +280,8 @@
   border: 1px solid #393836;
   border-radius: 4px;
   display: block;
+  background:
+    repeating-conic-gradient(#2a2a2a 0% 25%, #1f1f1f 0% 50%) 0 0 / 16px 16px;
 }
 
 .image-diff-swipe-original {
@@ -330,6 +338,16 @@
   border-radius: 4px;
   color: #dcd7ba;
   font-size: 10px;
+}
+
+/* SVGs without explicit width/height have no intrinsic size — fill container,
+   and enforce a minimum so small icons don't render as tiny thumbnails */
+.image-diff-viewer img.svg-image {
+  width: 100%;
+  height: auto;
+  min-width: 200px;
+  min-height: 200px;
+  object-fit: contain;
 }
 
 /* Empty state */

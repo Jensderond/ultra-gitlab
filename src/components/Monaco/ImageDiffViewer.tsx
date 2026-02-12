@@ -39,6 +39,10 @@ export function ImageDiffViewer({
   const originalDataUrl = originalBase64 ? `data:${mimeType};base64,${originalBase64}` : null;
   const modifiedDataUrl = modifiedBase64 ? `data:${mimeType};base64,${modifiedBase64}` : null;
 
+  // SVGs without explicit width/height collapse in <img> — need explicit sizing
+  const isSvg = mimeType === "image/svg+xml";
+  const imgClass = isSvg ? "svg-image" : undefined;
+
   // Determine change type
   const isNewFile = !originalBase64 && !!modifiedBase64;
   const isDeletedFile = !!originalBase64 && !modifiedBase64;
@@ -120,7 +124,7 @@ export function ImageDiffViewer({
               className="image-diff-image-container"
               style={{ transform: `scale(${zoom / 100})` }}
             >
-              <img src={modifiedDataUrl!} alt="Added file" />
+              <img className={imgClass} src={modifiedDataUrl!} alt="Added file" />
             </div>
           </div>
         )}
@@ -132,7 +136,7 @@ export function ImageDiffViewer({
               className="image-diff-image-container"
               style={{ transform: `scale(${zoom / 100})` }}
             >
-              <img src={originalDataUrl!} alt="Deleted file" />
+              <img className={imgClass} src={originalDataUrl!} alt="Deleted file" />
             </div>
           </div>
         )}
@@ -145,7 +149,7 @@ export function ImageDiffViewer({
                 className="image-diff-image-container"
                 style={{ transform: `scale(${zoom / 100})` }}
               >
-                <img src={originalDataUrl!} alt="Original" />
+                <img className={imgClass} src={originalDataUrl!} alt="Original" />
               </div>
             </div>
             <div className="image-diff-panel modified">
@@ -154,7 +158,7 @@ export function ImageDiffViewer({
                 className="image-diff-image-container"
                 style={{ transform: `scale(${zoom / 100})` }}
               >
-                <img src={modifiedDataUrl!} alt="Modified" />
+                <img className={imgClass} src={modifiedDataUrl!} alt="Modified" />
               </div>
             </div>
           </div>
@@ -179,13 +183,13 @@ export function ImageDiffViewer({
               style={{ transform: `scale(${zoom / 100})` }}
             >
               <img
-                className="image-diff-overlay-original"
+                className={`image-diff-overlay-original${isSvg ? " svg-image" : ""}`}
                 src={originalDataUrl!}
                 alt="Original"
                 style={{ opacity: 1 - overlayOpacity }}
               />
               <img
-                className="image-diff-overlay-modified"
+                className={`image-diff-overlay-modified${isSvg ? " svg-image" : ""}`}
                 src={modifiedDataUrl!}
                 alt="Modified"
                 style={{ opacity: overlayOpacity }}
@@ -206,7 +210,7 @@ export function ImageDiffViewer({
               style={{ transform: `scale(${zoom / 100})` }}
             >
               <img
-                className="image-diff-swipe-original"
+                className={`image-diff-swipe-original${isSvg ? " svg-image" : ""}`}
                 src={originalDataUrl!}
                 alt="Original"
               />
@@ -215,7 +219,7 @@ export function ImageDiffViewer({
                 style={{ clipPath: `inset(0 ${100 - swipePosition}% 0 0)` }}
               >
                 <img
-                  className="image-diff-swipe-modified"
+                  className={`image-diff-swipe-modified${isSvg ? " svg-image" : ""}`}
                   src={modifiedDataUrl!}
                   alt="Modified"
                 />
