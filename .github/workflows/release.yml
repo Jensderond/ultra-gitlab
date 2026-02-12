@@ -9,19 +9,7 @@ jobs:
   release:
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: macos-latest
-            args: '--target aarch64-apple-darwin'
-          - platform: macos-latest
-            args: '--target x86_64-apple-darwin'
-          - platform: ubuntu-22.04
-            args: ''
-          - platform: windows-latest
-            args: ''
-    runs-on: ${{ matrix.platform }}
+    runs-on: macos-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -34,18 +22,12 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: aarch64-apple-darwin
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
@@ -64,4 +46,4 @@ jobs:
           releaseName: 'Ultra GitLab ${{ github.ref_name }}'
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.args }}
+          args: --target aarch64-apple-darwin
