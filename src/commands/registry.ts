@@ -63,6 +63,9 @@ export const CommandId = {
   OpenSettings: 'settings.open',
   ToggleTheme: 'settings.toggle-theme',
 
+  // Clipboard
+  CopyMRLink: 'mr.copy-link',
+
   // View
   ToggleDiffViewMode: 'view.toggle-diff-mode',
   ShowKeyboardHelp: 'view.keyboard-help',
@@ -233,6 +236,15 @@ export const commandDefinitions: CommandDefinition[] = [
     label: 'Resolve Discussion',
     description: 'Mark the current discussion as resolved',
     category: CommandCategory.Review,
+  },
+
+  // Clipboard
+  {
+    id: CommandId.CopyMRLink,
+    label: 'Copy MR Link',
+    description: 'Copy the merge request URL to clipboard',
+    shortcut: 'y',
+    category: CommandCategory.MergeRequest,
   },
 
   // Sync

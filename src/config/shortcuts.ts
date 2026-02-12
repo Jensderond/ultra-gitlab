@@ -226,6 +226,13 @@ export const defaultShortcuts: ShortcutDefinition[] = [
     category: 'review',
     context: 'diff-viewer',
   },
+  {
+    id: 'copy-mr-link',
+    description: 'Copy MR link',
+    defaultKey: 'y',
+    category: 'review',
+    context: 'mr-detail',
+  },
 ];
 
 /**

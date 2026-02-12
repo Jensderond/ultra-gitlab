@@ -16,6 +16,7 @@ import { ImageDiffViewer } from '../components/Monaco/ImageDiffViewer';
 import { isImageFile, getImageMimeType } from '../components/Monaco/languageDetection';
 import { classifyFiles } from '../utils/classifyFiles';
 import { useFileContent } from '../hooks/useFileContent';
+import { useCopyToast } from '../hooks/useCopyToast';
 import type { MergeRequest, MrReviewer, Comment, DiffFileSummary, DiffRefs } from '../types';
 import './MyMRDetailPage.css';
 
@@ -60,6 +61,8 @@ export default function MyMRDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const mrId = parseInt(id || '0', 10);
+
+  const [showCopyToast, copyToClipboard] = useCopyToast();
 
   const [mr, setMr] = useState<MergeRequest | null>(null);
   const [reviewers, setReviewers] = useState<MrReviewer[]>([]);
@@ -260,6 +263,11 @@ export default function MyMRDetailPage() {
       case 'o':
         e.preventDefault();
         if (mr?.webUrl) openUrl(mr.webUrl);
+        break;
+      case 'y':
+        // Copy MR link to clipboard
+        e.preventDefault();
+        if (mr?.webUrl) copyToClipboard(mr.webUrl);
         break;
       case 'n':
       case 'j':
@@ -527,12 +535,17 @@ export default function MyMRDetailPage() {
         )}
       </div>
 
+      {showCopyToast && (
+        <div className="copy-toast">Link copied</div>
+      )}
+
       <footer className="my-mr-detail-footer">
         <span className="keyboard-hint">
           <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> tab &middot;{' '}
           <kbd>j</kbd>/<kbd>k</kbd> file &middot;{' '}
           <kbd>g</kbd> generated &middot;{' '}
           <kbd>o</kbd> open &middot;{' '}
+          <kbd>y</kbd> copy link &middot;{' '}
           <kbd>Esc</kbd> back
         </span>
       </footer>

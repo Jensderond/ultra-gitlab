@@ -19,6 +19,7 @@ import { getMergeRequestById, getMergeRequestFiles, getDiffRefs, getGitattribute
 import { invoke, getCollapsePatterns } from '../services/tauri';
 import { classifyFiles } from '../utils/classifyFiles';
 import { useFileContent } from '../hooks/useFileContent';
+import { useCopyToast } from '../hooks/useCopyToast';
 import type { MergeRequest, DiffFileSummary, DiffRefs, Comment } from '../types';
 import './MRDetailPage.css';
 
@@ -31,6 +32,8 @@ export default function MRDetailPage() {
   const mrId = parseInt(id || '0', 10);
   const approvalButtonRef = useRef<ApprovalButtonRef>(null);
   const diffViewerRef = useRef<MonacoDiffViewerRef>(null);
+
+  const [showCopyToast, copyToClipboard] = useCopyToast();
 
   const [mr, setMr] = useState<MergeRequest | null>(null);
   const [files, setFiles] = useState<DiffFileSummary[]>([]);
@@ -373,6 +376,13 @@ export default function MRDetailPage() {
           openUrl(mr.webUrl);
         }
         break;
+      case 'y':
+        // Copy MR link to clipboard
+        e.preventDefault();
+        if (mr?.webUrl) {
+          copyToClipboard(mr.webUrl);
+        }
+        break;
       case 'v':
         // Mark file as viewed and go to next
         e.preventDefault();
@@ -593,6 +603,10 @@ export default function MRDetailPage() {
         onCommentAdded={handleCommentAdded}
       />
 
+      {showCopyToast && (
+        <div className="copy-toast">Link copied</div>
+      )}
+
       <footer className="mr-detail-footer">
         <span className="keyboard-hint">
           <kbd>j</kbd>/<kbd>k</kbd> or <kbd>↑</kbd>/<kbd>↓</kbd> file &middot;{' '}
@@ -603,6 +617,7 @@ export default function MRDetailPage() {
           <kbd>s</kbd> suggest &middot;{' '}
           <kbd>g</kbd> generated &middot;{' '}
           <kbd>o</kbd> open &middot;{' '}
+          <kbd>y</kbd> copy link &middot;{' '}
           <kbd>⌘F</kbd> find &middot;{' '}
           <kbd>?</kbd> help
         </span>
