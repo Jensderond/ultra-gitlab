@@ -583,3 +583,108 @@
   margin-top: 1rem;
   margin-bottom: 0;
 }
+
+/* Updates section */
+.update-version-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.update-current-version {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.update-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: rgba(245, 166, 35, 0.15);
+  color: var(--warning-color, #f5a623);
+}
+
+.update-up-to-date {
+  font-size: 0.85rem;
+  color: var(--text-muted, #888);
+}
+
+.update-release-notes {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0 0 1rem;
+  font-family: var(--font-mono, 'SF Mono', 'Monaco', 'Consolas', monospace);
+}
+
+.update-install-button {
+  background: var(--primary-color, #0066cc);
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.update-install-button:hover {
+  background: var(--primary-hover, #0052a3);
+}
+
+.update-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.update-progress-bar {
+  height: 6px;
+  background: var(--bg-tertiary, #333);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.update-progress-fill {
+  height: 100%;
+  background: var(--accent-color, #4c9aff);
+  border-radius: 3px;
+  transition: width 0.2s ease;
+}
+
+.update-progress-text {
+  font-size: 0.8rem;
+  color: var(--text-muted, #888);
+}
+
+.update-error {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--error-color, #c00);
+  margin-top: 0.5rem;
+}
+
+.update-retry-button {
+  background: none;
+  border: 1px solid var(--border-color, #ccc);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: var(--text-secondary, #555);
+  cursor: pointer;
+}
+
+.update-retry-button:hover {
+  background: var(--bg-hover);
+}

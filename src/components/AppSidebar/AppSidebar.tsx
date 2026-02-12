@@ -7,6 +7,10 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import './AppSidebar.css';
 
+interface AppSidebarProps {
+  updateAvailable?: boolean;
+}
+
 interface NavItem {
   path: string;
   /** Match paths starting with this prefix for active state */
@@ -56,7 +60,7 @@ const navItems: NavItem[] = [
   { path: '/settings', matchPrefix: '/settings', label: 'Settings', icon: <GearIcon />, bottom: true },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ updateAvailable }: AppSidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -90,6 +94,9 @@ export function AppSidebar() {
             title={item.label}
           >
             {item.icon}
+            {item.path === '/settings' && updateAvailable && (
+              <span className="update-dot" />
+            )}
           </button>
         ))}
       </div>

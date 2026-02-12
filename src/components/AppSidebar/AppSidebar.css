@@ -29,6 +29,7 @@
 }
 
 .app-sidebar-item {
+  position: relative;
   width: 40px;
   height: 40px;
   display: flex;
@@ -42,6 +43,18 @@
   transition: all 0.15s ease;
   padding: 0;
   box-shadow: none;
+}
+
+.update-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warning-color, #f5a623);
+  border: 2px solid var(--bg-secondary);
+  pointer-events: none;
 }
 
 .app-sidebar-item:hover {

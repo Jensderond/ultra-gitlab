@@ -15,6 +15,7 @@ import { AppSidebar } from './components/AppSidebar';
 import { CommandPalette, type Command } from './components/CommandPalette';
 import { KeyboardHelp } from './components/KeyboardHelp';
 import { ReAuthPrompt } from './components/ReAuthPrompt';
+import useUpdateChecker from './hooks/useUpdateChecker';
 import { CommandId, CommandCategory, commandDefinitions } from './commands/registry';
 import { manualSync } from './services/storage';
 import { listInstances } from './services/gitlab';
@@ -41,6 +42,7 @@ function AppContent() {
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
   const [authExpired, setAuthExpired] = useState<AuthExpiredState | null>(null);
   const [pipelineProjects, setPipelineProjects] = useState<PipelineProject[]>([]);
+  const updateChecker = useUpdateChecker();
 
   // Listen for auth-expired events from the backend
   useEffect(() => {
@@ -228,7 +230,7 @@ function AppContent() {
   return (
     <div className="app">
       <div className="titlebar-drag-region" data-tauri-drag-region />
-      <AppSidebar />
+      <AppSidebar updateAvailable={updateChecker.available} />
       <div className="app-content">
         <Routes>
           {/* Redirect root to MR list */}
@@ -248,7 +250,7 @@ function AppContent() {
           <Route path="/pipelines" element={<PipelinesPage />} />
 
           {/* Settings page */}
-          <Route path="/settings" element={<Settings />} />
+          <Route path="/settings" element={<Settings updateChecker={updateChecker} />} />
         </Routes>
       </div>
 

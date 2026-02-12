@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { getVersion } from '@tauri-apps/api/app';
 import InstanceSetup from '../components/InstanceSetup/InstanceSetup';
 import {
   listInstances,
@@ -15,6 +16,7 @@ import {
 import { formatRelativeTime } from '../services/storage';
 import { invoke, getTokenInfo, updateInstanceToken, getCollapsePatterns, updateCollapsePatterns } from '../services/tauri';
 import type { TokenInfo } from '../types';
+import type { UpdateCheckerState } from '../hooks/useUpdateChecker';
 import useCustomShortcuts from '../hooks/useCustomShortcuts';
 import {
   defaultShortcuts,
@@ -47,10 +49,14 @@ const SYNC_INTERVALS = [
   { value: 1800, label: '30 minutes' },
 ];
 
+interface SettingsProps {
+  updateChecker?: UpdateCheckerState;
+}
+
 /**
  * Settings page for managing GitLab instances.
  */
-export default function Settings() {
+export default function Settings({ updateChecker }: SettingsProps) {
   const [instances, setInstances] = useState<GitLabInstanceWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -226,6 +232,10 @@ export default function Settings() {
       </header>
 
       <main className="settings-content">
+        {updateChecker && (
+          <UpdatesSection updateChecker={updateChecker} />
+        )}
+
         <section className="settings-section">
           <div className="section-header">
             <h2>GitLab Instances</h2>
@@ -537,6 +547,78 @@ function CollapsePatternsEditor() {
 
       {saving && <p className="saving-indicator">Saving...</p>}
     </>
+  );
+}
+
+/**
+ * Updates section showing current version and available updates.
+ */
+function UpdatesSection({ updateChecker }: { updateChecker: UpdateCheckerState }) {
+  const [appVersion, setAppVersion] = useState<string>('');
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion('unknown'));
+  }, []);
+
+  const {
+    available,
+    version,
+    body,
+    downloadProgress,
+    installing,
+    error,
+    checkForUpdate,
+    installUpdate,
+  } = updateChecker;
+
+  return (
+    <section className="settings-section">
+      <h2>Updates</h2>
+
+      <div className="update-version-row">
+        <span className="update-current-version">
+          Current version: <strong>{appVersion}</strong>
+        </span>
+        {available && version ? (
+          <span className="update-badge">{version} available</span>
+        ) : (
+          <span className="update-up-to-date">You're up to date</span>
+        )}
+      </div>
+
+      {available && body && (
+        <pre className="update-release-notes">{body}</pre>
+      )}
+
+      {available && !installing && (
+        <button className="update-install-button" onClick={installUpdate}>
+          Download & Install
+        </button>
+      )}
+
+      {installing && downloadProgress !== null && (
+        <div className="update-progress">
+          <div className="update-progress-bar">
+            <div
+              className="update-progress-fill"
+              style={{ width: `${downloadProgress}%` }}
+            />
+          </div>
+          <span className="update-progress-text">
+            {downloadProgress < 100 ? `Downloading... ${downloadProgress}%` : 'Installing...'}
+          </span>
+        </div>
+      )}
+
+      {error && (
+        <div className="update-error">
+          {error}
+          <button className="update-retry-button" onClick={checkForUpdate}>
+            Retry
+          </button>
+        </div>
+      )}
+    </section>
   );
 }
 
