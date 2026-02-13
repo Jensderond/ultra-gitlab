@@ -16,14 +16,15 @@ use commands::{
     get_diff_content, get_diff_file, get_diff_file_metadata, get_diff_files, get_diff_hunks,
     get_diff_refs, get_file_comments, get_file_content, get_file_content_base64,
     get_gitattributes, get_gitlab_instances, get_memory_stats, get_merge_request_detail,
-    get_merge_requests, get_settings, get_sync_config, get_sync_settings, get_sync_status,
+    get_merge_requests, get_notification_settings, get_settings, get_sync_config,
+    get_sync_settings, get_sync_status,
     check_merge_status, get_mr_reviewers, get_token_info, list_my_merge_requests, merge_mr,
     rebase_mr, list_pipeline_projects,
     visit_pipeline_project, toggle_pin_pipeline_project, remove_pipeline_project, search_projects, get_pipeline_statuses,
     refresh_gitattributes, reply_to_comment,
     resolve_discussion, retry_failed_actions, setup_gitlab_instance, trigger_sync,
-    unapprove_mr, update_collapse_patterns, update_instance_token, update_settings,
-    update_sync_config, update_sync_settings,
+    unapprove_mr, update_collapse_patterns, update_instance_token,
+    update_notification_settings, update_settings, update_sync_config, update_sync_settings,
 };
 use services::sync_engine::{SyncConfig, SyncEngine};
 use tauri::{Manager, TitleBarStyle, WebviewUrl, WebviewWindowBuilder};
@@ -165,6 +166,9 @@ pub fn run() {
             rebase_mr,
             // Reviewers
             get_mr_reviewers,
+            // Notification settings
+            get_notification_settings,
+            update_notification_settings,
             // Pipeline dashboard
             list_pipeline_projects,
             visit_pipeline_project,

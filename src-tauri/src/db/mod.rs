@@ -6,6 +6,7 @@
 //! - Query helpers
 
 pub mod file_cache;
+pub mod notification_settings;
 pub mod pool;
 
 use std::path::{Path, PathBuf};
@@ -67,6 +68,7 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("0008_add_authenticated_username", include_str!("migrations/0008_add_authenticated_username.sql")),
     ("0009_create_mr_reviewers", include_str!("migrations/0009_create_mr_reviewers.sql")),
     ("0010_create_pipeline_projects", include_str!("migrations/0010_create_pipeline_projects.sql")),
+    ("0011_create_notification_settings", include_str!("migrations/0011_create_notification_settings.sql")),
 ];
 
 /// Run all pending database migrations.
