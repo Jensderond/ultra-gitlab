@@ -21,6 +21,10 @@ pub const ACTION_SYNCED_EVENT: &str = "action-synced";
 /// Emitted when authentication fails due to an expired or revoked token.
 pub const AUTH_EXPIRED_EVENT: &str = "auth-expired";
 
+/// Event: notification:mr-ready
+/// Emitted when an authored MR transitions to ready-to-merge state.
+pub const MR_READY_EVENT: &str = "notification:mr-ready";
+
 /// Payload for sync-progress events.
 #[derive(Debug, Clone, Serialize)]
 pub struct SyncProgressPayload {
@@ -125,6 +129,20 @@ pub struct ActionSyncedPayload {
 
     /// Local reference ID (e.g., comment ID).
     pub local_reference_id: Option<i64>,
+}
+
+/// Payload for notification:mr-ready events.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MrReadyPayload {
+    /// MR title.
+    pub title: String,
+
+    /// Project name (path with namespace).
+    pub project_name: String,
+
+    /// URL to the MR in GitLab web UI.
+    pub web_url: String,
 }
 
 /// Payload for auth-expired events.

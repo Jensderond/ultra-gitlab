@@ -17,13 +17,14 @@ use crate::services::gitlab_client::{
 use crate::models::project::{self, Project};
 use crate::models::sync_action::ActionType;
 use crate::services::sync_events::{
-    ActionSyncedPayload, AuthExpiredPayload, MrUpdatedPayload, MrUpdateType,
+    ActionSyncedPayload, AuthExpiredPayload, MrReadyPayload, MrUpdatedPayload, MrUpdateType,
     SyncProgressPayload, SyncPhase,
-    ACTION_SYNCED_EVENT, AUTH_EXPIRED_EVENT, MR_UPDATED_EVENT, SYNC_PROGRESS_EVENT,
+    ACTION_SYNCED_EVENT, AUTH_EXPIRED_EVENT, MR_READY_EVENT, MR_UPDATED_EVENT, SYNC_PROGRESS_EVENT,
 };
 use crate::services::sync_processor::{self, ProcessResult};
 use crate::services::sync_queue;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::Emitter;
@@ -231,6 +232,9 @@ pub struct SyncEngine {
 
     /// Tauri app handle for emitting events to the frontend.
     app_handle: tauri::AppHandle,
+
+    /// MR IDs already notified as ready-to-merge this session (avoids duplicate notifications).
+    notified_mr_ready: HashSet<i64>,
 }
 
 impl SyncEngine {
@@ -241,6 +245,7 @@ impl SyncEngine {
             config: Arc::new(RwLock::new(SyncConfig::default())),
             status: Arc::new(RwLock::new(SyncStatus::default())),
             app_handle,
+            notified_mr_ready: HashSet::new(),
         }
     }
 
@@ -293,11 +298,12 @@ impl SyncEngine {
             // Brief delay so the app window appears before we start network I/O
             tokio::time::sleep(Duration::from_secs(3)).await;
 
-            let engine = SyncEngine {
+            let mut engine = SyncEngine {
                 pool,
                 config: config_for_task,
                 status: Arc::new(RwLock::new(SyncStatus::default())),
                 app_handle,
+                notified_mr_ready: HashSet::new(),
             };
 
             // Run initial sync immediately
@@ -370,7 +376,7 @@ impl SyncEngine {
     /// 2. Fetches diffs and comments for each MR
     /// 3. Pushes pending local actions to GitLab
     /// 4. Purges merged/closed MRs
-    pub async fn run_sync(&self) -> Result<SyncResult, AppError> {
+    pub async fn run_sync(&mut self) -> Result<SyncResult, AppError> {
         let start = Instant::now();
 
         // Emit starting event
@@ -515,7 +521,7 @@ impl SyncEngine {
     }
 
     /// Sync a single GitLab instance.
-    async fn sync_instance(&self, instance: &GitLabInstanceRow) -> Result<SyncResult, AppError> {
+    async fn sync_instance(&mut self, instance: &GitLabInstanceRow) -> Result<SyncResult, AppError> {
         let config = self.config.read().await;
         eprintln!(
             "[sync] sync_instance: url={}, has_token={}, sync_authored={}, sync_reviewing={}",
@@ -595,6 +601,13 @@ impl SyncEngine {
             }
         };
 
+        // Drop the config read guard before mutable borrows
+        drop(config);
+
+        // Snapshot pre-sync ready state for authored MRs (for transition detection)
+        let mr_ids: Vec<i64> = mrs.iter().map(|mr| mr.id).collect();
+        let pre_sync_ready = self.get_ready_states(&mr_ids).await;
+
         // Process each MR
         for mr in &mrs {
             match self.sync_mr(instance.id, &client, mr).await {
@@ -606,6 +619,9 @@ impl SyncEngine {
                 }
             }
         }
+
+        // Detect MR ready-to-merge transitions and emit notifications
+        self.check_mr_ready_transitions(&mr_ids, &pre_sync_ready, &mrs).await;
 
         // Fetch and cache project titles for any new project IDs
         self.cache_project_titles(instance.id, &client, &mrs).await;
@@ -1604,6 +1620,110 @@ impl SyncEngine {
         Ok(())
     }
 
+    /// Check if an MR is ready to merge based on its DB state.
+    ///
+    /// Ready condition: approval_status = 'approved' AND approvals_count >= approvals_required
+    /// AND head_pipeline_status = 'success'.
+    fn is_mr_ready(row: &MrReadyState) -> bool {
+        row.approval_status.as_deref() == Some("approved")
+            && row.approvals_count.unwrap_or(0) >= row.approvals_required.unwrap_or(1)
+            && row.head_pipeline_status.as_deref() == Some("success")
+    }
+
+    /// Query the ready-to-merge state for a set of MR IDs from the database.
+    ///
+    /// Returns a map of MR ID → ready state (true/false). MRs not in the DB
+    /// are not included (meaning they were new and had no prior state).
+    async fn get_ready_states(&self, mr_ids: &[i64]) -> std::collections::HashMap<i64, bool> {
+        let mut result = std::collections::HashMap::new();
+        if mr_ids.is_empty() {
+            return result;
+        }
+
+        let placeholders: Vec<String> = (0..mr_ids.len()).map(|_| "?".to_string()).collect();
+        let query = format!(
+            "SELECT id, approval_status, approvals_count, approvals_required, head_pipeline_status FROM merge_requests WHERE id IN ({})",
+            placeholders.join(", ")
+        );
+
+        let mut q = sqlx::query_as::<_, MrReadyState>(&query);
+        for id in mr_ids {
+            q = q.bind(*id);
+        }
+
+        match q.fetch_all(&self.pool).await {
+            Ok(rows) => {
+                for row in rows {
+                    result.insert(row.id, Self::is_mr_ready(&row));
+                }
+            }
+            Err(e) => {
+                log::warn!("Failed to query pre-sync MR states: {}", e);
+            }
+        }
+
+        result
+    }
+
+    /// Check for MR ready-to-merge transitions and emit notification events.
+    ///
+    /// Compares pre-sync state with post-sync state. Only emits for MRs that
+    /// transitioned from not-ready to ready, and only if notification settings
+    /// have mr_ready_to_merge enabled.
+    async fn check_mr_ready_transitions(
+        &mut self,
+        mr_ids: &[i64],
+        pre_sync_ready: &std::collections::HashMap<i64, bool>,
+        mrs: &[GitLabMergeRequest],
+    ) {
+        // Check notification settings first
+        let settings = match crate::db::notification_settings::get_notification_settings(&self.pool).await {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("Failed to read notification settings: {}", e);
+                return;
+            }
+        };
+
+        if !settings.mr_ready_to_merge {
+            return;
+        }
+
+        // Get post-sync ready states
+        let post_sync_ready = self.get_ready_states(mr_ids).await;
+
+        for mr in mrs {
+            let mr_id = mr.id;
+
+            // Skip if already notified this session
+            if self.notified_mr_ready.contains(&mr_id) {
+                continue;
+            }
+
+            let was_ready = pre_sync_ready.get(&mr_id).copied().unwrap_or(false);
+            let is_ready = post_sync_ready.get(&mr_id).copied().unwrap_or(false);
+
+            // Only emit on transition: not ready → ready
+            if !was_ready && is_ready {
+                let project_name = extract_project_path(&mr.web_url);
+
+                if let Err(e) = self.app_handle.emit(
+                    MR_READY_EVENT,
+                    MrReadyPayload {
+                        title: mr.title.clone(),
+                        project_name,
+                        web_url: mr.web_url.clone(),
+                    },
+                ) {
+                    log::warn!("Failed to emit mr-ready event: {}", e);
+                }
+
+                self.notified_mr_ready.insert(mr_id);
+                eprintln!("[sync] MR !{} is now ready to merge, notification emitted", mr.iid);
+            }
+        }
+    }
+
     /// Get all GitLab instances from the database.
     async fn get_gitlab_instances(&self) -> Result<Vec<GitLabInstanceRow>, AppError> {
         let instances = sqlx::query_as::<_, GitLabInstanceRow>(
@@ -1679,6 +1799,16 @@ impl SyncEngine {
 
         Ok(result.0 * result.1)
     }
+}
+
+/// Lightweight struct for querying MR ready-to-merge state from the database.
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct MrReadyState {
+    id: i64,
+    approval_status: Option<String>,
+    approvals_count: Option<i64>,
+    approvals_required: Option<i64>,
+    head_pipeline_status: Option<String>,
 }
 
 /// Database row for GitLab instance.

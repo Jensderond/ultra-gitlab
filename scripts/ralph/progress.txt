@@ -11,6 +11,9 @@ Started: Fri Feb 13 11:58:05 CET 2026
 - Settings page sections: `<section className="settings-section"><h2>Title</h2>...</section>`, reuse `.sync-settings-form`, `.checkbox-group`, `.checkbox-label` classes
 - Tauri plugins: add to Cargo.toml (version "2"), register `.plugin(plugin_name::init())` in lib.rs builder, add permission to capabilities/default.json
 - Commands needing AppHandle use `app: tauri::AppHandle` param (not State), useful for plugin APIs like `app.notification()`
+- Adding a column to merge_requests: migration, model struct, GitLabMergeRequest API struct, sync_engine upsert, MergeRequestListItem DTO + From impl, 3 SELECT queries in commands/mr.rs, frontend MergeRequest type
+- SyncEngine `&mut self` methods: must `drop()` any RwLockReadGuard (e.g., config) before calling, since borrow checker prevents simultaneous immutable + mutable borrows
+- Sync events: constants + payload structs in sync_events.rs, imported in sync_engine.rs, emitted via `self.app_handle.emit(EVENT, payload)`
 
 ---
 
@@ -68,4 +71,34 @@ Started: Fri Feb 13 11:58:05 CET 2026
   - Commands that need plugin APIs use `app: tauri::AppHandle` parameter instead of `State<'_, DbPool>`
   - Plugin permissions follow pattern: `"<plugin-name>:default"` in capabilities/default.json
   - On desktop, notification permissions are typically granted by default; `.show()` returns an error if denied
+---
+
+## 2026-02-13 - US-005
+- What was implemented: Added head_pipeline_status field across the full stack (DB → Rust model → API struct → sync engine → command DTO → frontend types)
+- Files changed:
+  - `src-tauri/src/db/migrations/0012_add_head_pipeline_status.sql` (new — ALTER TABLE adds nullable column)
+  - `src-tauri/src/db/mod.rs` (registered migration 0012)
+  - `src-tauri/src/services/gitlab_client.rs` (added GitLabHeadPipeline helper struct + head_pipeline field on GitLabMergeRequest)
+  - `src-tauri/src/models/merge_request.rs` (added head_pipeline_status: Option<String>)
+  - `src-tauri/src/services/sync_engine.rs` (extract head_pipeline.status in upsert_mr, add to INSERT + ON CONFLICT UPDATE)
+  - `src-tauri/src/commands/mr.rs` (added head_pipeline_status to MergeRequestListItem struct, From impl, and 3 SELECT queries)
+  - `src/types/index.ts` (added headPipelineStatus: string | null to MergeRequest interface)
+- **Learnings for future iterations:**
+  - GitLab API returns `head_pipeline` as a nested object with a `status` field — need a helper struct to deserialize, then extract `.status` in sync
+  - When adding a new column to merge_requests, must update: model struct, command DTO, From impl, all SELECT queries (3 in mr.rs), sync engine INSERT/UPDATE, and frontend type
+  - ALTER TABLE ADD COLUMN migrations are simpler than full table recreations — just add nullable column
+  - The 3 SELECT queries in mr.rs that need updating: get_merge_requests, list_my_merge_requests, get_merge_request_detail
+---
+
+## 2026-02-13 - US-006
+- What was implemented: MR ready-to-merge transition detection in sync_engine with Tauri event emission
+- Files changed:
+  - `src-tauri/src/services/sync_events.rs` (added MR_READY_EVENT constant + MrReadyPayload struct)
+  - `src-tauri/src/services/sync_engine.rs` (added MrReadyState query struct, in-memory HashSet for dedup, get_ready_states/is_mr_ready/check_mr_ready_transitions methods, wired into sync_instance after MR processing)
+- **Learnings for future iterations:**
+  - When adding `&mut self` to methods in SyncEngine, must explicitly `drop(config)` the RwLockReadGuard before calling mutable methods — Rust borrow checker requires it
+  - Transition detection pattern: snapshot DB state before sync, compare after sync, emit event only on state change
+  - Ready-to-merge condition: approval_status='approved' AND approvals_count >= approvals_required AND head_pipeline_status='success'
+  - In-memory HashSet<i64> on the engine struct avoids duplicate notifications within a session without needing DB storage
+  - The sync engine background task owns the engine as `let mut engine`, so `&mut self` methods work fine
 ---
