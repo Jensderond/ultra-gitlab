@@ -45,6 +45,8 @@
 
 .approval-button .shortcut-hint {
   color: var(--accent-warm-yellow);
+  text-decoration: underline;
+  margin-right: 1px;
 }
 
 .approval-status {

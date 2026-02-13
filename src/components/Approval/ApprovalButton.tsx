@@ -107,10 +107,10 @@ const ApprovalButton = forwardRef<ApprovalButtonRef, ApprovalButtonProps>(functi
         ) : isApproved ? (
           <>
             <span className="approval-icon">✓</span>
-            <span><b className="shortcut-hint">[A]</b>pproved</span>
+            <span><span className="shortcut-hint">A</span>pproved</span>
           </>
         ) : (
-          <span><b className="shortcut-hint">[A]</b>pprove</span>
+          <span><span className="shortcut-hint">A</span>pprove</span>
         )}
       </button>
 
