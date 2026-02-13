@@ -22,7 +22,7 @@ import { manualSync } from './services/storage';
 import { listInstances } from './services/gitlab';
 import { listPipelineProjects, visitPipelineProject } from './services/tauri';
 import { MonacoProvider } from './components/Monaco';
-import { ToastProvider, ToastContainer } from './components/Toast';
+import { ToastProvider, useToast, ToastContainer } from './components/Toast';
 import type { AuthExpiredPayload, PipelineProject } from './types';
 import './App.css';
 
@@ -46,6 +46,7 @@ function AppContent() {
   const [pipelineProjects, setPipelineProjects] = useState<PipelineProject[]>([]);
   const updateChecker = useUpdateChecker();
   const hasApprovedMRs = useHasApprovedMRs();
+  const { toasts } = useToast();
 
   // Listen for auth-expired events from the backend
   useEffect(() => {
@@ -233,7 +234,7 @@ function AppContent() {
   return (
     <div className="app">
       <div className="titlebar-drag-region" data-tauri-drag-region />
-      <AppSidebar updateAvailable={updateChecker.available} hasApprovedMRs={hasApprovedMRs} />
+      <AppSidebar updateAvailable={updateChecker.available} hasApprovedMRs={hasApprovedMRs} hasActiveToasts={toasts.length > 0} />
       <div className="app-content">
         <Routes>
           {/* Redirect root to MR list */}

@@ -10,6 +10,7 @@ import './AppSidebar.css';
 interface AppSidebarProps {
   updateAvailable?: boolean;
   hasApprovedMRs?: boolean;
+  hasActiveToasts?: boolean;
 }
 
 interface NavItem {
@@ -47,6 +48,13 @@ const PipelineIcon = () => (
   </svg>
 );
 
+const BellIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+    <path d="M13.73 21a2 2 0 01-3.46 0" />
+  </svg>
+);
+
 const GearIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="3" />
@@ -61,7 +69,7 @@ const navItems: NavItem[] = [
   { path: '/settings', matchPrefix: '/settings', label: 'Settings', icon: <GearIcon />, bottom: true },
 ];
 
-export function AppSidebar({ updateAvailable, hasApprovedMRs }: AppSidebarProps) {
+export function AppSidebar({ updateAvailable, hasApprovedMRs, hasActiveToasts }: AppSidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -90,6 +98,10 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs }: AppSidebarProps)
         ))}
       </div>
       <div className="app-sidebar-bottom">
+        <div className="app-sidebar-bell" title="Notifications">
+          <BellIcon />
+          {hasActiveToasts && <span className="notification-dot" />}
+        </div>
         {bottomItems.map(item => (
           <button
             key={item.path}
