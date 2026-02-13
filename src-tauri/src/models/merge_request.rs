@@ -124,6 +124,9 @@ pub struct MergeRequest {
     /// Whether the current user has approved this MR.
     #[sqlx(default)]
     pub user_has_approved: bool,
+
+    /// Status of the MR's head pipeline (e.g., "success", "failed", "running").
+    pub head_pipeline_status: Option<String>,
 }
 
 impl MergeRequest {

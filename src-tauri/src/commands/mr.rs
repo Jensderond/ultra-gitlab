@@ -50,6 +50,7 @@ pub struct MergeRequestListItem {
     pub reviewers: Vec<String>,
     pub cached_at: i64,
     pub user_has_approved: bool,
+    pub head_pipeline_status: Option<String>,
 }
 
 impl From<MergeRequest> for MergeRequestListItem {
@@ -80,6 +81,7 @@ impl From<MergeRequest> for MergeRequestListItem {
             reviewers,
             cached_at: mr.cached_at,
             user_has_approved: mr.user_has_approved,
+            head_pipeline_status: mr.head_pipeline_status,
         }
     }
 }
@@ -115,7 +117,8 @@ pub async fn get_merge_requests(
             mr.author_username, mr.source_branch, mr.target_branch, mr.state,
             mr.web_url, mr.created_at, mr.updated_at, mr.merged_at,
             mr.approval_status, mr.approvals_required, mr.approvals_count,
-            mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved
+            mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved,
+            mr.head_pipeline_status
         FROM merge_requests mr
         LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
         WHERE mr.instance_id = $1
@@ -228,7 +231,8 @@ pub async fn list_my_merge_requests(
             mr.author_username, mr.source_branch, mr.target_branch, mr.state,
             mr.web_url, mr.created_at, mr.updated_at, mr.merged_at,
             mr.approval_status, mr.approvals_required, mr.approvals_count,
-            mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved
+            mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved,
+            mr.head_pipeline_status
         FROM merge_requests mr
         LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
         WHERE mr.instance_id = ? AND mr.state = 'opened' AND mr.author_username = ?
@@ -308,7 +312,8 @@ pub async fn get_merge_request_detail(
             mr.author_username, mr.source_branch, mr.target_branch, mr.state,
             mr.web_url, mr.created_at, mr.updated_at, mr.merged_at,
             mr.approval_status, mr.approvals_required, mr.approvals_count,
-            mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved
+            mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved,
+            mr.head_pipeline_status
         FROM merge_requests mr
         LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
         WHERE mr.id = $1

@@ -120,6 +120,12 @@ pub struct MergeRequestsQuery {
     pub not_approved_by_usernames: Option<String>,
 }
 
+/// Nested head_pipeline object from GitLab MR API.
+#[derive(Debug, Clone, Deserialize)]
+pub struct GitLabHeadPipeline {
+    pub status: String,
+}
+
 /// GitLab merge request from API.
 #[derive(Debug, Clone, Deserialize)]
 pub struct GitLabMergeRequest {
@@ -139,6 +145,7 @@ pub struct GitLabMergeRequest {
     pub labels: Vec<String>,
     pub reviewers: Option<Vec<GitLabUser>>,
     pub detailed_merge_status: Option<String>,
+    pub head_pipeline: Option<GitLabHeadPipeline>,
 }
 
 /// GitLab user from API.

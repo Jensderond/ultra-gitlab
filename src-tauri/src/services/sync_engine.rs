@@ -983,6 +983,7 @@ impl SyncEngine {
             })
             .unwrap_or_else(|| "[]".to_string());
         let project_name = extract_project_path(&mr.web_url);
+        let head_pipeline_status = mr.head_pipeline.as_ref().map(|p| p.status.clone());
 
         sqlx::query(
             r#"
@@ -990,8 +991,8 @@ impl SyncEngine {
                 id, instance_id, iid, project_id, title, description,
                 author_username, source_branch, target_branch, state, web_url,
                 created_at, updated_at, merged_at, labels, reviewers, cached_at,
-                project_name
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                project_name, head_pipeline_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 description = excluded.description,
@@ -1001,7 +1002,8 @@ impl SyncEngine {
                 labels = excluded.labels,
                 reviewers = excluded.reviewers,
                 cached_at = excluded.cached_at,
-                project_name = excluded.project_name
+                project_name = excluded.project_name,
+                head_pipeline_status = excluded.head_pipeline_status
             "#,
         )
         .bind(mr.id)
@@ -1022,6 +1024,7 @@ impl SyncEngine {
         .bind(&reviewers_json)
         .bind(now())
         .bind(&project_name)
+        .bind(&head_pipeline_status)
         .execute(&self.pool)
         .await?;
 
