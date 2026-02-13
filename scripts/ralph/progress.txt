@@ -14,6 +14,8 @@ Started: Fri Feb 13 11:58:05 CET 2026
 - Adding a column to merge_requests: migration, model struct, GitLabMergeRequest API struct, sync_engine upsert, MergeRequestListItem DTO + From impl, 3 SELECT queries in commands/mr.rs, frontend MergeRequest type
 - SyncEngine `&mut self` methods: must `drop()` any RwLockReadGuard (e.g., config) before calling, since borrow checker prevents simultaneous immutable + mutable borrows
 - Sync events: constants + payload structs in sync_events.rs, imported in sync_engine.rs, emitted via `self.app_handle.emit(EVENT, payload)`
+- Frontend cross-component events: use `window.dispatchEvent(new CustomEvent('name', { detail }))` — listeners can subscribe with `window.addEventListener`
+- Toast notifications: use `useToast()` hook → `addToast({ type, title, body, url? })` from anywhere inside `<ToastProvider>` — types: 'mr-ready', 'pipeline-success', 'pipeline-failed', 'pipeline-running', 'info'
 
 ---
 
@@ -101,4 +103,32 @@ Started: Fri Feb 13 11:58:05 CET 2026
   - Ready-to-merge condition: approval_status='approved' AND approvals_count >= approvals_required AND head_pipeline_status='success'
   - In-memory HashSet<i64> on the engine struct avoids duplicate notifications within a session without needing DB storage
   - The sync engine background task owns the engine as `let mut engine`, so `&mut self` methods work fine
+---
+
+## 2026-02-13 - US-007
+- What was implemented: Pipeline status change detection for pinned projects in PipelinesPage.tsx, emitting window custom events
+- Files changed:
+  - `src/pages/PipelinesPage.tsx` (added `firstLoadDoneRef`, `emitPipelineChanges` callback, wired into both `loadProjects` and `refreshStatuses`)
+- **Learnings for future iterations:**
+  - Pipeline status comparison pattern: use `statusesRef.current` (ref to old map) before `setStatuses()` updates React state, compare against the new map
+  - First-load skip: use a `useRef(false)` flag — set to `true` on first call, only emit events on subsequent calls
+  - `window.dispatchEvent(new CustomEvent('name', { detail: payload }))` is a clean way for cross-component communication in Tauri+React without needing shared state
+  - `emitPipelineChanges` must be called BEFORE `setStatuses` so `statusesRef.current` still holds old values for comparison
+  - Only pinned projects get status change events — filter with `projects.filter(p => p.pinned)`
+---
+
+## 2026-02-13 - US-008
+- What was implemented: Toast notification system with ToastProvider context, useToast hook, and ToastContainer component
+- Files changed:
+  - `src/components/Toast/ToastContext.tsx` (new — context + provider + useToast hook with addToast/removeToast, auto-dismiss, max 3 visible)
+  - `src/components/Toast/ToastContainer.tsx` (new — renders toast items with type-specific icons, View button via openUrl, dismiss X button)
+  - `src/components/Toast/Toast.css` (new — fixed bottom-right positioning, slide-in animation, type-specific border colors)
+  - `src/components/Toast/index.ts` (new — barrel exports)
+  - `src/App.tsx` (added ToastProvider wrapping BrowserRouter, ToastContainer rendered in AppContent)
+- **Learnings for future iterations:**
+  - Toast context pattern: Provider at app root holds state, useToast hook for consumers, separate ToastContainer for rendering
+  - Auto-dismiss with max visible: use a Map<id, timer> ref for cleanup, evict oldest when exceeding max
+  - Toast types map to notification categories: mr-ready, pipeline-success, pipeline-failed, pipeline-running, info
+  - Position fixed bottom-right with z-index 900 (below modals at 1000, above regular content)
+  - openUrl from `@tauri-apps/plugin-opener` for opening URLs in default browser
 ---
