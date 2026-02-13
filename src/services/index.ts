@@ -56,6 +56,7 @@ export {
   getPipelineStatuses,
   getNotificationSettings,
   updateNotificationSettings,
+  sendNativeNotification,
 } from './tauri';
 
 // GitLab operations (high-level)

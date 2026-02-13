@@ -17,6 +17,7 @@ import { KeyboardHelp } from './components/KeyboardHelp';
 import { ReAuthPrompt } from './components/ReAuthPrompt';
 import useUpdateChecker from './hooks/useUpdateChecker';
 import useHasApprovedMRs from './hooks/useHasApprovedMRs';
+import useNotifications from './hooks/useNotifications';
 import { CommandId, CommandCategory, commandDefinitions } from './commands/registry';
 import { manualSync } from './services/storage';
 import { listInstances } from './services/gitlab';
@@ -47,6 +48,7 @@ function AppContent() {
   const updateChecker = useUpdateChecker();
   const hasApprovedMRs = useHasApprovedMRs();
   const { toasts } = useToast();
+  useNotifications();
 
   // Listen for auth-expired events from the backend
   useEffect(() => {

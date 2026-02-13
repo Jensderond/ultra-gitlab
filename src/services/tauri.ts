@@ -517,3 +517,10 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
 export async function updateNotificationSettings(settings: NotificationSettings): Promise<void> {
   return invoke<void>('update_notification_settings', { settings });
 }
+
+/**
+ * Send a native OS notification.
+ */
+export async function sendNativeNotification(title: string, body: string): Promise<void> {
+  return invoke<void>('send_native_notification', { title, body });
+}

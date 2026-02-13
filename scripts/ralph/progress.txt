@@ -16,6 +16,7 @@ Started: Fri Feb 13 11:58:05 CET 2026
 - Sync events: constants + payload structs in sync_events.rs, imported in sync_engine.rs, emitted via `self.app_handle.emit(EVENT, payload)`
 - Frontend cross-component events: use `window.dispatchEvent(new CustomEvent('name', { detail }))` — listeners can subscribe with `window.addEventListener`
 - Toast notifications: use `useToast()` hook → `addToast({ type, title, body, url? })` from anywhere inside `<ToastProvider>` — types: 'mr-ready', 'pipeline-success', 'pipeline-failed', 'pipeline-running', 'info'
+- Notification wiring: `useNotifications()` hook in AppContent listens to Tauri + DOM events, fetches settings per-event, and dispatches toasts + native notifications
 
 ---
 
@@ -131,4 +132,32 @@ Started: Fri Feb 13 11:58:05 CET 2026
   - Toast types map to notification categories: mr-ready, pipeline-success, pipeline-failed, pipeline-running, info
   - Position fixed bottom-right with z-index 900 (below modals at 1000, above regular content)
   - openUrl from `@tauri-apps/plugin-opener` for opening URLs in default browser
+---
+
+## 2026-02-13 - US-009
+- What was implemented: Bell icon in the sidebar with a notification activity dot that appears when toasts are active
+- Files changed:
+  - `src/components/AppSidebar/AppSidebar.tsx` (added BellIcon SVG, hasActiveToasts prop, bell element with notification-dot in sidebar bottom area)
+  - `src/components/AppSidebar/AppSidebar.css` (added .app-sidebar-bell and .notification-dot styles)
+  - `src/App.tsx` (imported useToast, passed toasts.length > 0 as hasActiveToasts prop to AppSidebar)
+- **Learnings for future iterations:**
+  - Sidebar indicator pattern: add prop to AppSidebarProps, pass from App.tsx where hooks/context are available
+  - Bell is a standalone div (not a nav item / button) since it's purely a status indicator with no click action
+  - Notification dot reuses the same absolute-positioning pattern as .update-dot and .approved-dot (top:6px, right:6px, 8px circle with border)
+  - useToast() hook is available in AppContent because ToastProvider wraps BrowserRouter in App()
+---
+
+## 2026-02-13 - US-010
+- What was implemented: useNotifications hook wiring Tauri 'notification:mr-ready' event and DOM 'notification:pipeline-changed' event to in-app toasts and native OS notifications, respecting user settings
+- Files changed:
+  - `src/hooks/useNotifications.ts` (new — hook that listens for both event types, reads settings, dispatches toasts + native notifications)
+  - `src/services/tauri.ts` (added sendNativeNotification invoke wrapper)
+  - `src/services/index.ts` (re-exported sendNativeNotification)
+  - `src/App.tsx` (imported and called useNotifications() in AppContent)
+  - `scripts/ralph/prd.json` (marked US-010 passes: true)
+- **Learnings for future iterations:**
+  - Use `useRef` for the addToast callback inside useEffect to avoid stale closures while keeping the effect stable (no dependency on addToast)
+  - Tauri events use `listen<PayloadType>()` from `@tauri-apps/api/event`; DOM events use `window.addEventListener` with `CustomEvent<T>` casting
+  - Settings are fetched on each event (not cached) to always respect the latest user preferences without needing a settings subscription
+  - The hook has no dependencies in useEffect since it uses refs for callbacks — this ensures listeners are set up once and cleaned up on unmount
 ---
