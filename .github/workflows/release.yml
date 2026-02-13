@@ -13,6 +13,91 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          # Find the previous tag
+          CURRENT_TAG="${{ github.ref_name }}"
+          PREVIOUS_TAG=$(git tag --sort=-v:refname | grep -E '^v' | sed -n '2p')
+
+          if [ -z "$PREVIOUS_TAG" ]; then
+            # First release — use all commits
+            RANGE="HEAD"
+          else
+            RANGE="${PREVIOUS_TAG}..${CURRENT_TAG}"
+          fi
+
+          # Collect commits grouped by type
+          FEATURES=""
+          FIXES=""
+          CHORES=""
+          STYLES=""
+          REFACTORS=""
+          OTHER=""
+
+          while IFS= read -r line; do
+            # Skip empty lines
+            [ -z "$line" ] && continue
+
+            # Extract short hash and message
+            HASH=$(echo "$line" | cut -d' ' -f1)
+            MSG=$(echo "$line" | cut -d' ' -f2-)
+
+            # Remove Co-Authored-By lines
+            MSG=$(echo "$MSG" | sed '/^Co-Authored-By:/d' | head -1)
+
+            ENTRY="- ${MSG} (\`${HASH}\`)"
+
+            case "$MSG" in
+              feat:*|feat\(*) FEATURES="${FEATURES}${ENTRY}"$'\n' ;;
+              fix:*|fix\(*)   FIXES="${FIXES}${ENTRY}"$'\n' ;;
+              chore:*|chore\(*) CHORES="${CHORES}${ENTRY}"$'\n' ;;
+              style:*|style\(*) STYLES="${STYLES}${ENTRY}"$'\n' ;;
+              refactor:*|refactor\(*) REFACTORS="${REFACTORS}${ENTRY}"$'\n' ;;
+              *)              OTHER="${OTHER}${ENTRY}"$'\n' ;;
+            esac
+          done <<< "$(git log --pretty=format:'%h %s' $RANGE)"
+
+          # Build the release body
+          BODY=""
+
+          if [ -n "$FEATURES" ]; then
+            BODY="${BODY}## ✨ Features"$'\n\n'"${FEATURES}"$'\n'
+          fi
+          if [ -n "$FIXES" ]; then
+            BODY="${BODY}## 🐛 Bug Fixes"$'\n\n'"${FIXES}"$'\n'
+          fi
+          if [ -n "$REFACTORS" ]; then
+            BODY="${BODY}## ♻️ Refactoring"$'\n\n'"${REFACTORS}"$'\n'
+          fi
+          if [ -n "$STYLES" ]; then
+            BODY="${BODY}## 🎨 Styling"$'\n\n'"${STYLES}"$'\n'
+          fi
+          if [ -n "$CHORES" ]; then
+            BODY="${BODY}## 🔧 Maintenance"$'\n\n'"${CHORES}"$'\n'
+          fi
+          if [ -n "$OTHER" ]; then
+            BODY="${BODY}## 📦 Other Changes"$'\n\n'"${OTHER}"$'\n'
+          fi
+
+          # Add comparison link
+          if [ -n "$PREVIOUS_TAG" ]; then
+            REPO_URL="${{ github.server_url }}/${{ github.repository }}"
+            BODY="${BODY}"$'\n'"**Full Changelog**: [${PREVIOUS_TAG}...${CURRENT_TAG}](${REPO_URL}/compare/${PREVIOUS_TAG}...${CURRENT_TAG})"
+          fi
+
+          # Set multiline output
+          {
+            echo "body<<RELEASE_NOTES_EOF"
+            echo "$BODY"
+            echo "RELEASE_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Generated release notes:"
+          echo "$BODY"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -44,6 +129,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Ultra GitLab ${{ github.ref_name }}'
+          releaseBody: ${{ steps.release_notes.outputs.body }}
           releaseDraft: true
           prerelease: false
           args: --target aarch64-apple-darwin
