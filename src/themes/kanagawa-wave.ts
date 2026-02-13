@@ -106,6 +106,18 @@ export const kanagawaWave: ThemeDefinition = {
     codeBg: '#1a1a22',
   },
 
+  overlays: {
+    glass: 'rgba(31, 31, 40, 0.95)',
+    glassLight: 'rgba(31, 31, 40, 0.75)',
+    surface: 'rgba(42, 42, 55, 0.6)',
+    surfaceHover: 'rgba(42, 42, 55, 0.9)',
+    hover: 'rgba(42, 42, 55, 0.4)',
+    divider: 'rgba(54, 54, 70, 0.35)',
+    backdrop: 'rgba(22, 22, 29, 0.85)',
+    backdropLight: 'rgba(22, 22, 29, 0.5)',
+    waveOpacity: '1',
+  },
+
   extended: {
     sakuraPink: '#d27e99',
     springGreen: '#98bb6c',

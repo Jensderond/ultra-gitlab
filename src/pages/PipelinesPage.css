@@ -51,7 +51,7 @@
 }
 
 .pipelines-header h1 {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-display, 'Cormorant Garamond', serif);
   font-size: 26px;
   font-weight: 800;
   letter-spacing: 0.04em;

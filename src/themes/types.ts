@@ -80,6 +80,31 @@ export interface SyntaxHighlightColors {
 }
 
 // ---------------------------------------------------------------------------
+// Overlay / glass effect colors
+// ---------------------------------------------------------------------------
+
+export interface OverlayColors {
+  /** Strong glass-morphism bg (headers/footers with backdrop-blur) */
+  glass: string;
+  /** Lighter glass bg */
+  glassLight: string;
+  /** Interactive surface bg (buttons, form elements) */
+  surface: string;
+  /** Surface hover state */
+  surfaceHover: string;
+  /** List item / row hover */
+  hover: string;
+  /** Decorative dividers between list items */
+  divider: string;
+  /** Heavy backdrop (modals, loading overlays) */
+  backdrop: string;
+  /** Lighter backdrop */
+  backdropLight: string;
+  /** Opacity for wave/decorative SVG pseudo-elements (0–1 as string) */
+  waveOpacity: string;
+}
+
+// ---------------------------------------------------------------------------
 // Extended palette (unique Kanagawa colors)
 // ---------------------------------------------------------------------------
 
@@ -182,6 +207,9 @@ export interface ThemeDefinition {
     disabledBg: string;
     codeBg: string;
   };
+
+  // Overlay / glass effects
+  overlays: OverlayColors;
 
   // Extended palette
   extended: ExtendedPalette;

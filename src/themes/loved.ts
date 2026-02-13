@@ -2,7 +2,7 @@ import type { ThemeDefinition } from './types';
 
 /**
  * Loved — a cool-toned dark theme with deep navy backgrounds,
- * soft silver text, and a calming blue accent.
+ * soft silver text, and a signature pink accent.
  */
 export const loved: ThemeDefinition = {
   id: 'loved',
@@ -32,20 +32,20 @@ export const loved: ThemeDefinition = {
   },
 
   accent: {
-    color: '#99beff',
-    hover: '#b3ceff',
-    bg: '#1e3050',
-    primary: '#99beff',
-    primaryHover: '#b3ceff',
-    primaryDark: '#7aa3e8',
+    color: '#ea7599',
+    hover: '#ee8fad',
+    bg: 'rgba(234, 117, 153, 0.15)',
+    primary: '#ea7599',
+    primaryHover: '#ee8fad',
+    primaryDark: '#d4637f',
   },
 
   focus: {
-    ring: 'rgba(153, 190, 255, 0.4)',
+    ring: 'rgba(234, 117, 153, 0.4)',
   },
 
   links: {
-    color: '#99beff',
+    color: '#ea7599',
   },
 
   status: {
@@ -90,8 +90,8 @@ export const loved: ThemeDefinition = {
   },
 
   labels: {
-    bg: 'rgba(153, 190, 255, 0.2)',
-    text: '#b3ceff',
+    bg: 'rgba(234, 117, 153, 0.2)',
+    text: '#ee8fad',
   },
 
   card: {
@@ -104,6 +104,18 @@ export const loved: ThemeDefinition = {
     codeBg: '#0f1520',
   },
 
+  overlays: {
+    glass: 'rgba(23, 32, 47, 0.95)',
+    glassLight: 'rgba(23, 32, 47, 0.75)',
+    surface: 'rgba(30, 42, 61, 0.6)',
+    surfaceHover: 'rgba(30, 42, 61, 0.9)',
+    hover: 'rgba(30, 42, 61, 0.4)',
+    divider: 'rgba(37, 52, 73, 0.35)',
+    backdrop: 'rgba(18, 25, 38, 0.85)',
+    backdropLight: 'rgba(18, 25, 38, 0.5)',
+    waveOpacity: '0',
+  },
+
   extended: {
     sakuraPink: '#ea7599',
     springGreen: '#97a38f',
@@ -114,7 +126,7 @@ export const loved: ThemeDefinition = {
     peach: '#a67868',
     crystalBlue: '#99beff',
     springBlue: '#7ea9a9',
-    fujiGray: '#4e5d73',
+    fujiGray: '#64727d',
     winterBlue: '#1e2a3d',
     waveGlow: 'rgba(153, 190, 255, 0.15)',
     waveGlowStrong: 'rgba(153, 190, 255, 0.3)',
@@ -124,10 +136,10 @@ export const loved: ThemeDefinition = {
     // Base
     { token: '', foreground: 'c0c5ce' },
     // Comments
-    { token: 'comment', foreground: '4e5d73', fontStyle: 'italic' },
-    { token: 'comment.line', foreground: '4e5d73', fontStyle: 'italic' },
-    { token: 'comment.block', foreground: '4e5d73', fontStyle: 'italic' },
-    { token: 'comment.doc', foreground: '4e5d73', fontStyle: 'italic' },
+    { token: 'comment', foreground: '64727d', fontStyle: 'italic' },
+    { token: 'comment.line', foreground: '64727d', fontStyle: 'italic' },
+    { token: 'comment.block', foreground: '64727d', fontStyle: 'italic' },
+    { token: 'comment.doc', foreground: '64727d', fontStyle: 'italic' },
     // Strings
     { token: 'string', foreground: '97a38f' },
     { token: 'string.quoted', foreground: '97a38f' },
@@ -137,45 +149,45 @@ export const loved: ThemeDefinition = {
     // Keywords
     { token: 'keyword', foreground: 'b18bb1' },
     { token: 'keyword.control', foreground: 'b18bb1' },
-    { token: 'keyword.operator', foreground: 'c4a882' },
+    { token: 'keyword.operator', foreground: 'c0c5ce' },
     { token: 'keyword.other', foreground: 'b18bb1' },
     // Functions
     { token: 'entity.name.function', foreground: '6e94b9' },
-    { token: 'support.function', foreground: '6e94b9' },
+    { token: 'support.function', foreground: '7ea9a9' },
     { token: 'function', foreground: '6e94b9' },
-    // Types
-    { token: 'entity.name.type', foreground: '7ea9a9' },
-    { token: 'entity.name.class', foreground: '7ea9a9' },
-    { token: 'support.type', foreground: '7ea9a9' },
-    { token: 'type', foreground: '7ea9a9' },
-    // Variables
-    { token: 'variable', foreground: 'c0c5ce' },
-    { token: 'variable.parameter', foreground: 'eabe9a' },
-    { token: 'variable.other', foreground: 'c0c5ce' },
-    // Constants
-    { token: 'constant', foreground: 'ea7599' },
-    { token: 'constant.numeric', foreground: 'ea7599' },
-    { token: 'constant.language', foreground: 'ea7599' },
-    { token: 'constant.character', foreground: 'ea7599' },
-    // Operators
-    { token: 'operator', foreground: 'c4a882' },
-    { token: 'punctuation', foreground: '99a4b8' },
-    // Tags (HTML/JSX)
-    { token: 'tag', foreground: '6e94b9' },
-    { token: 'tag.attribute.name', foreground: 'c4a882' },
+    // Types (entity.name → orange in original)
+    { token: 'entity.name.type', foreground: 'f7987e' },
+    { token: 'entity.name.class', foreground: 'f7987e' },
+    { token: 'support.type', foreground: 'f7987e' },
+    { token: 'type', foreground: 'f7987e' },
+    // Variables (pink in original)
+    { token: 'variable', foreground: 'ea7599' },
+    { token: 'variable.parameter', foreground: 'ea7599' },
+    { token: 'variable.other', foreground: 'ea7599' },
+    // Constants (yellow in original)
+    { token: 'constant', foreground: 'eabe9a' },
+    { token: 'constant.numeric', foreground: 'eabe9a' },
+    { token: 'constant.language', foreground: 'eabe9a' },
+    { token: 'constant.character', foreground: 'eabe9a' },
+    // Operators (editorForeground in original)
+    { token: 'operator', foreground: 'c0c5ce' },
+    { token: 'punctuation', foreground: 'c0c5ce' },
+    // Tags (pink in original)
+    { token: 'tag', foreground: 'ea7599' },
+    { token: 'tag.attribute.name', foreground: 'eabe9a' },
     // CSS
-    { token: 'attribute.name', foreground: 'c4a882' },
+    { token: 'attribute.name', foreground: 'eabe9a' },
     { token: 'attribute.value', foreground: '97a38f' },
-    // JSON
-    { token: 'string.key.json', foreground: '6e94b9' },
+    // JSON (keys are pink in original)
+    { token: 'string.key.json', foreground: 'ea7599' },
     { token: 'string.value.json', foreground: '97a38f' },
-    // Markdown
-    { token: 'markup.heading', foreground: '99beff', fontStyle: 'bold' },
+    // Markdown (headings are pink in original)
+    { token: 'markup.heading', foreground: 'ea7599', fontStyle: 'bold' },
     { token: 'markup.bold', foreground: 'c0c5ce', fontStyle: 'bold' },
     { token: 'markup.italic', foreground: 'c0c5ce', fontStyle: 'italic' },
     { token: 'markup.underline', foreground: 'c0c5ce', fontStyle: 'underline' },
     { token: 'markup.raw', foreground: '97a38f' },
-    { token: 'markup.quote', foreground: '4e5d73', fontStyle: 'italic' },
+    { token: 'markup.quote', foreground: '64727d', fontStyle: 'italic' },
     // Diff
     { token: 'inserted', foreground: '97a38f' },
     { token: 'deleted', foreground: 'e05252' },
@@ -188,23 +200,23 @@ export const loved: ThemeDefinition = {
     selectionBackground: '#2a3f5c',
     lineHighlightBackground: '#1e2a3d',
     gutterBackground: '#17202f',
-    lineNumberForeground: '#4e5d73',
+    lineNumberForeground: '#75809590',
     lineNumberActiveForeground: '#99a4b8',
   },
 
   syntaxHighlight: {
     keyword: '#b18bb1',
     string: '#97a38f',
-    comment: '#4e5d73',
+    comment: '#64727d',
     function: '#6e94b9',
-    type: '#7ea9a9',
-    variable: '#c0c5ce',
-    number: '#ea7599',
-    operator: '#c4a882',
-    punctuation: '#99a4b8',
-    tag: '#6e94b9',
-    attribute: '#c4a882',
-    constant: '#ea7599',
-    property: '#99beff',
+    type: '#f7987e',
+    variable: '#ea7599',
+    number: '#eabe9a',
+    operator: '#c0c5ce',
+    punctuation: '#c0c5ce',
+    tag: '#ea7599',
+    attribute: '#eabe9a',
+    constant: '#eabe9a',
+    property: '#a67868',
   },
 };

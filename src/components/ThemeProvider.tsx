@@ -20,6 +20,7 @@ import type { Theme } from '../types';
 /** Available UI font options. */
 export const UI_FONTS = [
   { id: 'Noto Sans JP', label: 'Noto Sans JP', family: "'Noto Sans JP', -apple-system, sans-serif", googleFont: 'Noto+Sans+JP:wght@300;400;500;600;700' },
+  { id: 'Cormorant Garamond', label: 'Cormorant Garamond', family: "'Cormorant Garamond', Georgia, serif", googleFont: 'Cormorant+Garamond:wght@300;400;500;600;700' },
   { id: 'Inter', label: 'Inter', family: "'Inter', -apple-system, sans-serif", googleFont: 'Inter:wght@300;400;500;600;700' },
   { id: 'SF Pro', label: 'SF Pro', family: "-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif", googleFont: null },
   { id: 'System Default', label: 'System Default', family: "system-ui, -apple-system, sans-serif", googleFont: null },
@@ -279,6 +280,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     const fontDef = UI_FONTS.find(f => f.id === uiFont);
     if (fontDef) {
       document.documentElement.style.setProperty('font-family', fontDef.family);
+      document.documentElement.style.setProperty('--font-display', fontDef.family);
     }
   }, [uiFont]);
 

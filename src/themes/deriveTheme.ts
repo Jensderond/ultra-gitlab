@@ -297,6 +297,18 @@ export function deriveTheme(bg: string, text: string, accent: string): ThemeDefi
       codeBg: bgDim,
     },
 
+    overlays: {
+      glass: rgba(bgSecondary, isDark ? 0.95 : 0.95),
+      glassLight: rgba(bgSecondary, isDark ? 0.75 : 0.80),
+      surface: rgba(bgTertiary, isDark ? 0.6 : 0.50),
+      surfaceHover: rgba(bgTertiary, isDark ? 0.9 : 0.80),
+      hover: rgba(bgTertiary, isDark ? 0.4 : 0.50),
+      divider: rgba(text, isDark ? 0.08 : 0.10),
+      backdrop: rgba(bg, isDark ? 0.85 : 0.90),
+      backdropLight: rgba(bg, isDark ? 0.5 : 0.70),
+      waveOpacity: '0',
+    },
+
     extended: {
       sakuraPink: extPink,
       springGreen: extGreen,

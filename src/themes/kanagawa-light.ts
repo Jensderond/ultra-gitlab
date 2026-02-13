@@ -109,6 +109,18 @@ export const kanagawaLight: ThemeDefinition = {
     codeBg: '#e7dba0',     // lotusWhite4
   },
 
+  overlays: {
+    glass: 'rgba(229, 221, 176, 0.95)',
+    glassLight: 'rgba(229, 221, 176, 0.80)',
+    surface: 'rgba(213, 206, 163, 0.50)',
+    surfaceHover: 'rgba(213, 206, 163, 0.80)',
+    hover: 'rgba(220, 213, 172, 0.50)',
+    divider: 'rgba(84, 84, 100, 0.15)',
+    backdrop: 'rgba(242, 236, 188, 0.90)',
+    backdropLight: 'rgba(242, 236, 188, 0.70)',
+    waveOpacity: '0',
+  },
+
   extended: {
     sakuraPink: '#b35b79',    // lotusPink
     springGreen: '#6f894e',   // lotusGreen
