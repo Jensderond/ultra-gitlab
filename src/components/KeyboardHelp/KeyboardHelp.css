@@ -97,6 +97,10 @@
   margin-bottom: 0;
 }
 
+.shortcut-category--active .category-header {
+  color: var(--accent-color, var(--text-primary));
+}
+
 .category-header {
   margin: 0 0 12px;
   font-size: 12px;
@@ -124,6 +128,18 @@
 .shortcut-description {
   font-size: 14px;
   color: var(--text-primary);
+}
+
+.shortcut-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.shortcut-separator {
+  color: var(--text-tertiary);
+  font-size: 11px;
 }
 
 .shortcut-key {

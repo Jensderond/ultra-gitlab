@@ -39,7 +39,9 @@ export type ShortcutContext =
   | 'global'
   | 'mr-list'
   | 'mr-detail'
+  | 'my-mr-detail'
   | 'diff-viewer'
+  | 'pipelines'
   | 'settings';
 
 /**
@@ -120,28 +122,14 @@ export const defaultShortcuts: ShortcutDefinition[] = [
   {
     id: 'select-next',
     description: 'Select next MR',
-    defaultKey: 'j',
+    defaultKey: 'j / ↓',
     category: 'list',
     context: 'mr-list',
   },
   {
     id: 'select-previous',
     description: 'Select previous MR',
-    defaultKey: 'k',
-    category: 'list',
-    context: 'mr-list',
-  },
-  {
-    id: 'select-next-arrow',
-    description: 'Select next MR',
-    defaultKey: '↓',
-    category: 'list',
-    context: 'mr-list',
-  },
-  {
-    id: 'select-previous-arrow',
-    description: 'Select previous MR',
-    defaultKey: '↑',
+    defaultKey: 'k / ↑',
     category: 'list',
     context: 'mr-list',
   },
@@ -157,42 +145,14 @@ export const defaultShortcuts: ShortcutDefinition[] = [
   {
     id: 'next-file',
     description: 'Next file',
-    defaultKey: 'n',
+    defaultKey: 'n / j / ↓',
     category: 'diff',
     context: 'diff-viewer',
   },
   {
     id: 'prev-file',
     description: 'Previous file',
-    defaultKey: 'p',
-    category: 'diff',
-    context: 'diff-viewer',
-  },
-  {
-    id: 'next-file-jk',
-    description: 'Next file',
-    defaultKey: 'j',
-    category: 'diff',
-    context: 'diff-viewer',
-  },
-  {
-    id: 'prev-file-jk',
-    description: 'Previous file',
-    defaultKey: 'k',
-    category: 'diff',
-    context: 'diff-viewer',
-  },
-  {
-    id: 'next-file-arrow',
-    description: 'Next file',
-    defaultKey: '↓',
-    category: 'diff',
-    context: 'diff-viewer',
-  },
-  {
-    id: 'prev-file-arrow',
-    description: 'Previous file',
-    defaultKey: '↑',
+    defaultKey: 'p / k / ↑',
     category: 'diff',
     context: 'diff-viewer',
   },
@@ -200,6 +160,20 @@ export const defaultShortcuts: ShortcutDefinition[] = [
     id: 'toggle-view-mode',
     description: 'Toggle unified/split view',
     defaultKey: 'x',
+    category: 'diff',
+    context: 'diff-viewer',
+  },
+  {
+    id: 'next-change',
+    description: 'Next change in file',
+    defaultKey: ']',
+    category: 'diff',
+    context: 'diff-viewer',
+  },
+  {
+    id: 'prev-change',
+    description: 'Previous change in file',
+    defaultKey: '[',
     category: 'diff',
     context: 'diff-viewer',
   },
@@ -233,6 +207,66 @@ export const defaultShortcuts: ShortcutDefinition[] = [
     category: 'review',
     context: 'mr-detail',
   },
+  {
+    id: 'open-in-browser',
+    description: 'Open MR in browser',
+    defaultKey: 'o',
+    category: 'review',
+    context: 'mr-detail',
+  },
+  {
+    id: 'mark-viewed',
+    description: 'Mark file as viewed & next',
+    defaultKey: 'v',
+    category: 'review',
+    context: 'mr-detail',
+  },
+  {
+    id: 'toggle-generated',
+    description: 'Toggle generated files',
+    defaultKey: 'g',
+    category: 'diff',
+    context: 'diff-viewer',
+  },
+  {
+    id: 'add-suggestion',
+    description: 'Add suggestion at line',
+    defaultKey: 's',
+    category: 'review',
+    context: 'mr-detail',
+  },
+
+  // My MR Detail shortcuts
+  {
+    id: 'tab-overview',
+    description: 'Switch to Overview tab',
+    defaultKey: '1',
+    category: 'navigation',
+    context: 'my-mr-detail',
+  },
+  {
+    id: 'tab-comments',
+    description: 'Switch to Comments tab',
+    defaultKey: '2',
+    category: 'navigation',
+    context: 'my-mr-detail',
+  },
+  {
+    id: 'tab-code',
+    description: 'Switch to Code tab',
+    defaultKey: '3',
+    category: 'navigation',
+    context: 'my-mr-detail',
+  },
+
+  // Pipelines shortcuts
+  {
+    id: 'focus-search',
+    description: 'Focus search',
+    defaultKey: '/',
+    category: 'navigation',
+    context: 'pipelines',
+  },
 ];
 
 /**
@@ -258,6 +292,58 @@ export function getShortcutsByCategory(): Map<ShortcutCategory, ShortcutDefiniti
   }
 
   return grouped;
+}
+
+/**
+ * Map a route pathname to the relevant shortcut contexts for that screen.
+ * Returns contexts in priority order (most specific first).
+ */
+export function getContextsForRoute(pathname: string): ShortcutContext[] {
+  if (/^\/my-mrs\/\d+/.test(pathname)) {
+    return ['my-mr-detail', 'diff-viewer'];
+  }
+  if (/^\/mrs\/\d+/.test(pathname)) {
+    return ['mr-detail', 'diff-viewer'];
+  }
+  if (pathname === '/mrs' || pathname === '/my-mrs') {
+    return ['mr-list'];
+  }
+  if (pathname === '/pipelines') {
+    return ['pipelines'];
+  }
+  if (pathname === '/settings') {
+    return ['settings'];
+  }
+  return [];
+}
+
+/**
+ * Get shortcuts grouped by category, with context-relevant categories sorted first.
+ */
+export function getShortcutsByCategoryForRoute(
+  pathname: string
+): Map<ShortcutCategory, ShortcutDefinition[]> {
+  const activeContexts = new Set(getContextsForRoute(pathname));
+  const grouped = getShortcutsByCategory();
+
+  // Partition categories: those with shortcuts matching the active contexts first
+  const contextCategories: [ShortcutCategory, ShortcutDefinition[]][] = [];
+  const otherCategories: [ShortcutCategory, ShortcutDefinition[]][] = [];
+
+  for (const [category, shortcuts] of grouped) {
+    const hasContextShortcut = shortcuts.some((s) => activeContexts.has(s.context));
+    if (hasContextShortcut) {
+      contextCategories.push([category, shortcuts]);
+    } else {
+      otherCategories.push([category, shortcuts]);
+    }
+  }
+
+  const result = new Map<ShortcutCategory, ShortcutDefinition[]>();
+  for (const [cat, sc] of [...contextCategories, ...otherCategories]) {
+    result.set(cat, sc);
+  }
+  return result;
 }
 
 /**

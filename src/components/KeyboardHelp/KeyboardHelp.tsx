@@ -7,10 +7,10 @@
 
 import { useEffect, useCallback } from 'react';
 import {
-  defaultShortcuts,
   categoryLabels,
   formatKey,
-  type ShortcutCategory,
+  getShortcutsByCategoryForRoute,
+  getContextsForRoute,
 } from '../../config/shortcuts';
 import './KeyboardHelp.css';
 
@@ -19,55 +19,21 @@ interface KeyboardHelpProps {
   isOpen: boolean;
   /** Close the overlay */
   onClose: () => void;
-}
-
-/**
- * Group shortcuts by category for display.
- */
-function groupByCategory() {
-  const groups = new Map<ShortcutCategory, typeof defaultShortcuts>();
-
-  // Order categories for display
-  const categoryOrder: ShortcutCategory[] = [
-    'global',
-    'navigation',
-    'list',
-    'diff',
-    'review',
-    'sync',
-  ];
-
-  for (const category of categoryOrder) {
-    groups.set(category, []);
-  }
-
-  for (const shortcut of defaultShortcuts) {
-    const group = groups.get(shortcut.category);
-    if (group) {
-      group.push(shortcut);
-    }
-  }
-
-  // Remove empty categories
-  for (const [category, shortcuts] of groups) {
-    if (shortcuts.length === 0) {
-      groups.delete(category);
-    }
-  }
-
-  return groups;
+  /** Current route pathname for context-aware sorting */
+  pathname: string;
 }
 
 /**
  * Keyboard Help overlay.
  *
  * Features:
- * - Organized by category
+ * - Organized by category with context-relevant shortcuts first
  * - Shows all shortcuts with descriptions
+ * - Highlights categories relevant to the current screen
  * - Escape to close
  * - Click outside to close
  */
-export default function KeyboardHelp({ isOpen, onClose }: KeyboardHelpProps) {
+export default function KeyboardHelp({ isOpen, onClose, pathname }: KeyboardHelpProps) {
   // Handle keyboard events
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -92,7 +58,8 @@ export default function KeyboardHelp({ isOpen, onClose }: KeyboardHelpProps) {
     return null;
   }
 
-  const groupedShortcuts = groupByCategory();
+  const groupedShortcuts = getShortcutsByCategoryForRoute(pathname);
+  const activeContexts = new Set(getContextsForRoute(pathname));
 
   return (
     <div className="keyboard-help-overlay" onClick={onClose}>
@@ -113,23 +80,34 @@ export default function KeyboardHelp({ isOpen, onClose }: KeyboardHelpProps) {
         </div>
 
         <div className="keyboard-help-content">
-          {Array.from(groupedShortcuts.entries()).map(([category, shortcuts]) => (
-            <div key={category} className="shortcut-category">
-              <h3 className="category-header">{categoryLabels[category]}</h3>
-              <div className="shortcut-list">
-                {shortcuts.map((shortcut) => (
-                  <div key={shortcut.id} className="shortcut-item">
-                    <span className="shortcut-description">
-                      {shortcut.description}
-                    </span>
-                    <kbd className="shortcut-key">
-                      {formatKey(shortcut.defaultKey)}
-                    </kbd>
-                  </div>
-                ))}
+          {Array.from(groupedShortcuts.entries()).map(([category, shortcuts]) => {
+            const isActiveCategory = shortcuts.some((s) => activeContexts.has(s.context));
+            return (
+              <div key={category} className={`shortcut-category${isActiveCategory ? ' shortcut-category--active' : ''}`}>
+                <h3 className="category-header">{categoryLabels[category]}</h3>
+                <div className="shortcut-list">
+                  {shortcuts.map((shortcut) => {
+                    const keys = shortcut.defaultKey.split(' / ');
+                    return (
+                      <div key={shortcut.id} className="shortcut-item">
+                        <span className="shortcut-description">
+                          {shortcut.description}
+                        </span>
+                        <span className="shortcut-keys">
+                          {keys.map((key, i) => (
+                            <span key={key}>
+                              {i > 0 && <span className="shortcut-separator">/</span>}
+                              <kbd className="shortcut-key">{formatKey(key)}</kbd>
+                            </span>
+                          ))}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="keyboard-help-footer">

@@ -270,6 +270,7 @@ function AppContent() {
       <KeyboardHelp
         isOpen={keyboardHelpOpen}
         onClose={closeKeyboardHelp}
+        pathname={location.pathname}
       />
 
       {authExpired && (
