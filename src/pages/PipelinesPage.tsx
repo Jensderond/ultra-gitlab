@@ -131,6 +131,47 @@ export default function PipelinesPage() {
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const statusesRef = useRef(statuses);
   statusesRef.current = statuses;
+  const firstLoadDoneRef = useRef(false);
+
+  /**
+   * Compare old and new pipeline statuses for pinned projects and emit
+   * window custom events for any status changes detected.
+   * Skips first load (when there are no previous statuses).
+   */
+  const emitPipelineChanges = useCallback(
+    (newStatusMap: Map<number, PipelineStatus>) => {
+      if (!firstLoadDoneRef.current) {
+        firstLoadDoneRef.current = true;
+        return;
+      }
+
+      const oldStatuses = statusesRef.current;
+      const pinnedIds = new Set(
+        projects.filter((p) => p.pinned).map((p) => p.projectId)
+      );
+
+      for (const [projectId, newStatus] of newStatusMap) {
+        if (!pinnedIds.has(projectId)) continue;
+        const oldStatus = oldStatuses.get(projectId);
+        if (!oldStatus) continue; // no previous status to compare
+        if (oldStatus.status === newStatus.status) continue;
+
+        const project = projects.find((p) => p.projectId === projectId);
+        window.dispatchEvent(
+          new CustomEvent('notification:pipeline-changed', {
+            detail: {
+              projectName: project?.nameWithNamespace ?? `Project ${projectId}`,
+              oldStatus: oldStatus.status,
+              newStatus: newStatus.status,
+              refName: newStatus.refName,
+              webUrl: newStatus.webUrl,
+            },
+          })
+        );
+      }
+    },
+    [projects]
+  );
 
   // Load instances
   useEffect(() => {
@@ -162,6 +203,7 @@ export default function PipelinesPage() {
         setStatusesLoading(true);
         const statusList = await getPipelineStatuses(selectedInstanceId, projectIds);
         const statusMap = new Map(statusList.map((s) => [s.projectId, s]));
+        emitPipelineChanges(statusMap);
         setStatuses(statusMap);
         setLastFetched(new Date());
         setStatusesLoading(false);
@@ -171,7 +213,7 @@ export default function PipelinesPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedInstanceId]);
+  }, [selectedInstanceId, emitPipelineChanges]);
 
   useEffect(() => {
     loadProjects();
@@ -184,12 +226,13 @@ export default function PipelinesPage() {
       const projectIds = projects.map((p) => p.projectId);
       const statusList = await getPipelineStatuses(selectedInstanceId, projectIds);
       const statusMap = new Map(statusList.map((s) => [s.projectId, s]));
+      emitPipelineChanges(statusMap);
       setStatuses(statusMap);
       setLastFetched(new Date());
     } catch (error) {
       console.error('Failed to refresh pipeline statuses:', error);
     }
-  }, [selectedInstanceId, projects]);
+  }, [selectedInstanceId, projects, emitPipelineChanges]);
 
   // Auto-refresh polling with adaptive interval
   useEffect(() => {
