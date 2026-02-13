@@ -23,6 +23,7 @@ import { manualSync } from './services/storage';
 import { listInstances } from './services/gitlab';
 import { listPipelineProjects, visitPipelineProject } from './services/tauri';
 import { MonacoProvider } from './components/Monaco';
+import { ThemeProvider } from './components/ThemeProvider';
 import { ToastProvider, useToast, ToastContainer } from './components/Toast';
 import type { AuthExpiredPayload, PipelineProject } from './types';
 import './App.css';
@@ -300,13 +301,15 @@ function AppContent() {
  */
 function App() {
   return (
-    <MonacoProvider>
-      <ToastProvider>
-        <BrowserRouter>
-          <AppContent />
-        </BrowserRouter>
-      </ToastProvider>
-    </MonacoProvider>
+    <ThemeProvider>
+      <MonacoProvider>
+        <ToastProvider>
+          <BrowserRouter>
+            <AppContent />
+          </BrowserRouter>
+        </ToastProvider>
+      </MonacoProvider>
+    </ThemeProvider>
   );
 }
 
