@@ -1,7 +1,7 @@
 import { useMemo, useRef, useCallback, useEffect, forwardRef, useImperativeHandle, useState } from "react";
 import { DiffEditor, type DiffOnMount } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
-import { KANAGAWA_THEME_NAME } from "./kanagawaTheme";
+import { MONACO_THEME_NAME } from "./MonacoProvider";
 import { getLanguageFromPath } from "./languageDetection";
 
 /** Information about the current cursor position */
@@ -430,7 +430,7 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
       original={effectiveOriginal}
       modified={modifiedContent}
       language={detectedLanguage}
-      theme={KANAGAWA_THEME_NAME}
+      theme={MONACO_THEME_NAME}
       options={{
         // Read-only mode
         readOnly: true,
