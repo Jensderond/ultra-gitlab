@@ -220,7 +220,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         });
       }
     }
-  }, [fileContentLoading, selectedFile, fileContent]);
+  }, [fileContentLoading, selectedFile]);
 
   // Restore view state after view mode toggle (split ↔ unified)
   useEffect(() => {

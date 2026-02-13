@@ -2,6 +2,22 @@ import type { editor } from 'monaco-editor';
 import type { ThemeDefinition } from './types';
 
 /**
+ * Convert an rgba() CSS string to #rrggbbaa hex format for Monaco.
+ * Passes through strings that are already hex.
+ */
+function toHexColor(color: string): string {
+  const rgbaMatch = color.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\s*\)$/);
+  if (!rgbaMatch) return color;
+  const r = parseInt(rgbaMatch[1]).toString(16).padStart(2, '0');
+  const g = parseInt(rgbaMatch[2]).toString(16).padStart(2, '0');
+  const b = parseInt(rgbaMatch[3]).toString(16).padStart(2, '0');
+  const a = rgbaMatch[4] !== undefined
+    ? Math.round(parseFloat(rgbaMatch[4]) * 255).toString(16).padStart(2, '0')
+    : 'ff';
+  return `#${r}${g}${b}${a}`;
+}
+
+/**
  * Convert a ThemeDefinition into a Monaco IStandaloneThemeData object.
  *
  * Token rules come directly from the theme's monacoTokenColors array.
@@ -75,11 +91,11 @@ export function themeToMonacoTheme(theme: ThemeDefinition): editor.IStandaloneTh
     'editorGutter.modifiedBackground': theme.status.warning.color,
     'editorGutter.deletedBackground': theme.status.error.color,
 
-    // Diff editor
-    'diffEditor.insertedTextBackground': theme.diff.addBg,
-    'diffEditor.removedTextBackground': theme.diff.removeBg,
-    'diffEditor.insertedLineBackground': theme.diff.addBg,
-    'diffEditor.removedLineBackground': theme.diff.removeBg,
+    // Diff editor — rgba values must be converted to hex for Monaco
+    'diffEditor.insertedTextBackground': toHexColor(theme.diff.addBg),
+    'diffEditor.removedTextBackground': toHexColor(theme.diff.removeBg),
+    'diffEditor.insertedLineBackground': toHexColor(theme.diff.addBg),
+    'diffEditor.removedLineBackground': toHexColor(theme.diff.removeBg),
     'diffEditor.diagonalFill': theme.borders.color,
 
     // Diff editor unchanged/collapsed regions

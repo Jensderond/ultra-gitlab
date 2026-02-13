@@ -320,25 +320,32 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
       currentChangeIndexRef.current = -1;
     }, [originalContent, modifiedContent]);
 
-    // Apply hideUnchangedRegions after content loads.
-    // The creation-time option fires before models have content, so we
-    // re-apply via updateOptions once the editor is ready and content changes.
-    // We must toggle off→on to force Monaco to re-collapse; calling updateOptions
-    // with the same config is a no-op and leaves regions expanded.
+    // Force re-collapse when switching files.
+    // The toggle must happen AFTER Monaco finishes computing the diff for the
+    // new models — otherwise the option is already `enabled: true` when the
+    // diff result arrives and Monaco treats it as a no-op.  We listen for
+    // onDidUpdateDiff as the trigger, then toggle off→on in a rAF.
     useEffect(() => {
       const ed = editorRef.current;
-      if (!ed || !editorReady) return;
-      // Tear down existing unchanged-region widgets first
-      ed.updateOptions({ hideUnchangedRegions: { enabled: false } });
-      if (!hideUnchanged) return;
-      // Re-enable after one frame so the diff computation picks up the new models
-      const id = requestAnimationFrame(() => {
-        ed.updateOptions({
-          hideUnchangedRegions: { enabled: true, contextLineCount: 5, minimumLineCount: 3, revealLineCount: 20 },
+      if (!ed || !editorReady || !hideUnchanged) return;
+
+      let needsCollapse = true;
+      const disposable = ed.onDidUpdateDiff(() => {
+        if (!needsCollapse) return;
+        needsCollapse = false;
+        requestAnimationFrame(() => {
+          ed.updateOptions({ hideUnchangedRegions: { enabled: false } });
+          ed.updateOptions({
+            hideUnchangedRegions: { enabled: true, contextLineCount: 5, minimumLineCount: 3, revealLineCount: 20 },
+          });
         });
       });
-      return () => cancelAnimationFrame(id);
-    }, [hideUnchanged, editorReady, originalContent, modifiedContent]);
+
+      return () => {
+        needsCollapse = false;
+        disposable.dispose();
+      };
+    }, [filePath, editorReady, hideUnchanged]);
 
     // Add comment decorations to the editor
     useEffect(() => {
@@ -450,9 +457,10 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
         renderOverviewRuler: true,
         renderIndicators: true,
 
-        // hideUnchangedRegions is managed exclusively via updateOptions in our
-        // useEffect to avoid the DiffEditor re-applying stale options after a toggle.
-        hideUnchangedRegions: { enabled: false },
+        // Collapse unchanged regions (show only 5 lines of context around changes)
+        hideUnchangedRegions: hideUnchanged
+          ? { enabled: true, contextLineCount: 5, minimumLineCount: 3, revealLineCount: 20 }
+          : { enabled: false },
 
         // Editor appearance
         minimap: { enabled: false },
