@@ -17,6 +17,7 @@ import type {
   SyncStatusResponse,
   Settings,
   SettingsUpdate,
+  Theme,
 } from '../types';
 
 // ============================================================================
@@ -99,12 +100,21 @@ export async function setSyncInterval(minutes: number): Promise<Settings> {
 /**
  * Update the theme setting.
  *
- * @param theme - The theme to use
+ * @param theme - The theme ID to use
  */
 export async function setTheme(
-  theme: 'light' | 'dark' | 'system'
+  theme: Theme
 ): Promise<Settings> {
   return updateSettings({ theme });
+}
+
+/**
+ * Update the UI font setting.
+ *
+ * @param uiFont - The font family name to use for UI text
+ */
+export async function setUiFont(uiFont: string): Promise<Settings> {
+  return updateSettings({ uiFont });
 }
 
 /**

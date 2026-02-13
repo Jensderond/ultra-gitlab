@@ -280,12 +280,13 @@ export interface ApprovalResponse {
 // Settings
 // ============================================================================
 
-export type Theme = 'light' | 'dark' | 'system';
+export type Theme = 'kanagawa-wave' | 'kanagawa-light' | 'loved' | 'custom';
 export type DiffViewMode = 'unified' | 'split';
 
 export interface Settings {
   syncIntervalMinutes: number;
   theme: Theme;
+  uiFont: string;
   keyboardShortcuts: Record<string, string>;
   diffViewMode: DiffViewMode;
   collapsePatterns: string[];

@@ -21,6 +21,18 @@ const SYNC_CONFIG_KEY: &str = "sync_config";
 /// Key for collapse patterns in the store.
 const COLLAPSE_PATTERNS_KEY: &str = "collapse_patterns";
 
+/// Key for theme ID in the store.
+const THEME_KEY: &str = "theme";
+
+/// Key for UI font in the store.
+const UI_FONT_KEY: &str = "ui_font";
+
+/// Default theme ID.
+const DEFAULT_THEME: &str = "kanagawa-wave";
+
+/// Default UI font.
+const DEFAULT_UI_FONT: &str = "Noto Sans JP";
+
 /// Default glob patterns for identifying generated/lock files.
 fn default_collapse_patterns() -> Vec<String> {
     vec![
@@ -46,6 +58,10 @@ pub struct AppSettings {
     pub sync: SyncConfig,
     /// Glob patterns for collapsing generated files in the file tree.
     pub collapse_patterns: Vec<String>,
+    /// Active theme ID (e.g., "kanagawa-wave", "kanagawa-light", "loved", "custom").
+    pub theme: String,
+    /// UI font family name.
+    pub ui_font: String,
 }
 
 impl Default for AppSettings {
@@ -53,6 +69,8 @@ impl Default for AppSettings {
         Self {
             sync: SyncConfig::default(),
             collapse_patterns: default_collapse_patterns(),
+            theme: DEFAULT_THEME.to_string(),
+            ui_font: DEFAULT_UI_FONT.to_string(),
         }
     }
 }
@@ -83,7 +101,19 @@ async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppError> {
         None => default_collapse_patterns(),
     };
 
-    Ok(AppSettings { sync, collapse_patterns })
+    // Try to load theme
+    let theme = match store.get(THEME_KEY) {
+        Some(value) => serde_json::from_value(value.clone()).unwrap_or_else(|_| DEFAULT_THEME.to_string()),
+        None => DEFAULT_THEME.to_string(),
+    };
+
+    // Try to load UI font
+    let ui_font = match store.get(UI_FONT_KEY) {
+        Some(value) => serde_json::from_value(value.clone()).unwrap_or_else(|_| DEFAULT_UI_FONT.to_string()),
+        None => DEFAULT_UI_FONT.to_string(),
+    };
+
+    Ok(AppSettings { sync, collapse_patterns, theme, ui_font })
 }
 
 /// Save settings to store.
@@ -99,6 +129,14 @@ async fn save_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), Ap
     // Save collapse patterns
     let collapse_value = serde_json::to_value(&settings.collapse_patterns)?;
     store.set(COLLAPSE_PATTERNS_KEY, collapse_value);
+
+    // Save theme
+    let theme_value = serde_json::to_value(&settings.theme)?;
+    store.set(THEME_KEY, theme_value);
+
+    // Save UI font
+    let ui_font_value = serde_json::to_value(&settings.ui_font)?;
+    store.set(UI_FONT_KEY, ui_font_value);
 
     // Persist to disk
     store
