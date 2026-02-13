@@ -138,6 +138,7 @@ pub struct GitLabMergeRequest {
     pub author: GitLabUser,
     pub labels: Vec<String>,
     pub reviewers: Option<Vec<GitLabUser>>,
+    pub detailed_merge_status: Option<String>,
 }
 
 /// GitLab user from API.
@@ -537,6 +538,7 @@ impl GitLabClient {
         }
     }
 
+
     /// Approve a merge request.
     pub async fn approve_merge_request(
         &self,
@@ -561,6 +563,75 @@ impl GitLabClient {
             project_id, mr_iid
         ))
         .await
+    }
+
+    /// Merge a merge request.
+    pub async fn merge_merge_request(
+        &self,
+        project_id: i64,
+        mr_iid: i64,
+    ) -> Result<(), AppError> {
+        let endpoint = format!(
+            "/projects/{}/merge_requests/{}/merge",
+            project_id, mr_iid
+        );
+        let url = self.api_url(&endpoint);
+        let response = self.client.put(&url).send().await?;
+
+        if response.status().is_success() {
+            Ok(())
+        } else {
+            let status = response.status();
+            // Read the body for a more descriptive error
+            let body = response.text().await.unwrap_or_default();
+            let message = serde_json::from_str::<serde_json::Value>(&body)
+                .ok()
+                .and_then(|v| v.get("message")?.as_str().map(String::from))
+                .unwrap_or_else(|| match status.as_u16() {
+                    401 => "Not authorized to merge".into(),
+                    405 => "MR cannot be merged (check conflicts or pipeline)".into(),
+                    406 => "Branch cannot be merged".into(),
+                    409 => "SHA mismatch — the MR has been updated".into(),
+                    _ => format!("Merge failed ({})", status),
+                });
+
+            Err(AppError::gitlab_api_full(
+                &message,
+                status.as_u16(),
+                &endpoint,
+            ))
+        }
+    }
+
+    /// Rebase a merge request's source branch.
+    pub async fn rebase_merge_request(
+        &self,
+        project_id: i64,
+        mr_iid: i64,
+    ) -> Result<(), AppError> {
+        let endpoint = format!(
+            "/projects/{}/merge_requests/{}/rebase",
+            project_id, mr_iid
+        );
+        let url = self.api_url(&endpoint);
+        let response = self.client.put(&url).send().await?;
+
+        if response.status().is_success() {
+            Ok(())
+        } else {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            let message = serde_json::from_str::<serde_json::Value>(&body)
+                .ok()
+                .and_then(|v| v.get("message")?.as_str().map(String::from))
+                .unwrap_or_else(|| format!("Rebase failed ({})", status));
+
+            Err(AppError::gitlab_api_full(
+                &message,
+                status.as_u16(),
+                &endpoint,
+            ))
+        }
     }
 
     /// Add a general comment to a merge request.

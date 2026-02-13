@@ -970,6 +970,92 @@ pub async fn get_cached_file_pair(
     })
 }
 
+/// Merge a merge request via the GitLab API.
+///
+/// This calls the GitLab merge endpoint directly (not via sync queue)
+/// because merging is irreversible and needs immediate feedback.
+///
+/// On success, updates the local DB to reflect the merged state.
+///
+/// # Arguments
+/// * `mr_id` - The local MR database ID
+///
+/// # Returns
+/// Success or error (e.g., conflicts, pipeline failures, permissions).
+#[tauri::command]
+pub async fn merge_mr(
+    pool: State<'_, DbPool>,
+    mr_id: i64,
+) -> Result<(), AppError> {
+    let (instance_id, project_id, mr_iid) = get_mr_api_ids(pool.inner(), mr_id).await?;
+    let client = create_gitlab_client(&pool, instance_id).await?;
+
+    // Call GitLab merge API
+    client.merge_merge_request(project_id, mr_iid).await?;
+
+    // Update local DB on success
+    let now = chrono::Utc::now().timestamp();
+    sqlx::query(
+        "UPDATE merge_requests SET state = 'merged', merged_at = ? WHERE id = ?"
+    )
+    .bind(now)
+    .bind(mr_id)
+    .execute(pool.inner())
+    .await?;
+
+    Ok(())
+}
+
+/// Helper to look up instance_id, project_id, iid for a merge request.
+async fn get_mr_api_ids(pool: &DbPool, mr_id: i64) -> Result<(i64, i64, i64), AppError> {
+    sqlx::query_as::<_, (i64, i64, i64)>(
+        "SELECT instance_id, project_id, iid FROM merge_requests WHERE id = ?"
+    )
+    .bind(mr_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| AppError::not_found_with_id("MergeRequest", mr_id.to_string()))
+}
+
+/// Check the merge status of an MR by fetching it from GitLab.
+///
+/// Returns the `detailed_merge_status` string from GitLab, e.g.:
+/// - `"mergeable"` — ready to merge
+/// - `"need_rebase"` — source branch must be rebased
+/// - `"conflict"` — merge conflicts exist
+/// - `"ci_must_pass"` — pipeline must succeed first
+/// - `"discussions_not_resolved"` — open discussions
+/// - `"draft_status"` — MR is a draft
+/// - `"checking"` — GitLab is checking mergeability
+///
+/// # Arguments
+/// * `mr_id` - The local MR database ID
+#[tauri::command]
+pub async fn check_merge_status(
+    pool: State<'_, DbPool>,
+    mr_id: i64,
+) -> Result<String, AppError> {
+    let (instance_id, project_id, mr_iid) = get_mr_api_ids(pool.inner(), mr_id).await?;
+    let client = create_gitlab_client(&pool, instance_id).await?;
+    let gitlab_mr = client.get_merge_request(project_id, mr_iid).await?;
+
+    Ok(gitlab_mr.detailed_merge_status.unwrap_or_else(|| "unknown".into()))
+}
+
+/// Rebase a merge request's source branch via the GitLab API.
+///
+/// # Arguments
+/// * `mr_id` - The local MR database ID
+#[tauri::command]
+pub async fn rebase_mr(
+    pool: State<'_, DbPool>,
+    mr_id: i64,
+) -> Result<(), AppError> {
+    let (instance_id, project_id, mr_iid) = get_mr_api_ids(pool.inner(), mr_id).await?;
+    let client = create_gitlab_client(&pool, instance_id).await?;
+    client.rebase_merge_request(project_id, mr_iid).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

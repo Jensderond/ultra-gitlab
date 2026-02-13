@@ -27,6 +27,7 @@ import {
   resolveDiscussion,
   approveMR,
   unapproveMR,
+  mergeMR,
   type SetupInstanceResponse,
   type GitLabInstanceWithStatus,
 } from './tauri';
@@ -381,6 +382,15 @@ export async function approve(mrId: number): Promise<void> {
  */
 export async function unapprove(mrId: number): Promise<void> {
   return unapproveMR(mrId);
+}
+
+/**
+ * Merge a merge request.
+ *
+ * @param mrId - The merge request ID
+ */
+export async function mergeMergeRequest(mrId: number): Promise<void> {
+  return mergeMR(mrId);
 }
 
 // ============================================================================

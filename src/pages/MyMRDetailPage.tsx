@@ -8,7 +8,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { getMergeRequest, getMrReviewers, getComments, getCollapsePatterns } from '../services/tauri';
+import { getMergeRequest, getMrReviewers, getComments, getCollapsePatterns, mergeMR, checkMergeStatus, rebaseMR } from '../services/tauri';
 import { getMergeRequestFiles, getDiffRefs, getGitattributesPatterns } from '../services/gitlab';
 import { FileNavigation } from '../components/DiffViewer';
 import { MonacoDiffViewer, type MonacoDiffViewerRef } from '../components/Monaco/MonacoDiffViewer';
@@ -70,6 +70,12 @@ export default function MyMRDetailPage() {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [merging, setMerging] = useState(false);
+  const [mergeError, setMergeError] = useState<string | null>(null);
+  const [mergeConfirm, setMergeConfirm] = useState(false);
+  const [mergeStatus, setMergeStatus] = useState<string | null>(null);
+  const [mergeStatusLoading, setMergeStatusLoading] = useState(false);
+  const [rebasing, setRebasing] = useState(false);
 
   // Code tab state
   const diffViewerRef = useRef<MonacoDiffViewerRef>(null);
@@ -129,6 +135,40 @@ export default function MyMRDetailPage() {
     if (mrId) load();
   }, [mrId]);
 
+  // Fetch merge status from GitLab when MR is open
+  const fetchMergeStatus = useCallback(async () => {
+    if (!mr || mr.state !== 'opened') return;
+    setMergeStatusLoading(true);
+    try {
+      const status = await checkMergeStatus(mrId);
+      setMergeStatus(status);
+    } catch {
+      setMergeStatus(null);
+    } finally {
+      setMergeStatusLoading(false);
+    }
+  }, [mr, mrId]);
+
+  useEffect(() => {
+    fetchMergeStatus();
+  }, [fetchMergeStatus]);
+
+  const handleRebase = useCallback(async () => {
+    if (rebasing) return;
+    setRebasing(true);
+    setMergeError(null);
+    try {
+      await rebaseMR(mrId);
+      // Re-check status after rebase is initiated
+      // GitLab rebases asynchronously, so poll briefly
+      setTimeout(() => fetchMergeStatus(), 3000);
+    } catch (err) {
+      setMergeError(err instanceof Error ? err.message : 'Rebase failed');
+    } finally {
+      setRebasing(false);
+    }
+  }, [mrId, rebasing, fetchMergeStatus]);
+
   // Group comments by discussion thread
   const threads = useMemo(() => {
     const threadMap = new Map<string, Comment[]>();
@@ -158,6 +198,30 @@ export default function MyMRDetailPage() {
     () => reviewers.filter(r => r.status === 'approved').length,
     [reviewers]
   );
+
+  const handleMerge = useCallback(async () => {
+    if (!mr || merging) return;
+
+    // First click: show confirmation
+    if (!mergeConfirm) {
+      setMergeConfirm(true);
+      setMergeError(null);
+      return;
+    }
+
+    // Second click: actually merge
+    setMerging(true);
+    setMergeError(null);
+    setMergeConfirm(false);
+    try {
+      await mergeMR(mrId);
+      setMr((prev) => prev ? { ...prev, state: 'merged' } : prev);
+    } catch (err) {
+      setMergeError(err instanceof Error ? err.message : 'Merge failed');
+    } finally {
+      setMerging(false);
+    }
+  }, [mr, mrId, merging, mergeConfirm]);
 
   const goBack = useCallback(() => {
     navigate('/my-mrs');
@@ -430,6 +494,84 @@ export default function MyMRDetailPage() {
                 </ul>
               )}
             </section>
+
+            {mr.state === 'opened' && (
+              <section className="my-mr-merge-section">
+                <h3>Merge</h3>
+                {mergeStatusLoading ? (
+                  <p className="my-mr-merge-status-text">Checking merge status...</p>
+                ) : mergeStatus === 'mergeable' && mr.approvalStatus === 'approved' ? (
+                  <div className="my-mr-merge-actions">
+                    <button
+                      className={`my-mr-merge-button ${mergeConfirm ? 'confirm' : ''}`}
+                      onClick={handleMerge}
+                      disabled={merging}
+                    >
+                      {merging ? 'Merging...' : mergeConfirm ? 'Click again to confirm' : 'Merge'}
+                    </button>
+                    {mergeConfirm && (
+                      <button
+                        className="my-mr-merge-cancel"
+                        onClick={() => setMergeConfirm(false)}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                ) : mergeStatus === 'need_rebase' ? (
+                  <div className="my-mr-merge-actions">
+                    <span className="my-mr-merge-status need-rebase">Needs rebase</span>
+                    <button
+                      className="my-mr-rebase-button"
+                      onClick={handleRebase}
+                      disabled={rebasing}
+                    >
+                      {rebasing ? 'Rebasing...' : 'Rebase'}
+                    </button>
+                  </div>
+                ) : mergeStatus === 'conflict' ? (
+                  <div className="my-mr-merge-actions">
+                    <span className="my-mr-merge-status conflict">Has conflicts</span>
+                  </div>
+                ) : mergeStatus === 'ci_must_pass' ? (
+                  <div className="my-mr-merge-actions">
+                    <span className="my-mr-merge-status ci-pending">Pipeline must pass</span>
+                  </div>
+                ) : mergeStatus === 'discussions_not_resolved' ? (
+                  <div className="my-mr-merge-actions">
+                    <span className="my-mr-merge-status discussions">Unresolved discussions</span>
+                  </div>
+                ) : mergeStatus === 'draft_status' ? (
+                  <div className="my-mr-merge-actions">
+                    <span className="my-mr-merge-status draft">Draft</span>
+                  </div>
+                ) : mergeStatus === 'not_approved' ? (
+                  <div className="my-mr-merge-actions">
+                    <span className="my-mr-merge-status not-approved">Not yet approved</span>
+                  </div>
+                ) : mergeStatus === 'checking' ? (
+                  <p className="my-mr-merge-status-text">GitLab is checking mergeability...</p>
+                ) : mergeStatus === 'mergeable' ? (
+                  <div className="my-mr-merge-actions">
+                    <span className="my-mr-merge-status not-approved">Not yet approved</span>
+                  </div>
+                ) : mergeStatus ? (
+                  <div className="my-mr-merge-actions">
+                    <span className="my-mr-merge-status">{mergeStatus.replace(/_/g, ' ')}</span>
+                  </div>
+                ) : null}
+                {mergeError && (
+                  <p className="my-mr-merge-error">{mergeError}</p>
+                )}
+              </section>
+            )}
+
+            {mr.state === 'merged' && (
+              <section className="my-mr-merge-section">
+                <h3>Merge</h3>
+                <span className="my-mr-state-badge merged">Merged</span>
+              </section>
+            )}
           </div>
         )}
 

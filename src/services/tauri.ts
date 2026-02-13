@@ -247,6 +247,28 @@ export async function getCachedFilePair(
   return invoke<CachedFilePair>('get_cached_file_pair', { mrId, filePath });
 }
 
+/**
+ * Merge a merge request via the GitLab API.
+ */
+export async function mergeMR(mrId: number): Promise<void> {
+  return invoke<void>('merge_mr', { mrId });
+}
+
+/**
+ * Check the merge status of an MR from GitLab.
+ * Returns detailed_merge_status: "mergeable", "need_rebase", "conflict", etc.
+ */
+export async function checkMergeStatus(mrId: number): Promise<string> {
+  return invoke<string>('check_merge_status', { mrId });
+}
+
+/**
+ * Rebase a merge request's source branch via GitLab.
+ */
+export async function rebaseMR(mrId: number): Promise<void> {
+  return invoke<void>('rebase_mr', { mrId });
+}
+
 // ============================================================================
 // Comment Commands
 // ============================================================================
