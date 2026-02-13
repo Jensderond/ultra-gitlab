@@ -35,7 +35,7 @@
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
   font-weight: 500;
-  color: var(--kw-spring-green, #98bb6c);
+  color: var(--success-color, #98bb6c);
   background: rgba(152, 187, 108, 0.1);
   padding: 2px 8px;
   border-radius: 4px;
@@ -48,6 +48,6 @@
   align-items: center;
   justify-content: center;
   padding: 48px;
-  color: var(--kw-fg-muted, #727169);
+  color: var(--text-tertiary, #727169);
   font-size: 13px;
 }

@@ -3,47 +3,6 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap');
 
-/* Kanagawa Wave Color Palette */
-:root {
-  /* Backgrounds - Deep indigo ocean depths */
-  --kw-bg-dark: #1f1f28;
-  --kw-bg-default: #16161d;
-  --kw-bg-dim: #181820;
-  --kw-bg-highlight: #2a2a37;
-  --kw-bg-gutter: #1a1a22;
-
-  /* Foreground - Soft warm tones like paper/foam */
-  --kw-fg-default: #dcd7ba;
-  --kw-fg-dim: #c8c093;
-  --kw-fg-muted: #727169;
-  --kw-fg-comment: #625e5a;
-
-  /* Wave colors - Various blues from the painting */
-  --kw-wave-blue: #7e9cd8;
-  --kw-wave-cyan: #7fb4ca;
-  --kw-spring-blue: #7aa89f;
-  --kw-crystal-blue: #a3d4d5;
-
-  /* Sky and background colors */
-  --kw-sumi-ink: #363646;
-  --kw-winter-blue: #252535;
-  --kw-fuji-gray: #54546d;
-
-  /* Accent colors - From the painting's palette */
-  --kw-autumn-red: #c34043;
-  --kw-sakura-pink: #d27e99;
-  --kw-spring-green: #98bb6c;
-  --kw-carpYellow: #e6c384;
-  --kw-boat-yellow: #c0a36e;
-  --kw-roninYellow: #ff9e3b;
-  --kw-surimiOrange: #ffa066;
-  --kw-peach: #e46876;
-
-  /* Special effects */
-  --kw-wave-glow: rgba(126, 156, 216, 0.15);
-  --kw-wave-glow-strong: rgba(126, 156, 216, 0.3);
-}
-
 /* ================================================
    PAGE SHELL
    ================================================ */
@@ -52,11 +11,11 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--kw-bg-default);
+  background: var(--bg-primary);
   font-family: 'Noto Sans JP', -apple-system, sans-serif;
   position: relative;
   overflow: hidden;
-  color: var(--kw-fg-default);
+  color: var(--text-primary);
 }
 
 /* Atmospheric wave pattern - bottom of viewport */
@@ -124,9 +83,9 @@
   height: 1px;
   background: linear-gradient(90deg,
     transparent 0%,
-    var(--kw-sumi-ink) 15%,
-    var(--kw-fuji-gray) 50%,
-    var(--kw-sumi-ink) 85%,
+    var(--border-color) 15%,
+    var(--text-fuji) 50%,
+    var(--border-color) 85%,
     transparent 100%);
   opacity: 0.6;
 }
@@ -142,7 +101,7 @@
   font-size: 26px;
   font-weight: 800;
   letter-spacing: 0.04em;
-  color: var(--kw-fg-default);
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   gap: 16px;
@@ -156,11 +115,11 @@
   width: 3px;
   height: 22px;
   background: linear-gradient(180deg,
-    var(--kw-wave-blue) 0%,
-    var(--kw-wave-cyan) 60%,
+    var(--accent-color) 0%,
+    var(--accent-hover) 60%,
     transparent 100%);
   border-radius: 1.5px;
-  box-shadow: 0 0 14px var(--kw-wave-glow-strong);
+  box-shadow: 0 0 14px var(--wave-glow-strong);
   flex-shrink: 0;
   animation: barBreath 4s ease-in-out infinite;
 }
@@ -176,9 +135,9 @@
   font-family: 'IBM Plex Mono', monospace;
   font-size: 12px;
   font-weight: 500;
-  color: var(--kw-fg-muted);
+  color: var(--text-tertiary);
   background: transparent;
-  border: 1px solid var(--kw-sumi-ink);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -189,15 +148,15 @@
 }
 
 .instance-selector:hover {
-  border-color: var(--kw-fuji-gray);
-  color: var(--kw-fg-dim);
+  border-color: var(--text-fuji);
+  color: var(--text-secondary);
 }
 
 .instance-selector:focus {
   outline: none;
-  border-color: var(--kw-wave-blue);
-  box-shadow: 0 0 0 2px var(--kw-wave-glow);
-  color: var(--kw-fg-default);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px var(--wave-glow);
+  color: var(--text-primary);
 }
 
 /* ================================================
@@ -225,7 +184,7 @@
   justify-content: center;
   height: 100%;
   gap: 24px;
-  color: var(--kw-fg-muted);
+  color: var(--text-tertiary);
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 13px;
   font-weight: 400;
@@ -238,11 +197,11 @@
   width: 36px;
   height: 36px;
   border: 1.5px solid transparent;
-  border-top-color: var(--kw-wave-blue);
-  border-right-color: var(--kw-wave-cyan);
+  border-top-color: var(--accent-color);
+  border-right-color: var(--accent-hover);
   border-radius: 50%;
   animation: rippleSpin 1.1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
-  box-shadow: 0 0 20px var(--kw-wave-glow);
+  box-shadow: 0 0 20px var(--wave-glow);
 }
 
 @keyframes rippleSpin {
@@ -299,14 +258,14 @@
   font-size: 20px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: var(--kw-fg-default);
+  color: var(--text-primary);
 }
 
 .mr-list-page-empty p {
   margin: 0 0 32px 0;
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 13px;
-  color: var(--kw-fg-muted);
+  color: var(--text-tertiary);
   line-height: 1.8;
   max-width: 320px;
 }
@@ -323,7 +282,7 @@
   background: linear-gradient(135deg,
     rgba(126, 156, 216, 0.15) 0%,
     rgba(127, 180, 202, 0.1) 100%);
-  color: var(--kw-wave-cyan);
+  color: var(--accent-hover);
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
   position: relative;
@@ -333,21 +292,21 @@
   background: linear-gradient(135deg,
     rgba(126, 156, 216, 0.25) 0%,
     rgba(127, 180, 202, 0.18) 100%);
-  border-color: var(--kw-wave-blue);
-  color: var(--kw-crystal-blue);
-  box-shadow: 0 4px 24px var(--kw-wave-glow);
+  border-color: var(--accent-color);
+  color: var(--accent-crystal);
+  box-shadow: 0 4px 24px var(--wave-glow);
   transform: translateY(-1px);
 }
 
 .primary-button:active {
   transform: translateY(0);
-  box-shadow: 0 2px 12px var(--kw-wave-glow);
+  box-shadow: 0 2px 12px var(--wave-glow);
 }
 
 .primary-button:focus {
   outline: none;
-  border-color: var(--kw-wave-blue);
-  box-shadow: 0 0 0 3px var(--kw-wave-glow);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--wave-glow);
 }
 
 /* ================================================
@@ -378,7 +337,7 @@
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 11px;
   font-weight: 400;
-  color: var(--kw-fg-comment);
+  color: var(--text-muted);
   letter-spacing: 0.02em;
 }
 
@@ -392,7 +351,7 @@
   font-family: 'IBM Plex Mono', monospace;
   font-size: 10px;
   font-weight: 500;
-  color: var(--kw-fg-muted);
+  color: var(--text-tertiary);
   background: linear-gradient(180deg,
     rgba(42, 42, 55, 0.8) 0%,
     rgba(31, 31, 40, 0.9) 100%);
@@ -404,7 +363,7 @@
 }
 
 .keyboard-hint kbd:hover {
-  color: var(--kw-wave-blue);
+  color: var(--accent-color);
   border-color: rgba(126, 156, 216, 0.3);
-  box-shadow: 0 0 10px var(--kw-wave-glow);
+  box-shadow: 0 0 10px var(--wave-glow);
 }

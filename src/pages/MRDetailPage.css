@@ -1,61 +1,18 @@
 /* MR Detail Page - Kanagawa Wave Theme */
 /* Inspired by "The Great Wave off Kanagawa" by Katsushika Hokusai */
 
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap');
-
-/* Kanagawa Wave Color Palette (shared with MRListPage) */
-:root {
-  /* Backgrounds - Deep indigo ocean depths */
-  --kw-bg-dark: #1f1f28;
-  --kw-bg-default: #16161d;
-  --kw-bg-dim: #181820;
-  --kw-bg-highlight: #2a2a37;
-  --kw-bg-gutter: #1a1a22;
-
-  /* Foreground - Soft warm tones like paper/foam */
-  --kw-fg-default: #dcd7ba;
-  --kw-fg-dim: #c8c093;
-  --kw-fg-muted: #727169;
-  --kw-fg-comment: #625e5a;
-
-  /* Wave colors - Various blues from the painting */
-  --kw-wave-blue: #7e9cd8;
-  --kw-wave-cyan: #7fb4ca;
-  --kw-spring-blue: #7aa89f;
-  --kw-crystal-blue: #a3d4d5;
-
-  /* Sky and background colors */
-  --kw-sumi-ink: #363646;
-  --kw-winter-blue: #252535;
-  --kw-fuji-gray: #54546d;
-
-  /* Accent colors - From the painting's palette */
-  --kw-autumn-red: #c34043;
-  --kw-sakura-pink: #d27e99;
-  --kw-spring-green: #98bb6c;
-  --kw-carpYellow: #e6c384;
-  --kw-boat-yellow: #c0a36e;
-  --kw-roninYellow: #ff9e3b;
-  --kw-surimiOrange: #ffa066;
-  --kw-peach: #e46876;
-
-  /* Special effects */
-  --kw-wave-glow: rgba(126, 156, 216, 0.15);
-  --kw-wave-glow-strong: rgba(126, 156, 216, 0.3);
-}
-
 .mr-detail-page {
   display: flex;
   flex-direction: column;
   height: 100vh;
   background:
-    radial-gradient(ellipse 60% 40% at 20% 0%, var(--kw-wave-glow) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 20% 0%, var(--wave-glow) 0%, transparent 50%),
     radial-gradient(ellipse 40% 30% at 80% 100%, rgba(127, 180, 202, 0.08) 0%, transparent 50%),
-    linear-gradient(165deg, var(--kw-bg-dim) 0%, var(--kw-bg-default) 30%, var(--kw-bg-dark) 100%);
+    linear-gradient(165deg, var(--bg-dim) 0%, var(--bg-primary) 30%, var(--bg-secondary) 100%);
   font-family: 'Noto Sans JP', -apple-system, sans-serif;
   position: relative;
   overflow: hidden;
-  color: var(--kw-fg-default);
+  color: var(--text-primary);
 }
 
 /* Subtle wave pattern in corner */
@@ -102,7 +59,7 @@
     rgba(31, 31, 40, 0.75) 100%);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--kw-sumi-ink);
+  border-bottom: 1px solid var(--border-color);
   position: relative;
   z-index: 10;
   animation: headerSlide 0.6s cubic-bezier(0.22, 1, 0.36, 1);
@@ -128,25 +85,25 @@
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 13px;
   font-weight: 500;
-  color: var(--kw-fg-muted);
+  color: var(--text-tertiary);
   background: rgba(42, 42, 55, 0.6);
-  border: 1px solid var(--kw-sumi-ink);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .back-button:hover {
-  color: var(--kw-fg-dim);
+  color: var(--text-secondary);
   background: rgba(42, 42, 55, 0.9);
-  border-color: var(--kw-fuji-gray);
+  border-color: var(--text-fuji);
   transform: translateX(-3px);
 }
 
 .back-button:focus {
   outline: none;
-  border-color: var(--kw-wave-blue);
-  box-shadow: 0 0 0 3px var(--kw-wave-glow);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--wave-glow);
 }
 
 /* Header rows */
@@ -167,15 +124,15 @@
   font-family: 'IBM Plex Mono', monospace;
   font-size: 13px;
   font-weight: 500;
-  color: var(--kw-wave-blue);
+  color: var(--accent-color);
   padding: 5px 12px;
   background: linear-gradient(135deg,
-    var(--kw-wave-glow) 0%,
+    var(--wave-glow) 0%,
     rgba(127, 180, 202, 0.1) 100%);
   border: 1px solid rgba(126, 156, 216, 0.25);
   border-radius: 6px;
   flex-shrink: 0;
-  box-shadow: 0 0 12px var(--kw-wave-glow);
+  box-shadow: 0 0 12px var(--wave-glow);
 }
 
 .mr-header-top .mr-project {
@@ -194,7 +151,7 @@
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.01em;
-  color: var(--kw-fg-default);
+  color: var(--text-primary);
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
@@ -216,7 +173,7 @@
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 12px;
   font-weight: 500;
-  color: var(--kw-fg-muted);
+  color: var(--text-tertiary);
 }
 
 .mr-author::before {
@@ -224,18 +181,18 @@
   width: 20px;
   height: 20px;
   background: linear-gradient(135deg,
-    var(--kw-wave-glow-strong) 0%,
-    var(--kw-wave-glow) 100%);
+    var(--wave-glow-strong) 0%,
+    var(--wave-glow) 100%);
   border-radius: 50%;
   border: 1px solid rgba(126, 156, 216, 0.2);
-  box-shadow: 0 0 8px var(--kw-wave-glow);
+  box-shadow: 0 0 8px var(--wave-glow);
 }
 
 .mr-branches {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
   font-weight: 400;
-  color: var(--kw-fg-comment);
+  color: var(--text-muted);
   padding: 5px 12px;
   background: rgba(42, 42, 55, 0.5);
   border-radius: 4px;
@@ -300,7 +257,7 @@
   background: linear-gradient(180deg,
     rgba(31, 31, 40, 0.6) 0%,
     rgba(26, 26, 34, 0.4) 100%);
-  border-right: 1px solid var(--kw-sumi-ink);
+  border-right: 1px solid var(--border-color);
 }
 
 /* Main diff area */
@@ -353,7 +310,7 @@
   justify-content: center;
   height: 100%;
   gap: 24px;
-  color: var(--kw-fg-muted);
+  color: var(--text-tertiary);
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 14px;
   letter-spacing: 0.03em;
@@ -364,9 +321,9 @@
   content: '';
   width: 44px;
   height: 44px;
-  border: 2px solid var(--kw-sumi-ink);
-  border-top-color: var(--kw-wave-blue);
-  border-right-color: var(--kw-wave-cyan);
+  border: 2px solid var(--border-color);
+  border-top-color: var(--accent-color);
+  border-right-color: var(--accent-hover);
   border-radius: 50%;
   animation: waveSpinner 1s ease-in-out infinite;
 }
@@ -420,7 +377,7 @@
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 15px;
   font-weight: 500;
-  color: var(--kw-autumn-red);
+  color: var(--error-color);
   line-height: 1.6;
 }
 
@@ -429,24 +386,24 @@
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 13px;
   font-weight: 500;
-  color: var(--kw-fg-muted);
+  color: var(--text-tertiary);
   background: rgba(42, 42, 55, 0.8);
-  border: 1px solid var(--kw-sumi-ink);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.25s ease;
 }
 
 .mr-detail-error button:hover {
-  color: var(--kw-fg-dim);
+  color: var(--text-secondary);
   background: rgba(42, 42, 55, 1);
-  border-color: var(--kw-fuji-gray);
+  border-color: var(--text-fuji);
 }
 
 .mr-detail-error button:focus {
   outline: none;
-  border-color: var(--kw-wave-blue);
-  box-shadow: 0 0 0 3px var(--kw-wave-glow);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--wave-glow);
 }
 
 /* Diff toolbar */
@@ -463,24 +420,24 @@
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 12px;
   font-weight: 500;
-  color: var(--kw-fg-muted);
+  color: var(--text-tertiary);
   background: rgba(42, 42, 55, 0.6);
-  border: 1px solid var(--kw-sumi-ink);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .diff-toolbar-btn:hover:not(:disabled) {
-  color: var(--kw-fg-dim);
+  color: var(--text-secondary);
   background: rgba(42, 42, 55, 0.9);
-  border-color: var(--kw-fuji-gray);
+  border-color: var(--text-fuji);
 }
 
 .diff-toolbar-btn:focus {
   outline: none;
-  border-color: var(--kw-wave-blue);
-  box-shadow: 0 0 0 3px var(--kw-wave-glow);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--wave-glow);
 }
 
 .diff-toolbar-btn:disabled {
@@ -494,7 +451,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--kw-fg-comment);
+  color: var(--text-muted);
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 14px;
   text-align: center;
@@ -516,7 +473,7 @@
 .all-generated-icon {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 40px;
-  color: var(--kw-fg-comment);
+  color: var(--text-muted);
   opacity: 0.5;
   user-select: none;
 }
@@ -526,7 +483,7 @@
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 15px;
   font-weight: 500;
-  color: var(--kw-fg-muted);
+  color: var(--text-tertiary);
   letter-spacing: 0.02em;
 }
 
@@ -534,7 +491,7 @@
   margin: 0;
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 12px;
-  color: var(--kw-fg-comment);
+  color: var(--text-muted);
   letter-spacing: 0.02em;
 }
 
@@ -546,7 +503,7 @@
   justify-content: center;
   flex: 1;
   gap: 20px;
-  color: var(--kw-fg-muted);
+  color: var(--text-tertiary);
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 14px;
   letter-spacing: 0.02em;
@@ -557,9 +514,9 @@
   content: '';
   width: 36px;
   height: 36px;
-  border: 2px solid var(--kw-sumi-ink);
-  border-top-color: var(--kw-wave-blue);
-  border-right-color: var(--kw-wave-cyan);
+  border: 2px solid var(--border-color);
+  border-top-color: var(--accent-color);
+  border-right-color: var(--accent-hover);
   border-radius: 50%;
   animation: waveSpinner 1s ease-in-out infinite;
 }
@@ -595,7 +552,7 @@
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 14px;
   font-weight: 500;
-  color: var(--kw-autumn-red);
+  color: var(--error-color);
   line-height: 1.5;
 }
 
@@ -604,24 +561,24 @@
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 12px;
   font-weight: 500;
-  color: var(--kw-fg-muted);
+  color: var(--text-tertiary);
   background: rgba(42, 42, 55, 0.8);
-  border: 1px solid var(--kw-sumi-ink);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .file-error button:hover {
-  color: var(--kw-fg-dim);
+  color: var(--text-secondary);
   background: rgba(42, 42, 55, 1);
-  border-color: var(--kw-fuji-gray);
+  border-color: var(--text-fuji);
 }
 
 .file-error button:focus {
   outline: none;
-  border-color: var(--kw-wave-blue);
-  box-shadow: 0 0 0 3px var(--kw-wave-glow);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--wave-glow);
 }
 
 /* File content loading overlay — positioned over the editor area */
@@ -641,9 +598,9 @@
 .file-loading-spinner {
   width: 36px;
   height: 36px;
-  border: 2px solid var(--kw-sumi-ink);
-  border-top-color: var(--kw-wave-blue);
-  border-right-color: var(--kw-wave-cyan);
+  border: 2px solid var(--border-color);
+  border-top-color: var(--accent-color);
+  border-right-color: var(--accent-hover);
   border-radius: 50%;
   animation: waveSpinner 1s ease-in-out infinite;
 }
@@ -664,7 +621,7 @@
   background: linear-gradient(135deg,
     rgba(54, 54, 70, 0.5) 0%,
     rgba(54, 54, 70, 0.3) 100%);
-  border: 1px dashed var(--kw-fuji-gray);
+  border: 1px dashed var(--text-fuji);
   border-radius: 14px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='%23727169' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'%3E%3C/path%3E%3Cpolyline points='14 2 14 8 20 8'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -679,7 +636,7 @@
     rgba(31, 31, 40, 0.95) 100%);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid var(--kw-sumi-ink);
+  border-top: 1px solid var(--border-color);
   position: relative;
   z-index: 10;
   animation: footerSlide 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.15s backwards;
@@ -705,7 +662,7 @@
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 11px;
   font-weight: 400;
-  color: var(--kw-fg-comment);
+  color: var(--text-muted);
   letter-spacing: 0.03em;
 }
 
@@ -719,11 +676,11 @@
   font-family: 'IBM Plex Mono', monospace;
   font-size: 10px;
   font-weight: 500;
-  color: var(--kw-fg-dim);
+  color: var(--text-secondary);
   background: linear-gradient(180deg,
-    var(--kw-bg-highlight) 0%,
-    var(--kw-bg-dim) 100%);
-  border: 1px solid var(--kw-sumi-ink);
+    var(--bg-tertiary) 0%,
+    var(--bg-dim) 100%);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   box-shadow:
     0 2px 0 rgba(0, 0, 0, 0.4),
@@ -733,11 +690,11 @@
 }
 
 .keyboard-hint kbd:hover {
-  color: var(--kw-wave-blue);
-  border-color: var(--kw-fuji-gray);
+  color: var(--accent-color);
+  border-color: var(--text-fuji);
   box-shadow:
     0 2px 0 rgba(0, 0, 0, 0.4),
-    0 0 12px var(--kw-wave-glow),
+    0 0 12px var(--wave-glow),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
@@ -751,11 +708,11 @@
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 12px;
   font-weight: 500;
-  color: var(--kw-spring-green);
+  color: var(--success-color);
   background: linear-gradient(180deg,
     rgba(31, 31, 40, 0.92) 0%,
     rgba(31, 31, 40, 0.98) 100%);
-  border: 1px solid var(--kw-spring-green);
+  border: 1px solid var(--success-color);
   border-radius: 8px;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -796,14 +753,14 @@
   width: 90%;
   max-width: 560px;
   background: linear-gradient(165deg,
-    var(--kw-bg-highlight) 0%,
-    var(--kw-bg-dark) 100%);
-  border: 1px solid var(--kw-sumi-ink);
+    var(--bg-tertiary) 0%,
+    var(--bg-secondary) 100%);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 20px;
   box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.5),
-    0 0 40px var(--kw-wave-glow);
+    0 0 40px var(--wave-glow);
   animation: slideUp 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -826,7 +783,7 @@
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 14px;
   font-weight: 500;
-  color: var(--kw-fg-dim);
+  color: var(--text-secondary);
 }
 
 .comment-input-header-actions {
@@ -840,7 +797,7 @@
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 11px;
   font-weight: 500;
-  color: var(--kw-spring-green);
+  color: var(--success-color);
   background: rgba(152, 187, 108, 0.1);
   border: 1px solid rgba(152, 187, 108, 0.25);
   border-radius: 6px;
@@ -856,7 +813,7 @@
 .comment-input-close {
   background: transparent;
   border: none;
-  color: var(--kw-fg-muted);
+  color: var(--text-tertiary);
   font-size: 16px;
   cursor: pointer;
   padding: 4px 8px;
@@ -865,20 +822,20 @@
 }
 
 .comment-input-close:hover {
-  color: var(--kw-fg-default);
+  color: var(--text-primary);
   background: rgba(255, 255, 255, 0.05);
 }
 
 .comment-editor-wrapper {
-  border: 1px solid var(--kw-sumi-ink);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .comment-editor-wrapper:focus-within {
-  border-color: var(--kw-wave-blue);
-  box-shadow: 0 0 0 3px var(--kw-wave-glow);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--wave-glow);
 }
 
 .comment-input-actions {
@@ -891,7 +848,7 @@
 .comment-input-hint {
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 11px;
-  color: var(--kw-fg-comment);
+  color: var(--text-muted);
 }
 
 .comment-input-hint kbd {
@@ -903,9 +860,9 @@
   padding: 0 5px;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 10px;
-  color: var(--kw-fg-muted);
-  background: var(--kw-bg-highlight);
-  border: 1px solid var(--kw-sumi-ink);
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   margin: 0 2px;
 }
@@ -915,10 +872,10 @@
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 13px;
   font-weight: 500;
-  color: var(--kw-bg-dark);
+  color: var(--bg-secondary);
   background: linear-gradient(135deg,
-    var(--kw-wave-blue) 0%,
-    var(--kw-wave-cyan) 100%);
+    var(--accent-color) 0%,
+    var(--accent-hover) 100%);
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -927,7 +884,7 @@
 
 .comment-input-submit:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px var(--kw-wave-glow);
+  box-shadow: 0 4px 16px var(--wave-glow);
 }
 
 .comment-input-submit:disabled {

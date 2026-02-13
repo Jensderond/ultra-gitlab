@@ -139,9 +139,9 @@
 .my-mr-code-spinner {
   width: 36px;
   height: 36px;
-  border: 2px solid var(--kw-sumi-ink, #363646);
-  border-top-color: var(--kw-wave-blue, #7e9cd8);
-  border-right-color: var(--kw-wave-cyan, #7fb4ca);
+  border: 2px solid var(--border-color, #363646);
+  border-top-color: var(--accent-color, #7e9cd8);
+  border-right-color: var(--accent-hover, #7fb4ca);
   border-radius: 50%;
   animation: my-mr-spin 1s ease-in-out infinite;
 }
@@ -581,11 +581,11 @@
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 12px;
   font-weight: 500;
-  color: var(--kw-spring-green);
+  color: var(--success-color);
   background: linear-gradient(180deg,
     rgba(31, 31, 40, 0.92) 0%,
     rgba(31, 31, 40, 0.98) 100%);
-  border: 1px solid var(--kw-spring-green);
+  border: 1px solid var(--success-color);
   border-radius: 8px;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
