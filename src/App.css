@@ -126,6 +126,23 @@ html, body, #root, .app {
   --disabled-bg: #2a2a37;
   --code-bg: #1a1a22;
 
+  /* Syntax highlighting (tree-sitter) */
+  --syntax-keyword: #ff7b72;
+  --syntax-string: #a5d6ff;
+  --syntax-string-special: #7ee787;
+  --syntax-comment: #8b949e;
+  --syntax-function: #d2a8ff;
+  --syntax-type: #ffa657;
+  --syntax-variable: #c9d1d9;
+  --syntax-number: #79c0ff;
+  --syntax-operator: #ff7b72;
+  --syntax-punctuation: #c9d1d9;
+  --syntax-tag: #7ee787;
+  --syntax-attribute: #7ee787;
+  --syntax-constant: #79c0ff;
+  --syntax-property: #79c0ff;
+  --syntax-embedded-bg: rgba(56, 139, 253, 0.1);
+
   /* Apply to body */
   color: var(--text-primary);
   background-color: var(--bg-primary);
