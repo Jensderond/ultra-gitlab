@@ -397,6 +397,17 @@ export async function updateSettings(update: SettingsUpdate): Promise<Settings> 
 }
 
 // ============================================================================
+// Theme Commands
+// ============================================================================
+
+/**
+ * Persist the active theme ID to the settings store.
+ */
+export async function updateTheme(themeId: string): Promise<void> {
+  return invoke<void>('update_theme', { themeId });
+}
+
+// ============================================================================
 // Collapse Patterns Commands
 // ============================================================================
 

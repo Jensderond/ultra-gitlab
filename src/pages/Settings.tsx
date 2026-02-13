@@ -15,9 +15,11 @@ import {
 } from '../services/gitlab';
 import { formatRelativeTime } from '../services/storage';
 import { invoke, getTokenInfo, updateInstanceToken, getCollapsePatterns, updateCollapsePatterns, getNotificationSettings, updateNotificationSettings, sendNativeNotification } from '../services/tauri';
-import type { TokenInfo, NotificationSettings } from '../types';
+import type { TokenInfo, NotificationSettings, Theme } from '../types';
 import { useToast } from '../components/Toast';
 import type { UpdateCheckerState } from '../hooks/useUpdateChecker';
+import useTheme from '../hooks/useTheme';
+import { THEME_PRESETS } from '../components/ThemeProvider';
 import useCustomShortcuts from '../hooks/useCustomShortcuts';
 import {
   defaultShortcuts,
@@ -456,6 +458,10 @@ export default function Settings({ updateChecker }: SettingsProps) {
           ) : (
             <p className="error-message">Failed to load sync settings</p>
           )}
+        </section>
+
+        <section className="settings-section">
+          <AppearanceSection />
         </section>
 
         <section className="settings-section">
@@ -979,6 +985,56 @@ function ShortcutEditor() {
       <p className="shortcut-hint">
         Click on a shortcut to edit. Press the new key combination, then Enter to save.
       </p>
+    </>
+  );
+}
+
+/**
+ * Theme preset list for the appearance section.
+ */
+const PRESET_THEME_IDS: Theme[] = ['kanagawa-wave', 'kanagawa-light', 'loved'];
+
+/**
+ * Appearance section — theme selector with visual swatches.
+ */
+function AppearanceSection() {
+  const { theme, setThemeById } = useTheme();
+
+  return (
+    <>
+      <h2>Appearance</h2>
+      <div className="theme-swatches">
+        {PRESET_THEME_IDS.map((id) => {
+          const def = THEME_PRESETS[id];
+          if (!def) return null;
+          const isActive = theme.id === id;
+          return (
+            <button
+              key={id}
+              className={`theme-swatch ${isActive ? 'active' : ''}`}
+              onClick={() => setThemeById(id)}
+              title={def.name}
+            >
+              <div
+                className="theme-swatch-preview"
+                style={{ background: def.backgrounds.primary }}
+              >
+                <span
+                  className="theme-swatch-text"
+                  style={{ color: def.text.primary }}
+                >
+                  Aa
+                </span>
+                <span
+                  className="theme-swatch-accent"
+                  style={{ background: def.accent.color }}
+                />
+              </div>
+              <span className="theme-swatch-label">{def.name}</span>
+            </button>
+          );
+        })}
+      </div>
     </>
   );
 }

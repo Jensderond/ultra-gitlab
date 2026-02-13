@@ -248,6 +248,24 @@ pub async fn update_collapse_patterns(
     Ok(())
 }
 
+/// Update the active theme.
+///
+/// Convenience method that updates just the theme ID.
+///
+/// # Arguments
+/// * `theme_id` - The new theme ID (e.g. "kanagawa-wave", "kanagawa-light", "loved", "custom")
+#[tauri::command]
+pub async fn update_theme(
+    app: AppHandle,
+    theme_id: String,
+) -> Result<(), AppError> {
+    let mut settings = load_settings(&app).await?;
+    settings.theme = theme_id;
+    save_settings(&app, &settings).await?;
+    *settings_cache().write().await = settings;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

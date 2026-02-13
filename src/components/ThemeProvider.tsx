@@ -4,15 +4,30 @@
  * Wraps the app and provides theme context. On mount and theme change,
  * all CSS variable values from the active ThemeDefinition are written
  * to document.documentElement.style.
+ *
+ * Loads the persisted theme ID from the Rust settings store on startup.
  */
 
 import { createContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import type { ThemeDefinition } from '../themes/types';
 import { kanagawaWave } from '../themes/kanagawa-wave';
+import { kanagawaLight } from '../themes/kanagawa-light';
+import { loved } from '../themes/loved';
+import { invoke, updateTheme as persistTheme } from '../services/tauri';
+import type { Theme } from '../types';
+
+/** All available preset themes keyed by ID. */
+export const THEME_PRESETS: Record<string, ThemeDefinition> = {
+  'kanagawa-wave': kanagawaWave,
+  'kanagawa-light': kanagawaLight,
+  'loved': loved,
+};
 
 export interface ThemeContextValue {
   theme: ThemeDefinition;
   setTheme: (theme: ThemeDefinition) => void;
+  /** Switch to a preset theme by ID and persist the choice. */
+  setThemeById: (id: Theme) => void;
 }
 
 export const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -140,8 +155,29 @@ interface ThemeProviderProps {
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<ThemeDefinition>(kanagawaWave);
 
+  // Load persisted theme on mount
+  useEffect(() => {
+    invoke<{ theme?: string }>('get_settings')
+      .then((settings) => {
+        const id = settings.theme || 'kanagawa-wave';
+        const def = THEME_PRESETS[id];
+        if (def) setThemeState(def);
+      })
+      .catch(() => {
+        // Fall back to default (already set)
+      });
+  }, []);
+
   const setTheme = useCallback((newTheme: ThemeDefinition) => {
     setThemeState(newTheme);
+  }, []);
+
+  const setThemeById = useCallback((id: Theme) => {
+    const def = THEME_PRESETS[id];
+    if (def) {
+      setThemeState(def);
+      persistTheme(id).catch(console.error);
+    }
   }, []);
 
   // Apply CSS variables whenever theme changes
@@ -154,7 +190,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   }, [theme]);
 
   return (
-    <ThemeContext value={{ theme, setTheme }}>
+    <ThemeContext value={{ theme, setTheme, setThemeById }}>
       {children}
     </ThemeContext>
   );

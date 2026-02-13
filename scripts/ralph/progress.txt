@@ -13,9 +13,17 @@ Started: Fri Feb 13 15:37:35 CET 2026
 - Old hardcoded kanagawaTheme.ts was deleted — all Monaco colors now come from the active ThemeDefinition
 - Tree-sitter syntax highlighting uses --syntax-* CSS variables in src/styles/syntax.css with .hl-{token} classes
 - Syntax CSS variables: --syntax-keyword, --syntax-string, --syntax-string-special, --syntax-comment, --syntax-function, --syntax-type, --syntax-variable, --syntax-number, --syntax-operator, --syntax-punctuation, --syntax-tag, --syntax-attribute, --syntax-constant, --syntax-property, --syntax-embedded-bg
-- Settings type in src/types/index.ts, Theme type is currently 'light' | 'dark' | 'system'
+- Settings type in src/types/index.ts, Theme type is 'kanagawa-wave' | 'kanagawa-light' | 'loved' | 'custom'
+- Settings interface includes `uiFont: string` field (default 'Noto Sans JP')
+- Rust AppSettings struct (src-tauri/src/commands/settings.rs) has `theme` and `ui_font` fields persisted via tauri-plugin-store
+- Settings.tsx has its own local AppSettings interface — does NOT use the src/types/index.ts Settings type directly
+- The Settings page uses `invoke<AppSettings>('get_settings')` directly for sync config, not the storage.ts wrapper
+- Kanagawa Light (Lotus) palette: lotusWhite0-5 for backgrounds, lotusInk1-2 for ink/text, lotusViolet4 for keywords, lotusGreen for strings, lotusBlue4 for functions
 - Always use `bunx tsc --noEmit` for typecheck, `bun` as package manager
 - PipelinesPage.css mostly uses standard variables already (--bg-primary, --text-primary etc.), not --kw-* pattern
+- THEME_PRESETS map in ThemeProvider.tsx: theme ID → ThemeDefinition (used by Settings swatches and ThemeProvider)
+- ThemeProvider loads persisted theme on mount from Rust store; `setThemeById(id)` applies + persists
+- For new per-field settings: add Rust convenience command (like `update_theme`, `update_collapse_patterns`) rather than sending full AppSettings
 
 ---
 
@@ -90,4 +98,68 @@ Started: Fri Feb 13 15:37:35 CET 2026
   - MonacoProvider needs a ref to the Monaco instance for theme updates — loader.init() returns it, store in useRef
   - The init effect runs once on mount; a separate effect watches theme changes and re-registers
   - DiffEditor's `theme` prop uses the registered theme name string, not the theme data object
+---
+
+## 2026-02-13 - US-006
+- Created src/themes/kanagawa-light.ts with full Kanagawa Lotus palette
+- Re-exported kanagawaLight from src/themes/index.ts
+- Used official Lotus palette from kanagawa.nvim: warm off-white backgrounds (lotusWhite series), dark ink text (lotusInk1/2), muted natural accent colors
+- Monaco token colors use Lotus-appropriate dark-on-light colors (lotusViolet4 for keywords, lotusGreen for strings, lotusBlue4 for functions, etc.)
+- Diff colors use lotusGreen/lotusRed with appropriate opacity for light background visibility
+- Files changed: src/themes/kanagawa-light.ts (new), src/themes/index.ts
+- **Learnings for future iterations:**
+  - Kanagawa Lotus palette reference: lotusWhite0-5 for backgrounds, lotusInk1-2 for text, lotusGray2-3 for muted text
+  - Lotus syntax mapping: keywords→lotusViolet4(#624c83), strings→lotusGreen(#6f894e), comments→lotusGray3(#8a8980), functions→lotusBlue4(#4d699b), types→lotusAqua(#597b75), constants→lotusOrange(#cc6d00), numbers→lotusPink(#b35b79)
+  - Light theme status colors need lower opacity for bg variants (0.08-0.12) since the base background is already light
+  - The Lotus palette uses significantly more muted/earthy tones compared to Wave — this is intentional for comfortable light-mode viewing
+---
+
+## 2026-02-13 - US-007
+- Created src/themes/loved.ts with full Loved dark theme palette
+- Re-exported `loved` from src/themes/index.ts
+- Loved palette: deep navy backgrounds (#121926/#17202f), soft silver text (#c0c5ce/#99a4b8), blue accent (#99beff)
+- Status colors from PRD: error #e05252, success #97a38f, warning #eabe9a
+- Extended palette: pink #ea7599, purple #b18bb1, turquoise #7ea9a9, blue #6e94b9, orange #f7987e, brown #a67868
+- Monaco token colors use Loved syntax palette: keywords→purple(#b18bb1), strings→sage(#97a38f), comments→muted(#4e5d73), functions→blue(#6e94b9), types→turquoise(#7ea9a9), constants→pink(#ea7599)
+- Files changed: src/themes/loved.ts (new), src/themes/index.ts
+- **Learnings for future iterations:**
+  - Loved is a cool-toned dark theme — backgrounds are navy-blue tinted, not neutral gray like Kanagawa Wave
+  - Loved's success color (#97a38f) is more muted/sage than typical green — this is intentional for the palette
+  - Creating a new theme preset follows a simple pattern: create the .ts file, add barrel export, typecheck
+  - All three themes now available: kanagawaWave (dark), kanagawaLight (light), loved (dark)
+---
+
+## 2026-02-13 - US-008
+- Updated Theme type from 'light' | 'dark' | 'system' to 'kanagawa-wave' | 'kanagawa-light' | 'loved' | 'custom'
+- Added `uiFont: string` field to Settings interface in src/types/index.ts
+- Updated `setTheme()` in storage.ts to accept the new Theme type instead of hardcoded literals
+- Added `setUiFont(uiFont: string)` function to storage.ts, auto-exported via barrel
+- Added `theme` (String) and `ui_font` (String) fields to Rust `AppSettings` struct
+- Added persistence: THEME_KEY and UI_FONT_KEY in tauri-plugin-store, loaded/saved in load_settings/save_settings
+- Defaults: theme="kanagawa-wave", ui_font="Noto Sans JP"
+- Files changed: src/types/index.ts, src/services/storage.ts, src-tauri/src/commands/settings.rs
+- **Learnings for future iterations:**
+  - The Settings.tsx page has its own local `AppSettings` and `SyncConfig` interfaces — it does NOT use the `Settings` type from src/types/index.ts
+  - Settings.tsx invokes `get_settings` and `update_sync_settings` directly via `invoke()`, not through the storage.ts wrapper
+  - Rust AppSettings uses `#[serde(rename_all = "camelCase")]` so `ui_font` serializes to `uiFont` for the frontend
+  - The tauri-plugin-store stores each field under its own key (not a nested object), so new fields need their own CONST key and load/save logic
+  - The frontend `storage.ts` `updateSettings()` sends a partial update as `{ update: SettingsUpdate }` — the Rust `update_settings` command takes a full `AppSettings` object, so there's a mismatch in the IPC contract (existing behavior, not introduced by this change)
+---
+
+## 2026-02-13 - US-009
+- Added Appearance section with theme swatches to Settings page, placed before Notifications section
+- Each swatch shows background color, "Aa" text sample in theme's text color, and accent color dot
+- Active theme has highlighted border with wave-glow box-shadow
+- Clicking a swatch immediately applies the theme and persists via update_theme Rust command
+- Added Rust `update_theme` command (convenience method like update_collapse_patterns) for persisting theme ID
+- Added `updateTheme` frontend wrapper in tauri.ts and re-exported from services/index.ts
+- ThemeProvider now loads persisted theme on startup via get_settings and exposes `setThemeById`
+- THEME_PRESETS lookup map exported from ThemeProvider for mapping theme IDs to ThemeDefinitions
+- Files changed: src-tauri/src/commands/settings.rs, src-tauri/src/commands/mod.rs, src-tauri/src/lib.rs, src/components/ThemeProvider.tsx, src/hooks/useTheme.ts (no changes needed), src/services/tauri.ts, src/services/index.ts, src/pages/Settings.tsx, src/pages/Settings.css
+- **Learnings for future iterations:**
+  - For persisting individual settings fields, follow the pattern of convenience commands (update_theme, update_collapse_patterns, update_sync_settings) that load → mutate → save
+  - ThemeProvider loads settings on mount via `invoke<{ theme?: string }>('get_settings')` — uses partial type since we only need theme field
+  - THEME_PRESETS is the central lookup for theme ID → ThemeDefinition; exported from ThemeProvider
+  - Theme swatch CSS uses the theme's actual colors via inline `style` props, not CSS variables (so swatches always show the correct colors regardless of active theme)
+  - ThemeContextValue now has three methods: `theme` (current ThemeDefinition), `setTheme` (raw, no persist), `setThemeById` (lookup + persist)
 ---
