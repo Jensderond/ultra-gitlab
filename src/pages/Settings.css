@@ -885,6 +885,30 @@
   color: var(--kw-fg-comment);
 }
 
+.update-check-button {
+  padding: 5px 12px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--kw-fg-muted);
+  background: rgba(42, 42, 55, 0.6);
+  border: 1px solid var(--kw-sumi-ink);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.update-check-button:hover {
+  color: var(--kw-fg-dim);
+  background: rgba(42, 42, 55, 0.9);
+  border-color: var(--kw-fuji-gray);
+}
+
+.update-check-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .update-release-notes {
   background: var(--kw-bg-dim);
   border: 1px solid var(--kw-sumi-ink);

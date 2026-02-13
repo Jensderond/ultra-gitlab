@@ -562,6 +562,7 @@ function UpdatesSection({ updateChecker }: { updateChecker: UpdateCheckerState }
 
   const {
     available,
+    checking,
     version,
     body,
     downloadProgress,
@@ -583,6 +584,15 @@ function UpdatesSection({ updateChecker }: { updateChecker: UpdateCheckerState }
           <span className="update-badge">{version} available</span>
         ) : (
           <span className="update-up-to-date">You're up to date</span>
+        )}
+        {!available && !installing && (
+          <button
+            className="update-check-button"
+            onClick={checkForUpdate}
+            disabled={checking}
+          >
+            {checking ? 'Checking...' : 'Check for Updates'}
+          </button>
         )}
       </div>
 

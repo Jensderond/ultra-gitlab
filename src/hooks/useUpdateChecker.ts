@@ -15,6 +15,8 @@ const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
 export interface UpdateCheckerState {
   /** Whether an update is available */
   available: boolean;
+  /** Whether a check is in progress */
+  checking: boolean;
   /** Version string of available update */
   version: string | null;
   /** Release notes / changelog body */
@@ -35,6 +37,7 @@ export interface UpdateCheckerState {
 
 export default function useUpdateChecker(): UpdateCheckerState {
   const [available, setAvailable] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [version, setVersion] = useState<string | null>(null);
   const [body, setBody] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
@@ -45,6 +48,7 @@ export default function useUpdateChecker(): UpdateCheckerState {
 
   const checkForUpdate = useCallback(async () => {
     try {
+      setChecking(true);
       setError(null);
       const update = await check();
       if (update) {
@@ -55,6 +59,8 @@ export default function useUpdateChecker(): UpdateCheckerState {
       }
     } catch {
       // Silently swallow check errors (network issues, endpoint not yet live, etc.)
+    } finally {
+      setChecking(false);
     }
   }, []);
 
@@ -106,6 +112,7 @@ export default function useUpdateChecker(): UpdateCheckerState {
 
   return {
     available,
+    checking,
     version,
     body,
     downloadProgress,
