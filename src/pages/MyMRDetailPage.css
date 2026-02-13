@@ -83,7 +83,7 @@
 }
 
 .my-mr-tab kbd {
-  color: #e6c384;
+  color: var(--warning-color);
   font-family: inherit;
   font-size: inherit;
 }
@@ -130,7 +130,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(22, 22, 29, 0.75);
+  background: var(--overlay-backdrop);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   z-index: 5;
@@ -139,9 +139,9 @@
 .my-mr-code-spinner {
   width: 36px;
   height: 36px;
-  border: 2px solid var(--border-color, #363646);
-  border-top-color: var(--accent-color, #7e9cd8);
-  border-right-color: var(--accent-hover, #7fb4ca);
+  border: 2px solid var(--border-color);
+  border-top-color: var(--accent-color);
+  border-right-color: var(--accent-hover);
   border-radius: 50%;
   animation: my-mr-spin 1s ease-in-out infinite;
 }
@@ -562,8 +562,8 @@
 .my-mr-detail-footer {
   padding: 14px 24px;
   background: linear-gradient(180deg,
-    rgba(31, 31, 40, 0.75) 0%,
-    rgba(31, 31, 40, 0.95) 100%);
+    var(--overlay-glass-light) 0%,
+    var(--overlay-glass) 100%);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid var(--border-color);
@@ -583,15 +583,15 @@
   font-weight: 500;
   color: var(--success-color);
   background: linear-gradient(180deg,
-    rgba(31, 31, 40, 0.92) 0%,
-    rgba(31, 31, 40, 0.98) 100%);
+    var(--overlay-glass) 0%,
+    var(--overlay-glass) 100%);
   border: 1px solid var(--success-color);
   border-radius: 8px;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.4),
-    0 0 12px rgba(152, 187, 108, 0.15);
+    0 0 12px var(--success-light);
   z-index: 100;
   animation: toastIn 0.25s cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;

@@ -25,8 +25,8 @@
   gap: 16px;
   padding: 16px 24px;
   background: linear-gradient(180deg,
-    rgba(31, 31, 40, 0.95) 0%,
-    rgba(31, 31, 40, 0.75) 100%);
+    var(--overlay-glass) 0%,
+    var(--overlay-glass-light) 100%);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-color);
@@ -79,7 +79,7 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--text-tertiary);
-  background: rgba(42, 42, 55, 0.6);
+  background: var(--overlay-surface);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   cursor: pointer;
@@ -89,7 +89,7 @@
 
 .back-link:hover {
   color: var(--text-secondary);
-  background: rgba(42, 42, 55, 0.9);
+  background: var(--overlay-surface-hover);
   border-color: var(--text-fuji);
   transform: translateX(-3px);
 }
@@ -131,12 +131,12 @@
 }
 
 .settings-content::-webkit-scrollbar-thumb {
-  background: rgba(126, 156, 216, 0.2);
+  background: var(--wave-glow-strong);
   border-radius: 4px;
 }
 
 .settings-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(126, 156, 216, 0.35);
+  background: var(--wave-glow-strong);
 }
 
 /* ================================================
@@ -145,18 +145,15 @@
 
 .settings-section {
   background: linear-gradient(165deg,
-    rgba(42, 42, 55, 0.4) 0%,
-    rgba(31, 31, 40, 0.3) 100%);
+    var(--overlay-hover) 0%,
+    var(--overlay-glass-light) 100%);
   border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 20px 24px;
-  /* align-self: stretch; */
   max-width: 960px;
   width: 100%;
   box-sizing: border-box;
   margin: 0 auto;
-  /* margin-left: auto; */
-  /* margin-right: auto; */
 }
 
 .settings-section h2 {
@@ -190,11 +187,11 @@
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.02em;
-  border: 1px solid rgba(126, 156, 216, 0.35);
+  border: 1px solid var(--wave-glow-strong);
   border-radius: 7px;
   background: linear-gradient(135deg,
-    rgba(126, 156, 216, 0.15) 0%,
-    rgba(127, 180, 202, 0.1) 100%);
+    var(--wave-glow) 0%,
+    var(--wave-glow) 100%);
   color: var(--accent-hover);
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
@@ -202,8 +199,8 @@
 
 .add-button:hover:not(:disabled) {
   background: linear-gradient(135deg,
-    rgba(126, 156, 216, 0.25) 0%,
-    rgba(127, 180, 202, 0.18) 100%);
+    var(--wave-glow-strong) 0%,
+    var(--wave-glow) 100%);
   border-color: var(--accent-color);
   color: var(--accent-crystal);
   box-shadow: 0 4px 20px var(--wave-glow);
@@ -234,8 +231,8 @@
 
 .delete-button:hover {
   color: var(--error-color);
-  background: rgba(195, 64, 67, 0.1);
-  border-color: rgba(195, 64, 67, 0.25);
+  background: var(--error-light);
+  border-color: var(--error-bg);
 }
 
 /* ================================================
@@ -243,11 +240,11 @@
    ================================================ */
 
 .error-message {
-  background: rgba(195, 64, 67, 0.1);
+  background: var(--error-light);
   color: var(--error-color);
   padding: 10px 14px;
   border-radius: 6px;
-  border: 1px solid rgba(195, 64, 67, 0.2);
+  border: 1px solid var(--error-bg);
   font-size: 13px;
   margin-bottom: 12px;
 }
@@ -288,7 +285,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 14px 16px;
-  border-bottom: 1px solid rgba(54, 54, 70, 0.4);
+  border-bottom: 1px solid var(--overlay-divider);
   transition: background 0.15s ease;
 }
 
@@ -297,7 +294,7 @@
 }
 
 .instance-item:hover {
-  background: rgba(42, 42, 55, 0.3);
+  background: var(--overlay-hover);
 }
 
 .instance-info {
@@ -347,15 +344,15 @@
 }
 
 .token-badge-warning {
-  background: rgba(255, 158, 59, 0.12);
+  background: var(--warning-light);
   color: var(--accent-ronin);
-  border: 1px solid rgba(255, 158, 59, 0.2);
+  border: 1px solid var(--warning-bg);
 }
 
 .token-badge-expired {
-  background: rgba(195, 64, 67, 0.12);
+  background: var(--error-light);
   color: var(--error-color);
-  border: 1px solid rgba(195, 64, 67, 0.2);
+  border: 1px solid var(--error-bg);
 }
 
 /* ================================================
@@ -368,7 +365,7 @@
   font-size: 11px;
   font-weight: 500;
   color: var(--text-tertiary);
-  background: rgba(42, 42, 55, 0.6);
+  background: var(--overlay-surface);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   cursor: pointer;
@@ -380,7 +377,7 @@
 .edit-token-button:hover {
   color: var(--accent-hover);
   border-color: var(--text-fuji);
-  background: rgba(42, 42, 55, 0.9);
+  background: var(--overlay-surface-hover);
 }
 
 .edit-token-form {
@@ -448,7 +445,7 @@
   font-size: 12px;
   font-weight: 500;
   color: var(--text-tertiary);
-  background: rgba(42, 42, 55, 0.6);
+  background: var(--overlay-surface);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   cursor: pointer;
@@ -457,7 +454,7 @@
 
 .edit-token-cancel:hover:not(:disabled) {
   color: var(--text-secondary);
-  background: rgba(42, 42, 55, 0.9);
+  background: var(--overlay-surface-hover);
   border-color: var(--text-fuji);
 }
 
@@ -680,7 +677,7 @@
 .custom-theme-editor {
   margin-top: 12px;
   padding: 14px 16px;
-  background: rgba(42, 42, 55, 0.3);
+  background: var(--overlay-hover);
   border: 1px solid var(--border-color);
   border-radius: 8px;
 }
@@ -768,7 +765,7 @@
   font-size: 12px;
   font-weight: 500;
   color: var(--text-tertiary);
-  background: rgba(42, 42, 55, 0.6);
+  background: var(--overlay-surface);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   cursor: pointer;
@@ -777,7 +774,7 @@
 
 .custom-theme-cancel:hover {
   color: var(--text-secondary);
-  background: rgba(42, 42, 55, 0.9);
+  background: var(--overlay-surface-hover);
   border-color: var(--text-fuji);
 }
 
@@ -788,7 +785,7 @@
   font-weight: 500;
   color: var(--error-color);
   background: none;
-  border: 1px solid rgba(195, 64, 67, 0.3);
+  border: 1px solid var(--error-bg);
   border-radius: 6px;
   cursor: pointer;
   margin-left: auto;
@@ -796,8 +793,8 @@
 }
 
 .custom-theme-delete:hover {
-  background: rgba(195, 64, 67, 0.1);
-  border-color: rgba(195, 64, 67, 0.5);
+  background: var(--error-light);
+  border-color: var(--error-color);
 }
 
 /* ================================================
@@ -827,7 +824,7 @@
   display: flex;
   align-items: center;
   padding: 10px 14px;
-  background: rgba(42, 42, 55, 0.3);
+  background: var(--overlay-hover);
   border: 1px solid transparent;
   border-radius: 7px;
   color: var(--text-secondary);
@@ -840,13 +837,13 @@
 }
 
 .font-option:hover {
-  background: rgba(42, 42, 55, 0.6);
+  background: var(--overlay-surface);
   color: var(--text-primary);
   border-color: var(--text-fuji);
 }
 
 .font-option.active {
-  background: rgba(126, 156, 216, 0.08);
+  background: var(--wave-glow);
   border-color: var(--accent-color);
   color: var(--accent-color);
   box-shadow: 0 0 0 2px var(--wave-glow);
@@ -866,10 +863,10 @@
 .collapse-patterns-description code {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
-  background: rgba(42, 42, 55, 0.6);
+  background: var(--overlay-surface);
   padding: 2px 6px;
   border-radius: 4px;
-  border: 1px solid rgba(54, 54, 70, 0.5);
+  border: 1px solid var(--overlay-divider);
   color: var(--accent-hover);
 }
 
@@ -922,8 +919,8 @@
 
 .collapse-pattern-remove:hover:not(:disabled) {
   color: var(--error-color);
-  background: rgba(195, 64, 67, 0.1);
-  border-color: rgba(195, 64, 67, 0.25);
+  background: var(--error-light);
+  border-color: var(--error-bg);
 }
 
 .collapse-pattern-remove:disabled {
@@ -993,19 +990,19 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: rgba(42, 42, 55, 0.3);
+  background: var(--overlay-hover);
   border-radius: 6px;
   min-height: 36px;
   transition: background 0.15s ease;
 }
 
 .shortcut-editor-item:hover {
-  background: rgba(42, 42, 55, 0.5);
+  background: var(--overlay-surface);
 }
 
 .shortcut-editor-item.editing {
-  background: rgba(126, 156, 216, 0.08);
-  border: 1px solid rgba(126, 156, 216, 0.15);
+  background: var(--wave-glow);
+  border: 1px solid var(--wave-glow);
 }
 
 .shortcut-description {
@@ -1031,11 +1028,11 @@
   font-weight: 500;
   color: var(--text-tertiary);
   background: linear-gradient(180deg,
-    rgba(42, 42, 55, 0.8) 0%,
-    rgba(31, 31, 40, 0.9) 100%);
-  border: 1px solid rgba(54, 54, 70, 0.6);
+    var(--overlay-surface-hover) 0%,
+    var(--overlay-glass) 100%);
+  border: 1px solid var(--overlay-divider);
   border-bottom-width: 2px;
-  border-bottom-color: rgba(30, 30, 40, 0.9);
+  border-bottom-color: var(--overlay-glass);
   border-radius: 5px;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -1043,16 +1040,16 @@
 
 .shortcut-key-display:hover {
   color: var(--accent-color);
-  border-color: rgba(126, 156, 216, 0.3);
+  border-color: var(--wave-glow-strong);
   box-shadow: 0 0 10px var(--wave-glow);
 }
 
 .shortcut-key-display.custom {
   color: var(--accent-hover);
   background: linear-gradient(180deg,
-    rgba(126, 156, 216, 0.12) 0%,
-    rgba(126, 156, 216, 0.06) 100%);
-  border-color: rgba(126, 156, 216, 0.3);
+    var(--wave-glow) 0%,
+    var(--wave-glow) 100%);
+  border-color: var(--wave-glow-strong);
 }
 
 .shortcut-reset-button {
@@ -1069,7 +1066,7 @@
 
 .shortcut-reset-button:hover:not(:disabled) {
   color: var(--text-secondary);
-  background: rgba(42, 42, 55, 0.6);
+  background: var(--overlay-surface);
   border-color: var(--border-color);
 }
 
@@ -1084,7 +1081,7 @@
   font-size: 12px;
   font-weight: 500;
   color: var(--text-tertiary);
-  background: rgba(42, 42, 55, 0.6);
+  background: var(--overlay-surface);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   cursor: pointer;
@@ -1093,7 +1090,7 @@
 
 .reset-all-button:hover:not(:disabled) {
   color: var(--text-secondary);
-  background: rgba(42, 42, 55, 0.9);
+  background: var(--overlay-surface-hover);
   border-color: var(--text-fuji);
 }
 
@@ -1162,9 +1159,9 @@
   border-radius: 5px;
   font-size: 11px;
   font-weight: 600;
-  background: rgba(255, 158, 59, 0.12);
+  background: var(--warning-light);
   color: var(--accent-ronin);
-  border: 1px solid rgba(255, 158, 59, 0.2);
+  border: 1px solid var(--warning-bg);
 }
 
 .update-up-to-date {
@@ -1178,7 +1175,7 @@
   font-size: 12px;
   font-weight: 500;
   color: var(--text-tertiary);
-  background: rgba(42, 42, 55, 0.6);
+  background: var(--overlay-surface);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   cursor: pointer;
@@ -1187,7 +1184,7 @@
 
 .update-check-button:hover {
   color: var(--text-secondary);
-  background: rgba(42, 42, 55, 0.9);
+  background: var(--overlay-surface-hover);
   border-color: var(--text-fuji);
 }
 
@@ -1274,7 +1271,7 @@
   font-size: 12px;
   font-weight: 500;
   color: var(--text-tertiary);
-  background: rgba(42, 42, 55, 0.6);
+  background: var(--overlay-surface);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   cursor: pointer;
@@ -1283,6 +1280,6 @@
 
 .update-retry-button:hover {
   color: var(--text-secondary);
-  background: rgba(42, 42, 55, 0.9);
+  background: var(--overlay-surface-hover);
   border-color: var(--text-fuji);
 }

@@ -26,8 +26,8 @@ export const kanagawaLight: ThemeDefinition = {
   text: {
     primary: '#545464',   // lotusInk1 — main text
     secondary: '#43436c', // lotusInk2 — dimmed text
-    tertiary: '#716e61',  // lotusGray2 — tertiary text
-    muted: '#8a8980',     // lotusGray3 — comments, muted
+    tertiary: '#5e5b50',  // darkened lotusGray2 — tertiary text (5.5:1 on cream bg)
+    muted: '#787669',     // darkened lotusGray3 — comments, muted (3.9:1 on cream bg)
   },
 
   borders: {
@@ -81,16 +81,16 @@ export const kanagawaLight: ThemeDefinition = {
   },
 
   diff: {
-    addBg: 'rgba(111, 137, 78, 0.15)',    // lotusGreen
-    addHover: 'rgba(111, 137, 78, 0.25)',
-    addGutter: 'rgba(111, 137, 78, 0.25)',
+    addBg: 'rgba(111, 137, 78, 0.10)',    // lotusGreen — gentle tint
+    addHover: 'rgba(111, 137, 78, 0.18)',
+    addGutter: 'rgba(111, 137, 78, 0.18)',
     addText: '#6f894e',
-    removeBg: 'rgba(200, 64, 83, 0.12)',   // lotusRed
-    removeHover: 'rgba(200, 64, 83, 0.22)',
-    removeGutter: 'rgba(200, 64, 83, 0.22)',
+    removeBg: 'rgba(200, 64, 83, 0.20)',   // lotusRed — 20% on cream
+    removeHover: 'rgba(200, 64, 83, 0.28)',
+    removeGutter: 'rgba(200, 64, 83, 0.28)',
     removeText: '#c84053',
     gutterBg: '#e7dba0',                    // lotusWhite4
-    hunkHeaderBg: 'rgba(77, 105, 155, 0.1)',
+    hunkHeaderBg: 'rgba(77, 105, 155, 0.08)',
     hunkHeaderText: '#4d699b',
   },
 
@@ -131,7 +131,7 @@ export const kanagawaLight: ThemeDefinition = {
     peach: '#d7474b',         // lotusRed2
     crystalBlue: '#9fb5c9',   // lotusBlue3
     springBlue: '#597b75',    // lotusAqua
-    fujiGray: '#8a8980',      // lotusGray3
+    fujiGray: '#787669',      // darkened lotusGray3
     winterBlue: '#dcd5ac',    // lotusWhite1 — muted bg
     waveGlow: 'rgba(77, 105, 155, 0.1)',
     waveGlowStrong: 'rgba(77, 105, 155, 0.2)',
@@ -141,10 +141,10 @@ export const kanagawaLight: ThemeDefinition = {
     // Base
     { token: '', foreground: '545464' },        // lotusInk1
     // Comments
-    { token: 'comment', foreground: '8a8980', fontStyle: 'italic' },       // lotusGray3
-    { token: 'comment.line', foreground: '8a8980', fontStyle: 'italic' },
-    { token: 'comment.block', foreground: '8a8980', fontStyle: 'italic' },
-    { token: 'comment.doc', foreground: '8a8980', fontStyle: 'italic' },
+    { token: 'comment', foreground: '787669', fontStyle: 'italic' },       // lotusGray3
+    { token: 'comment.line', foreground: '787669', fontStyle: 'italic' },
+    { token: 'comment.block', foreground: '787669', fontStyle: 'italic' },
+    { token: 'comment.doc', foreground: '787669', fontStyle: 'italic' },
     // Strings
     { token: 'string', foreground: '6f894e' },          // lotusGreen
     { token: 'string.quoted', foreground: '6f894e' },
@@ -176,7 +176,7 @@ export const kanagawaLight: ThemeDefinition = {
     { token: 'constant.character', foreground: 'cc6d00' },
     // Operators
     { token: 'operator', foreground: '836f4a' },            // lotusYellow2
-    { token: 'punctuation', foreground: '716e61' },         // lotusGray2
+    { token: 'punctuation', foreground: '635f54' },         // lotusGray2
     // Tags (HTML/JSX)
     { token: 'tag', foreground: '4d699b' },                 // lotusBlue4
     { token: 'tag.attribute.name', foreground: '836f4a' },  // lotusYellow2
@@ -192,7 +192,7 @@ export const kanagawaLight: ThemeDefinition = {
     { token: 'markup.italic', foreground: '545464', fontStyle: 'italic' },
     { token: 'markup.underline', foreground: '545464', fontStyle: 'underline' },
     { token: 'markup.raw', foreground: '6f894e' },
-    { token: 'markup.quote', foreground: '8a8980', fontStyle: 'italic' },
+    { token: 'markup.quote', foreground: '787669', fontStyle: 'italic' },
     // Diff
     { token: 'inserted', foreground: '6f894e' },
     { token: 'deleted', foreground: 'c84053' },
@@ -205,20 +205,20 @@ export const kanagawaLight: ThemeDefinition = {
     selectionBackground: '#b5cbd2',  // lotusBlue2
     lineHighlightBackground: '#dcd5ac', // lotusWhite1
     gutterBackground: '#e5ddb0',     // lotusWhite2
-    lineNumberForeground: '#8a8980', // lotusGray3
+    lineNumberForeground: '#787669', // darkened lotusGray3
     lineNumberActiveForeground: '#545464', // lotusInk1
   },
 
   syntaxHighlight: {
     keyword: '#624c83',     // lotusViolet4
     string: '#6f894e',      // lotusGreen
-    comment: '#8a8980',     // lotusGray3
+    comment: '#787669',     // darkened lotusGray3
     function: '#4d699b',    // lotusBlue4
     type: '#597b75',        // lotusAqua
     variable: '#545464',    // lotusInk1
     number: '#b35b79',      // lotusPink
     operator: '#836f4a',    // lotusYellow2
-    punctuation: '#716e61', // lotusGray2
+    punctuation: '#635f54', // darkened lotusGray2
     tag: '#4d699b',         // lotusBlue4
     attribute: '#836f4a',   // lotusYellow2
     constant: '#cc6d00',    // lotusOrange

@@ -70,15 +70,15 @@ body {
 }
 
 .logo.vite:hover {
-  filter: drop-shadow(0 0 2em #7e9cd8);
+  filter: drop-shadow(0 0 2em var(--accent-color));
 }
 
 .logo.react:hover {
-  filter: drop-shadow(0 0 2em #7fb4ca);
+  filter: drop-shadow(0 0 2em var(--accent-hover));
 }
 
 .logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #7aa89f);
+  filter: drop-shadow(0 0 2em var(--accent-green));
 }
 
 .row {
@@ -122,7 +122,7 @@ button {
 
 button:hover {
   border-color: var(--accent-color);
-  box-shadow: 0 2px 8px rgba(126, 156, 216, 0.15);
+  box-shadow: 0 2px 8px var(--wave-glow);
 }
 
 button:active {
@@ -183,6 +183,6 @@ button:focus {
 
 /* Selection color */
 ::selection {
-  background: rgba(126, 156, 216, 0.3);
+  background: var(--wave-glow-strong);
   color: var(--text-primary);
 }

@@ -7,19 +7,19 @@
 /* Draft/WIP — warm amber accent bar on selection */
 .my-mr-item-wrapper.is-draft .mr-list-item.selected::before {
   background: linear-gradient(180deg,
-    #c0a36e 0%,
-    #d4b97a 60%,
+    var(--warning-color) 0%,
+    var(--warning-color) 60%,
     transparent 100%);
-  box-shadow: 0 0 10px rgba(192, 163, 110, 0.5);
+  box-shadow: 0 0 10px var(--warning-light);
 }
 
 /* Fully approved — green accent bar on selection */
 .my-mr-item-wrapper.is-approved .mr-list-item.selected::before {
   background: linear-gradient(180deg,
-    #98bb6c 0%,
-    #7aa89f 60%,
+    var(--success-color) 0%,
+    var(--accent-green) 60%,
     transparent 100%);
-  box-shadow: 0 0 10px rgba(152, 187, 108, 0.5);
+  box-shadow: 0 0 10px var(--success-bg);
 }
 
 /* Reserve space in footer row so labels don't flow under the badge */
@@ -35,11 +35,11 @@
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
   font-weight: 500;
-  color: var(--success-color, #98bb6c);
-  background: rgba(152, 187, 108, 0.1);
+  color: var(--success-color);
+  background: var(--success-light);
   padding: 2px 8px;
   border-radius: 4px;
-  border: 1px solid rgba(152, 187, 108, 0.2);
+  border: 1px solid var(--success-bg);
 }
 
 /* Loading state for MR list content */
@@ -48,6 +48,6 @@
   align-items: center;
   justify-content: center;
   padding: 48px;
-  color: var(--text-tertiary, #727169);
+  color: var(--text-tertiary);
   font-size: 13px;
 }

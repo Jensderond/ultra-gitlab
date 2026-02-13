@@ -1,12 +1,12 @@
-/* File Navigation - Kanagawa Wave Theme */
+/* File Navigation */
 
 .file-navigation {
   display: flex;
   flex-direction: column;
   height: 100%;
   background: linear-gradient(180deg,
-    rgba(22, 22, 29, 0.5) 0%,
-    rgba(22, 22, 29, 0.3) 100%);
+    var(--overlay-backdrop-light) 0%,
+    transparent 100%);
   border-right: 1px solid var(--border-color);
   font-family: 'Noto Sans JP', sans-serif;
 }
@@ -15,8 +15,8 @@
   padding: 14px 16px;
   border-bottom: 1px solid var(--border-color);
   background: linear-gradient(180deg,
-    rgba(31, 31, 40, 0.8) 0%,
-    rgba(31, 31, 40, 0.6) 100%);
+    var(--overlay-glass) 0%,
+    var(--overlay-glass-light) 100%);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
@@ -29,8 +29,8 @@
   font-size: 10px;
   font-weight: 500;
   color: var(--text-tertiary);
-  background: rgba(84, 84, 109, 0.25);
-  border: 1px solid rgba(84, 84, 109, 0.3);
+  background: var(--overlay-surface);
+  border: 1px solid var(--overlay-surface);
   border-radius: 4px;
   padding: 2px 7px;
   cursor: pointer;
@@ -40,13 +40,13 @@
 }
 
 .file-nav-toggle-generated:hover {
-  background: rgba(84, 84, 109, 0.4);
+  background: var(--overlay-surface);
   color: var(--text-secondary);
 }
 
 .file-nav-toggle-generated.active {
-  background: rgba(126, 156, 216, 0.15);
-  border-color: rgba(126, 156, 216, 0.3);
+  background: var(--wave-glow);
+  border-color: var(--wave-glow-strong);
   color: var(--accent-color);
 }
 
@@ -61,7 +61,7 @@
   flex: 1;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: rgba(126, 156, 216, 0.2) transparent;
+  scrollbar-color: var(--wave-glow-strong) transparent;
 }
 
 .file-nav-list::-webkit-scrollbar {
@@ -73,12 +73,12 @@
 }
 
 .file-nav-list::-webkit-scrollbar-thumb {
-  background: rgba(126, 156, 216, 0.2);
+  background: var(--wave-glow-strong);
   border-radius: 3px;
 }
 
 .file-nav-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(126, 156, 216, 0.35);
+  background: var(--wave-glow-strong);
 }
 
 .file-nav-item {
@@ -87,19 +87,19 @@
   gap: 10px;
   padding: 10px 14px;
   cursor: pointer;
-  border-bottom: 1px solid rgba(54, 54, 70, 0.3);
+  border-bottom: 1px solid var(--overlay-divider);
   transition: all 0.2s ease;
   position: relative;
 }
 
 .file-nav-item:hover {
-  background: rgba(42, 42, 55, 0.5);
+  background: var(--overlay-hover);
 }
 
 .file-nav-item.selected {
   background: linear-gradient(90deg,
-    rgba(126, 156, 216, 0.12) 0%,
-    rgba(126, 156, 216, 0.06) 100%);
+    var(--wave-glow) 0%,
+    transparent 100%);
   border-left: 3px solid var(--accent-color);
   padding-left: 11px;
 }
@@ -112,9 +112,9 @@
   bottom: 0;
   width: 3px;
   background: linear-gradient(180deg,
-    #7e9cd8 0%,
-    #7fb4ca 100%);
-  box-shadow: 0 0 10px rgba(126, 156, 216, 0.5);
+    var(--accent-color) 0%,
+    var(--accent-hover) 100%);
+  box-shadow: 0 0 10px var(--wave-glow-strong);
 }
 
 .file-nav-item.focused {
@@ -140,34 +140,34 @@
 
 .change-added {
   background: linear-gradient(135deg,
-    rgba(152, 187, 108, 0.2) 0%,
-    rgba(152, 187, 108, 0.1) 100%);
+    var(--success-bg) 0%,
+    var(--success-light) 100%);
   color: var(--diff-add-text);
-  border: 1px solid rgba(152, 187, 108, 0.25);
+  border: 1px solid var(--success-bg);
 }
 
 .change-deleted {
   background: linear-gradient(135deg,
-    rgba(195, 64, 67, 0.2) 0%,
-    rgba(195, 64, 67, 0.1) 100%);
+    var(--error-bg) 0%,
+    var(--error-light) 100%);
   color: var(--diff-remove-text);
-  border: 1px solid rgba(195, 64, 67, 0.25);
+  border: 1px solid var(--error-bg);
 }
 
 .change-modified {
   background: linear-gradient(135deg,
-    rgba(230, 195, 132, 0.2) 0%,
-    rgba(230, 195, 132, 0.1) 100%);
+    var(--warning-bg) 0%,
+    var(--warning-light) 100%);
   color: var(--warning-text);
-  border: 1px solid rgba(230, 195, 132, 0.25);
+  border: 1px solid var(--warning-bg);
 }
 
 .change-renamed {
   background: linear-gradient(135deg,
-    rgba(126, 156, 216, 0.2) 0%,
-    rgba(126, 156, 216, 0.1) 100%);
+    var(--wave-glow-strong) 0%,
+    var(--wave-glow) 100%);
   color: var(--info-text);
-  border: 1px solid rgba(126, 156, 216, 0.25);
+  border: 1px solid var(--wave-glow-strong);
 }
 
 .file-info {
@@ -189,11 +189,11 @@
 }
 
 .file-nav-item:hover .file-name {
-  color: #e5ddb3;
+  color: var(--text-primary);
 }
 
 .file-nav-item.selected .file-name {
-  color: #f0ead6;
+  color: var(--text-primary);
 }
 
 .file-dir {
@@ -237,7 +237,7 @@
   font-size: 9px;
   font-weight: 500;
   color: var(--text-tertiary);
-  background: rgba(84, 84, 109, 0.3);
+  background: var(--overlay-surface);
   padding: 1px 5px;
   border-radius: 3px;
   letter-spacing: 0.03em;
@@ -259,7 +259,7 @@
 
 .file-viewed-indicator {
   flex-shrink: 0;
-  color: #98bb6c;
+  color: var(--success-color);
   font-size: 12px;
   font-weight: 600;
 }

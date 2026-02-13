@@ -137,6 +137,17 @@ function themeToCssVars(t: ThemeDefinition): Record<string, string> {
     '--disabled-bg': t.input.disabledBg,
     '--code-bg': t.input.codeBg,
 
+    // Overlay / glass effects
+    '--overlay-glass': t.overlays.glass,
+    '--overlay-glass-light': t.overlays.glassLight,
+    '--overlay-surface': t.overlays.surface,
+    '--overlay-surface-hover': t.overlays.surfaceHover,
+    '--overlay-hover': t.overlays.hover,
+    '--overlay-divider': t.overlays.divider,
+    '--overlay-backdrop': t.overlays.backdrop,
+    '--overlay-backdrop-light': t.overlays.backdropLight,
+    '--wave-decoration-opacity': t.overlays.waveOpacity,
+
     // Extended palette
     '--accent-pink': t.extended.sakuraPink,
     '--accent-green': t.extended.springBlue,

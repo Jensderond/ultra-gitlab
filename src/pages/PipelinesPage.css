@@ -32,9 +32,9 @@
   height: 1px;
   background: linear-gradient(90deg,
     transparent 0%,
-    #363646 15%,
-    #54546d 50%,
-    #363646 85%,
+    var(--border-color) 15%,
+    var(--text-muted) 50%,
+    var(--border-color) 85%,
     transparent 100%);
   opacity: 0.6;
 }
@@ -70,11 +70,11 @@
   width: 3px;
   height: 22px;
   background: linear-gradient(180deg,
-    #7e9cd8 0%,
-    #7fb4ca 60%,
+    var(--accent-color) 0%,
+    var(--accent-hover) 60%,
     transparent 100%);
   border-radius: 1.5px;
-  box-shadow: 0 0 14px rgba(126, 156, 216, 0.3);
+  box-shadow: 0 0 14px var(--wave-glow-strong);
   flex-shrink: 0;
   animation: pipelinesBarBreath 4s ease-in-out infinite;
 }
@@ -325,25 +325,25 @@
 }
 
 .pipeline-card--success::before {
-  background: linear-gradient(180deg, #98bb6c 0%, #7aa89f 60%, transparent 100%);
-  box-shadow: 0 0 10px rgba(152, 187, 108, 0.5);
+  background: linear-gradient(180deg, var(--success-color) 0%, var(--accent-green) 60%, transparent 100%);
+  box-shadow: 0 0 10px var(--success-bg);
 }
 .pipeline-card--failed::before {
-  background: linear-gradient(180deg, #c34043 0%, #e46876 60%, transparent 100%);
-  box-shadow: 0 0 10px rgba(195, 64, 67, 0.5);
+  background: linear-gradient(180deg, var(--error-color) 0%, var(--accent-peach) 60%, transparent 100%);
+  box-shadow: 0 0 10px var(--error-bg);
 }
 .pipeline-card--running::before {
-  background: linear-gradient(180deg, #7e9cd8 0%, #7fb4ca 60%, transparent 100%);
-  box-shadow: 0 0 10px rgba(126, 156, 216, 0.5);
+  background: linear-gradient(180deg, var(--accent-color) 0%, var(--accent-hover) 60%, transparent 100%);
+  box-shadow: 0 0 10px var(--wave-glow-strong);
 }
 .pipeline-card--pending::before {
-  background: linear-gradient(180deg, #e6c384 0%, #c0a36e 60%, transparent 100%);
-  box-shadow: 0 0 10px rgba(230, 195, 132, 0.5);
+  background: linear-gradient(180deg, var(--warning-color) 0%, var(--accent-warm-yellow) 60%, transparent 100%);
+  box-shadow: 0 0 10px var(--warning-light);
 }
 .pipeline-card--canceled::before,
 .pipeline-card--skipped::before {
-  background: linear-gradient(180deg, #727169 0%, #54546d 60%, transparent 100%);
-  box-shadow: 0 0 10px rgba(114, 113, 105, 0.3);
+  background: linear-gradient(180deg, var(--text-tertiary) 0%, var(--text-muted) 60%, transparent 100%);
+  box-shadow: 0 0 10px var(--overlay-divider);
 }
 
 /* Prevent sub-pixel jitter on inline SVG icons */
@@ -504,28 +504,28 @@
 }
 
 .pipeline-badge--success {
-  background: rgba(152, 187, 108, 0.12);
+  background: var(--success-light);
   color: var(--success-color);
 }
 
 .pipeline-badge--failed {
-  background: rgba(195, 64, 67, 0.12);
+  background: var(--error-light);
   color: var(--error-color);
 }
 
 .pipeline-badge--running {
-  background: rgba(126, 156, 216, 0.12);
+  background: var(--wave-glow);
   color: var(--accent-color);
 }
 
 .pipeline-badge--pending {
-  background: rgba(230, 195, 132, 0.12);
+  background: var(--warning-light);
   color: var(--warning-color);
 }
 
 .pipeline-badge--canceled,
 .pipeline-badge--skipped {
-  background: rgba(114, 113, 105, 0.12);
+  background: var(--overlay-hover);
   color: var(--text-tertiary);
 }
 

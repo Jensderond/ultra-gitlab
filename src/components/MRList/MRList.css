@@ -16,7 +16,7 @@
   display: flex;
   flex-direction: column;
   scrollbar-width: thin;
-  scrollbar-color: rgba(126, 156, 216, 0.18) transparent;
+  scrollbar-color: var(--border-color) transparent;
 }
 
 .mr-list-content::-webkit-scrollbar {
@@ -28,12 +28,12 @@
 }
 
 .mr-list-content::-webkit-scrollbar-thumb {
-  background: rgba(126, 156, 216, 0.15);
+  background: var(--wave-glow);
   border-radius: 3px;
 }
 
 .mr-list-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(126, 156, 216, 0.3);
+  background: var(--wave-glow-strong);
 }
 
 /* Loading states */
@@ -45,7 +45,7 @@
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #727169;
+  color: var(--text-tertiary);
   text-align: center;
   font-family: 'Noto Sans JP', sans-serif;
   animation: mlFadeIn 0.3s ease;
@@ -62,8 +62,8 @@
   height: 28px;
   margin-bottom: 16px;
   border: 1.5px solid transparent;
-  border-top-color: #7e9cd8;
-  border-right-color: #7fb4ca;
+  border-top-color: var(--accent-color);
+  border-right-color: var(--accent-hover);
   border-radius: 50%;
   animation: mlSpin 1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
 }
@@ -76,11 +76,11 @@
 .mr-list-loading-overlay {
   padding: 6px 16px;
   background: linear-gradient(90deg,
-    rgba(126, 156, 216, 0.04) 0%,
-    rgba(126, 156, 216, 0.08) 50%,
-    rgba(126, 156, 216, 0.04) 100%);
+    var(--wave-glow) 0%,
+    var(--wave-glow) 50%,
+    var(--wave-glow) 100%);
   background-size: 200% 100%;
-  color: #7e9cd8;
+  color: var(--accent-color);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
   font-weight: 500;
@@ -96,7 +96,7 @@
 
 /* Error state */
 .mr-list-error {
-  color: #c34043;
+  color: var(--error-color);
 }
 
 .mr-list-error button {
@@ -105,17 +105,17 @@
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 12px;
   font-weight: 500;
-  color: #c34043;
+  color: var(--error-color);
   background: transparent;
-  border: 1px solid rgba(195, 64, 67, 0.25);
+  border: 1px solid var(--error-bg);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .mr-list-error button:hover {
-  background: rgba(195, 64, 67, 0.08);
-  border-color: rgba(195, 64, 67, 0.4);
+  background: var(--error-light);
+  border-color: var(--error-bg);
 }
 
 /* Empty state */
@@ -127,7 +127,7 @@
   margin: 0;
   font-size: 14px;
   font-weight: 500;
-  color: #c8c093;
+  color: var(--text-secondary);
 }
 
 .mr-list-empty-hint {
@@ -135,16 +135,16 @@
   margin-top: 10px;
   font-size: 12px;
   font-weight: 400;
-  color: #625e5a;
+  color: var(--text-muted);
 }
 
 /* Footer - Sync status bar */
 .mr-list-footer {
   padding: 10px 32px;
-  border-top: 1px solid rgba(54, 54, 70, 0.25);
+  border-top: 1px solid var(--border-color);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
-  color: #625e5a;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -152,7 +152,7 @@
 
 .mr-count {
   font-weight: 500;
-  color: #727169;
+  color: var(--text-tertiary);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -162,9 +162,9 @@
   content: '';
   width: 5px;
   height: 5px;
-  background: #7e9cd8;
+  background: var(--accent-color);
   border-radius: 50%;
-  box-shadow: 0 0 8px rgba(126, 156, 216, 0.5);
+  box-shadow: 0 0 8px var(--wave-glow-strong);
   animation: dotPulse 3s ease-in-out infinite;
 }
 
@@ -180,35 +180,35 @@
   gap: 6px;
   font-size: 11px;
   font-weight: 400;
-  color: #625e5a;
+  color: var(--text-muted);
   transition: color 0.3s ease;
 }
 
 .mr-sync-status--syncing {
-  color: #7e9cd8;
+  color: var(--accent-color);
 }
 
 .mr-sync-status--success {
-  color: #98bb6c;
+  color: var(--success-color);
 }
 
 .mr-sync-status--error {
-  color: #c34043;
+  color: var(--error-color);
 }
 
 /* Sync spinner */
 .sync-spinner {
   width: 11px;
   height: 11px;
-  border: 1.5px solid rgba(126, 156, 216, 0.15);
-  border-top-color: #7e9cd8;
+  border: 1.5px solid var(--wave-glow);
+  border-top-color: var(--accent-color);
   border-radius: 50%;
   animation: mlSpin 0.8s linear infinite;
 }
 
 /* Sync check mark */
 .sync-check {
-  color: #98bb6c;
+  color: var(--success-color);
   font-weight: 600;
   animation: checkPop 0.3s ease-out;
 }
@@ -228,7 +228,7 @@
   height: 13px;
   font-size: 9px;
   font-weight: 700;
-  color: #16161d;
-  background: #c34043;
+  color: var(--bg-primary);
+  background: var(--error-color);
   border-radius: 50%;
 }

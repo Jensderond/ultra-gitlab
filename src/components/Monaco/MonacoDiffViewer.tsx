@@ -323,15 +323,18 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
     // Apply hideUnchangedRegions after content loads.
     // The creation-time option fires before models have content, so we
     // re-apply via updateOptions once the editor is ready and content changes.
+    // We must toggle off→on to force Monaco to re-collapse; calling updateOptions
+    // with the same config is a no-op and leaves regions expanded.
     useEffect(() => {
       const ed = editorRef.current;
       if (!ed || !editorReady) return;
-      // Delay one frame so the diff computation has started with new models
+      // Tear down existing unchanged-region widgets first
+      ed.updateOptions({ hideUnchangedRegions: { enabled: false } });
+      if (!hideUnchanged) return;
+      // Re-enable after one frame so the diff computation picks up the new models
       const id = requestAnimationFrame(() => {
         ed.updateOptions({
-          hideUnchangedRegions: hideUnchanged
-            ? { enabled: true, contextLineCount: 5, minimumLineCount: 3, revealLineCount: 20 }
-            : { enabled: false },
+          hideUnchangedRegions: { enabled: true, contextLineCount: 5, minimumLineCount: 3, revealLineCount: 20 },
         });
       });
       return () => cancelAnimationFrame(id);
@@ -447,18 +450,12 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
         renderOverviewRuler: true,
         renderIndicators: true,
 
-        // Collapse unchanged regions (show only 5 lines of context around changes)
-        hideUnchangedRegions: hideUnchanged
-          ? { enabled: true, contextLineCount: 5, minimumLineCount: 3, revealLineCount: 20 }
-          : { enabled: false },
+        // hideUnchangedRegions is managed exclusively via updateOptions in our
+        // useEffect to avoid the DiffEditor re-applying stale options after a toggle.
+        hideUnchangedRegions: { enabled: false },
 
         // Editor appearance
-        minimap: {
-          enabled: true,
-          side: "right",
-          showSlider: "mouseover",
-          renderCharacters: false,
-        },
+        minimap: { enabled: false },
         scrollBeyondLastLine: false,
         fontSize: 13,
         fontFamily: '"SF Mono", Menlo, Monaco, "Courier New", monospace',

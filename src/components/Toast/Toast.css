@@ -19,8 +19,8 @@
   padding: 12px 14px;
   background: linear-gradient(
     180deg,
-    rgba(31, 31, 40, 0.95) 0%,
-    rgba(26, 26, 34, 0.98) 100%
+    var(--overlay-glass) 0%,
+    var(--overlay-glass) 100%
   );
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -31,22 +31,22 @@
 
 .toast-type-mr-ready {
   border-color: var(--success-color);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 8px rgba(152, 187, 108, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 8px var(--success-light);
 }
 
 .toast-type-pipeline-success {
   border-color: var(--success-color);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 8px rgba(152, 187, 108, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 8px var(--success-light);
 }
 
 .toast-type-pipeline-failed {
   border-color: var(--error-color);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 8px rgba(195, 64, 67, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 8px var(--error-light);
 }
 
 .toast-type-pipeline-running {
   border-color: var(--accent-color);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 8px rgba(126, 156, 216, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 8px var(--wave-glow);
 }
 
 .toast-icon {

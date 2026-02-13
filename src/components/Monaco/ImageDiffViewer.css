@@ -1,15 +1,15 @@
 /**
  * ImageDiffViewer styles.
  *
- * Uses Kanagawa Dragon color palette for consistency.
+ * Uses theme CSS variables for consistency across themes.
  */
 
 .image-diff-viewer {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #181616;
-  color: #c5c9c5;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .image-diff-toolbar {
@@ -17,15 +17,15 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: #1d1c19;
-  border-bottom: 1px solid #282727;
+  background: var(--bg-dim);
+  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 
 .image-diff-filename {
   font-family: "SF Mono", Menlo, Monaco, "Courier New", monospace;
   font-size: 13px;
-  color: #a6a69c;
+  color: var(--text-tertiary);
 }
 
 .image-diff-controls {
@@ -43,22 +43,22 @@
   padding: 4px 10px;
   font-size: 12px;
   background: transparent;
-  border: 1px solid #393836;
-  color: #a6a69c;
+  border: 1px solid var(--border-color);
+  color: var(--text-tertiary);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .image-diff-view-modes button:hover {
-  background: #282727;
-  border-color: #54546d;
+  background: var(--bg-tertiary);
+  border-color: var(--text-muted);
 }
 
 .image-diff-view-modes button.active {
-  background: #2d4f67;
-  border-color: #7fb4ca;
-  color: #dcd7ba;
+  background: var(--bg-selected);
+  border-color: var(--accent-hover);
+  color: var(--text-primary);
 }
 
 .image-diff-zoom {
@@ -74,16 +74,16 @@
   font-size: 14px;
   font-weight: 600;
   background: transparent;
-  border: 1px solid #393836;
-  color: #a6a69c;
+  border: 1px solid var(--border-color);
+  color: var(--text-tertiary);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .image-diff-zoom button:hover:not(:disabled) {
-  background: #282727;
-  border-color: #54546d;
+  background: var(--bg-tertiary);
+  border-color: var(--text-muted);
 }
 
 .image-diff-zoom button:disabled {
@@ -115,11 +115,11 @@
 }
 
 .image-diff-single.added .image-diff-label {
-  color: #98bb6c;
+  color: var(--success-color);
 }
 
 .image-diff-single.deleted .image-diff-label {
-  color: #ff5d62;
+  color: var(--error-color);
 }
 
 .image-diff-label {
@@ -128,7 +128,7 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: 4px 8px;
-  background: #282727;
+  background: var(--bg-tertiary);
   border-radius: 4px;
 }
 
@@ -140,11 +140,11 @@
 .image-diff-image-container img {
   max-width: 100%;
   max-height: 80vh;
-  border: 1px solid #393836;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   background:
-    repeating-conic-gradient(#2a2a2a 0% 25%, #1f1f1f 0% 50%) 0 0 / 16px 16px;
+    repeating-conic-gradient(var(--bg-tertiary) 0% 25%, var(--bg-secondary) 0% 50%) 0 0 / 16px 16px;
 }
 
 /* Side by side view */
@@ -167,13 +167,13 @@
 }
 
 .image-diff-panel.original .image-diff-label {
-  color: #ff5d62;
-  background: rgba(255, 93, 98, 0.1);
+  color: var(--error-color);
+  background: var(--error-light);
 }
 
 .image-diff-panel.modified .image-diff-label {
-  color: #98bb6c;
-  background: rgba(152, 187, 108, 0.1);
+  color: var(--success-color);
+  background: var(--success-light);
 }
 
 .image-diff-panel .image-diff-image-container {
@@ -186,7 +186,7 @@
   max-width: 100%;
   max-height: 70vh;
   background:
-    repeating-conic-gradient(#2a2a2a 0% 25%, #1f1f1f 0% 50%) 0 0 / 16px 16px;
+    repeating-conic-gradient(var(--bg-tertiary) 0% 25%, var(--bg-secondary) 0% 50%) 0 0 / 16px 16px;
 }
 
 /* Overlay view */
@@ -209,7 +209,7 @@
   height: 4px;
   -webkit-appearance: none;
   appearance: none;
-  background: linear-gradient(to right, #ff5d62, #98bb6c);
+  background: linear-gradient(to right, var(--error-color), var(--success-color));
   border-radius: 2px;
   outline: none;
 }
@@ -219,7 +219,7 @@
   appearance: none;
   width: 16px;
   height: 16px;
-  background: #dcd7ba;
+  background: var(--text-primary);
   border-radius: 50%;
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
@@ -228,7 +228,7 @@
 .image-diff-overlay-control input[type="range"]::-moz-range-thumb {
   width: 16px;
   height: 16px;
-  background: #dcd7ba;
+  background: var(--text-primary);
   border-radius: 50%;
   cursor: pointer;
   border: none;
@@ -243,10 +243,10 @@
 .image-diff-overlay img {
   max-width: 100%;
   max-height: 70vh;
-  border: 1px solid #393836;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   background:
-    repeating-conic-gradient(#2a2a2a 0% 25%, #1f1f1f 0% 50%) 0 0 / 16px 16px;
+    repeating-conic-gradient(var(--bg-tertiary) 0% 25%, var(--bg-secondary) 0% 50%) 0 0 / 16px 16px;
 }
 
 .image-diff-overlay-original {
@@ -277,11 +277,11 @@
 .image-diff-swipe img {
   max-width: 100%;
   max-height: 70vh;
-  border: 1px solid #393836;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   display: block;
   background:
-    repeating-conic-gradient(#2a2a2a 0% 25%, #1f1f1f 0% 50%) 0 0 / 16px 16px;
+    repeating-conic-gradient(var(--bg-tertiary) 0% 25%, var(--bg-secondary) 0% 50%) 0 0 / 16px 16px;
 }
 
 .image-diff-swipe-original {
@@ -309,7 +309,7 @@
   top: 0;
   bottom: 0;
   width: 4px;
-  background: #7fb4ca;
+  background: var(--accent-hover);
   cursor: ew-resize;
   transform: translateX(-50%);
   z-index: 10;
@@ -321,7 +321,7 @@
   bottom: 0;
   left: 50%;
   width: 2px;
-  background: #7fb4ca;
+  background: var(--accent-hover);
   transform: translateX(-50%);
 }
 
@@ -333,14 +333,14 @@
   display: flex;
   gap: 4px;
   padding: 8px 6px;
-  background: #2d4f67;
-  border: 1px solid #7fb4ca;
+  background: var(--bg-selected);
+  border: 1px solid var(--accent-hover);
   border-radius: 4px;
-  color: #dcd7ba;
+  color: var(--text-primary);
   font-size: 10px;
 }
 
-/* SVGs without explicit width/height have no intrinsic size — fill container,
+/* SVGs without explicit width/height have no intrinsic size -- fill container,
    and enforce a minimum so small icons don't render as tiny thumbnails */
 .image-diff-viewer img.svg-image {
   width: 100%;
@@ -356,5 +356,5 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #54546d;
+  color: var(--text-muted);
 }

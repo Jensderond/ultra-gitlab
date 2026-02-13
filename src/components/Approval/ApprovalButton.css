@@ -30,13 +30,13 @@
 }
 
 .approval-button.approved {
-  background: rgba(63, 185, 80, 0.15);
-  border-color: #3fb950;
-  color: #3fb950;
+  background: var(--success-light);
+  border-color: var(--success-color);
+  color: var(--success-color);
 }
 
 .approval-button.approved:hover:not(:disabled) {
-  background: rgba(63, 185, 80, 0.25);
+  background: var(--success-bg);
 }
 
 .approval-icon {
@@ -44,7 +44,7 @@
 }
 
 .approval-button .shortcut-hint {
-  color: #c0a36e;
+  color: var(--accent-warm-yellow);
 }
 
 .approval-status {
@@ -60,7 +60,7 @@
 }
 
 .approval-count.complete {
-  color: #3fb950;
+  color: var(--success-color);
 }
 
 .approval-changes {

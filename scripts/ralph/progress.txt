@@ -26,6 +26,9 @@ Started: Fri Feb 13 15:37:35 CET 2026
 - For new per-field settings: add Rust convenience command (like `update_theme`, `update_ui_font`, `update_collapse_patterns`) rather than sending full AppSettings
 - UI_FONTS array in ThemeProvider.tsx defines available fonts (id, label, family CSS, googleFont URL)
 - Google Fonts are lazy-loaded by injecting <link> elements into <head>; font-family applied directly on document.documentElement.style
+- Custom theme: Rust stores `custom_theme_colors: Option<CustomThemeColors>` (bg/text/accent hex); ThemeDefinition is derived at runtime via `deriveTheme()`
+- ThemeContextValue has `customColors`, `previewCustomTheme`, `saveCustomTheme`, `deleteCustomTheme` for custom theme lifecycle
+- `previewCustomTheme()` for live preview (no persist); `saveCustomTheme()` persists both theme ID + colors; `deleteCustomTheme()` clears colors + reverts to default
 
 ---
 
@@ -209,4 +212,25 @@ Started: Fri Feb 13 15:37:35 CET 2026
   - The isDark flag controls direction of lightness shifts and opacity levels (dark uses higher opacity bg variants)
   - Monaco token colors and syntax highlight colors are complex enough that deriving them from scratch would look poor — reusing preset tokens by bg luminance is the pragmatic approach
   - `adjustSaturation` + `shiftLightness` are the main tools for deriving color variants
+---
+
+## 2026-02-13 - US-012
+- Added custom theme creation UI to the Appearance section in Settings
+- "Create Custom Theme" button reveals inline editor with 3 native `<input type="color">` pickers (Background, Text, Accent)
+- Live preview: as user picks colors, `deriveTheme()` + `previewCustomTheme()` update the app in real-time
+- Save/Cancel/Delete buttons: Save persists colors + switches to 'custom' theme ID; Cancel reverts to pre-edit theme; Delete removes custom theme and reverts to Kanagawa Wave
+- Saved custom theme appears as a fourth swatch alongside presets
+- Edit button on custom swatch re-opens editor with saved colors
+- Rust backend: added `CustomThemeColors` struct (bg, text, accent), `custom_theme_colors: Option<CustomThemeColors>` to AppSettings, `update_custom_theme_colors` command
+- ThemeProvider loads custom theme on startup if theme ID is 'custom' and colors are saved
+- ThemeContextValue now has: `customColors`, `previewCustomTheme`, `saveCustomTheme`, `deleteCustomTheme`
+- Files changed: src-tauri/src/commands/settings.rs, src-tauri/src/commands/mod.rs, src-tauri/src/lib.rs, src/components/ThemeProvider.tsx, src/services/tauri.ts, src/services/index.ts, src/pages/Settings.tsx, src/pages/Settings.css
+- **Learnings for future iterations:**
+  - Custom theme persistence needs 3 pieces: theme ID ('custom') + custom color inputs (bg/text/accent) + the Rust update command — the ThemeDefinition is derived at runtime, not stored
+  - `previewCustomTheme()` applies the derived theme without persisting — used for live preview during editing
+  - `preEditThemeRef` (useRef) tracks which theme was active before editing, so Cancel can revert correctly
+  - The color picker `<input type="color">` returns lowercase hex (#rrggbb) which works directly with deriveTheme()
+  - When editing is active, preset swatches check `!editing` for active state to avoid showing two active indicators
+  - `useMemo` on `deriveTheme()` prevents re-deriving the custom swatch preview on every render
+  - Rust `Option<CustomThemeColors>` serializes as `null` in JSON when None — the frontend checks for this naturally
 ---

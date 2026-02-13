@@ -28,7 +28,7 @@
   background-size: contain;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.6;
+  opacity: var(--wave-decoration-opacity);
   animation: circleFloat 12s ease-in-out infinite;
 }
 
@@ -55,8 +55,8 @@
   gap: 8px;
   padding: 14px 24px;
   background: linear-gradient(180deg,
-    rgba(31, 31, 40, 0.95) 0%,
-    rgba(31, 31, 40, 0.75) 100%);
+    var(--overlay-glass) 0%,
+    var(--overlay-glass-light) 100%);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-color);
@@ -86,7 +86,7 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--text-tertiary);
-  background: rgba(42, 42, 55, 0.6);
+  background: var(--overlay-surface);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   cursor: pointer;
@@ -95,7 +95,7 @@
 
 .back-button:hover {
   color: var(--text-secondary);
-  background: rgba(42, 42, 55, 0.9);
+  background: var(--overlay-surface-hover);
   border-color: var(--text-fuji);
   transform: translateX(-3px);
 }
@@ -128,8 +128,8 @@
   padding: 5px 12px;
   background: linear-gradient(135deg,
     var(--wave-glow) 0%,
-    rgba(127, 180, 202, 0.1) 100%);
-  border: 1px solid rgba(126, 156, 216, 0.25);
+    var(--wave-glow) 100%);
+  border: 1px solid var(--wave-glow-strong);
   border-radius: 6px;
   flex-shrink: 0;
   box-shadow: 0 0 12px var(--wave-glow);
@@ -139,7 +139,7 @@
   font-family: 'IBM Plex Mono', monospace;
   font-size: 12px;
   font-weight: 400;
-  color: #54546d;
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 
@@ -184,7 +184,7 @@
     var(--wave-glow-strong) 0%,
     var(--wave-glow) 100%);
   border-radius: 50%;
-  border: 1px solid rgba(126, 156, 216, 0.2);
+  border: 1px solid var(--wave-glow-strong);
   box-shadow: 0 0 8px var(--wave-glow);
 }
 
@@ -194,9 +194,9 @@
   font-weight: 400;
   color: var(--text-muted);
   padding: 5px 12px;
-  background: rgba(42, 42, 55, 0.5);
+  background: var(--overlay-surface);
   border-radius: 4px;
-  border: 1px solid rgba(54, 54, 70, 0.5);
+  border: 1px solid var(--overlay-divider);
 }
 
 /* Update available tag */
@@ -208,7 +208,7 @@
   letter-spacing: 0.02em;
   border-radius: 3px;
   background: rgba(118, 148, 106, 0.15);
-  color: #76946a;
+  color: var(--success-color);
 }
 
 /* Actions section */
@@ -254,9 +254,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg,
-    rgba(31, 31, 40, 0.6) 0%,
-    rgba(26, 26, 34, 0.4) 100%);
+  background: var(--overlay-glass-light);
   border-right: 1px solid var(--border-color);
 }
 
@@ -268,7 +266,7 @@
   flex-direction: column;
   padding: 20px;
   overflow: hidden;
-  background: rgba(22, 22, 29, 0.3);
+  background: var(--overlay-backdrop-light);
   position: relative;
 }
 
@@ -294,12 +292,12 @@
 }
 
 .mr-detail-main ::-webkit-scrollbar-thumb {
-  background: rgba(126, 156, 216, 0.2);
+  background: var(--wave-glow);
   border-radius: 4px;
 }
 
 .mr-detail-main ::-webkit-scrollbar-thumb:hover {
-  background: rgba(126, 156, 216, 0.35);
+  background: var(--wave-glow-strong);
 }
 
 /* Loading state */
@@ -362,14 +360,14 @@
   height: 72px;
   margin-bottom: 24px;
   background: linear-gradient(135deg,
-    rgba(195, 64, 67, 0.12) 0%,
-    rgba(195, 64, 67, 0.06) 100%);
-  border: 1px solid rgba(195, 64, 67, 0.25);
+    var(--error-light) 0%,
+    transparent 100%);
+  border: 1px solid var(--error-bg);
   border-radius: 18px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 24 24' fill='none' stroke='%23c34043' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cline x1='12' y1='8' x2='12' y2='12'%3E%3C/line%3E%3Cline x1='12' y1='16' x2='12.01' y2='16'%3E%3C/line%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: center;
-  box-shadow: 0 8px 32px rgba(195, 64, 67, 0.15);
+  box-shadow: 0 8px 32px var(--error-light);
 }
 
 .mr-detail-error p {
@@ -387,7 +385,7 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--text-tertiary);
-  background: rgba(42, 42, 55, 0.8);
+  background: var(--overlay-surface-hover);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   cursor: pointer;
@@ -396,7 +394,7 @@
 
 .mr-detail-error button:hover {
   color: var(--text-secondary);
-  background: rgba(42, 42, 55, 1);
+  background: var(--overlay-surface-hover);
   border-color: var(--text-fuji);
 }
 
@@ -421,7 +419,7 @@
   font-size: 12px;
   font-weight: 500;
   color: var(--text-tertiary);
-  background: rgba(42, 42, 55, 0.6);
+  background: var(--overlay-surface);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   cursor: pointer;
@@ -430,7 +428,7 @@
 
 .diff-toolbar-btn:hover:not(:disabled) {
   color: var(--text-secondary);
-  background: rgba(42, 42, 55, 0.9);
+  background: var(--overlay-surface-hover);
   border-color: var(--text-fuji);
 }
 
@@ -538,9 +536,9 @@
   width: 56px;
   height: 56px;
   background: linear-gradient(135deg,
-    rgba(195, 64, 67, 0.1) 0%,
-    rgba(195, 64, 67, 0.05) 100%);
-  border: 1px solid rgba(195, 64, 67, 0.2);
+    var(--error-light) 0%,
+    transparent 100%);
+  border: 1px solid var(--error-bg);
   border-radius: 14px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23c34043' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cline x1='12' y1='8' x2='12' y2='12'%3E%3C/line%3E%3Cline x1='12' y1='16' x2='12.01' y2='16'%3E%3C/line%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -562,7 +560,7 @@
   font-size: 12px;
   font-weight: 500;
   color: var(--text-tertiary);
-  background: rgba(42, 42, 55, 0.8);
+  background: var(--overlay-surface-hover);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   cursor: pointer;
@@ -571,7 +569,7 @@
 
 .file-error button:hover {
   color: var(--text-secondary);
-  background: rgba(42, 42, 55, 1);
+  background: var(--overlay-surface-hover);
   border-color: var(--text-fuji);
 }
 
@@ -581,14 +579,14 @@
   box-shadow: 0 0 0 3px var(--wave-glow);
 }
 
-/* File content loading overlay — positioned over the editor area */
+/* File content loading overlay -- positioned over the editor area */
 .file-loading-overlay {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(22, 22, 29, 0.75);
+  background: var(--overlay-backdrop);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   z-index: 5;
@@ -605,7 +603,7 @@
   animation: waveSpinner 1s ease-in-out infinite;
 }
 
-/* Monaco diff wrapper — always mounted, hidden when viewing images */
+/* Monaco diff wrapper -- always mounted, hidden when viewing images */
 .monaco-diff-wrapper {
   display: flex;
   flex-direction: column;
@@ -619,8 +617,8 @@
   height: 64px;
   margin-bottom: 18px;
   background: linear-gradient(135deg,
-    rgba(54, 54, 70, 0.5) 0%,
-    rgba(54, 54, 70, 0.3) 100%);
+    var(--overlay-divider) 0%,
+    var(--overlay-divider) 100%);
   border: 1px dashed var(--text-fuji);
   border-radius: 14px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='%23727169' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'%3E%3C/path%3E%3Cpolyline points='14 2 14 8 20 8'%3E%3C/polyline%3E%3C/svg%3E");
@@ -632,8 +630,8 @@
 .mr-detail-footer {
   padding: 14px 24px;
   background: linear-gradient(180deg,
-    rgba(31, 31, 40, 0.75) 0%,
-    rgba(31, 31, 40, 0.95) 100%);
+    var(--overlay-glass-light) 0%,
+    var(--overlay-glass) 100%);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid var(--border-color);
@@ -710,15 +708,15 @@
   font-weight: 500;
   color: var(--success-color);
   background: linear-gradient(180deg,
-    rgba(31, 31, 40, 0.92) 0%,
-    rgba(31, 31, 40, 0.98) 100%);
+    var(--overlay-glass) 0%,
+    var(--overlay-glass) 100%);
   border: 1px solid var(--success-color);
   border-radius: 8px;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.4),
-    0 0 12px rgba(152, 187, 108, 0.15);
+    0 0 12px var(--success-light);
   z-index: 100;
   animation: toastIn 0.25s cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
@@ -739,7 +737,7 @@
 .comment-input-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(22, 22, 29, 0.85);
+  background: var(--overlay-backdrop);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
@@ -798,16 +796,16 @@
   font-size: 11px;
   font-weight: 500;
   color: var(--success-color);
-  background: rgba(152, 187, 108, 0.1);
-  border: 1px solid rgba(152, 187, 108, 0.25);
+  background: var(--success-light);
+  border: 1px solid var(--success-bg);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .comment-suggest-btn:hover {
-  background: rgba(152, 187, 108, 0.2);
-  border-color: rgba(152, 187, 108, 0.4);
+  background: var(--success-bg);
+  border-color: var(--success-color);
 }
 
 .comment-input-close {

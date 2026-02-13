@@ -31,6 +31,7 @@
   background-size: 120% 100%;
   z-index: 0;
   pointer-events: none;
+  opacity: var(--wave-decoration-opacity);
   animation: waveUndulate 12s ease-in-out infinite alternate;
 }
 
@@ -46,6 +47,7 @@
   background-size: 115% 100%;
   z-index: 0;
   pointer-events: none;
+  opacity: var(--wave-decoration-opacity);
   animation: waveUndulate2 10s ease-in-out infinite alternate-reverse;
 }
 
@@ -243,13 +245,13 @@
   margin-bottom: 32px;
   border-radius: 50%;
   background: radial-gradient(circle at 40% 35%,
-    rgba(126, 156, 216, 0.12) 0%,
-    rgba(126, 156, 216, 0.04) 60%,
+    var(--wave-glow) 0%,
+    transparent 60%,
     transparent 100%);
-  border: 1px solid rgba(126, 156, 216, 0.15);
+  border: 1px solid var(--wave-glow);
   box-shadow:
-    0 0 40px rgba(126, 156, 216, 0.08),
-    inset 0 0 20px rgba(126, 156, 216, 0.04);
+    0 0 40px var(--wave-glow),
+    inset 0 0 20px transparent;
 }
 
 .mr-list-page-empty h2 {
@@ -277,11 +279,11 @@
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.03em;
-  border: 1px solid rgba(126, 156, 216, 0.35);
+  border: 1px solid var(--wave-glow-strong);
   border-radius: 8px;
   background: linear-gradient(135deg,
-    rgba(126, 156, 216, 0.15) 0%,
-    rgba(127, 180, 202, 0.1) 100%);
+    var(--wave-glow) 0%,
+    var(--wave-glow) 100%);
   color: var(--accent-hover);
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
@@ -290,8 +292,8 @@
 
 .primary-button:hover {
   background: linear-gradient(135deg,
-    rgba(126, 156, 216, 0.25) 0%,
-    rgba(127, 180, 202, 0.18) 100%);
+    var(--wave-glow-strong) 0%,
+    var(--wave-glow) 100%);
   border-color: var(--accent-color);
   color: var(--accent-crystal);
   box-shadow: 0 4px 24px var(--wave-glow);
@@ -316,8 +318,8 @@
 .mr-list-page-footer {
   padding: 12px 32px;
   background: linear-gradient(180deg,
-    rgba(22, 22, 29, 0) 0%,
-    rgba(22, 22, 29, 0.85) 40%);
+    transparent 0%,
+    var(--overlay-glass) 40%);
   position: relative;
   z-index: 10;
   animation: footerReveal 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.15s backwards;
@@ -353,17 +355,17 @@
   font-weight: 500;
   color: var(--text-tertiary);
   background: linear-gradient(180deg,
-    rgba(42, 42, 55, 0.8) 0%,
-    rgba(31, 31, 40, 0.9) 100%);
-  border: 1px solid rgba(54, 54, 70, 0.6);
+    var(--overlay-surface) 0%,
+    var(--overlay-glass) 100%);
+  border: 1px solid var(--overlay-divider);
   border-bottom-width: 2px;
-  border-bottom-color: rgba(30, 30, 40, 0.9);
+  border-bottom-color: var(--overlay-glass);
   border-radius: 5px;
   transition: all 0.15s ease;
 }
 
 .keyboard-hint kbd:hover {
   color: var(--accent-color);
-  border-color: rgba(126, 156, 216, 0.3);
+  border-color: var(--wave-glow-strong);
   box-shadow: 0 0 10px var(--wave-glow);
 }
