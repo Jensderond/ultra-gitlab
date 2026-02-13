@@ -214,6 +214,155 @@ pub async fn get_pipeline_statuses(
     Ok(statuses)
 }
 
+/// Pipeline job DTO returned to the frontend.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PipelineJob {
+    pub id: i64,
+    pub name: String,
+    pub stage: String,
+    pub status: String,
+    pub web_url: String,
+    pub created_at: String,
+    pub started_at: Option<String>,
+    pub finished_at: Option<String>,
+    pub duration: Option<f64>,
+    pub queued_duration: Option<f64>,
+    pub allow_failure: bool,
+    pub runner_description: Option<String>,
+}
+
+/// Fetch all jobs for a specific pipeline.
+#[tauri::command]
+pub async fn get_pipeline_jobs(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+    pipeline_id: i64,
+) -> Result<Vec<PipelineJob>, AppError> {
+    let client = create_gitlab_client(&pool, instance_id).await?;
+
+    let mut jobs: Vec<PipelineJob> = client
+        .get_pipeline_jobs(project_id, pipeline_id)
+        .await?
+        .into_iter()
+        .map(|j| PipelineJob {
+            id: j.id,
+            name: j.name,
+            stage: j.stage,
+            status: j.status,
+            web_url: j.web_url,
+            created_at: j.created_at,
+            started_at: j.started_at,
+            finished_at: j.finished_at,
+            duration: j.duration,
+            queued_duration: j.queued_duration,
+            allow_failure: j.allow_failure,
+            runner_description: j.runner.and_then(|r| r.description),
+        })
+        .collect();
+
+    // Also fetch bridge jobs (child pipeline triggers)
+    if let Ok(bridges) = client.get_pipeline_bridges(project_id, pipeline_id).await {
+        for b in bridges {
+            jobs.push(PipelineJob {
+                id: b.id,
+                name: b.name,
+                stage: b.stage,
+                status: b.status,
+                web_url: b.web_url,
+                created_at: b.created_at,
+                started_at: b.started_at,
+                finished_at: b.finished_at,
+                duration: b.duration,
+                queued_duration: b.queued_duration,
+                allow_failure: b.allow_failure,
+                runner_description: b.runner.and_then(|r| r.description),
+            });
+        }
+    }
+
+    Ok(jobs)
+}
+
+/// Play (trigger) a manual job. Returns the updated job.
+#[tauri::command]
+pub async fn play_pipeline_job(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+    job_id: i64,
+) -> Result<PipelineJob, AppError> {
+    let client = create_gitlab_client(&pool, instance_id).await?;
+    let j = client.play_job(project_id, job_id).await?;
+    Ok(PipelineJob {
+        id: j.id,
+        name: j.name,
+        stage: j.stage,
+        status: j.status,
+        web_url: j.web_url,
+        created_at: j.created_at,
+        started_at: j.started_at,
+        finished_at: j.finished_at,
+        duration: j.duration,
+        queued_duration: j.queued_duration,
+        allow_failure: j.allow_failure,
+        runner_description: j.runner.and_then(|r| r.description),
+    })
+}
+
+/// Retry a failed or canceled job. Returns the new job.
+#[tauri::command]
+pub async fn retry_pipeline_job(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+    job_id: i64,
+) -> Result<PipelineJob, AppError> {
+    let client = create_gitlab_client(&pool, instance_id).await?;
+    let j = client.retry_job(project_id, job_id).await?;
+    Ok(PipelineJob {
+        id: j.id,
+        name: j.name,
+        stage: j.stage,
+        status: j.status,
+        web_url: j.web_url,
+        created_at: j.created_at,
+        started_at: j.started_at,
+        finished_at: j.finished_at,
+        duration: j.duration,
+        queued_duration: j.queued_duration,
+        allow_failure: j.allow_failure,
+        runner_description: j.runner.and_then(|r| r.description),
+    })
+}
+
+/// Cancel a running or pending job. Returns the updated job.
+#[tauri::command]
+pub async fn cancel_pipeline_job(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+    job_id: i64,
+) -> Result<PipelineJob, AppError> {
+    let client = create_gitlab_client(&pool, instance_id).await?;
+    let j = client.cancel_job(project_id, job_id).await?;
+    Ok(PipelineJob {
+        id: j.id,
+        name: j.name,
+        stage: j.stage,
+        status: j.status,
+        web_url: j.web_url,
+        created_at: j.created_at,
+        started_at: j.started_at,
+        finished_at: j.finished_at,
+        duration: j.duration,
+        queued_duration: j.queued_duration,
+        allow_failure: j.allow_failure,
+        runner_description: j.runner.and_then(|r| r.description),
+    })
+}
+
 /// Helper to create a GitLab API client from an instance ID.
 async fn create_gitlab_client(
     pool: &State<'_, DbPool>,

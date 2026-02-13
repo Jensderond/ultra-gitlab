@@ -411,6 +411,34 @@ export interface ProjectSearchResult {
   webUrl: string;
 }
 
+export type PipelineJobStatus =
+  | 'created'
+  | 'pending'
+  | 'running'
+  | 'success'
+  | 'failed'
+  | 'canceled'
+  | 'skipped'
+  | 'manual'
+  | 'waiting_for_resource'
+  | 'preparing'
+  | 'scheduled';
+
+export interface PipelineJob {
+  id: number;
+  name: string;
+  stage: string;
+  status: PipelineJobStatus;
+  webUrl: string;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  duration: number | null;
+  queuedDuration: number | null;
+  allowFailure: boolean;
+  runnerDescription: string | null;
+}
+
 // ============================================================================
 // Notification Settings
 // ============================================================================
