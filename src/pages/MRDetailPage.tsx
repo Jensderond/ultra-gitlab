@@ -605,9 +605,9 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
 
       <footer className="mr-detail-footer">
         <span className="keyboard-hint">
-          <kbd>c</kbd> comment &middot;{' '}
-          <kbd>s</kbd> suggest &middot;{' '}
-          <kbd>y</kbd> copy link &middot;{' '}
+          <span className="shortcut-underline">c</span>omment &middot;{' '}
+          <span className="shortcut-underline">s</span>uggest &middot;{' '}
+          <span className="shortcut-underline">y</span>ank link &middot;{' '}
           <kbd>?</kbd> help
         </span>
       </footer>

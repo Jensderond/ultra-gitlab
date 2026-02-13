@@ -696,6 +696,11 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
+.keyboard-hint .shortcut-underline {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* Copy-to-clipboard toast */
 .copy-toast {
   position: fixed;

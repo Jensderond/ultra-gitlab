@@ -685,9 +685,9 @@ export default function MyMRDetailPage() {
         <span className="keyboard-hint">
           <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> tab &middot;{' '}
           <kbd>j</kbd>/<kbd>k</kbd> file &middot;{' '}
-          <kbd>g</kbd> generated &middot;{' '}
-          <kbd>o</kbd> open &middot;{' '}
-          <kbd>y</kbd> copy link &middot;{' '}
+          <span className="shortcut-underline">g</span>enerated &middot;{' '}
+          <span className="shortcut-underline">o</span>pen &middot;{' '}
+          <span className="shortcut-underline">y</span>ank link &middot;{' '}
           <kbd>Esc</kbd> back
         </span>
       </footer>
