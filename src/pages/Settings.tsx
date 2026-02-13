@@ -14,8 +14,8 @@ import {
   type GitLabInstanceWithStatus,
 } from '../services/gitlab';
 import { formatRelativeTime } from '../services/storage';
-import { invoke, getTokenInfo, updateInstanceToken, getCollapsePatterns, updateCollapsePatterns } from '../services/tauri';
-import type { TokenInfo } from '../types';
+import { invoke, getTokenInfo, updateInstanceToken, getCollapsePatterns, updateCollapsePatterns, getNotificationSettings, updateNotificationSettings } from '../services/tauri';
+import type { TokenInfo, NotificationSettings } from '../types';
 import type { UpdateCheckerState } from '../hooks/useUpdateChecker';
 import useCustomShortcuts from '../hooks/useCustomShortcuts';
 import {
@@ -78,10 +78,16 @@ export default function Settings({ updateChecker }: SettingsProps) {
   const [syncSettingsLoading, setSyncSettingsLoading] = useState(true);
   const [syncSettingsSaving, setSyncSettingsSaving] = useState(false);
 
+  // Notification settings state
+  const [notifSettings, setNotifSettings] = useState<NotificationSettings | null>(null);
+  const [notifSettingsLoading, setNotifSettingsLoading] = useState(true);
+  const [notifSettingsSaving, setNotifSettingsSaving] = useState(false);
+
   // Load instances on mount
   useEffect(() => {
     loadInstances();
     loadSyncSettings();
+    loadNotificationSettings();
   }, []);
 
   async function loadInstances() {
@@ -158,6 +164,33 @@ export default function Settings({ updateChecker }: SettingsProps) {
     if (!syncSettings) return;
     const newSettings = { ...syncSettings, [scope]: checked };
     saveSyncSettings(newSettings);
+  }
+
+  async function loadNotificationSettings() {
+    try {
+      setNotifSettingsLoading(true);
+      const settings = await getNotificationSettings();
+      setNotifSettings(settings);
+    } catch (err) {
+      console.error('Failed to load notification settings:', err);
+    } finally {
+      setNotifSettingsLoading(false);
+    }
+  }
+
+  async function handleNotifToggle(field: keyof NotificationSettings, checked: boolean) {
+    if (!notifSettings) return;
+    const newSettings = { ...notifSettings, [field]: checked };
+    setNotifSettings(newSettings);
+    try {
+      setNotifSettingsSaving(true);
+      await updateNotificationSettings(newSettings);
+    } catch (err) {
+      console.error('Failed to save notification settings:', err);
+      setNotifSettings(notifSettings);
+    } finally {
+      setNotifSettingsSaving(false);
+    }
   }
 
   function startEditToken(instanceId: number) {
@@ -408,6 +441,61 @@ export default function Settings({ updateChecker }: SettingsProps) {
             </div>
           ) : (
             <p className="error-message">Failed to load sync settings</p>
+          )}
+        </section>
+
+        <section className="settings-section">
+          <h2>Notifications</h2>
+
+          {notifSettingsLoading ? (
+            <p className="loading">Loading settings...</p>
+          ) : notifSettings ? (
+            <div className="sync-settings-form">
+              <div className="checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={notifSettings.mrReadyToMerge}
+                    onChange={(e) => handleNotifToggle('mrReadyToMerge', e.target.checked)}
+                    disabled={notifSettingsSaving}
+                  />
+                  <span>
+                    MR ready to merge
+                    <span className="checkbox-description">Notify when your MR has all approvals and pipeline passed</span>
+                  </span>
+                </label>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={notifSettings.pipelineStatusPinned}
+                    onChange={(e) => handleNotifToggle('pipelineStatusPinned', e.target.checked)}
+                    disabled={notifSettingsSaving}
+                  />
+                  <span>
+                    Pipeline status (pinned projects)
+                    <span className="checkbox-description">Notify when a pinned project pipeline status changes</span>
+                  </span>
+                </label>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={notifSettings.nativeNotificationsEnabled}
+                    onChange={(e) => handleNotifToggle('nativeNotificationsEnabled', e.target.checked)}
+                    disabled={notifSettingsSaving}
+                  />
+                  <span>
+                    Native OS notifications
+                    <span className="checkbox-description">Show notifications in macOS Notification Center</span>
+                  </span>
+                </label>
+              </div>
+
+              {notifSettingsSaving && (
+                <p className="saving-indicator">Saving...</p>
+              )}
+            </div>
+          ) : (
+            <p className="error-message">Failed to load notification settings</p>
           )}
         </section>
 

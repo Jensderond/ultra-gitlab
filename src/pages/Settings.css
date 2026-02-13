@@ -541,7 +541,7 @@
 
 .checkbox-label {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   font-size: 13px;
   font-weight: 400;
@@ -557,12 +557,22 @@
 .checkbox-label input[type="checkbox"] {
   width: 16px;
   height: 16px;
+  margin-top: 1px;
+  flex-shrink: 0;
   cursor: pointer;
   accent-color: var(--kw-wave-blue);
 }
 
 .checkbox-label input[type="checkbox"]:disabled {
   cursor: not-allowed;
+}
+
+.checkbox-description {
+  display: block;
+  font-size: 11px;
+  color: var(--kw-fg-muted);
+  font-weight: 400;
+  margin-top: 2px;
 }
 
 /* ================================================
