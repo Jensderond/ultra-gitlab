@@ -278,13 +278,11 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
 
   // Collapse unchanged regions
   const handleCollapseUnchanged = useCallback(() => {
-    diffViewerRef.current?.collapseUnchanged();
     setCollapseState('collapsed');
   }, []);
 
   // Expand all regions
   const handleExpandAll = useCallback(() => {
-    diffViewerRef.current?.expandAll();
     setCollapseState('expanded');
   }, []);
 
@@ -471,36 +469,41 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   return (
     <div className="mr-detail-page">
       <header className="mr-detail-header">
-        <button className="back-button" onClick={() => navigate('/mrs')}>
-          ← Back
-        </button>
-        <div className="mr-detail-title">
+        <div className="mr-header-top">
+          <button className="back-button" onClick={() => navigate('/mrs')}>
+            ← Back
+          </button>
           <span className="mr-iid">!{mr.iid}</span>
-          <h1>{mr.title}</h1>
-        </div>
-        <div className="mr-detail-meta">
-          <span className="mr-author">{mr.authorUsername}</span>
-          <span className="mr-branches">
-            {mr.sourceBranch} → {mr.targetBranch}
-          </span>
-        </div>
-        <div className="mr-detail-actions">
-          {updateAvailable && (
-            <span className="mr-update-tag">Update available</span>
+          {mr.projectName && (
+            <span className="mr-project">{mr.projectName.replace(/^Customers\s*\/\s*/, '')}</span>
           )}
-          <ApprovalButton
-            ref={approvalButtonRef}
-            mrId={mrId}
-            projectId={mr.projectId}
-            mrIid={mr.iid}
-            approvalStatus={mr.approvalStatus}
-            approvalsCount={mr.approvalsCount ?? 0}
-            approvalsRequired={mr.approvalsRequired ?? 1}
-            hasApproved={mr.userHasApproved}
-            onApprovalChange={(approved) => {
-              if (approved) navigate('/mrs');
-            }}
-          />
+          <div className="mr-detail-actions">
+            {updateAvailable && (
+              <span className="mr-update-tag">Update available</span>
+            )}
+            <ApprovalButton
+              ref={approvalButtonRef}
+              mrId={mrId}
+              projectId={mr.projectId}
+              mrIid={mr.iid}
+              approvalStatus={mr.approvalStatus}
+              approvalsCount={mr.approvalsCount ?? 0}
+              approvalsRequired={mr.approvalsRequired ?? 1}
+              hasApproved={mr.userHasApproved}
+              onApprovalChange={(approved) => {
+                if (approved) navigate('/mrs');
+              }}
+            />
+          </div>
+        </div>
+        <div className="mr-header-bottom">
+          <h1 className="mr-title">{mr.title}</h1>
+          <div className="mr-detail-meta">
+            <span className="mr-author">{mr.authorUsername}</span>
+            <span className="mr-branches">
+              {mr.sourceBranch} → {mr.targetBranch}
+            </span>
+          </div>
         </div>
       </header>
 
@@ -586,6 +589,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
                   modifiedContent={fileContent.modified}
                   filePath={selectedFile}
                   viewMode={viewMode}
+                  hideUnchanged={collapseState !== 'expanded'}
                   comments={fileComments}
                 />
               </div>

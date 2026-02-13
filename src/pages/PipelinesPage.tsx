@@ -131,6 +131,8 @@ export default function PipelinesPage() {
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const statusesRef = useRef(statuses);
   statusesRef.current = statuses;
+  const projectsRef = useRef(projects);
+  projectsRef.current = projects;
   const firstLoadDoneRef = useRef(false);
 
   /**
@@ -146,8 +148,9 @@ export default function PipelinesPage() {
       }
 
       const oldStatuses = statusesRef.current;
+      const currentProjects = projectsRef.current;
       const pinnedIds = new Set(
-        projects.filter((p) => p.pinned).map((p) => p.projectId)
+        currentProjects.filter((p) => p.pinned).map((p) => p.projectId)
       );
 
       for (const [projectId, newStatus] of newStatusMap) {
@@ -156,7 +159,7 @@ export default function PipelinesPage() {
         if (!oldStatus) continue; // no previous status to compare
         if (oldStatus.status === newStatus.status) continue;
 
-        const project = projects.find((p) => p.projectId === projectId);
+        const project = currentProjects.find((p) => p.projectId === projectId);
         window.dispatchEvent(
           new CustomEvent('notification:pipeline-changed', {
             detail: {
@@ -170,7 +173,7 @@ export default function PipelinesPage() {
         );
       }
     },
-    [projects]
+    []
   );
 
   // Load instances

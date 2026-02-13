@@ -82,6 +82,12 @@
   border-bottom: 2px solid transparent;
 }
 
+.my-mr-tab kbd {
+  color: #e6c384;
+  font-family: inherit;
+  font-size: inherit;
+}
+
 .my-mr-tab.active {
   color: var(--accent-color);
   border-bottom: 2px solid var(--accent-color);
@@ -274,36 +280,35 @@
   border: 1px solid var(--border-color);
 }
 
-/* Reviewer list */
+/* Reviewer chips */
 .my-mr-no-reviewers {
   color: var(--text-tertiary);
   font-size: 13px;
   margin: 0;
 }
 
-.my-mr-reviewer-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.my-mr-reviewer-row {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
-.my-mr-reviewer {
-  display: flex;
+.my-mr-reviewer-chip {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 3px 10px 3px 3px;
   background: var(--bg-secondary);
-  border-radius: 6px;
+  border-radius: 100px;
   border: 1px solid var(--border-color);
+  font-size: 12px;
+  line-height: 1;
 }
 
 .my-mr-reviewer-avatar {
   position: relative;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   flex-shrink: 0;
   background: var(--bg-tertiary);
@@ -325,37 +330,37 @@
   justify-content: center;
   width: 100%;
   height: 100%;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--text-tertiary);
 }
 
 .my-mr-reviewer-name {
-  font-size: 13px;
   font-weight: 500;
-  flex: 1;
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
-.my-mr-reviewer-status {
-  font-size: 12px;
-  font-weight: 500;
-  padding: 2px 8px;
-  border-radius: 4px;
+.my-mr-reviewer-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
-.my-mr-reviewer.reviewer-approved .my-mr-reviewer-status {
-  color: var(--success-color);
-  background: var(--success-bg);
+.reviewer-approved .my-mr-reviewer-dot {
+  background: var(--success-color);
+  box-shadow: 0 0 4px var(--success-color);
 }
 
-.my-mr-reviewer.reviewer-pending .my-mr-reviewer-status {
-  color: var(--text-tertiary);
-  background: var(--bg-tertiary);
+.reviewer-pending .my-mr-reviewer-dot {
+  background: var(--text-tertiary);
+  opacity: 0.5;
 }
 
-.my-mr-reviewer.reviewer-changes .my-mr-reviewer-status {
-  color: var(--warning-color);
-  background: var(--warning-bg);
+.reviewer-changes .my-mr-reviewer-dot {
+  background: var(--warning-color);
+  box-shadow: 0 0 4px var(--warning-color);
 }
 
 /* Merge section */

@@ -14,8 +14,9 @@ import {
   type GitLabInstanceWithStatus,
 } from '../services/gitlab';
 import { formatRelativeTime } from '../services/storage';
-import { invoke, getTokenInfo, updateInstanceToken, getCollapsePatterns, updateCollapsePatterns, getNotificationSettings, updateNotificationSettings } from '../services/tauri';
+import { invoke, getTokenInfo, updateInstanceToken, getCollapsePatterns, updateCollapsePatterns, getNotificationSettings, updateNotificationSettings, sendNativeNotification } from '../services/tauri';
 import type { TokenInfo, NotificationSettings } from '../types';
+import { useToast } from '../components/Toast';
 import type { UpdateCheckerState } from '../hooks/useUpdateChecker';
 import useCustomShortcuts from '../hooks/useCustomShortcuts';
 import {
@@ -57,6 +58,7 @@ interface SettingsProps {
  * Settings page for managing GitLab instances.
  */
 export default function Settings({ updateChecker }: SettingsProps) {
+  const { addToast } = useToast();
   const [instances, setInstances] = useState<GitLabInstanceWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -190,6 +192,18 @@ export default function Settings({ updateChecker }: SettingsProps) {
       setNotifSettings(notifSettings);
     } finally {
       setNotifSettingsSaving(false);
+    }
+  }
+
+  function handleTestNotification() {
+    addToast({
+      type: 'mr-ready',
+      title: 'MR Ready to Merge',
+      body: 'feat: add notifications — My Project',
+      url: 'https://gitlab.com',
+    });
+    if (notifSettings?.nativeNotificationsEnabled) {
+      sendNativeNotification('MR Ready to Merge', 'feat: add notifications — My Project').catch(() => {});
     }
   }
 
@@ -445,7 +459,15 @@ export default function Settings({ updateChecker }: SettingsProps) {
         </section>
 
         <section className="settings-section">
-          <h2>Notifications</h2>
+          <div className="section-header">
+            <h2>Notifications</h2>
+            <button
+              className="add-button"
+              onClick={handleTestNotification}
+            >
+              Test Notification
+            </button>
+          </div>
 
           {notifSettingsLoading ? (
             <p className="loading">Loading settings...</p>

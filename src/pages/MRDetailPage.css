@@ -94,10 +94,9 @@
 /* Header */
 .mr-detail-header {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px 16px;
-  padding: 16px 24px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 24px;
   background: linear-gradient(180deg,
     rgba(31, 31, 40, 0.95) 0%,
     rgba(31, 31, 40, 0.75) 100%);
@@ -150,16 +149,21 @@
   box-shadow: 0 0 0 3px var(--kw-wave-glow);
 }
 
-/* Title section */
-.mr-detail-title {
-  flex: 1 0 300px;
+/* Header rows */
+.mr-header-top {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+}
+
+.mr-header-bottom {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
   min-width: 0;
 }
 
-.mr-detail-title .mr-iid {
+.mr-header-top .mr-iid {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 13px;
   font-weight: 500;
@@ -174,13 +178,24 @@
   box-shadow: 0 0 12px var(--kw-wave-glow);
 }
 
-.mr-detail-title h1 {
+.mr-header-top .mr-project {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  font-weight: 400;
+  color: #54546d;
+  flex-shrink: 0;
+}
+
+.mr-header-bottom .mr-title {
   margin: 0;
+  flex: 1;
+  min-width: 0;
   font-family: 'Noto Sans JP', sans-serif;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--kw-fg-default);
+  text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -191,6 +206,7 @@
   display: flex;
   align-items: center;
   gap: 16px;
+  flex-shrink: 0;
 }
 
 .mr-author {

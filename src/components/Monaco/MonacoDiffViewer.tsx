@@ -38,10 +38,6 @@ export interface MonacoDiffViewerRef {
   getCursorPosition: () => CursorPosition | null;
   /** Get the currently selected lines (for suggestion support) */
   getSelectedLines: () => LineSelection | null;
-  /** Collapse unchanged regions back to initial state (5 lines context) */
-  collapseUnchanged: () => void;
-  /** Expand all regions, showing the complete file */
-  expandAll: () => void;
   /** Save the current view state (scroll, cursor, collapsed regions) */
   saveViewState: () => editor.IDiffEditorViewState | null;
   /** Restore a previously saved view state */
@@ -72,6 +68,8 @@ interface MonacoDiffViewerProps {
   language?: string;
   /** View mode: split (side-by-side) or unified (inline) */
   viewMode?: "split" | "unified";
+  /** Whether to hide unchanged regions (default: true) */
+  hideUnchanged?: boolean;
   /** Comments to display in the gutter */
   comments?: LineComment[];
   /** Callback when editor mounts */
@@ -91,6 +89,7 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
       filePath,
       language,
       viewMode = "split",
+      hideUnchanged = true,
       onMount,
     },
     ref
@@ -161,29 +160,6 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
       const editor = editorRef.current;
       if (!editor) return;
       editor.getModifiedEditor().setScrollTop(top);
-    }, []);
-
-    // Collapse unchanged regions back to initial state
-    const collapseUnchanged = useCallback(() => {
-      const editor = editorRef.current;
-      if (!editor) return;
-      editor.updateOptions({
-        hideUnchangedRegions: {
-          enabled: true,
-          contextLineCount: 5,
-          minimumLineCount: 3,
-          revealLineCount: 20,
-        },
-      });
-    }, []);
-
-    // Expand all regions, showing the complete file
-    const expandAll = useCallback(() => {
-      const editor = editorRef.current;
-      if (!editor) return;
-      editor.updateOptions({
-        hideUnchangedRegions: { enabled: false },
-      });
     }, []);
 
     // Save view state (scroll, cursor, collapsed regions)
@@ -292,12 +268,10 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
       setScrollTop,
       getCursorPosition,
       getSelectedLines,
-      collapseUnchanged,
-      expandAll,
       saveViewState,
       restoreViewState,
       layout,
-    }), [goToNextChange, goToPreviousChange, getScrollTop, setScrollTop, getCursorPosition, getSelectedLines, collapseUnchanged, expandAll, saveViewState, restoreViewState, layout]);
+    }), [goToNextChange, goToPreviousChange, getScrollTop, setScrollTop, getCursorPosition, getSelectedLines, saveViewState, restoreViewState, layout]);
 
     // Handle editor mount
     const handleMount: DiffOnMount = useCallback((editor, monaco) => {
@@ -345,6 +319,23 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
     useEffect(() => {
       currentChangeIndexRef.current = -1;
     }, [originalContent, modifiedContent]);
+
+    // Apply hideUnchangedRegions after content loads.
+    // The creation-time option fires before models have content, so we
+    // re-apply via updateOptions once the editor is ready and content changes.
+    useEffect(() => {
+      const ed = editorRef.current;
+      if (!ed || !editorReady) return;
+      // Delay one frame so the diff computation has started with new models
+      const id = requestAnimationFrame(() => {
+        ed.updateOptions({
+          hideUnchangedRegions: hideUnchanged
+            ? { enabled: true, contextLineCount: 5, minimumLineCount: 3, revealLineCount: 20 }
+            : { enabled: false },
+        });
+      });
+      return () => cancelAnimationFrame(id);
+    }, [hideUnchanged, editorReady, originalContent, modifiedContent]);
 
     // Add comment decorations to the editor
     useEffect(() => {
@@ -457,12 +448,9 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
         renderIndicators: true,
 
         // Collapse unchanged regions (show only 5 lines of context around changes)
-        hideUnchangedRegions: {
-          enabled: true,
-          contextLineCount: 5,
-          minimumLineCount: 3,
-          revealLineCount: 20,
-        },
+        hideUnchangedRegions: hideUnchanged
+          ? { enabled: true, contextLineCount: 5, minimumLineCount: 3, revealLineCount: 20 }
+          : { enabled: false },
 
         // Editor appearance
         minimap: {

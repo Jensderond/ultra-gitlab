@@ -404,19 +404,19 @@ export default function MyMRDetailPage() {
           className={`my-mr-tab ${activeTab === 'overview' ? 'active' : ''}`}
           onClick={() => setActiveTab('overview')}
         >
-          Overview
+          <kbd>[1]</kbd> Overview
         </button>
         <button
           className={`my-mr-tab ${activeTab === 'comments' ? 'active' : ''}`}
           onClick={() => setActiveTab('comments')}
         >
-          Comments{unresolvedCount > 0 ? ` (${unresolvedCount})` : ''}
+          <kbd>[2]</kbd> Comments{unresolvedCount > 0 ? ` (${unresolvedCount})` : ''}
         </button>
         <button
           className={`my-mr-tab ${activeTab === 'code' ? 'active' : ''}`}
           onClick={() => setActiveTab('code')}
         >
-          Code
+          <kbd>[3]</kbd> Code
         </button>
       </nav>
 
@@ -472,9 +472,9 @@ export default function MyMRDetailPage() {
               {reviewers.length === 0 ? (
                 <p className="my-mr-no-reviewers">No reviewers assigned</p>
               ) : (
-                <ul className="my-mr-reviewer-list">
+                <div className="my-mr-reviewer-row">
                   {reviewers.map(reviewer => (
-                    <li key={reviewer.username} className={`my-mr-reviewer ${reviewerStatusClass(reviewer.status)}`}>
+                    <div key={reviewer.username} className={`my-mr-reviewer-chip ${reviewerStatusClass(reviewer.status)}`}>
                       <div className="my-mr-reviewer-avatar">
                         {reviewer.avatarUrl && (
                           <img
@@ -486,12 +486,10 @@ export default function MyMRDetailPage() {
                         <span>{reviewer.username.charAt(0).toUpperCase()}</span>
                       </div>
                       <span className="my-mr-reviewer-name">{reviewer.username}</span>
-                      <span className="my-mr-reviewer-status">
-                        {reviewerStatusLabel(reviewer.status)}
-                      </span>
-                    </li>
+                      <span className="my-mr-reviewer-dot" title={reviewerStatusLabel(reviewer.status)} />
+                    </div>
                   ))}
-                </ul>
+                </div>
               )}
             </section>
 

@@ -43,6 +43,10 @@
   font-size: 14px;
 }
 
+.approval-button .shortcut-hint {
+  color: #c0a36e;
+}
+
 .approval-status {
   display: flex;
   align-items: center;
