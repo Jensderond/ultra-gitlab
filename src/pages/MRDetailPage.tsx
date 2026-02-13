@@ -318,13 +318,20 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     [reviewableFiles, files, selectedFile]
   );
 
-  // Mark current file as viewed and go to next file
+  // Mark current file as viewed and go to next file (no wrap-around)
   const markViewedAndNext = useCallback(() => {
-    if (selectedFile) {
-      setViewedPaths((prev) => new Set(prev).add(selectedFile));
+    if (!selectedFile) return;
+
+    setViewedPaths((prev) => new Set(prev).add(selectedFile));
+
+    // Don't wrap around — stay on the last file so the user knows they're done
+    const currentReviewableIndex = reviewableFiles.findIndex(
+      (f) => f.newPath === selectedFile
+    );
+    if (currentReviewableIndex < reviewableFiles.length - 1) {
       navigateFile(1);
     }
-  }, [selectedFile, navigateFile]);
+  }, [selectedFile, navigateFile, reviewableFiles]);
 
   // Callback for when a comment is added via the overlay
   const handleCommentAdded = useCallback((comment: LineComment) => {
