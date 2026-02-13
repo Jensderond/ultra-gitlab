@@ -16,6 +16,7 @@ import { CommandPalette, type Command } from './components/CommandPalette';
 import { KeyboardHelp } from './components/KeyboardHelp';
 import { ReAuthPrompt } from './components/ReAuthPrompt';
 import useUpdateChecker from './hooks/useUpdateChecker';
+import useHasApprovedMRs from './hooks/useHasApprovedMRs';
 import { CommandId, CommandCategory, commandDefinitions } from './commands/registry';
 import { manualSync } from './services/storage';
 import { listInstances } from './services/gitlab';
@@ -43,6 +44,7 @@ function AppContent() {
   const [authExpired, setAuthExpired] = useState<AuthExpiredState | null>(null);
   const [pipelineProjects, setPipelineProjects] = useState<PipelineProject[]>([]);
   const updateChecker = useUpdateChecker();
+  const hasApprovedMRs = useHasApprovedMRs();
 
   // Listen for auth-expired events from the backend
   useEffect(() => {
@@ -230,7 +232,7 @@ function AppContent() {
   return (
     <div className="app">
       <div className="titlebar-drag-region" data-tauri-drag-region />
-      <AppSidebar updateAvailable={updateChecker.available} />
+      <AppSidebar updateAvailable={updateChecker.available} hasApprovedMRs={hasApprovedMRs} />
       <div className="app-content">
         <Routes>
           {/* Redirect root to MR list */}

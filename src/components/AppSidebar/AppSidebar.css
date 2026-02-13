@@ -46,16 +46,24 @@
   box-shadow: none;
 }
 
-.update-dot {
+.update-dot,
+.approved-dot {
   position: absolute;
   top: 6px;
   right: 6px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--warning-color, #f5a623);
   border: 2px solid var(--bg-secondary);
   pointer-events: none;
+}
+
+.update-dot {
+  background: var(--warning-color, #f5a623);
+}
+
+.approved-dot {
+  background: var(--success-color, #28a745);
 }
 
 .app-sidebar-item:hover {

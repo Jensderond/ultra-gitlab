@@ -9,6 +9,7 @@ import './AppSidebar.css';
 
 interface AppSidebarProps {
   updateAvailable?: boolean;
+  hasApprovedMRs?: boolean;
 }
 
 interface NavItem {
@@ -60,7 +61,7 @@ const navItems: NavItem[] = [
   { path: '/settings', matchPrefix: '/settings', label: 'Settings', icon: <GearIcon />, bottom: true },
 ];
 
-export function AppSidebar({ updateAvailable }: AppSidebarProps) {
+export function AppSidebar({ updateAvailable, hasApprovedMRs }: AppSidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -82,6 +83,9 @@ export function AppSidebar({ updateAvailable }: AppSidebarProps) {
             title={item.label}
           >
             {item.icon}
+            {item.path === '/my-mrs' && hasApprovedMRs && (
+              <span className="approved-dot" />
+            )}
           </button>
         ))}
       </div>
