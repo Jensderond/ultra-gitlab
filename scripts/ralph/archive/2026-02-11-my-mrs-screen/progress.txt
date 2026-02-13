@@ -1,0 +1,12 @@
+## Codebase Patterns
+- GitLab API response structs use snake_case (default serde), Tauri command DTOs use #[serde(rename_all = "camelCase")]
+- 3-step Tauri command registration: function in commands/<feature>.rs → re-export in commands/mod.rs → register in lib.rs generate_handler!
+- DB queries in models/<entity>.rs, migrations in db/migrations/ added to MIGRATIONS array in db/mod.rs
+- Frontend service layer: low-level invoke wrappers in services/tauri.ts → re-exported from services/index.ts
+- Frontend types in types/index.ts using camelCase (matching Rust DTOs)
+- Existing projects table caches GitLab project metadata — use upsert_project() to cache new projects from API results
+- Sidebar is 56px wide, content offset via margin-left: 56px on .app-content
+- Active sidebar state uses matchPrefix logic for sub-routes
+
+---
+

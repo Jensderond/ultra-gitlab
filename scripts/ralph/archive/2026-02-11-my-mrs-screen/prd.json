@@ -1,0 +1,229 @@
+{
+  "project": "Ultra GitLab",
+  "branchName": "ralph/pipelines-overview",
+  "description": "Pipelines Overview Screen - A dashboard for monitoring the latest pipeline status across GitLab projects, with smart project search, pinning, and auto-refresh",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add pipeline_projects database migration",
+      "description": "As a developer, I need to store which projects appear on the pipelines dashboard, with pinned state and visit tracking, so it persists across sessions.",
+      "acceptanceCriteria": [
+        "New migration 0010_create_pipeline_projects.sql adds a pipeline_projects table",
+        "Table columns: project_id INTEGER, instance_id INTEGER, pinned INTEGER DEFAULT 0, last_visited_at TEXT, sort_order INTEGER",
+        "Composite PK on (project_id, instance_id)",
+        "FK to projects(id, instance_id) and gitlab_instances(id) with ON DELETE CASCADE",
+        "Migration added to MIGRATIONS array in db/mod.rs",
+        "Migration runs cleanly on existing databases",
+        "cargo check passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add Rust model and DB queries for pipeline projects",
+      "description": "As a developer, I need a model and DB query functions for pipeline_projects so commands can list, upsert, toggle pin, and remove tracked projects.",
+      "acceptanceCriteria": [
+        "New PipelineProject model in src-tauri/src/models/pipeline_project.rs with serde(rename_all = camelCase)",
+        "Model fields: project_id (i64), instance_id (i64), pinned (bool), last_visited_at (Option<String>), sort_order (Option<i64>)",
+        "DB query: list_pipeline_projects(pool, instance_id) returns projects joined with projects table for name/url, pinned first then by last_visited_at desc",
+        "DB query: upsert_pipeline_project(pool, project_id, instance_id) sets last_visited_at to current timestamp",
+        "DB query: toggle_pin(pool, project_id, instance_id) flips the pinned flag",
+        "DB query: remove_pipeline_project(pool, project_id, instance_id) deletes the row",
+        "Model registered in models/mod.rs",
+        "cargo check passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Add Tauri commands for pipeline project management",
+      "description": "As a developer, I need Tauri commands exposing pipeline project CRUD operations so the frontend can manage the dashboard.",
+      "acceptanceCriteria": [
+        "New commands/pipeline.rs with commands: list_pipeline_projects, visit_pipeline_project, toggle_pin_pipeline_project, remove_pipeline_project",
+        "list_pipeline_projects(instance_id) returns tracked projects with project metadata (name, namespace, web_url) joined from projects table",
+        "visit_pipeline_project(instance_id, project_id) upserts into pipeline_projects with current timestamp; also upserts project metadata into projects table if not cached",
+        "toggle_pin_pipeline_project(instance_id, project_id) toggles pinned flag",
+        "remove_pipeline_project(instance_id, project_id) removes from dashboard",
+        "Commands registered in commands/mod.rs and lib.rs generate_handler!",
+        "cargo check passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Add Tauri command for project search with local cache + GitLab API fallback",
+      "description": "As a developer, I need a search command that queries the local projects SQLite cache first, then falls back to GitLab API for additional results.",
+      "acceptanceCriteria": [
+        "New command search_projects(instance_id, query) in commands/pipeline.rs",
+        "First queries projects table using LIKE '%query%' on name_with_namespace, limited to 10 results",
+        "If local results < 5, also queries GitLab API GET /projects?search=query&per_page=10",
+        "API results are upserted into the projects cache table via existing upsert_project function",
+        "Returns combined, deduplicated results (local matches first, then API-only results)",
+        "Each result includes: id, name, name_with_namespace, path_with_namespace, web_url",
+        "cargo check passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Add Tauri command to fetch latest pipeline status for projects",
+      "description": "As a developer, I need a command that fetches the latest pipeline status for one or more projects from the GitLab API.",
+      "acceptanceCriteria": [
+        "New PipelineStatus model with serde(rename_all = camelCase): id (i64), project_id (i64), status (String: success/failed/running/pending/canceled/skipped), ref_name (String), sha (String, first 8 chars), web_url (String), created_at (String), updated_at (Option<String>), duration (Option<i64>)",
+        "New command get_pipeline_statuses(instance_id, project_ids: Vec<i64>) fetches latest pipeline per project via GET /projects/:id/pipelines?per_page=1",
+        "Requests are parallelized using futures::join_all or similar",
+        "Returns Vec<PipelineStatus> (one per project, projects with no pipelines are omitted)",
+        "Command registered in commands/mod.rs and lib.rs generate_handler!",
+        "cargo check passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Add frontend service wrappers for pipeline commands",
+      "description": "As a developer, I need TypeScript service functions and types so the frontend can call all pipeline-related Tauri commands.",
+      "acceptanceCriteria": [
+        "New types in src/types/index.ts: PipelineProject (with project metadata), PipelineStatus, ProjectSearchResult",
+        "New service functions in src/services/tauri.ts: listPipelineProjects, visitPipelineProject, togglePinPipelineProject, removePipelineProject, searchProjects, getPipelineStatuses",
+        "All functions re-exported from src/services/index.ts",
+        "bunx tsc --noEmit passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Add Pipelines route and sidebar navigation entry",
+      "description": "As a user, I want to access the Pipelines screen from the sidebar and via keyboard shortcut.",
+      "acceptanceCriteria": [
+        "New route /pipelines in App.tsx renders a PipelinesPage component",
+        "New PipelinesPage placeholder component in src/pages/PipelinesPage.tsx with basic layout",
+        "New Pipelines icon entry in AppSidebar between My MRs and Settings",
+        "Active state highlights when on /pipelines route",
+        "Keyboard shortcut Cmd+I / Ctrl+I navigates to /pipelines (registered in App.tsx)",
+        "Shortcut listed in keyboard help overlay",
+        "bunx tsc --noEmit passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Build pipeline project cards with status badges",
+      "description": "As a user, I want to see project cards on the Pipelines dashboard showing color-coded pipeline status so I can assess project health at a glance.",
+      "acceptanceCriteria": [
+        "PipelinesPage fetches pipeline projects and their statuses on mount",
+        "Each project renders as a card in a responsive CSS grid layout",
+        "Card shows: project name (name_with_namespace), pipeline status badge, branch/ref name, pipeline relative time (e.g. '3 min ago'), and 'updated X ago' freshness timestamp",
+        "Status badges use distinct colors: green (success), red (failed), blue (running), amber (pending), gray (canceled/skipped)",
+        "Running pipelines show a subtle pulse CSS animation on the badge",
+        "Pinned projects appear first with a pin icon indicator, then recent projects by last_visited_at",
+        "Empty state shown when no projects tracked, with prompt to use search",
+        "PipelinesPage.css created with card grid and badge styles",
+        "bunx tsc --noEmit passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Add project search with instant local + debounced API results",
+      "description": "As a user, I want to search for projects to add to my dashboard with instant cached results and async GitLab API fallback.",
+      "acceptanceCriteria": [
+        "Search input at the top of PipelinesPage, focusable with / keyboard shortcut",
+        "Typing instantly shows local cached results (no debounce for local)",
+        "After 300ms debounce, GitLab API search fires and results merge below local results",
+        "Loading spinner shown while API search is in progress",
+        "Search results appear in a dropdown/overlay below the input",
+        "Clicking a result calls visitPipelineProject and adds it to the dashboard",
+        "Search clears and dropdown closes after selecting a result",
+        "bunx tsc --noEmit passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Add pin/unpin and remove actions to project cards",
+      "description": "As a user, I want to pin important projects to the top and remove projects I no longer need.",
+      "acceptanceCriteria": [
+        "Each project card has a pin/unpin toggle icon button",
+        "Clicking pin calls togglePinPipelineProject and re-sorts the grid immediately",
+        "Pinned cards show a filled pin icon, unpinned show outline or no icon",
+        "Each project card has a remove/dismiss icon button (e.g. X icon on hover)",
+        "Clicking remove calls removePipelineProject and removes the card from the grid",
+        "Removed projects can be re-added via search",
+        "bunx tsc --noEmit passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Add open-in-browser button to project cards",
+      "description": "As a user, I want to quickly open a project's GitLab pipelines page in my browser.",
+      "acceptanceCriteria": [
+        "Each project card has an 'open in browser' icon button (external link icon)",
+        "Clicking opens {project.web_url}/-/pipelines in the system default browser",
+        "Uses Tauri shell open API (@tauri-apps/plugin-shell open())",
+        "If @tauri-apps/plugin-shell is not installed, add it to the project dependencies",
+        "bunx tsc --noEmit passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Add auto-refresh with adaptive polling",
+      "description": "As a user, I want pipeline statuses to update automatically so I see changes without manual refreshing.",
+      "acceptanceCriteria": [
+        "Dashboard polls getPipelineStatuses every 30 seconds when any pipeline has status 'running' or 'pending'",
+        "Poll interval increases to 120 seconds when all pipelines are idle (success/failed/canceled/skipped)",
+        "Polling pauses when the Pipelines page is not visible (use document.visibilitychange event)",
+        "Polling resumes immediately when page becomes visible again (with an immediate fetch)",
+        "Status transitions update smoothly without full re-render flicker",
+        "Polling cleans up on component unmount",
+        "bunx tsc --noEmit passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Add pipeline projects to command palette",
+      "description": "As a user, I want to quickly jump to a project's pipelines from the command palette for keyboard-driven navigation.",
+      "acceptanceCriteria": [
+        "Pinned and recently visited pipeline projects appear in the command palette (Cmd+P)",
+        "Projects listed with a pipeline/CI icon to distinguish from MR-related entries",
+        "Selecting a project navigates to /pipelines and visits that project (calls visitPipelineProject)",
+        "Pipeline projects appear in a 'Pipelines' group/section in the command palette",
+        "bunx tsc --noEmit passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
