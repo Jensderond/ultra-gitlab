@@ -25,7 +25,7 @@ use commands::{
     resolve_discussion, retry_failed_actions, setup_gitlab_instance, trigger_sync,
     unapprove_mr, update_collapse_patterns, update_instance_token,
     update_notification_settings, update_settings, update_sync_config, update_sync_settings,
-    update_theme, send_native_notification,
+    update_theme, update_ui_font, send_native_notification,
 };
 use services::sync_engine::{SyncConfig, SyncEngine};
 use tauri::{Manager, TitleBarStyle, WebviewUrl, WebviewWindowBuilder};
@@ -179,8 +179,9 @@ pub fn run() {
             remove_pipeline_project,
             search_projects,
             get_pipeline_statuses,
-            // Theme
+            // Theme & Font
             update_theme,
+            update_ui_font,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

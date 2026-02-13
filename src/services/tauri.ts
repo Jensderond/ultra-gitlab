@@ -407,6 +407,13 @@ export async function updateTheme(themeId: string): Promise<void> {
   return invoke<void>('update_theme', { themeId });
 }
 
+/**
+ * Persist the UI font choice to the settings store.
+ */
+export async function updateUiFont(font: string): Promise<void> {
+  return invoke<void>('update_ui_font', { font });
+}
+
 // ============================================================================
 // Collapse Patterns Commands
 // ============================================================================

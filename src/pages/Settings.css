@@ -651,6 +651,58 @@
 }
 
 /* ================================================
+   FONT SELECTOR
+   ================================================ */
+
+.font-selector {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.font-selector-label {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.font-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.font-option {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  background: rgba(42, 42, 55, 0.3);
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  box-shadow: none;
+}
+
+.font-option:hover {
+  background: rgba(42, 42, 55, 0.6);
+  color: var(--text-primary);
+  border-color: var(--text-fuji);
+}
+
+.font-option.active {
+  background: rgba(126, 156, 216, 0.08);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+  box-shadow: 0 0 0 2px var(--wave-glow);
+}
+
+/* ================================================
    COLLAPSE PATTERNS EDITOR
    ================================================ */
 

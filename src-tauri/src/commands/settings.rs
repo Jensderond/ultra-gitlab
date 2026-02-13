@@ -266,6 +266,24 @@ pub async fn update_theme(
     Ok(())
 }
 
+/// Update the UI font.
+///
+/// Convenience method that updates just the UI font family name.
+///
+/// # Arguments
+/// * `font` - The font family name (e.g. "Noto Sans JP", "Inter", "System Default")
+#[tauri::command]
+pub async fn update_ui_font(
+    app: AppHandle,
+    font: String,
+) -> Result<(), AppError> {
+    let mut settings = load_settings(&app).await?;
+    settings.ui_font = font;
+    save_settings(&app, &settings).await?;
+    *settings_cache().write().await = settings;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

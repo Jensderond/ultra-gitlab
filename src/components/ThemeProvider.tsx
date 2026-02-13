@@ -13,8 +13,16 @@ import type { ThemeDefinition } from '../themes/types';
 import { kanagawaWave } from '../themes/kanagawa-wave';
 import { kanagawaLight } from '../themes/kanagawa-light';
 import { loved } from '../themes/loved';
-import { invoke, updateTheme as persistTheme } from '../services/tauri';
+import { invoke, updateTheme as persistTheme, updateUiFont as persistUiFont } from '../services/tauri';
 import type { Theme } from '../types';
+
+/** Available UI font options. */
+export const UI_FONTS = [
+  { id: 'Noto Sans JP', label: 'Noto Sans JP', family: "'Noto Sans JP', -apple-system, sans-serif", googleFont: 'Noto+Sans+JP:wght@300;400;500;600;700' },
+  { id: 'Inter', label: 'Inter', family: "'Inter', -apple-system, sans-serif", googleFont: 'Inter:wght@300;400;500;600;700' },
+  { id: 'SF Pro', label: 'SF Pro', family: "-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif", googleFont: null },
+  { id: 'System Default', label: 'System Default', family: "system-ui, -apple-system, sans-serif", googleFont: null },
+] as const;
 
 /** All available preset themes keyed by ID. */
 export const THEME_PRESETS: Record<string, ThemeDefinition> = {
@@ -28,6 +36,10 @@ export interface ThemeContextValue {
   setTheme: (theme: ThemeDefinition) => void;
   /** Switch to a preset theme by ID and persist the choice. */
   setThemeById: (id: Theme) => void;
+  /** Current UI font ID. */
+  uiFont: string;
+  /** Switch UI font and persist the choice. */
+  setUiFont: (fontId: string) => void;
 }
 
 export const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -152,19 +164,43 @@ interface ThemeProviderProps {
   children: ReactNode;
 }
 
+/**
+ * Load a Google Font by injecting a <link> into <head>.
+ * Returns a cleanup function to remove the link.
+ * No-op for system fonts (googleFont === null).
+ */
+function loadGoogleFont(googleFont: string | null): (() => void) | undefined {
+  if (!googleFont) return undefined;
+  const id = `google-font-${googleFont.replace(/[^a-zA-Z0-9]/g, '-')}`;
+  if (document.getElementById(id)) return undefined;
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href = `https://fonts.googleapis.com/css2?family=${googleFont}&display=swap`;
+  document.head.appendChild(link);
+  return () => link.remove();
+}
+
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<ThemeDefinition>(kanagawaWave);
+  const [uiFont, setUiFontState] = useState('Noto Sans JP');
 
-  // Load persisted theme on mount
+  // Load persisted theme and font on mount
   useEffect(() => {
-    invoke<{ theme?: string }>('get_settings')
+    invoke<{ theme?: string; uiFont?: string }>('get_settings')
       .then((settings) => {
         const id = settings.theme || 'kanagawa-wave';
         const def = THEME_PRESETS[id];
         if (def) setThemeState(def);
+
+        const font = settings.uiFont || 'Noto Sans JP';
+        setUiFontState(font);
+        // Eager-load the saved font
+        const fontDef = UI_FONTS.find(f => f.id === font);
+        if (fontDef) loadGoogleFont(fontDef.googleFont);
       })
       .catch(() => {
-        // Fall back to default (already set)
+        // Fall back to defaults (already set)
       });
   }, []);
 
@@ -180,6 +216,13 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     }
   }, []);
 
+  const setUiFont = useCallback((fontId: string) => {
+    setUiFontState(fontId);
+    const fontDef = UI_FONTS.find(f => f.id === fontId);
+    if (fontDef) loadGoogleFont(fontDef.googleFont);
+    persistUiFont(fontId).catch(console.error);
+  }, []);
+
   // Apply CSS variables whenever theme changes
   useEffect(() => {
     const vars = themeToCssVars(theme);
@@ -189,8 +232,16 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     }
   }, [theme]);
 
+  // Apply font-family to :root whenever uiFont changes
+  useEffect(() => {
+    const fontDef = UI_FONTS.find(f => f.id === uiFont);
+    if (fontDef) {
+      document.documentElement.style.setProperty('font-family', fontDef.family);
+    }
+  }, [uiFont]);
+
   return (
-    <ThemeContext value={{ theme, setTheme, setThemeById }}>
+    <ThemeContext value={{ theme, setTheme, setThemeById, uiFont, setUiFont }}>
       {children}
     </ThemeContext>
   );

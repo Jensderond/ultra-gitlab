@@ -19,7 +19,7 @@ import type { TokenInfo, NotificationSettings, Theme } from '../types';
 import { useToast } from '../components/Toast';
 import type { UpdateCheckerState } from '../hooks/useUpdateChecker';
 import useTheme from '../hooks/useTheme';
-import { THEME_PRESETS } from '../components/ThemeProvider';
+import { THEME_PRESETS, UI_FONTS } from '../components/ThemeProvider';
 import useCustomShortcuts from '../hooks/useCustomShortcuts';
 import {
   defaultShortcuts,
@@ -995,10 +995,29 @@ function ShortcutEditor() {
 const PRESET_THEME_IDS: Theme[] = ['kanagawa-wave', 'kanagawa-light', 'loved'];
 
 /**
- * Appearance section — theme selector with visual swatches.
+ * Appearance section — theme selector with visual swatches + font selector.
  */
 function AppearanceSection() {
-  const { theme, setThemeById } = useTheme();
+  const { theme, setThemeById, uiFont, setUiFont } = useTheme();
+  const [fontsLoaded, setFontsLoaded] = useState(false);
+
+  // Background-load all Google Fonts when this section mounts (for previews)
+  useEffect(() => {
+    if (fontsLoaded) return;
+    for (const font of UI_FONTS) {
+      if (font.googleFont) {
+        const id = `google-font-${font.googleFont.replace(/[^a-zA-Z0-9]/g, '-')}`;
+        if (!document.getElementById(id)) {
+          const link = document.createElement('link');
+          link.id = id;
+          link.rel = 'stylesheet';
+          link.href = `https://fonts.googleapis.com/css2?family=${font.googleFont}&display=swap`;
+          document.head.appendChild(link);
+        }
+      }
+    }
+    setFontsLoaded(true);
+  }, [fontsLoaded]);
 
   return (
     <>
@@ -1034,6 +1053,25 @@ function AppearanceSection() {
             </button>
           );
         })}
+      </div>
+
+      <div className="font-selector">
+        <label className="font-selector-label">UI Font</label>
+        <div className="font-options">
+          {UI_FONTS.map((font) => {
+            const isActive = uiFont === font.id;
+            return (
+              <button
+                key={font.id}
+                className={`font-option ${isActive ? 'active' : ''}`}
+                onClick={() => setUiFont(font.id)}
+                style={{ fontFamily: font.family }}
+              >
+                {font.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </>
   );
