@@ -33,6 +33,7 @@ import type {
   PipelineProject,
   PipelineStatus,
   ProjectSearchResult,
+  NotificationSettings,
 } from '../types';
 
 // ============================================================================
@@ -497,4 +498,22 @@ export async function searchProjects(instanceId: number, query: string): Promise
  */
 export async function getPipelineStatuses(instanceId: number, projectIds: number[]): Promise<PipelineStatus[]> {
   return invoke<PipelineStatus[]>('get_pipeline_statuses', { instanceId, projectIds });
+}
+
+// ============================================================================
+// Notification Settings Commands
+// ============================================================================
+
+/**
+ * Get current notification settings.
+ */
+export async function getNotificationSettings(): Promise<NotificationSettings> {
+  return invoke<NotificationSettings>('get_notification_settings');
+}
+
+/**
+ * Update notification settings.
+ */
+export async function updateNotificationSettings(settings: NotificationSettings): Promise<void> {
+  return invoke<void>('update_notification_settings', { settings });
 }

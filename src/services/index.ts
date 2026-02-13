@@ -54,6 +54,8 @@ export {
   removePipelineProject,
   searchProjects,
   getPipelineStatuses,
+  getNotificationSettings,
+  updateNotificationSettings,
 } from './tauri';
 
 // GitLab operations (high-level)

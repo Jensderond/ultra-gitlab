@@ -410,6 +410,16 @@ export interface ProjectSearchResult {
 }
 
 // ============================================================================
+// Notification Settings
+// ============================================================================
+
+export interface NotificationSettings {
+  mrReadyToMerge: boolean;
+  pipelineStatusPinned: boolean;
+  nativeNotificationsEnabled: boolean;
+}
+
+// ============================================================================
 // Error Types
 // ============================================================================
 
