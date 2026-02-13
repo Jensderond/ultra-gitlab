@@ -276,16 +276,6 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     loadComments();
   }, [mrId, selectedFile]);
 
-  // Collapse unchanged regions
-  const handleCollapseUnchanged = useCallback(() => {
-    setCollapseState('collapsed');
-  }, []);
-
-  // Expand all regions
-  const handleExpandAll = useCallback(() => {
-    setCollapseState('expanded');
-  }, []);
-
   // Navigate to next/previous reviewable file
   const navigateFile = useCallback(
     (direction: 1 | -1) => {
@@ -296,26 +286,15 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         (f) => f.newPath === selectedFile
       );
 
-      let nextReviewableIndex: number;
-      if (currentReviewableIndex === -1) {
-        // Current file is generated or none selected — go to first/last reviewable
-        nextReviewableIndex = direction === 1 ? 0 : reviewableFiles.length - 1;
-      } else {
-        nextReviewableIndex = currentReviewableIndex + direction;
-        // Wrap around
-        if (nextReviewableIndex < 0) nextReviewableIndex = reviewableFiles.length - 1;
-        if (nextReviewableIndex >= reviewableFiles.length) nextReviewableIndex = 0;
-      }
+      // When current file is generated or none selected, start from first/last
+      const nextReviewableIndex = currentReviewableIndex === -1
+        ? (direction === 1 ? 0 : reviewableFiles.length - 1)
+        : (currentReviewableIndex + direction + reviewableFiles.length) % reviewableFiles.length;
 
       const nextFile = reviewableFiles[nextReviewableIndex];
-      // Update focus index in the full file list for FileNavigation visual focus
-      const fullIndex = files.findIndex((f) => f.newPath === nextFile.newPath);
-      if (fullIndex >= 0) {
-        setFileFocusIndex(fullIndex);
-      }
-      setSelectedFile(nextFile.newPath);
+      handleFileSelect(nextFile.newPath);
     },
-    [reviewableFiles, files, selectedFile]
+    [reviewableFiles, selectedFile, handleFileSelect]
   );
 
   // Mark current file as viewed and go to next file (no wrap-around)
@@ -420,16 +399,14 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           const sel = diffViewerRef.current?.getSelectedLines();
           const pos = diffViewerRef.current?.getCursorPosition();
           if (pos && sel && !sel.isOriginal) {
-            const linesAbove = 0;
             const linesBelow = sel.endLine - sel.startLine;
-            const suggestionText = `\`\`\`suggestion:-${linesAbove}+${linesBelow}\n${sel.text}\n\`\`\`\n`;
+            const suggestionText = `\`\`\`suggestion:-0+${linesBelow}\n${sel.text}\n\`\`\`\n`;
             const cursorPos = { line: sel.startLine, isOriginal: false };
             commentOverlayRef.current?.open(cursorPos, sel, suggestionText);
           } else if (pos) {
-            const singleSel = diffViewerRef.current?.getSelectedLines();
-            const lineText = singleSel?.text ?? '';
+            const lineText = sel?.text ?? '';
             const suggestionText = `\`\`\`suggestion:-0+0\n${lineText}\n\`\`\`\n`;
-            commentOverlayRef.current?.open(pos, singleSel ?? null, suggestionText);
+            commentOverlayRef.current?.open(pos, sel ?? null, suggestionText);
           }
         }
         break;
@@ -575,7 +552,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
                 <div className="diff-toolbar">
                   <button
                     className="diff-toolbar-btn"
-                    onClick={handleCollapseUnchanged}
+                    onClick={() => setCollapseState('collapsed')}
                     disabled={collapseState === 'collapsed'}
                     title="Collapse unchanged regions"
                   >
@@ -583,7 +560,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
                   </button>
                   <button
                     className="diff-toolbar-btn"
-                    onClick={handleExpandAll}
+                    onClick={() => setCollapseState('expanded')}
                     disabled={collapseState === 'expanded'}
                     title="Expand all regions"
                   >
