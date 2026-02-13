@@ -59,6 +59,8 @@ export {
   sendNativeNotification,
   updateTheme,
   updateUiFont,
+  updateCustomThemeColors,
+  type CustomThemeColors,
 } from './tauri';
 
 // GitLab operations (high-level)

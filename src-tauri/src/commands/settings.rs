@@ -27,6 +27,9 @@ const THEME_KEY: &str = "theme";
 /// Key for UI font in the store.
 const UI_FONT_KEY: &str = "ui_font";
 
+/// Key for custom theme colors in the store.
+const CUSTOM_THEME_COLORS_KEY: &str = "custom_theme_colors";
+
 /// Default theme ID.
 const DEFAULT_THEME: &str = "kanagawa-wave";
 
@@ -50,6 +53,15 @@ fn default_collapse_patterns() -> Vec<String> {
     ]
 }
 
+/// Custom theme color inputs (3 hex colors).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomThemeColors {
+    pub bg: String,
+    pub text: String,
+    pub accent: String,
+}
+
 /// Application settings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -62,6 +74,8 @@ pub struct AppSettings {
     pub theme: String,
     /// UI font family name.
     pub ui_font: String,
+    /// Custom theme input colors (bg, text, accent hex strings). None if no custom theme saved.
+    pub custom_theme_colors: Option<CustomThemeColors>,
 }
 
 impl Default for AppSettings {
@@ -71,6 +85,7 @@ impl Default for AppSettings {
             collapse_patterns: default_collapse_patterns(),
             theme: DEFAULT_THEME.to_string(),
             ui_font: DEFAULT_UI_FONT.to_string(),
+            custom_theme_colors: None,
         }
     }
 }
@@ -113,7 +128,13 @@ async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppError> {
         None => DEFAULT_UI_FONT.to_string(),
     };
 
-    Ok(AppSettings { sync, collapse_patterns, theme, ui_font })
+    // Try to load custom theme colors
+    let custom_theme_colors = match store.get(CUSTOM_THEME_COLORS_KEY) {
+        Some(value) => serde_json::from_value(value.clone()).ok(),
+        None => None,
+    };
+
+    Ok(AppSettings { sync, collapse_patterns, theme, ui_font, custom_theme_colors })
 }
 
 /// Save settings to store.
@@ -137,6 +158,10 @@ async fn save_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), Ap
     // Save UI font
     let ui_font_value = serde_json::to_value(&settings.ui_font)?;
     store.set(UI_FONT_KEY, ui_font_value);
+
+    // Save custom theme colors
+    let custom_theme_value = serde_json::to_value(&settings.custom_theme_colors)?;
+    store.set(CUSTOM_THEME_COLORS_KEY, custom_theme_value);
 
     // Persist to disk
     store
@@ -279,6 +304,25 @@ pub async fn update_ui_font(
 ) -> Result<(), AppError> {
     let mut settings = load_settings(&app).await?;
     settings.ui_font = font;
+    save_settings(&app, &settings).await?;
+    *settings_cache().write().await = settings;
+    Ok(())
+}
+
+/// Update the custom theme colors.
+///
+/// Convenience method that updates just the custom theme color inputs.
+/// Pass `None` to delete the saved custom theme.
+///
+/// # Arguments
+/// * `colors` - The 3 hex color inputs (bg, text, accent), or null to delete
+#[tauri::command]
+pub async fn update_custom_theme_colors(
+    app: AppHandle,
+    colors: Option<CustomThemeColors>,
+) -> Result<(), AppError> {
+    let mut settings = load_settings(&app).await?;
+    settings.custom_theme_colors = colors;
     save_settings(&app, &settings).await?;
     *settings_cache().write().await = settings;
     Ok(())

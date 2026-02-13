@@ -651,6 +651,156 @@
 }
 
 /* ================================================
+   CUSTOM THEME EDITOR
+   ================================================ */
+
+.custom-theme-controls {
+  margin-top: 12px;
+}
+
+.custom-theme-create {
+  padding: 7px 14px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: none;
+  border: 1px dashed var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.custom-theme-create:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-hover);
+  border-style: solid;
+}
+
+.custom-theme-editor {
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: rgba(42, 42, 55, 0.3);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.custom-theme-pickers {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.custom-theme-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.custom-theme-picker-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  min-width: 72px;
+}
+
+.custom-theme-picker input[type="color"] {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 2px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  background: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.custom-theme-picker input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.custom-theme-picker input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
+.custom-theme-picker input[type="color"]:hover {
+  border-color: var(--accent-color);
+}
+
+.custom-theme-picker-value {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.custom-theme-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.custom-theme-save {
+  padding: 6px 16px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--bg-secondary);
+  background: linear-gradient(135deg,
+    var(--accent-color) 0%,
+    var(--accent-hover) 100%);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.custom-theme-save:hover {
+  box-shadow: 0 4px 16px var(--wave-glow);
+  transform: translateY(-1px);
+}
+
+.custom-theme-cancel {
+  padding: 6px 14px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: rgba(42, 42, 55, 0.6);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.custom-theme-cancel:hover {
+  color: var(--text-secondary);
+  background: rgba(42, 42, 55, 0.9);
+  border-color: var(--text-fuji);
+}
+
+.custom-theme-delete {
+  padding: 6px 14px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--error-color);
+  background: none;
+  border: 1px solid rgba(195, 64, 67, 0.3);
+  border-radius: 6px;
+  cursor: pointer;
+  margin-left: auto;
+  transition: all 0.2s ease;
+}
+
+.custom-theme-delete:hover {
+  background: rgba(195, 64, 67, 0.1);
+  border-color: rgba(195, 64, 67, 0.5);
+}
+
+/* ================================================
    FONT SELECTOR
    ================================================ */
 

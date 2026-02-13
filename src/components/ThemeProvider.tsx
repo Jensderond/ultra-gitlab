@@ -13,7 +13,8 @@ import type { ThemeDefinition } from '../themes/types';
 import { kanagawaWave } from '../themes/kanagawa-wave';
 import { kanagawaLight } from '../themes/kanagawa-light';
 import { loved } from '../themes/loved';
-import { invoke, updateTheme as persistTheme, updateUiFont as persistUiFont } from '../services/tauri';
+import { invoke, updateTheme as persistTheme, updateUiFont as persistUiFont, updateCustomThemeColors as persistCustomColors, type CustomThemeColors } from '../services/tauri';
+import { deriveTheme } from '../themes/deriveTheme';
 import type { Theme } from '../types';
 
 /** Available UI font options. */
@@ -40,6 +41,14 @@ export interface ThemeContextValue {
   uiFont: string;
   /** Switch UI font and persist the choice. */
   setUiFont: (fontId: string) => void;
+  /** Saved custom theme colors (null if none saved). */
+  customColors: CustomThemeColors | null;
+  /** Apply a custom theme from 3 colors (live preview, does NOT persist). */
+  previewCustomTheme: (colors: CustomThemeColors) => void;
+  /** Save the custom theme colors and switch to the custom theme. */
+  saveCustomTheme: (colors: CustomThemeColors) => void;
+  /** Delete the saved custom theme and revert to default preset. */
+  deleteCustomTheme: () => void;
 }
 
 export const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -184,14 +193,24 @@ function loadGoogleFont(googleFont: string | null): (() => void) | undefined {
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<ThemeDefinition>(kanagawaWave);
   const [uiFont, setUiFontState] = useState('Noto Sans JP');
+  const [customColors, setCustomColors] = useState<CustomThemeColors | null>(null);
 
-  // Load persisted theme and font on mount
+  // Load persisted theme, font, and custom colors on mount
   useEffect(() => {
-    invoke<{ theme?: string; uiFont?: string }>('get_settings')
+    invoke<{ theme?: string; uiFont?: string; customThemeColors?: CustomThemeColors | null }>('get_settings')
       .then((settings) => {
         const id = settings.theme || 'kanagawa-wave';
-        const def = THEME_PRESETS[id];
-        if (def) setThemeState(def);
+
+        // Load custom theme colors if present
+        const savedColors = settings.customThemeColors ?? null;
+        if (savedColors) setCustomColors(savedColors);
+
+        if (id === 'custom' && savedColors) {
+          setThemeState(deriveTheme(savedColors.bg, savedColors.text, savedColors.accent));
+        } else {
+          const def = THEME_PRESETS[id];
+          if (def) setThemeState(def);
+        }
 
         const font = settings.uiFont || 'Noto Sans JP';
         setUiFontState(font);
@@ -209,18 +228,41 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   }, []);
 
   const setThemeById = useCallback((id: Theme) => {
+    if (id === 'custom' && customColors) {
+      setThemeState(deriveTheme(customColors.bg, customColors.text, customColors.accent));
+      persistTheme(id).catch(console.error);
+      return;
+    }
     const def = THEME_PRESETS[id];
     if (def) {
       setThemeState(def);
       persistTheme(id).catch(console.error);
     }
-  }, []);
+  }, [customColors]);
 
   const setUiFont = useCallback((fontId: string) => {
     setUiFontState(fontId);
     const fontDef = UI_FONTS.find(f => f.id === fontId);
     if (fontDef) loadGoogleFont(fontDef.googleFont);
     persistUiFont(fontId).catch(console.error);
+  }, []);
+
+  const previewCustomTheme = useCallback((colors: CustomThemeColors) => {
+    setThemeState(deriveTheme(colors.bg, colors.text, colors.accent));
+  }, []);
+
+  const saveCustomTheme = useCallback((colors: CustomThemeColors) => {
+    setCustomColors(colors);
+    setThemeState(deriveTheme(colors.bg, colors.text, colors.accent));
+    persistTheme('custom').catch(console.error);
+    persistCustomColors(colors).catch(console.error);
+  }, []);
+
+  const deleteCustomTheme = useCallback(() => {
+    setCustomColors(null);
+    setThemeState(kanagawaWave);
+    persistTheme('kanagawa-wave').catch(console.error);
+    persistCustomColors(null).catch(console.error);
   }, []);
 
   // Apply CSS variables whenever theme changes
@@ -241,7 +283,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   }, [uiFont]);
 
   return (
-    <ThemeContext value={{ theme, setTheme, setThemeById, uiFont, setUiFont }}>
+    <ThemeContext value={{ theme, setTheme, setThemeById, uiFont, setUiFont, customColors, previewCustomTheme, saveCustomTheme, deleteCustomTheme }}>
       {children}
     </ThemeContext>
   );

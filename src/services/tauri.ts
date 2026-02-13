@@ -414,6 +414,21 @@ export async function updateUiFont(font: string): Promise<void> {
   return invoke<void>('update_ui_font', { font });
 }
 
+/** Custom theme color inputs. */
+export interface CustomThemeColors {
+  bg: string;
+  text: string;
+  accent: string;
+}
+
+/**
+ * Persist or delete custom theme colors in the settings store.
+ * Pass null to delete the saved custom theme.
+ */
+export async function updateCustomThemeColors(colors: CustomThemeColors | null): Promise<void> {
+  return invoke<void>('update_custom_theme_colors', { colors });
+}
+
 // ============================================================================
 // Collapse Patterns Commands
 // ============================================================================
