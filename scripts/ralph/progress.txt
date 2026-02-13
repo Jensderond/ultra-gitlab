@@ -23,7 +23,9 @@ Started: Fri Feb 13 15:37:35 CET 2026
 - PipelinesPage.css mostly uses standard variables already (--bg-primary, --text-primary etc.), not --kw-* pattern
 - THEME_PRESETS map in ThemeProvider.tsx: theme ID → ThemeDefinition (used by Settings swatches and ThemeProvider)
 - ThemeProvider loads persisted theme on mount from Rust store; `setThemeById(id)` applies + persists
-- For new per-field settings: add Rust convenience command (like `update_theme`, `update_collapse_patterns`) rather than sending full AppSettings
+- For new per-field settings: add Rust convenience command (like `update_theme`, `update_ui_font`, `update_collapse_patterns`) rather than sending full AppSettings
+- UI_FONTS array in ThemeProvider.tsx defines available fonts (id, label, family CSS, googleFont URL)
+- Google Fonts are lazy-loaded by injecting <link> elements into <head>; font-family applied directly on document.documentElement.style
 
 ---
 
@@ -161,5 +163,50 @@ Started: Fri Feb 13 15:37:35 CET 2026
   - ThemeProvider loads settings on mount via `invoke<{ theme?: string }>('get_settings')` — uses partial type since we only need theme field
   - THEME_PRESETS is the central lookup for theme ID → ThemeDefinition; exported from ThemeProvider
   - Theme swatch CSS uses the theme's actual colors via inline `style` props, not CSS variables (so swatches always show the correct colors regardless of active theme)
-  - ThemeContextValue now has three methods: `theme` (current ThemeDefinition), `setTheme` (raw, no persist), `setThemeById` (lookup + persist)
+  - ThemeContextValue now has five fields: `theme`, `setTheme`, `setThemeById`, `uiFont`, `setUiFont`
+  - UI_FONTS array is exported from ThemeProvider with font definitions (id, label, family, googleFont URL)
+  - Font is applied by setting `font-family` directly on `document.documentElement.style`
+  - Google Fonts are lazy-loaded by injecting `<link>` elements into `<head>` (with dedup by ID)
+---
+
+## 2026-02-13 - US-010
+- Added font selector to Appearance section in Settings page, below theme swatches
+- Font options: Noto Sans JP (default), Inter, SF Pro (-apple-system), System Default (system-ui)
+- Each option renders its name in its own font for instant visual comparison via inline style
+- Selecting a font applies immediately via ThemeProvider (sets font-family on :root)
+- Monospace font (IBM Plex Mono) remains unchanged — code areas use explicit font-family declarations
+- On startup, ThemeProvider loads persisted font and lazy-loads its Google Font link
+- When Appearance section mounts, background-loads all remaining Google Fonts for previews
+- Added Rust `update_ui_font` command (convenience method following update_theme pattern)
+- Added `updateUiFont` frontend wrapper in tauri.ts + barrel export in services/index.ts
+- Files changed: src-tauri/src/commands/settings.rs, src-tauri/src/commands/mod.rs, src-tauri/src/lib.rs, src/components/ThemeProvider.tsx, src/hooks/useTheme.ts (no changes needed), src/services/tauri.ts, src/services/index.ts, src/pages/Settings.tsx, src/pages/Settings.css
+- **Learnings for future iterations:**
+  - Google Fonts are loaded by injecting <link rel="stylesheet"> into <head> — dedup by element ID to avoid duplicate loads
+  - Font options that are system fonts (SF Pro, System Default) have `googleFont: null` and don't need loading
+  - The font-family is applied directly on document.documentElement.style, not via a CSS variable, since the `:root` selector in CSS already uses it
+  - App.css still has the static @import for Noto Sans JP + IBM Plex Mono — this is fine as a base; additional fonts load on demand
+  - Font option buttons use inline `style={{ fontFamily: font.family }}` so each option renders in its own font regardless of active selection
+- deriveTheme(bg, text, accent) in src/themes/deriveTheme.ts generates a full ThemeDefinition from 3 colors — uses HSL math + nearest preset tokens
+---
+
+## 2026-02-13 - US-011
+- Created src/themes/deriveTheme.ts with `deriveTheme(bg, text, accent)` pure function
+- Derives 3 background shades from bg via lightness shifts (secondary +4%, tertiary +8%, hover +12%)
+- Derives 4 text shades from text via opposite-direction lightness shifts
+- Derives hover, selected, and border colors from bg/accent
+- Derives accent variants (hover, bg, primary, primaryHover, primaryDark) from accent color
+- Generates status colors by hue rotation to fixed targets: error(0°), success(120°), warning(45°), info(220°) — each with color/bg/text/light variants
+- Generates diff colors from derived success/error with appropriate opacity
+- Derives extended palette by hue rotation from accent (pink, green, yellow, orange, etc.)
+- For Monaco tokens and syntax highlighting: selects nearest preset based on bg luminance (dark → Kanagawa Wave, light → Kanagawa Light)
+- Sets metadata: id='custom', name='Custom', type determined by luminance threshold 0.2
+- Exported from src/themes/index.ts
+- Files changed: src/themes/deriveTheme.ts (new), src/themes/index.ts
+- **Learnings for future iterations:**
+  - HSL manipulation approach: hexToRgb → rgbToHsl → manipulate → hslToRgb → rgbToHex
+  - luminance() uses relative luminance formula (WCAG) to determine dark vs light — threshold 0.2 works well for dark/light classification
+  - For status colors, fixed hue targets (0°=red, 120°=green, 45°=yellow, 220°=blue) produce recognisable status indicators regardless of accent color
+  - The isDark flag controls direction of lightness shifts and opacity levels (dark uses higher opacity bg variants)
+  - Monaco token colors and syntax highlight colors are complex enough that deriving them from scratch would look poor — reusing preset tokens by bg luminance is the pragmatic approach
+  - `adjustSaturation` + `shiftLightness` are the main tools for deriving color variants
 ---
