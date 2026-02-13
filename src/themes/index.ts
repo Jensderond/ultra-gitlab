@@ -10,5 +10,6 @@ export type {
 
 export { kanagawaWave } from './kanagawa-wave';
 export { kanagawaLight } from './kanagawa-light';
+export { loved } from './loved';
 
 export { themeToMonacoTheme, getMonacoThemeName } from './monacoAdapter';
