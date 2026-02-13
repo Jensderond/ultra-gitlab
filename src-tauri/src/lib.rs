@@ -25,6 +25,7 @@ use commands::{
     resolve_discussion, retry_failed_actions, setup_gitlab_instance, trigger_sync,
     unapprove_mr, update_collapse_patterns, update_instance_token,
     update_notification_settings, update_settings, update_sync_config, update_sync_settings,
+    send_native_notification,
 };
 use services::sync_engine::{SyncConfig, SyncEngine};
 use tauri::{Manager, TitleBarStyle, WebviewUrl, WebviewWindowBuilder};
@@ -42,6 +43,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             // Initialize database
             let app_data_dir = app
@@ -166,9 +168,10 @@ pub fn run() {
             rebase_mr,
             // Reviewers
             get_mr_reviewers,
-            // Notification settings
+            // Notifications
             get_notification_settings,
             update_notification_settings,
+            send_native_notification,
             // Pipeline dashboard
             list_pipeline_projects,
             visit_pipeline_project,

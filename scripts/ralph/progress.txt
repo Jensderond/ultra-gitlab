@@ -8,6 +8,9 @@ Started: Fri Feb 13 11:58:05 CET 2026
 - Commands: `src-tauri/src/commands/<feature>.rs`, re-exported in `commands/mod.rs`, imported and added to `generate_handler!` in `lib.rs`
 - Commands use `State<'_, DbPool>` for DB access, return `Result<T, AppError>`
 - Single-row settings pattern: use `id INTEGER PRIMARY KEY DEFAULT 1` with `INSERT OR IGNORE` for seed
+- Settings page sections: `<section className="settings-section"><h2>Title</h2>...</section>`, reuse `.sync-settings-form`, `.checkbox-group`, `.checkbox-label` classes
+- Tauri plugins: add to Cargo.toml (version "2"), register `.plugin(plugin_name::init())` in lib.rs builder, add permission to capabilities/default.json
+- Commands needing AppHandle use `app: tauri::AppHandle` param (not State), useful for plugin APIs like `app.notification()`
 
 ---
 
@@ -26,4 +29,43 @@ Started: Fri Feb 13 11:58:05 CET 2026
   - 3 registration points for new commands: command file, commands/mod.rs re-export, lib.rs import + generate_handler
   - DB modules go in both db/mod.rs (pub mod) and the model goes in models/mod.rs
   - `sqlx::Error` auto-converts to `AppError` via the `From` impl so `?` works seamlessly
+---
+
+## 2026-02-13 - US-002
+- What was implemented: Frontend TypeScript interface and service wrappers for notification settings
+- Files changed:
+  - `src/types/index.ts` (added NotificationSettings interface)
+  - `src/services/tauri.ts` (added getNotificationSettings + updateNotificationSettings invoke wrappers)
+  - `src/services/index.ts` (re-exported new functions)
+- **Learnings for future iterations:**
+  - Frontend service layer pattern: type in `types/index.ts` → import in `services/tauri.ts` → invoke wrapper → re-export in `services/index.ts`
+  - Rust model `#[serde(rename_all = "camelCase")]` means frontend types use camelCase field names (e.g., `mr_ready_to_merge` → `mrReadyToMerge`)
+  - Tauri command arg names in invoke must match the Rust function parameter names exactly (e.g., `{ settings }` for `update_notification_settings(settings: ...)`)
+---
+
+## 2026-02-13 - US-003
+- What was implemented: Notifications section in Settings page with three toggles (MR ready to merge, Pipeline status, Native OS notifications)
+- Files changed:
+  - `src/pages/Settings.tsx` (added notification settings state, load/save handlers, and Notifications section UI)
+  - `src/pages/Settings.css` (added `.checkbox-description` style, adjusted `.checkbox-label` alignment for multi-line content)
+- **Learnings for future iterations:**
+  - Settings page sections follow a consistent pattern: `<section className="settings-section"><h2>Title</h2>...</section>`
+  - Reuse existing CSS classes like `.sync-settings-form`, `.checkbox-group`, `.checkbox-label`, `.saving-indicator` for new settings sections
+  - For optimistic UI on toggle save: update state immediately, then save async, and rollback on error
+  - When adding descriptions below checkbox labels, use `align-items: flex-start` on the flex container and `flex-shrink: 0` on the checkbox input
+---
+
+## 2026-02-13 - US-004
+- What was implemented: Installed and configured tauri-plugin-notification, created send_native_notification Tauri command
+- Files changed:
+  - `src-tauri/Cargo.toml` (added tauri-plugin-notification = "2")
+  - `src-tauri/src/lib.rs` (registered plugin + imported/registered send_native_notification command)
+  - `src-tauri/capabilities/default.json` (added "notification:default" permission)
+  - `src-tauri/src/commands/notifications.rs` (new — send_native_notification command using NotificationExt)
+  - `src-tauri/src/commands/mod.rs` (added module + re-export)
+- **Learnings for future iterations:**
+  - tauri-plugin-notification uses `NotificationExt` trait — call `app.notification().builder().title().body().show()`
+  - Commands that need plugin APIs use `app: tauri::AppHandle` parameter instead of `State<'_, DbPool>`
+  - Plugin permissions follow pattern: `"<plugin-name>:default"` in capabilities/default.json
+  - On desktop, notification permissions are typically granted by default; `.show()` returns an error if denied
 ---

@@ -17,6 +17,7 @@ pub mod diagnostics;
 pub mod gitattributes;
 pub mod mr;
 pub mod notification_settings;
+pub mod notifications;
 pub mod pipeline;
 pub mod reviewers;
 pub mod settings;
@@ -30,6 +31,7 @@ pub use diagnostics::{clear_test_data, generate_test_data, get_cache_stats, get_
 pub use gitattributes::{get_gitattributes, refresh_gitattributes};
 pub use mr::{check_merge_status, get_cached_file_pair, get_diff_content, get_diff_file, get_diff_file_metadata, get_diff_files, get_diff_hunks, get_diff_refs, get_file_content, get_file_content_base64, get_merge_request_detail, get_merge_requests, list_my_merge_requests, merge_mr, rebase_mr};
 pub use notification_settings::{get_notification_settings, update_notification_settings};
+pub use notifications::send_native_notification;
 pub use pipeline::{list_pipeline_projects, visit_pipeline_project, toggle_pin_pipeline_project, remove_pipeline_project, search_projects, get_pipeline_statuses};
 pub use reviewers::get_mr_reviewers;
 pub use settings::{get_collapse_patterns, get_settings, get_sync_settings, update_collapse_patterns, update_settings, update_sync_settings};
