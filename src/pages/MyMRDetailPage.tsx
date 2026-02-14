@@ -10,6 +10,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { getMergeRequest, getMrReviewers, getComments, getCollapsePatterns, mergeMR, checkMergeStatus, rebaseMR } from '../services/tauri';
 import { getMergeRequestFiles, getDiffRefs, getGitattributesPatterns } from '../services/gitlab';
+import BackButton from '../components/BackButton';
 import { FileNavigation } from '../components/DiffViewer';
 import { MonacoDiffViewer, type MonacoDiffViewerRef } from '../components/Monaco/MonacoDiffViewer';
 import { ImageDiffViewer } from '../components/Monaco/ImageDiffViewer';
@@ -390,10 +391,8 @@ export default function MyMRDetailPage() {
   return (
     <div className="my-mr-detail">
       <header className="my-mr-detail-header">
-        <button className="back-button" onClick={goBack}>
-          ← Back
-        </button>
         <div className="my-mr-detail-title-row">
+          <BackButton onClick={goBack} title="Back" />
           <span className="my-mr-detail-iid">!{mr.iid}</span>
           <h1>{mr.title}</h1>
         </div>

@@ -264,6 +264,40 @@ pub struct GitLabPipeline {
     pub duration: Option<i64>,
 }
 
+/// GitLab pipeline job from API (GET /projects/:id/pipelines/:pipeline_id/jobs).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitLabJob {
+    pub id: i64,
+    pub name: String,
+    pub stage: String,
+    pub status: String,
+    #[serde(rename = "ref")]
+    pub ref_name: Option<String>,
+    pub created_at: String,
+    pub started_at: Option<String>,
+    pub finished_at: Option<String>,
+    pub duration: Option<f64>,
+    pub queued_duration: Option<f64>,
+    pub web_url: String,
+    pub allow_failure: bool,
+    pub pipeline: Option<GitLabJobPipeline>,
+    pub runner: Option<GitLabJobRunner>,
+}
+
+/// Nested pipeline ref inside a job response.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitLabJobPipeline {
+    pub id: i64,
+    pub status: String,
+}
+
+/// Runner info attached to a job.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitLabJobRunner {
+    pub id: i64,
+    pub description: Option<String>,
+}
+
 /// Personal access token info from GET /personal_access_tokens/self.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersonalAccessTokenInfo {
@@ -460,6 +494,46 @@ impl GitLabClient {
             .await?;
         let pipelines: Vec<GitLabPipeline> = self.handle_response(response, &endpoint).await?;
         Ok(pipelines.into_iter().next())
+    }
+
+    /// Get jobs for a specific pipeline.
+    pub async fn get_pipeline_jobs(&self, project_id: i64, pipeline_id: i64) -> Result<Vec<GitLabJob>, AppError> {
+        let endpoint = format!("/projects/{}/pipelines/{}/jobs", project_id, pipeline_id);
+        self.get_all_pages(&endpoint, None::<&()>).await
+    }
+
+    /// Get bridge (downstream/child pipeline trigger) jobs for a pipeline.
+    pub async fn get_pipeline_bridges(&self, project_id: i64, pipeline_id: i64) -> Result<Vec<GitLabJob>, AppError> {
+        let endpoint = format!("/projects/{}/pipelines/{}/bridges", project_id, pipeline_id);
+        // Bridges may not exist on all pipelines, treat 404 as empty
+        match self.get_all_pages(&endpoint, None::<&()>).await {
+            Ok(bridges) => Ok(bridges),
+            Err(_) => Ok(Vec::new()),
+        }
+    }
+
+    /// Play (trigger) a manual job.
+    pub async fn play_job(&self, project_id: i64, job_id: i64) -> Result<GitLabJob, AppError> {
+        let endpoint = format!("/projects/{}/jobs/{}/play", project_id, job_id);
+        let url = self.api_url(&endpoint);
+        let response = self.client.post(&url).send().await?;
+        self.handle_response(response, &endpoint).await
+    }
+
+    /// Retry a failed or canceled job.
+    pub async fn retry_job(&self, project_id: i64, job_id: i64) -> Result<GitLabJob, AppError> {
+        let endpoint = format!("/projects/{}/jobs/{}/retry", project_id, job_id);
+        let url = self.api_url(&endpoint);
+        let response = self.client.post(&url).send().await?;
+        self.handle_response(response, &endpoint).await
+    }
+
+    /// Cancel a running or pending job.
+    pub async fn cancel_job(&self, project_id: i64, job_id: i64) -> Result<GitLabJob, AppError> {
+        let endpoint = format!("/projects/{}/jobs/{}/cancel", project_id, job_id);
+        let url = self.api_url(&endpoint);
+        let response = self.client.post(&url).send().await?;
+        self.handle_response(response, &endpoint).await
     }
 
     /// List merge requests.

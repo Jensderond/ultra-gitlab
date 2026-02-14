@@ -33,6 +33,7 @@ import type {
   PipelineProject,
   PipelineStatus,
   ProjectSearchResult,
+  PipelineJob,
   NotificationSettings,
 } from '../types';
 
@@ -531,6 +532,34 @@ export async function searchProjects(instanceId: number, query: string): Promise
  */
 export async function getPipelineStatuses(instanceId: number, projectIds: number[]): Promise<PipelineStatus[]> {
   return invoke<PipelineStatus[]>('get_pipeline_statuses', { instanceId, projectIds });
+}
+
+/**
+ * Get all jobs for a specific pipeline.
+ */
+export async function getPipelineJobs(instanceId: number, projectId: number, pipelineId: number): Promise<PipelineJob[]> {
+  return invoke<PipelineJob[]>('get_pipeline_jobs', { instanceId, projectId, pipelineId });
+}
+
+/**
+ * Play (trigger) a manual job.
+ */
+export async function playPipelineJob(instanceId: number, projectId: number, jobId: number): Promise<PipelineJob> {
+  return invoke<PipelineJob>('play_pipeline_job', { instanceId, projectId, jobId });
+}
+
+/**
+ * Retry a failed or canceled job.
+ */
+export async function retryPipelineJob(instanceId: number, projectId: number, jobId: number): Promise<PipelineJob> {
+  return invoke<PipelineJob>('retry_pipeline_job', { instanceId, projectId, jobId });
+}
+
+/**
+ * Cancel a running or pending job.
+ */
+export async function cancelPipelineJob(instanceId: number, projectId: number, jobId: number): Promise<PipelineJob> {
+  return invoke<PipelineJob>('cancel_pipeline_job', { instanceId, projectId, jobId });
 }
 
 // ============================================================================

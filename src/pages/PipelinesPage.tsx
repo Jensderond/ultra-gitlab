@@ -385,6 +385,20 @@ export default function PipelinesPage() {
     [selectedInstanceId]
   );
 
+  // Navigate to pipeline detail
+  const handleOpenDetail = useCallback(
+    (project: PipelineProject, status: PipelineStatus) => {
+      const params = new URLSearchParams({
+        instance: String(project.instanceId),
+        project: project.nameWithNamespace,
+        ref: status.refName,
+        url: status.webUrl,
+      });
+      navigate(`/pipelines/${project.projectId}/${status.id}?${params.toString()}`);
+    },
+    [navigate]
+  );
+
   if (loading && instances.length === 0) {
     return (
       <div className="pipelines-page">
@@ -516,6 +530,7 @@ export default function PipelinesPage() {
                       statusLoading={statusesLoading}
                       onTogglePin={handleTogglePin}
                       onRemove={handleRemoveProject}
+                      onOpenDetail={handleOpenDetail}
                     />
                   ))}
                 </div>
@@ -535,6 +550,7 @@ export default function PipelinesPage() {
                       statusLoading={statusesLoading}
                       onTogglePin={handleTogglePin}
                       onRemove={handleRemoveProject}
+                      onOpenDetail={handleOpenDetail}
                     />
                   ))}
                 </div>
@@ -557,13 +573,25 @@ interface ProjectCardProps {
   statusLoading: boolean;
   onTogglePin: (projectId: number) => void;
   onRemove: (projectId: number) => void;
+  onOpenDetail: (project: PipelineProject, status: PipelineStatus) => void;
 }
 
-function ProjectCard({ project, status, statusLoading, onTogglePin, onRemove }: ProjectCardProps) {
+function ProjectCard({ project, status, statusLoading, onTogglePin, onRemove, onOpenDetail }: ProjectCardProps) {
   const statusName = status?.status;
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't navigate if clicking on an action button
+    if ((e.target as HTMLElement).closest('.pipeline-card-actions')) return;
+    if (status) {
+      onOpenDetail(project, status);
+    }
+  };
+
   return (
-    <div className={`pipeline-card ${statusName ? `pipeline-card--${statusName}` : ''}`}>
+    <div
+      className={`pipeline-card ${statusName ? `pipeline-card--${statusName}` : ''} ${status ? 'pipeline-card--clickable' : ''}`}
+      onClick={handleCardClick}
+    >
       <div className="pipeline-card-header">
         <span className="pipeline-card-name" title={project.nameWithNamespace}>
           {project.pinned && (

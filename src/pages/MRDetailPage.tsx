@@ -14,6 +14,7 @@ import type { editor } from 'monaco-editor';
 import { ImageDiffViewer } from '../components/Monaco/ImageDiffViewer';
 import { isImageFile, getImageMimeType } from '../components/Monaco/languageDetection';
 import { ApprovalButton, type ApprovalButtonRef } from '../components/Approval';
+import BackButton from '../components/BackButton';
 import { CommentOverlay, type CommentOverlayRef } from '../components/CommentOverlay';
 import { getMergeRequestById, getMergeRequestFiles, getDiffRefs, getGitattributesPatterns } from '../services/gitlab';
 import { invoke, getCollapsePatterns } from '../services/tauri';
@@ -454,9 +455,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     <div className="mr-detail-page">
       <header className="mr-detail-header">
         <div className="mr-header-top">
-          <button className="back-button" onClick={() => navigate('/mrs')}>
-            ← Back
-          </button>
+          <BackButton to="/mrs" title="Back to MRs" />
           <span className="mr-iid">!{mr.iid}</span>
           {mr.projectName && (
             <span className="mr-project">{mr.projectName.replace(/^Customers\s*\/\s*/, '')}</span>

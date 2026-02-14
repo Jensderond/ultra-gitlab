@@ -303,6 +303,10 @@
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
+.pipeline-card--clickable {
+  cursor: pointer;
+}
+
 .pipeline-card:hover {
   border-color: var(--border-color-light, var(--border-color));
   background: var(--bg-tertiary);

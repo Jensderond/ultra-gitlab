@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import BackButton from '../components/BackButton';
 import { getVersion } from '@tauri-apps/api/app';
 import InstanceSetup from '../components/InstanceSetup/InstanceSetup';
 import {
@@ -275,9 +275,7 @@ export default function Settings({ updateChecker }: SettingsProps) {
   return (
     <div className="settings-page">
       <header className="settings-header">
-        <Link to="/mrs" className="back-link">
-          ← Back to MRs
-        </Link>
+        <BackButton to="/mrs" title="Back to MRs" />
         <h1>Settings</h1>
       </header>
 
