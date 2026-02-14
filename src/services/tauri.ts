@@ -535,6 +535,13 @@ export async function getPipelineStatuses(instanceId: number, projectIds: number
 }
 
 /**
+ * Get recent pipelines for a project.
+ */
+export async function getProjectPipelines(instanceId: number, projectId: number, limit?: number): Promise<PipelineStatus[]> {
+  return invoke<PipelineStatus[]>('get_project_pipelines', { instanceId, projectId, limit });
+}
+
+/**
  * Get all jobs for a specific pipeline.
  */
 export async function getPipelineJobs(instanceId: number, projectId: number, pipelineId: number): Promise<PipelineJob[]> {

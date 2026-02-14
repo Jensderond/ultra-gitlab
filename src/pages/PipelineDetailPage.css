@@ -113,6 +113,143 @@
 }
 
 /* ============================================================================
+   Tab Bar
+   ============================================================================ */
+
+.pipeline-detail-tabs {
+  display: flex;
+  padding: 0 32px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.pipeline-detail-tab {
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-tertiary);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pipeline-detail-tab:hover {
+  color: var(--text-secondary);
+}
+
+.pipeline-detail-tab.active {
+  color: var(--accent-color);
+  border-bottom-color: var(--accent-color);
+}
+
+.pipeline-detail-tab kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+}
+
+.pipeline-detail-tab.active kbd {
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+  background: var(--wave-glow);
+}
+
+/* ============================================================================
+   Pipeline History
+   ============================================================================ */
+
+.pipeline-history-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.pipeline-history-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg-secondary);
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  width: 100%;
+}
+
+.pipeline-history-row:hover {
+  background: var(--bg-tertiary);
+}
+
+.pipeline-history-row + .pipeline-history-row {
+  border-top: 1px solid var(--border-color);
+}
+
+.pipeline-history-row--current {
+  background: var(--wave-glow);
+}
+
+.pipeline-history-row--current:hover {
+  background: var(--wave-glow);
+}
+
+.pipeline-history-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pipeline-history-id {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pipeline-history-current-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent-color);
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent-color);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+.pipeline-history-sha {
+  font-size: 11px;
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* ============================================================================
    Stage Mini-Pipeline Bar
    ============================================================================ */
 

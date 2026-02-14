@@ -496,6 +496,17 @@ impl GitLabClient {
         Ok(pipelines.into_iter().next())
     }
 
+    /// Get recent pipelines for a project (up to `limit`).
+    pub async fn get_project_pipelines(&self, project_id: i64, limit: u32) -> Result<Vec<GitLabPipeline>, AppError> {
+        let endpoint = format!("/projects/{}/pipelines", project_id);
+        let url = self.api_url(&endpoint);
+        let response = self.client.get(&url)
+            .query(&[("per_page", &limit.to_string())])
+            .send()
+            .await?;
+        self.handle_response(response, &endpoint).await
+    }
+
     /// Get jobs for a specific pipeline.
     pub async fn get_pipeline_jobs(&self, project_id: i64, pipeline_id: i64) -> Result<Vec<GitLabJob>, AppError> {
         let endpoint = format!("/projects/{}/pipelines/{}/jobs", project_id, pipeline_id);

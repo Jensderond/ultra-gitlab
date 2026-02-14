@@ -285,6 +285,35 @@ pub async fn get_pipeline_jobs(
     Ok(jobs)
 }
 
+/// Fetch recent pipelines for a project.
+#[tauri::command]
+pub async fn get_project_pipelines(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+    limit: Option<u32>,
+) -> Result<Vec<PipelineStatus>, AppError> {
+    let client = create_gitlab_client(&pool, instance_id).await?;
+    let pipelines = client.get_project_pipelines(project_id, limit.unwrap_or(20)).await?;
+
+    let statuses: Vec<PipelineStatus> = pipelines
+        .into_iter()
+        .map(|p| PipelineStatus {
+            id: p.id,
+            project_id: p.project_id,
+            status: p.status,
+            ref_name: p.ref_name,
+            sha: if p.sha.len() > 8 { p.sha[..8].to_string() } else { p.sha },
+            web_url: p.web_url,
+            created_at: p.created_at,
+            updated_at: p.updated_at,
+            duration: p.duration,
+        })
+        .collect();
+
+    Ok(statuses)
+}
+
 /// Play (trigger) a manual job. Returns the updated job.
 #[tauri::command]
 pub async fn play_pipeline_job(

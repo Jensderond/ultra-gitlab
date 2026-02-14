@@ -180,6 +180,7 @@ pub fn run() {
             remove_pipeline_project,
             search_projects,
             get_pipeline_statuses,
+            get_project_pipelines,
             get_pipeline_jobs,
             play_pipeline_job,
             retry_pipeline_job,

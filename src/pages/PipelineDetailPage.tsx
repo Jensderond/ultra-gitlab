@@ -6,17 +6,20 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+
+type TabId = 'jobs' | 'history';
 import BackButton from '../components/BackButton';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import {
   getPipelineJobs,
   getPipelineStatuses,
+  getProjectPipelines,
   playPipelineJob,
   retryPipelineJob,
   cancelPipelineJob,
 } from '../services/tauri';
-import type { PipelineJob, PipelineJobStatus } from '../types';
+import type { PipelineJob, PipelineJobStatus, PipelineStatus } from '../types';
 import './PipelineDetailPage.css';
 
 /**
@@ -140,16 +143,23 @@ interface StageGroup {
 export default function PipelineDetailPage() {
   const { projectId, pipelineId } = useParams<{ projectId: string; pipelineId: string }>();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const instanceId = Number(searchParams.get('instance') || 0);
   const projectName = searchParams.get('project') || '';
   const pipelineRef = searchParams.get('ref') || '';
   const pipelineWebUrl = searchParams.get('url') || '';
 
+  const [activeTab, setActiveTab] = useState<TabId>('jobs');
   const [jobs, setJobs] = useState<PipelineJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<Set<number>>(new Set());
   const [pipelineStatus, setPipelineStatus] = useState<string | null>(null);
+
+  // History tab state
+  const [pipelines, setPipelines] = useState<PipelineStatus[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -187,6 +197,9 @@ export default function PipelineDetailPage() {
 
   useEffect(() => {
     setLoading(true);
+    setActiveTab('jobs');
+    setHistoryLoaded(false);
+    setPipelines([]);
     loadJobs();
     loadPipelineStatus();
   }, [loadJobs, loadPipelineStatus]);
@@ -215,6 +228,58 @@ export default function PipelineDetailPage() {
       if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
     };
   }, [jobs, loadJobs, loadPipelineStatus]);
+
+  // Lazy-load pipeline history when switching to the history tab
+  useEffect(() => {
+    if (activeTab !== 'history' || historyLoaded || !instanceId || !pid) return;
+    setHistoryLoading(true);
+    getProjectPipelines(instanceId, pid, 20)
+      .then((list) => {
+        setPipelines(list);
+        setHistoryLoaded(true);
+      })
+      .catch((err) => {
+        console.error('Failed to load pipeline history:', err);
+      })
+      .finally(() => {
+        setHistoryLoading(false);
+      });
+  }, [activeTab, historyLoaded, instanceId, pid]);
+
+  // Keyboard shortcuts: 1 = Jobs tab, 2 = History tab
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === '1') {
+        e.preventDefault();
+        setActiveTab('jobs');
+      } else if (e.key === '2') {
+        e.preventDefault();
+        setActiveTab('history');
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Navigate to a different pipeline from history
+  const handleOpenPipeline = useCallback(
+    (pipeline: PipelineStatus) => {
+      const params = new URLSearchParams({
+        instance: String(instanceId),
+        project: projectName,
+        ref: pipeline.refName,
+        url: pipeline.webUrl,
+      });
+      navigate(`/pipelines/${pid}/${pipeline.id}?${params.toString()}`);
+    },
+    [navigate, instanceId, pid, projectName]
+  );
 
   // Job actions
   const handlePlayJob = useCallback(
@@ -343,54 +408,113 @@ export default function PipelineDetailPage() {
         </div>
       </header>
 
-      {/* Stage mini-pipeline overview */}
-      {stages.length > 0 && (
-        <div className="pipeline-stages-bar">
-          {stages.map((stage, i) => (
-            <div key={stage.name} className="pipeline-stage-chip-wrapper">
-              {i > 0 && <span className="pipeline-stage-connector" />}
-              <span className={`pipeline-stage-chip pipeline-stage-chip--${stage.status}`}>
-                {stage.status === 'running' && <span className="pipeline-badge-pulse" />}
-                {stage.name}
-              </span>
+      {/* Tab bar */}
+      <nav className="pipeline-detail-tabs">
+        <button
+          className={`pipeline-detail-tab ${activeTab === 'jobs' ? 'active' : ''}`}
+          onClick={() => setActiveTab('jobs')}
+        >
+          <kbd>[1]</kbd> Jobs
+        </button>
+        <button
+          className={`pipeline-detail-tab ${activeTab === 'history' ? 'active' : ''}`}
+          onClick={() => setActiveTab('history')}
+        >
+          <kbd>[2]</kbd> History
+        </button>
+      </nav>
+
+      {activeTab === 'jobs' && (
+        <>
+          {/* Stage mini-pipeline overview */}
+          {stages.length > 0 && (
+            <div className="pipeline-stages-bar">
+              {stages.map((stage, i) => (
+                <div key={stage.name} className="pipeline-stage-chip-wrapper">
+                  {i > 0 && <span className="pipeline-stage-connector" />}
+                  <span className={`pipeline-stage-chip pipeline-stage-chip--${stage.status}`}>
+                    {stage.status === 'running' && <span className="pipeline-badge-pulse" />}
+                    {stage.name}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+
+          <main className="pipeline-detail-content">
+            {loading ? (
+              <div className="pipeline-detail-loading">Loading jobs...</div>
+            ) : error ? (
+              <div className="pipeline-detail-error">{error}</div>
+            ) : jobs.length === 0 ? (
+              <div className="pipeline-detail-empty">No jobs found for this pipeline.</div>
+            ) : (
+              <div className="pipeline-stages">
+                {stages.map((stage) => (
+                  <section key={stage.name} className="pipeline-stage-section">
+                    <div className="pipeline-stage-header">
+                      <span className={`pipeline-stage-indicator pipeline-stage-indicator--${stage.status}`} />
+                      <h2 className="pipeline-stage-name">{stage.name}</h2>
+                      <span className="pipeline-stage-count">{stage.jobs.length} {stage.jobs.length === 1 ? 'job' : 'jobs'}</span>
+                    </div>
+                    <div className="pipeline-jobs-list">
+                      {stage.jobs.map((job) => (
+                        <JobRow
+                          key={job.id}
+                          job={job}
+                          loading={actionLoading.has(job.id)}
+                          onPlay={handlePlayJob}
+                          onRetry={handleRetryJob}
+                          onCancel={handleCancelJob}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            )}
+          </main>
+        </>
       )}
 
-      <main className="pipeline-detail-content">
-        {loading ? (
-          <div className="pipeline-detail-loading">Loading jobs...</div>
-        ) : error ? (
-          <div className="pipeline-detail-error">{error}</div>
-        ) : jobs.length === 0 ? (
-          <div className="pipeline-detail-empty">No jobs found for this pipeline.</div>
-        ) : (
-          <div className="pipeline-stages">
-            {stages.map((stage) => (
-              <section key={stage.name} className="pipeline-stage-section">
-                <div className="pipeline-stage-header">
-                  <span className={`pipeline-stage-indicator pipeline-stage-indicator--${stage.status}`} />
-                  <h2 className="pipeline-stage-name">{stage.name}</h2>
-                  <span className="pipeline-stage-count">{stage.jobs.length} {stage.jobs.length === 1 ? 'job' : 'jobs'}</span>
-                </div>
-                <div className="pipeline-jobs-list">
-                  {stage.jobs.map((job) => (
-                    <JobRow
-                      key={job.id}
-                      job={job}
-                      loading={actionLoading.has(job.id)}
-                      onPlay={handlePlayJob}
-                      onRetry={handleRetryJob}
-                      onCancel={handleCancelJob}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
-      </main>
+      {activeTab === 'history' && (
+        <main className="pipeline-detail-content">
+          {historyLoading ? (
+            <div className="pipeline-detail-loading">Loading pipeline history...</div>
+          ) : pipelines.length === 0 ? (
+            <div className="pipeline-detail-empty">No pipelines found for this project.</div>
+          ) : (
+            <div className="pipeline-history-list">
+              {pipelines.map((p) => (
+                <button
+                  key={p.id}
+                  className={`pipeline-history-row ${p.id === plid ? 'pipeline-history-row--current' : ''}`}
+                  onClick={() => handleOpenPipeline(p)}
+                >
+                  <span className={`pipeline-job-status-dot pipeline-job-status-dot--${p.status}`} />
+                  <div className="pipeline-history-info">
+                    <span className="pipeline-history-id">
+                      #{p.id}
+                      {p.id === plid && <span className="pipeline-history-current-badge">current</span>}
+                    </span>
+                    <div className="pipeline-job-meta">
+                      <span className={`pipeline-job-status-label pipeline-job-status-label--${p.status}`}>
+                        {p.status === 'success' ? 'passed' : p.status}
+                      </span>
+                      <span className="pipeline-detail-ref">{p.refName}</span>
+                      {p.duration != null && (
+                        <span className="pipeline-job-duration">{formatDuration(p.duration)}</span>
+                      )}
+                      <span className="pipeline-job-time">{formatRelativeTime(p.createdAt)}</span>
+                    </div>
+                  </div>
+                  <span className="pipeline-history-sha">{p.sha}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </main>
+      )}
     </div>
   );
 }
