@@ -13,6 +13,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate release notes
+        id: release_notes
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: CHANGES.md
+          GITHUB_REPO: ${{ github.repository }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -44,6 +56,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Ultra GitLab ${{ github.ref_name }}'
+          releaseBody: ${{ steps.release_notes.outputs.content }}
           releaseDraft: true
           prerelease: false
           args: --target aarch64-apple-darwin
