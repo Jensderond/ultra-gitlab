@@ -6,11 +6,12 @@ on:
       - 'v*'
 
 jobs:
-  release:
+  release-notes:
     permissions:
-      contents: write
-    runs-on: macos-latest
-
+      contents: read
+    runs-on: ubuntu-latest
+    outputs:
+      notes: ${{ steps.release_notes.outputs.content }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,6 +26,15 @@ jobs:
         env:
           OUTPUT: CHANGES.md
           GITHUB_REPO: ${{ github.repository }}
+
+  release:
+    needs: release-notes
+    permissions:
+      contents: write
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -56,7 +66,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Ultra GitLab ${{ github.ref_name }}'
-          releaseBody: ${{ steps.release_notes.outputs.content }}
+          releaseBody: ${{ needs.release-notes.outputs.notes }}
           releaseDraft: true
           prerelease: false
           args: --target aarch64-apple-darwin
