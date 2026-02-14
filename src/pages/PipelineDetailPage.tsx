@@ -6,7 +6,8 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
+import BackButton from '../components/BackButton';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import {
   getPipelineJobs,
@@ -63,14 +64,6 @@ function jobStatusLabel(status: PipelineJobStatus): string {
 }
 
 // SVG icon components
-function BackIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-      <path d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
-    </svg>
-  );
-}
-
 function ExternalLinkIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
@@ -147,8 +140,6 @@ interface StageGroup {
 export default function PipelineDetailPage() {
   const { projectId, pipelineId } = useParams<{ projectId: string; pipelineId: string }>();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-
   const instanceId = Number(searchParams.get('instance') || 0);
   const projectName = searchParams.get('project') || '';
   const pipelineRef = searchParams.get('ref') || '';
@@ -313,9 +304,7 @@ export default function PipelineDetailPage() {
     <div className="pipeline-detail-page">
       <header className="pipeline-detail-header">
         <div className="pipeline-detail-header-left">
-          <button className="pipeline-detail-back" onClick={() => navigate('/pipelines')} title="Back to pipelines">
-            <BackIcon />
-          </button>
+          <BackButton to="/pipelines" title="Back to pipelines" />
           <div className="pipeline-detail-title-group">
             <h1>
               Pipeline #{plid}

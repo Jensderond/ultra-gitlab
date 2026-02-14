@@ -27,13 +27,9 @@
   border-bottom: 1px solid var(--border-color);
 }
 
-.my-mr-detail .back-button {
-  margin-bottom: 12px;
-}
-
 .my-mr-detail-title-row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
 }
 

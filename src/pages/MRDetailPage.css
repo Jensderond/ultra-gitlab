@@ -76,35 +76,6 @@
   }
 }
 
-/* Back button */
-.back-button {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  font-family: 'Noto Sans JP', sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-tertiary);
-  background: var(--overlay-surface);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.back-button:hover {
-  color: var(--text-secondary);
-  background: var(--overlay-surface-hover);
-  border-color: var(--text-fuji);
-  transform: translateX(-3px);
-}
-
-.back-button:focus {
-  outline: none;
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px var(--wave-glow);
-}
 
 /* Header rows */
 .mr-header-top {
