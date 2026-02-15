@@ -11,6 +11,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { getMergeRequest, getMrReviewers, getComments, getCollapsePatterns, mergeMR, checkMergeStatus, rebaseMR } from '../services/tauri';
 import { getMergeRequestFiles, getDiffRefs, getGitattributesPatterns } from '../services/gitlab';
 import BackButton from '../components/BackButton';
+import TabBar from '../components/TabBar';
 import { FileNavigation } from '../components/DiffViewer';
 import { MonacoDiffViewer, type MonacoDiffViewerRef } from '../components/Monaco/MonacoDiffViewer';
 import { ImageDiffViewer } from '../components/Monaco/ImageDiffViewer';
@@ -398,26 +399,15 @@ export default function MyMRDetailPage() {
         </div>
       </header>
 
-      <nav className="my-mr-tabs">
-        <button
-          className={`my-mr-tab ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveTab('overview')}
-        >
-          <kbd>[1]</kbd> Overview
-        </button>
-        <button
-          className={`my-mr-tab ${activeTab === 'comments' ? 'active' : ''}`}
-          onClick={() => setActiveTab('comments')}
-        >
-          <kbd>[2]</kbd> Comments{unresolvedCount > 0 ? ` (${unresolvedCount})` : ''}
-        </button>
-        <button
-          className={`my-mr-tab ${activeTab === 'code' ? 'active' : ''}`}
-          onClick={() => setActiveTab('code')}
-        >
-          <kbd>[3]</kbd> Code
-        </button>
-      </nav>
+      <TabBar<TabId>
+        tabs={[
+          { id: 'overview', label: 'Overview' },
+          { id: 'comments', label: 'Comments', badge: unresolvedCount > 0 ? `(${unresolvedCount})` : undefined },
+          { id: 'code', label: 'Code' },
+        ]}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
 
       <div className="my-mr-tab-content">
         {activeTab === 'overview' && (

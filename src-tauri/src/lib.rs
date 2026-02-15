@@ -21,7 +21,7 @@ use commands::{
     check_merge_status, get_mr_reviewers, get_token_info, list_my_merge_requests, merge_mr,
     rebase_mr, list_pipeline_projects,
     visit_pipeline_project, toggle_pin_pipeline_project, remove_pipeline_project, search_projects, get_pipeline_statuses,
-    get_pipeline_jobs, play_pipeline_job, retry_pipeline_job, cancel_pipeline_job,
+    get_pipeline_jobs, get_project_pipelines, play_pipeline_job, retry_pipeline_job, cancel_pipeline_job,
     refresh_gitattributes, reply_to_comment,
     resolve_discussion, retry_failed_actions, setup_gitlab_instance, trigger_sync,
     unapprove_mr, update_collapse_patterns, update_instance_token,

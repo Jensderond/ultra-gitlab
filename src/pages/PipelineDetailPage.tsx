@@ -10,6 +10,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 
 type TabId = 'jobs' | 'history';
 import BackButton from '../components/BackButton';
+import TabBar from '../components/TabBar';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import {
   getPipelineJobs,
@@ -408,21 +409,14 @@ export default function PipelineDetailPage() {
         </div>
       </header>
 
-      {/* Tab bar */}
-      <nav className="pipeline-detail-tabs">
-        <button
-          className={`pipeline-detail-tab ${activeTab === 'jobs' ? 'active' : ''}`}
-          onClick={() => setActiveTab('jobs')}
-        >
-          <kbd>[1]</kbd> Jobs
-        </button>
-        <button
-          className={`pipeline-detail-tab ${activeTab === 'history' ? 'active' : ''}`}
-          onClick={() => setActiveTab('history')}
-        >
-          <kbd>[2]</kbd> History
-        </button>
-      </nav>
+      <TabBar<TabId>
+        tabs={[
+          { id: 'jobs', label: 'Jobs' },
+          { id: 'history', label: 'History' },
+        ]}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
 
       {activeTab === 'jobs' && (
         <>

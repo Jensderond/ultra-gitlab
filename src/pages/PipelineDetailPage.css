@@ -113,65 +113,6 @@
 }
 
 /* ============================================================================
-   Tab Bar
-   ============================================================================ */
-
-.pipeline-detail-tabs {
-  display: flex;
-  padding: 0 32px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-secondary);
-  flex-shrink: 0;
-}
-
-.pipeline-detail-tab {
-  padding: 10px 20px;
-  font-size: 13px;
-  font-weight: 500;
-  font-family: inherit;
-  color: var(--text-tertiary);
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.pipeline-detail-tab:hover {
-  color: var(--text-secondary);
-}
-
-.pipeline-detail-tab.active {
-  color: var(--accent-color);
-  border-bottom-color: var(--accent-color);
-}
-
-.pipeline-detail-tab kbd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
-  font-size: 10px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-weight: 600;
-  color: var(--text-muted);
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 3px;
-}
-
-.pipeline-detail-tab.active kbd {
-  color: var(--accent-color);
-  border-color: var(--accent-color);
-  background: var(--wave-glow);
-}
-
-/* ============================================================================
    Pipeline History
    ============================================================================ */
 

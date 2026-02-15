@@ -48,47 +48,6 @@
   color: var(--text-primary);
 }
 
-/* Tab bar */
-.my-mr-tabs {
-  display: flex;
-  padding: 0 32px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-secondary);
-}
-
-.my-mr-tab {
-  padding: 10px 20px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-tertiary);
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  box-shadow: none;
-  border-radius: 0;
-}
-
-.my-mr-tab:hover {
-  color: var(--text-secondary);
-  background: transparent;
-  box-shadow: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-}
-
-.my-mr-tab kbd {
-  color: var(--warning-color);
-  font-family: inherit;
-  font-size: inherit;
-}
-
-.my-mr-tab.active {
-  color: var(--accent-color);
-  border-bottom: 2px solid var(--accent-color);
-}
-
 /* Tab content */
 .my-mr-tab-content {
   flex: 1;
