@@ -122,6 +122,7 @@
   border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
+  margin-top: 16px;
 }
 
 .pipeline-history-row {
@@ -138,8 +139,11 @@
   width: 100%;
 }
 
-.pipeline-history-row:hover {
+.pipeline-history-row:hover,
+.pipeline-history-row:focus-visible {
   background: var(--bg-tertiary);
+  outline: none;
+  box-shadow: inset 2px 0 0 var(--accent-color);
 }
 
 .pipeline-history-row + .pipeline-history-row {

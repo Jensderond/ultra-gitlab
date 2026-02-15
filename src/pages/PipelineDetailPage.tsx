@@ -163,6 +163,7 @@ export default function PipelineDetailPage() {
   const [historyLoaded, setHistoryLoaded] = useState(false);
 
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const historyListRef = useRef<HTMLDivElement>(null);
 
   const pid = Number(projectId);
   const plid = Number(pipelineId);
@@ -246,6 +247,17 @@ export default function PipelineDetailPage() {
         setHistoryLoading(false);
       });
   }, [activeTab, historyLoaded, instanceId, pid]);
+
+  // Auto-focus the current (or first) pipeline row when history tab becomes visible
+  useEffect(() => {
+    if (activeTab !== 'history' || !historyLoaded) return;
+    requestAnimationFrame(() => {
+      const container = historyListRef.current;
+      if (!container) return;
+      const current = container.querySelector<HTMLButtonElement>('.pipeline-history-row--current');
+      (current || container.querySelector<HTMLButtonElement>('.pipeline-history-row'))?.focus();
+    });
+  }, [activeTab, historyLoaded]);
 
   // Keyboard shortcuts: 1 = Jobs tab, 2 = History tab
   useEffect(() => {
@@ -478,10 +490,29 @@ export default function PipelineDetailPage() {
           ) : pipelines.length === 0 ? (
             <div className="pipeline-detail-empty">No pipelines found for this project.</div>
           ) : (
-            <div className="pipeline-history-list">
+            <div
+              ref={historyListRef}
+              className="pipeline-history-list"
+              role="listbox"
+              aria-label="Pipeline history"
+              onKeyDown={(e) => {
+                const down = e.key === 'ArrowDown' || e.key === 'j';
+                const up = e.key === 'ArrowUp' || e.key === 'k';
+                if (!down && !up) return;
+                e.preventDefault();
+                const items = e.currentTarget.querySelectorAll<HTMLButtonElement>('.pipeline-history-row');
+                const idx = Array.from(items).indexOf(document.activeElement as HTMLButtonElement);
+                const next = down
+                  ? Math.min(idx + 1, items.length - 1)
+                  : Math.max(idx - 1, 0);
+                items[next]?.focus();
+              }}
+            >
               {pipelines.map((p) => (
                 <button
                   key={p.id}
+                  role="option"
+                  aria-selected={p.id === plid}
                   className={`pipeline-history-row ${p.id === plid ? 'pipeline-history-row--current' : ''}`}
                   onClick={() => handleOpenPipeline(p)}
                 >
