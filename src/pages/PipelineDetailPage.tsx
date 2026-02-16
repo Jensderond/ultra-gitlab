@@ -268,7 +268,10 @@ export default function PipelineDetailPage() {
       ) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-      if (e.key === '1') {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        navigate('/pipelines');
+      } else if (e.key === '1') {
         e.preventDefault();
         setActiveTab('jobs');
       } else if (e.key === '2') {
