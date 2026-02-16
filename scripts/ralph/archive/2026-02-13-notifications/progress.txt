@@ -1,0 +1,16 @@
+# Ralph Progress Log
+Started: Thu Feb 13 2026
+
+## Codebase Patterns
+- DB migrations: numbered `0001_xxx.sql` files in `src-tauri/src/db/migrations/`, registered via `include_str!` in MIGRATIONS array in `db/mod.rs`
+- DB query modules: `src-tauri/src/db/<feature>.rs`, registered as `pub mod` in `db/mod.rs`
+- Models: `src-tauri/src/models/<feature>.rs` with `#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]` and `#[serde(rename_all = "camelCase")]`
+- Commands: `src-tauri/src/commands/<feature>.rs`, re-exported in `commands/mod.rs`, imported and added to `generate_handler!` in `lib.rs`
+- Commands use `State<'_, DbPool>` for DB access, return `Result<T, AppError>`
+- Settings page sections: `<section className="settings-section"><h2>Title</h2>...</section>`, reuse `.sync-settings-form`, `.checkbox-group`, `.checkbox-label` classes
+- Frontend service layer: type in `types/index.ts` → import in `services/tauri.ts` → invoke wrapper → re-export in `services/index.ts`
+- Rust serde: `#[serde(rename_all = "camelCase")]` means frontend types use camelCase field names
+- CSS: plain CSS files with component-scoped imports, CSS custom properties on :root in App.css
+- Toast notifications: use `useToast()` hook → `addToast({ type, title, body, url? })` from anywhere inside `<ToastProvider>`
+
+---

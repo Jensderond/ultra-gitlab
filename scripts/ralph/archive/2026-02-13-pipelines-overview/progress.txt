@@ -1,0 +1,20 @@
+# Ralph Progress Log
+Started: Thu Feb 13 2026
+
+## Codebase Patterns
+- Migrations use `CREATE TABLE IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS`
+- Migration files: `src-tauri/src/db/migrations/NNNN_name.sql`
+- Register migrations in `MIGRATIONS` array in `src-tauri/src/db/mod.rs` via `include_str!`
+- Models: derive `Debug, Clone, Serialize, Deserialize, FromRow` with `#[serde(rename_all = "camelCase")]`
+- DB queries: functions take `&DbPool`, return `Result<T, AppError>`
+- Commands: `#[tauri::command]` with `pool: State<'_, DbPool>`, return `Result<T, AppError>`
+- 3 registrations for new commands: commands/<file>.rs, commands/mod.rs, lib.rs generate_handler!
+- Sidebar: `navItems` array in `AppSidebar.tsx`, items with `bottom: true` go to bottom section
+- Settings page sections: each section is a `<section className="settings-section">` with `<h2>` heading
+- Sync settings use auto-save pattern: onChange triggers immediate save via invoke
+- Open URLs in browser: use `openUrl` from `@tauri-apps/plugin-opener`
+- React 19 `useRef` requires initial value: `useRef<T | undefined>(undefined)` for optional refs
+- PipelineStatus timestamps are ISO 8601 strings (not Unix like MR fields)
+- Tauri events: emit from Rust via `app_handle.emit("event-name", payload)`, listen in frontend via `listen("event-name", callback)`
+
+---

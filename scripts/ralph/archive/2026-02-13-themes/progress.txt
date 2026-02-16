@@ -1,0 +1,236 @@
+# Ralph Progress Log
+Started: Fri Feb 13 15:37:35 CET 2026
+
+## Codebase Patterns
+- All CSS color variables are now applied dynamically by ThemeProvider (no more hardcoded values in App.css :root)
+- ThemeProvider is in src/components/ThemeProvider.tsx, useTheme hook in src/hooks/useTheme.ts
+- ThemeProvider uses React 19 context (`<ThemeContext value=...>` not the old Provider pattern)
+- ThemeProvider maps ThemeDefinition → CSS variables via `themeToCssVars()` function
+- Extra syntax vars (--syntax-string-special, --syntax-embedded-bg) are derived from ThemeDefinition fields (attribute, accent.bg)
+- New unique variables: --bg-dim, --bg-winter, --text-fuji, --accent-pink/green/crystal/warm-yellow/ronin/orange/peach, --wave-glow, --wave-glow-strong
+- Monaco theme is dynamically generated from ThemeDefinition via src/themes/monacoAdapter.ts (themeToMonacoTheme)
+- MonacoProvider registers the theme as "ultra-active-theme" via MONACO_THEME_NAME constant
+- Old hardcoded kanagawaTheme.ts was deleted — all Monaco colors now come from the active ThemeDefinition
+- Tree-sitter syntax highlighting uses --syntax-* CSS variables in src/styles/syntax.css with .hl-{token} classes
+- Syntax CSS variables: --syntax-keyword, --syntax-string, --syntax-string-special, --syntax-comment, --syntax-function, --syntax-type, --syntax-variable, --syntax-number, --syntax-operator, --syntax-punctuation, --syntax-tag, --syntax-attribute, --syntax-constant, --syntax-property, --syntax-embedded-bg
+- Settings type in src/types/index.ts, Theme type is 'kanagawa-wave' | 'kanagawa-light' | 'loved' | 'custom'
+- Settings interface includes `uiFont: string` field (default 'Noto Sans JP')
+- Rust AppSettings struct (src-tauri/src/commands/settings.rs) has `theme` and `ui_font` fields persisted via tauri-plugin-store
+- Settings.tsx has its own local AppSettings interface — does NOT use the src/types/index.ts Settings type directly
+- The Settings page uses `invoke<AppSettings>('get_settings')` directly for sync config, not the storage.ts wrapper
+- Kanagawa Light (Lotus) palette: lotusWhite0-5 for backgrounds, lotusInk1-2 for ink/text, lotusViolet4 for keywords, lotusGreen for strings, lotusBlue4 for functions
+- Always use `bunx tsc --noEmit` for typecheck, `bun` as package manager
+- PipelinesPage.css mostly uses standard variables already (--bg-primary, --text-primary etc.), not --kw-* pattern
+- THEME_PRESETS map in ThemeProvider.tsx: theme ID → ThemeDefinition (used by Settings swatches and ThemeProvider)
+- ThemeProvider loads persisted theme on mount from Rust store; `setThemeById(id)` applies + persists
+- For new per-field settings: add Rust convenience command (like `update_theme`, `update_ui_font`, `update_collapse_patterns`) rather than sending full AppSettings
+- UI_FONTS array in ThemeProvider.tsx defines available fonts (id, label, family CSS, googleFont URL)
+- Google Fonts are lazy-loaded by injecting <link> elements into <head>; font-family applied directly on document.documentElement.style
+- Custom theme: Rust stores `custom_theme_colors: Option<CustomThemeColors>` (bg/text/accent hex); ThemeDefinition is derived at runtime via `deriveTheme()`
+- ThemeContextValue has `customColors`, `previewCustomTheme`, `saveCustomTheme`, `deleteCustomTheme` for custom theme lifecycle
+- `previewCustomTheme()` for live preview (no persist); `saveCustomTheme()` persists both theme ID + colors; `deleteCustomTheme()` clears colors + reverts to default
+
+---
+
+## 2026-02-13 - US-001
+- Created ThemeDefinition interface in src/themes/types.ts covering all CSS variable groups
+- Created Kanagawa Wave theme data in src/themes/kanagawa-wave.ts with values from App.css and MRDetailPage.css
+- Created barrel export in src/themes/index.ts
+- Files changed: src/themes/types.ts, src/themes/kanagawa-wave.ts, src/themes/index.ts (all new)
+- **Learnings for future iterations:**
+  - App.css :root has the "standard" CSS variables (--bg-primary, --text-primary, etc.)
+  - MRDetailPage.css :root has --kw-* duplicates that map to the same values
+  - Monaco kanagawaTheme.ts uses hex without '#' prefix for token foreground colors
+  - syntax.css uses different colors than Kanagawa palette (GitHub-style colors), these will need updating
+---
+
+## 2026-02-13 - US-002
+- Consolidated all --kw-* CSS variables into the unified App.css :root set
+- Added new standard variables: --bg-dim, --bg-winter, --text-fuji, --accent-pink, --accent-green, --accent-crystal, --accent-warm-yellow, --accent-ronin, --accent-orange, --accent-peach, --wave-glow, --wave-glow-strong
+- Replaced all --kw-* usages across 6 CSS files: MRDetailPage.css, MRListPage.css, Settings.css, MyMRsPage.css, MyMRDetailPage.css, PipelinesPage.css
+- Removed duplicate :root blocks from MRDetailPage.css and MRListPage.css
+- Removed duplicate @import for Google Fonts from MRDetailPage.css
+- Files changed: src/App.css, src/pages/MRDetailPage.css, src/pages/MRListPage.css, src/pages/Settings.css, src/pages/MyMRsPage.css, src/pages/MyMRDetailPage.css, src/pages/PipelinesPage.css
+- **Learnings for future iterations:**
+  - The --kw-* → standard variable mapping: bg-dark→bg-secondary, bg-default→bg-primary, bg-dim→bg-dim(new), bg-highlight→bg-tertiary, bg-gutter→gutter-bg, fg-default→text-primary, fg-dim→text-secondary, fg-muted→text-tertiary, fg-comment→text-muted, wave-blue→accent-color, wave-cyan→accent-hover, sumi-ink→border-color, fuji-gray→text-fuji(new), autumn-red→error-color, spring-green→success-color, carpYellow→warning-color
+  - MyMRsPage.css and MyMRDetailPage.css use fallback syntax: `var(--kw-name, #fallback)` — need to match this pattern in replace
+  - PipelinesPage.css had nested fallback: `var(--kw-bg-default, var(--bg-primary))` — simplify to just `var(--bg-primary)`
+  - Some CSS files (PipelinesPage.css) used hardcoded hex instead of variables in pseudo-elements — these weren't touched as they match the final values
+---
+
+## 2026-02-13 - US-003
+- Converted all hardcoded hex colors in src/styles/syntax.css to CSS variables
+- Added 15 --syntax-* CSS variable declarations to the :root block in App.css
+- Variables: --syntax-keyword, --syntax-string, --syntax-string-special, --syntax-comment, --syntax-function, --syntax-type, --syntax-variable, --syntax-number, --syntax-operator, --syntax-punctuation, --syntax-tag, --syntax-attribute, --syntax-constant, --syntax-property, --syntax-embedded-bg
+- Sub-variant classes reuse base variables (e.g., .hl-variable-builtin → --syntax-constant, .hl-label → --syntax-function)
+- Files changed: src/App.css, src/styles/syntax.css
+- **Learnings for future iterations:**
+  - syntax.css uses GitHub-style colors (not Kanagawa palette) — these are the current defaults in ThemeDefinition.syntaxHighlight
+  - Sub-variant mappings: string-special→attribute color, escape/constant-builtin/variable-builtin/punctuation-special→constant color, variable-parameter→type color, label/constructor→function color
+  - Added --syntax-string-special and --syntax-embedded-bg beyond the base 13 SyntaxHighlightColors fields — future ThemeProvider will need to handle these extra variables
+---
+
+## 2026-02-13 - US-004
+- Created ThemeProvider component (src/components/ThemeProvider.tsx) with React context
+- Created useTheme hook (src/hooks/useTheme.ts) that reads theme from ThemeContext
+- ThemeProvider applies all ThemeDefinition values as CSS variables on :root via document.documentElement.style
+- Handles all CSS variable groups: backgrounds, text, borders, accent, focus, links, status, diff, labels, card, input, extended palette, syntax highlighting
+- Handles extra syntax vars (--syntax-string-special → attribute, --syntax-embedded-bg → accent.bg)
+- Removed all hardcoded color values from App.css :root (kept font/layout properties only)
+- Mounted ThemeProvider in App.tsx wrapping MonacoProvider > ToastProvider > BrowserRouter
+- Kanagawa Wave is the default theme loaded on startup
+- Files changed: src/components/ThemeProvider.tsx (new), src/hooks/useTheme.ts (new), src/App.css, src/App.tsx
+- **Learnings for future iterations:**
+  - React 19 uses `<Context value={}>` directly, not `<Context.Provider value={}>` — use the new pattern
+  - The ThemeProvider needs to be the outermost wrapper so all providers/components can access theme
+  - --syntax-string-special and --syntax-embedded-bg are not in SyntaxHighlightColors interface but are used by syntax.css — ThemeProvider derives them from related fields
+  - The themeToCssVars() mapping function is the single source of truth for ThemeDefinition → CSS variable mapping
+---
+
+## 2026-02-13 - US-005
+- Created src/themes/monacoAdapter.ts with themeToMonacoTheme() that converts ThemeDefinition → Monaco IStandaloneThemeData
+- Updated MonacoProvider to use useTheme() context + adapter instead of hardcoded kanagawaTheme import
+- MonacoProvider registers a single "ultra-active-theme" and re-registers it on theme changes via defineTheme + setTheme
+- Updated MonacoDiffViewer to use MONACO_THEME_NAME from MonacoProvider instead of KANAGAWA_THEME_NAME
+- Updated Monaco/index.ts barrel to export MONACO_THEME_NAME instead of old kanagawa exports
+- Deleted src/components/Monaco/kanagawaTheme.ts (replaced by adapter)
+- Exported themeToMonacoTheme and getMonacoThemeName from src/themes/index.ts
+- Files changed: src/themes/monacoAdapter.ts (new), src/components/Monaco/MonacoProvider.tsx, src/components/Monaco/MonacoDiffViewer.tsx, src/components/Monaco/index.ts, src/components/Monaco/kanagawaTheme.ts (deleted), src/themes/index.ts
+- **Learnings for future iterations:**
+  - Monaco editor.defineTheme() requires the `base` field to be 'vs-dark' or 'vs' — derive from theme.type
+  - Monaco token foreground colors are hex WITHOUT '#' prefix (e.g., 'dcd7ba' not '#dcd7ba')
+  - Monaco editor colors (the `colors` record) ARE with '#' prefix
+  - MonacoProvider needs a ref to the Monaco instance for theme updates — loader.init() returns it, store in useRef
+  - The init effect runs once on mount; a separate effect watches theme changes and re-registers
+  - DiffEditor's `theme` prop uses the registered theme name string, not the theme data object
+---
+
+## 2026-02-13 - US-006
+- Created src/themes/kanagawa-light.ts with full Kanagawa Lotus palette
+- Re-exported kanagawaLight from src/themes/index.ts
+- Used official Lotus palette from kanagawa.nvim: warm off-white backgrounds (lotusWhite series), dark ink text (lotusInk1/2), muted natural accent colors
+- Monaco token colors use Lotus-appropriate dark-on-light colors (lotusViolet4 for keywords, lotusGreen for strings, lotusBlue4 for functions, etc.)
+- Diff colors use lotusGreen/lotusRed with appropriate opacity for light background visibility
+- Files changed: src/themes/kanagawa-light.ts (new), src/themes/index.ts
+- **Learnings for future iterations:**
+  - Kanagawa Lotus palette reference: lotusWhite0-5 for backgrounds, lotusInk1-2 for text, lotusGray2-3 for muted text
+  - Lotus syntax mapping: keywords→lotusViolet4(#624c83), strings→lotusGreen(#6f894e), comments→lotusGray3(#8a8980), functions→lotusBlue4(#4d699b), types→lotusAqua(#597b75), constants→lotusOrange(#cc6d00), numbers→lotusPink(#b35b79)
+  - Light theme status colors need lower opacity for bg variants (0.08-0.12) since the base background is already light
+  - The Lotus palette uses significantly more muted/earthy tones compared to Wave — this is intentional for comfortable light-mode viewing
+---
+
+## 2026-02-13 - US-007
+- Created src/themes/loved.ts with full Loved dark theme palette
+- Re-exported `loved` from src/themes/index.ts
+- Loved palette: deep navy backgrounds (#121926/#17202f), soft silver text (#c0c5ce/#99a4b8), blue accent (#99beff)
+- Status colors from PRD: error #e05252, success #97a38f, warning #eabe9a
+- Extended palette: pink #ea7599, purple #b18bb1, turquoise #7ea9a9, blue #6e94b9, orange #f7987e, brown #a67868
+- Monaco token colors use Loved syntax palette: keywords→purple(#b18bb1), strings→sage(#97a38f), comments→muted(#4e5d73), functions→blue(#6e94b9), types→turquoise(#7ea9a9), constants→pink(#ea7599)
+- Files changed: src/themes/loved.ts (new), src/themes/index.ts
+- **Learnings for future iterations:**
+  - Loved is a cool-toned dark theme — backgrounds are navy-blue tinted, not neutral gray like Kanagawa Wave
+  - Loved's success color (#97a38f) is more muted/sage than typical green — this is intentional for the palette
+  - Creating a new theme preset follows a simple pattern: create the .ts file, add barrel export, typecheck
+  - All three themes now available: kanagawaWave (dark), kanagawaLight (light), loved (dark)
+---
+
+## 2026-02-13 - US-008
+- Updated Theme type from 'light' | 'dark' | 'system' to 'kanagawa-wave' | 'kanagawa-light' | 'loved' | 'custom'
+- Added `uiFont: string` field to Settings interface in src/types/index.ts
+- Updated `setTheme()` in storage.ts to accept the new Theme type instead of hardcoded literals
+- Added `setUiFont(uiFont: string)` function to storage.ts, auto-exported via barrel
+- Added `theme` (String) and `ui_font` (String) fields to Rust `AppSettings` struct
+- Added persistence: THEME_KEY and UI_FONT_KEY in tauri-plugin-store, loaded/saved in load_settings/save_settings
+- Defaults: theme="kanagawa-wave", ui_font="Noto Sans JP"
+- Files changed: src/types/index.ts, src/services/storage.ts, src-tauri/src/commands/settings.rs
+- **Learnings for future iterations:**
+  - The Settings.tsx page has its own local `AppSettings` and `SyncConfig` interfaces — it does NOT use the `Settings` type from src/types/index.ts
+  - Settings.tsx invokes `get_settings` and `update_sync_settings` directly via `invoke()`, not through the storage.ts wrapper
+  - Rust AppSettings uses `#[serde(rename_all = "camelCase")]` so `ui_font` serializes to `uiFont` for the frontend
+  - The tauri-plugin-store stores each field under its own key (not a nested object), so new fields need their own CONST key and load/save logic
+  - The frontend `storage.ts` `updateSettings()` sends a partial update as `{ update: SettingsUpdate }` — the Rust `update_settings` command takes a full `AppSettings` object, so there's a mismatch in the IPC contract (existing behavior, not introduced by this change)
+---
+
+## 2026-02-13 - US-009
+- Added Appearance section with theme swatches to Settings page, placed before Notifications section
+- Each swatch shows background color, "Aa" text sample in theme's text color, and accent color dot
+- Active theme has highlighted border with wave-glow box-shadow
+- Clicking a swatch immediately applies the theme and persists via update_theme Rust command
+- Added Rust `update_theme` command (convenience method like update_collapse_patterns) for persisting theme ID
+- Added `updateTheme` frontend wrapper in tauri.ts and re-exported from services/index.ts
+- ThemeProvider now loads persisted theme on startup via get_settings and exposes `setThemeById`
+- THEME_PRESETS lookup map exported from ThemeProvider for mapping theme IDs to ThemeDefinitions
+- Files changed: src-tauri/src/commands/settings.rs, src-tauri/src/commands/mod.rs, src-tauri/src/lib.rs, src/components/ThemeProvider.tsx, src/hooks/useTheme.ts (no changes needed), src/services/tauri.ts, src/services/index.ts, src/pages/Settings.tsx, src/pages/Settings.css
+- **Learnings for future iterations:**
+  - For persisting individual settings fields, follow the pattern of convenience commands (update_theme, update_collapse_patterns, update_sync_settings) that load → mutate → save
+  - ThemeProvider loads settings on mount via `invoke<{ theme?: string }>('get_settings')` — uses partial type since we only need theme field
+  - THEME_PRESETS is the central lookup for theme ID → ThemeDefinition; exported from ThemeProvider
+  - Theme swatch CSS uses the theme's actual colors via inline `style` props, not CSS variables (so swatches always show the correct colors regardless of active theme)
+  - ThemeContextValue now has five fields: `theme`, `setTheme`, `setThemeById`, `uiFont`, `setUiFont`
+  - UI_FONTS array is exported from ThemeProvider with font definitions (id, label, family, googleFont URL)
+  - Font is applied by setting `font-family` directly on `document.documentElement.style`
+  - Google Fonts are lazy-loaded by injecting `<link>` elements into `<head>` (with dedup by ID)
+---
+
+## 2026-02-13 - US-010
+- Added font selector to Appearance section in Settings page, below theme swatches
+- Font options: Noto Sans JP (default), Inter, SF Pro (-apple-system), System Default (system-ui)
+- Each option renders its name in its own font for instant visual comparison via inline style
+- Selecting a font applies immediately via ThemeProvider (sets font-family on :root)
+- Monospace font (IBM Plex Mono) remains unchanged — code areas use explicit font-family declarations
+- On startup, ThemeProvider loads persisted font and lazy-loads its Google Font link
+- When Appearance section mounts, background-loads all remaining Google Fonts for previews
+- Added Rust `update_ui_font` command (convenience method following update_theme pattern)
+- Added `updateUiFont` frontend wrapper in tauri.ts + barrel export in services/index.ts
+- Files changed: src-tauri/src/commands/settings.rs, src-tauri/src/commands/mod.rs, src-tauri/src/lib.rs, src/components/ThemeProvider.tsx, src/hooks/useTheme.ts (no changes needed), src/services/tauri.ts, src/services/index.ts, src/pages/Settings.tsx, src/pages/Settings.css
+- **Learnings for future iterations:**
+  - Google Fonts are loaded by injecting <link rel="stylesheet"> into <head> — dedup by element ID to avoid duplicate loads
+  - Font options that are system fonts (SF Pro, System Default) have `googleFont: null` and don't need loading
+  - The font-family is applied directly on document.documentElement.style, not via a CSS variable, since the `:root` selector in CSS already uses it
+  - App.css still has the static @import for Noto Sans JP + IBM Plex Mono — this is fine as a base; additional fonts load on demand
+  - Font option buttons use inline `style={{ fontFamily: font.family }}` so each option renders in its own font regardless of active selection
+- deriveTheme(bg, text, accent) in src/themes/deriveTheme.ts generates a full ThemeDefinition from 3 colors — uses HSL math + nearest preset tokens
+---
+
+## 2026-02-13 - US-011
+- Created src/themes/deriveTheme.ts with `deriveTheme(bg, text, accent)` pure function
+- Derives 3 background shades from bg via lightness shifts (secondary +4%, tertiary +8%, hover +12%)
+- Derives 4 text shades from text via opposite-direction lightness shifts
+- Derives hover, selected, and border colors from bg/accent
+- Derives accent variants (hover, bg, primary, primaryHover, primaryDark) from accent color
+- Generates status colors by hue rotation to fixed targets: error(0°), success(120°), warning(45°), info(220°) — each with color/bg/text/light variants
+- Generates diff colors from derived success/error with appropriate opacity
+- Derives extended palette by hue rotation from accent (pink, green, yellow, orange, etc.)
+- For Monaco tokens and syntax highlighting: selects nearest preset based on bg luminance (dark → Kanagawa Wave, light → Kanagawa Light)
+- Sets metadata: id='custom', name='Custom', type determined by luminance threshold 0.2
+- Exported from src/themes/index.ts
+- Files changed: src/themes/deriveTheme.ts (new), src/themes/index.ts
+- **Learnings for future iterations:**
+  - HSL manipulation approach: hexToRgb → rgbToHsl → manipulate → hslToRgb → rgbToHex
+  - luminance() uses relative luminance formula (WCAG) to determine dark vs light — threshold 0.2 works well for dark/light classification
+  - For status colors, fixed hue targets (0°=red, 120°=green, 45°=yellow, 220°=blue) produce recognisable status indicators regardless of accent color
+  - The isDark flag controls direction of lightness shifts and opacity levels (dark uses higher opacity bg variants)
+  - Monaco token colors and syntax highlight colors are complex enough that deriving them from scratch would look poor — reusing preset tokens by bg luminance is the pragmatic approach
+  - `adjustSaturation` + `shiftLightness` are the main tools for deriving color variants
+---
+
+## 2026-02-13 - US-012
+- Added custom theme creation UI to the Appearance section in Settings
+- "Create Custom Theme" button reveals inline editor with 3 native `<input type="color">` pickers (Background, Text, Accent)
+- Live preview: as user picks colors, `deriveTheme()` + `previewCustomTheme()` update the app in real-time
+- Save/Cancel/Delete buttons: Save persists colors + switches to 'custom' theme ID; Cancel reverts to pre-edit theme; Delete removes custom theme and reverts to Kanagawa Wave
+- Saved custom theme appears as a fourth swatch alongside presets
+- Edit button on custom swatch re-opens editor with saved colors
+- Rust backend: added `CustomThemeColors` struct (bg, text, accent), `custom_theme_colors: Option<CustomThemeColors>` to AppSettings, `update_custom_theme_colors` command
+- ThemeProvider loads custom theme on startup if theme ID is 'custom' and colors are saved
+- ThemeContextValue now has: `customColors`, `previewCustomTheme`, `saveCustomTheme`, `deleteCustomTheme`
+- Files changed: src-tauri/src/commands/settings.rs, src-tauri/src/commands/mod.rs, src-tauri/src/lib.rs, src/components/ThemeProvider.tsx, src/services/tauri.ts, src/services/index.ts, src/pages/Settings.tsx, src/pages/Settings.css
+- **Learnings for future iterations:**
+  - Custom theme persistence needs 3 pieces: theme ID ('custom') + custom color inputs (bg/text/accent) + the Rust update command — the ThemeDefinition is derived at runtime, not stored
+  - `previewCustomTheme()` applies the derived theme without persisting — used for live preview during editing
+  - `preEditThemeRef` (useRef) tracks which theme was active before editing, so Cancel can revert correctly
+  - The color picker `<input type="color">` returns lowercase hex (#rrggbb) which works directly with deriveTheme()
+  - When editing is active, preset swatches check `!editing` for active state to avoid showing two active indicators
+  - `useMemo` on `deriveTheme()` prevents re-deriving the custom swatch preview on every render
+  - Rust `Option<CustomThemeColors>` serializes as `null` in JSON when None — the frontend checks for this naturally
+---

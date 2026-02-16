@@ -1,0 +1,183 @@
+{
+  "project": "Ultra GitLab",
+  "branchName": "ralph/notifications",
+  "description": "Notifications - Native OS and in-app toast notifications for MR ready-to-merge and pipeline status changes on pinned projects, with configurable preferences in Settings",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add notification settings DB table, migration, and Tauri commands",
+      "description": "As a developer, I need to persist notification preferences in SQLite so they survive app restarts, with Tauri commands to read and update them.",
+      "acceptanceCriteria": [
+        "New migration adds a `notification_settings` table with columns: id INTEGER PRIMARY KEY DEFAULT 1, mr_ready_to_merge INTEGER DEFAULT 1, pipeline_status_pinned INTEGER DEFAULT 1, native_notifications_enabled INTEGER DEFAULT 1",
+        "Table uses a single-row pattern (id=1) with INSERT OR IGNORE to seed defaults",
+        "Migration registered in MIGRATIONS array in db/mod.rs",
+        "New db query functions: get_notification_settings(pool) and update_notification_settings(pool, settings)",
+        "New NotificationSettings model with serde(rename_all = camelCase): mr_ready_to_merge (bool), pipeline_status_pinned (bool), native_notifications_enabled (bool)",
+        "New Tauri command get_notification_settings returns current settings",
+        "New Tauri command update_notification_settings(settings) saves all fields",
+        "Commands registered in commands/mod.rs and lib.rs generate_handler!",
+        "cargo check passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add frontend types and service wrappers for notification settings",
+      "description": "As a developer, I need TypeScript types and service functions to call the notification settings Tauri commands from the frontend.",
+      "acceptanceCriteria": [
+        "New NotificationSettings interface in src/types/index.ts with fields: mrReadyToMerge (boolean), pipelineStatusPinned (boolean), nativeNotificationsEnabled (boolean)",
+        "New service function getNotificationSettings() in src/services/tauri.ts that invokes get_notification_settings",
+        "New service function updateNotificationSettings(settings: NotificationSettings) in src/services/tauri.ts that invokes update_notification_settings",
+        "Both functions re-exported from src/services/index.ts",
+        "bunx tsc --noEmit passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Add Notifications section to Settings page",
+      "description": "As a user, I want a Notifications section in Settings so I can toggle which notifications I receive and whether native OS notifications are enabled.",
+      "acceptanceCriteria": [
+        "New 'Notifications' section in Settings page, placed after the Sync Settings section",
+        "Section has a heading 'Notifications' consistent with other section headings",
+        "Toggle/checkbox for 'MR ready to merge' with description: 'Notify when your MR has all approvals and pipeline passed'",
+        "Toggle/checkbox for 'Pipeline status (pinned projects)' with description: 'Notify when a pinned project pipeline status changes'",
+        "Toggle/checkbox for 'Native OS notifications' with description: 'Show notifications in macOS Notification Center'",
+        "Settings load on mount via getNotificationSettings()",
+        "Each toggle auto-saves immediately via updateNotificationSettings() (same pattern as sync settings)",
+        "bunx tsc --noEmit passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Install and configure tauri-plugin-notification",
+      "description": "As a developer, I need the Tauri notification plugin installed and configured so we can send native OS notifications from the Rust backend.",
+      "acceptanceCriteria": [
+        "tauri-plugin-notification added to src-tauri/Cargo.toml dependencies",
+        "Plugin registered in src-tauri/src/lib.rs via .plugin(tauri_plugin_notification::init())",
+        "Notification permission added to src-tauri/capabilities/default.json (notification:default or notification:allow-notify, notification:allow-request-permission, notification:allow-is-permission-granted)",
+        "Add a Tauri command send_native_notification(title: String, body: String) that uses the notification plugin to show a native notification",
+        "The command checks notification permission, requests it if needed, then sends",
+        "Command registered in commands/mod.rs and lib.rs generate_handler!",
+        "cargo check passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Add head_pipeline status to MR model and sync",
+      "description": "As a developer, I need the MR's head pipeline status stored so we can determine if a pipeline has passed for the ready-to-merge check.",
+      "acceptanceCriteria": [
+        "Add head_pipeline_status field (Option<String>) to the GitLabMergeRequest struct in services/gitlab_client.rs — GitLab returns head_pipeline as a nested object with a status field, so use a helper struct or flatten",
+        "Add head_pipeline_status column (TEXT, nullable) to merge_requests table via new migration",
+        "Add head_pipeline_status field to the MergeRequest model in models/merge_request.rs",
+        "Sync engine stores head_pipeline_status when upserting MRs during sync",
+        "Add headPipelineStatus (string | null) to the frontend MergeRequest type in src/types/index.ts",
+        "Add headPipelineStatus to MergeRequestListItem in commands/mr.rs so it is returned to frontend",
+        "cargo check passes",
+        "bunx tsc --noEmit passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Detect MR ready-to-merge transition and emit Tauri event",
+      "description": "As a user, I want the app to detect when my MR becomes ready to merge (all approvals + pipeline passed) and emit an event so notifications can fire.",
+      "acceptanceCriteria": [
+        "In sync_engine.rs, after fetching/updating MRs, compare previous and current state for each authored MR",
+        "Ready-to-merge condition: approval_status is 'approved' AND approvals_count >= approvals_required AND head_pipeline_status is 'success'",
+        "Only emit when the MR was NOT ready before the sync and IS ready after (transition detection)",
+        "Keep an in-memory HashSet<i64> of already-notified MR IDs to avoid duplicate notifications within a session",
+        "Check notification_settings.mr_ready_to_merge before emitting — skip if disabled",
+        "Emit Tauri event 'notification:mr-ready' with JSON payload: { title: String, projectName: String, webUrl: String }",
+        "cargo check passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Detect pipeline status changes on pinned projects in frontend",
+      "description": "As a user, I want the app to detect when a pinned project's pipeline status changes so a notification can be triggered.",
+      "acceptanceCriteria": [
+        "In PipelinesPage.tsx, when refreshStatuses() updates the statuses map, compare old status to new status for each project",
+        "Only trigger for pinned projects (check project.pinned === true)",
+        "Do not trigger on first load (when there is no previous status to compare against)",
+        "Trigger when status string changes (e.g., 'running' to 'success', 'running' to 'failed')",
+        "When a change is detected, emit a custom DOM event or call a callback with payload: { projectName: string, oldStatus: string, newStatus: string, refName: string, webUrl: string }",
+        "Store the detection results so other components (notification wiring) can consume them — e.g., via a window custom event 'notification:pipeline-changed'",
+        "bunx tsc --noEmit passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Create toast notification component",
+      "description": "As a user, I want to see brief toast messages in the app when notifications fire, with auto-dismiss and a View link.",
+      "acceptanceCriteria": [
+        "New ToastNotification component in src/components/ToastNotification/ (or similar)",
+        "Toast appears in the bottom-right corner of the app, positioned fixed",
+        "Each toast shows: icon (type-specific), title, body text, and a 'View' link",
+        "Toast auto-dismisses after 5 seconds with a fade-out animation",
+        "Multiple toasts stack vertically (newest at bottom), max 3 visible — oldest dismissed if exceeded",
+        "Clicking 'View' opens the provided URL in the default browser via openUrl from @tauri-apps/plugin-opener",
+        "Toast can be manually dismissed by clicking an X button",
+        "Export a useToast hook or context that provides an addToast(toast) function for other components to trigger toasts",
+        "bunx tsc --noEmit passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Add notification bell icon to sidebar",
+      "description": "As a user, I want a bell icon in the sidebar that shows a temporary activity dot when a notification fires.",
+      "acceptanceCriteria": [
+        "Bell icon added to AppSidebar, positioned near the top or in the header area (not as a nav item — as a standalone icon)",
+        "Bell icon uses an SVG consistent with existing sidebar icon style",
+        "When a toast notification is active (visible), the bell shows a small colored dot/badge indicator",
+        "The dot clears automatically when all toasts have been dismissed",
+        "Bell icon is purely an indicator — no dropdown or click action needed for this story",
+        "bunx tsc --noEmit passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Wire notification events to native OS and in-app toast delivery",
+      "description": "As a developer, I need to connect the MR ready Tauri event and pipeline change detection to both native notifications and in-app toasts, respecting user settings.",
+      "acceptanceCriteria": [
+        "Create a useNotifications hook (or add to App.tsx) that listens for Tauri event 'notification:mr-ready' and window event 'notification:pipeline-changed'",
+        "On MR ready event: read notification settings, if mrReadyToMerge enabled show in-app toast with title 'MR Ready to Merge', body with MR title and project name, View link to MR web URL",
+        "On MR ready event: if nativeNotificationsEnabled AND mrReadyToMerge enabled, invoke send_native_notification with title 'MR Ready to Merge' and body '{MR title} in {project name}'",
+        "On pipeline changed event: read notification settings, if pipelineStatusPinned enabled show in-app toast with title 'Pipeline {newStatus}', body with project name and branch, View link to project pipelines URL",
+        "On pipeline changed event: if nativeNotificationsEnabled AND pipelineStatusPinned enabled, invoke send_native_notification with title 'Pipeline {newStatus}' and body '{project name} ({branch})'",
+        "ToastNotification provider must be mounted high enough in the component tree (e.g., in App.tsx) so toasts work on all pages",
+        "bunx tsc --noEmit passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
