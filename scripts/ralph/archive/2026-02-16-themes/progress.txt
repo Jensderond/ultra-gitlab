@@ -1,0 +1,20 @@
+# Ralph Progress Log
+Started: Sun Feb 16 2026
+
+## Codebase Patterns
+- Tauri v2 + React 19 + TypeScript + Vite
+- Adding Tauri commands requires 3 registrations: command fn in commands/<feature>.rs, re-export in commands/mod.rs, register in lib.rs generate_handler!
+- Frontend service layer: low-level wrappers in src/services/tauri.ts, re-exports in src/services/index.ts
+- Serde: GitLab API structs use snake_case (default), Tauri DTOs use #[serde(rename_all = "camelCase")]
+- GitLab client methods in src-tauri/src/services/gitlab_client.rs, pagination via get_all_pages()
+- Pipeline commands in src-tauri/src/commands/pipeline.rs (11 existing commands)
+- PipelineDetailPage has status dots, badges, formatDuration(), formatRelativeTime(), jobStatusLabel() helpers
+- PipelineDetailPage polls every 10s for running pipelines, pauses on visibility change
+- Existing pipelinePulse CSS animation for running indicators in PipelineDetailPage.css
+- BackButton component available for back navigation
+- TabBar component available for tab interfaces
+- Use `bun` as package manager, `bunx tsc --noEmit` for typecheck, `cargo check` for Rust
+- React 19 uses <Context value={}> directly, not <Context.Provider value={}>
+
+---
+

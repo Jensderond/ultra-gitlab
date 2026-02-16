@@ -10,9 +10,43 @@ Started: Mon Feb 16 20:41:42 CET 2026
 - Status badge CSS classes are in PipelinesPage.css (`pipeline-badge--*`), reuse via class names
 - BackButton component supports `to` prop for explicit navigation path
 - ANSI parser lives in `src/utils/ansiParser.ts` — lightweight, no dependencies, supports 8/16/256/truecolor + bold/dim/italic/underline
+- For streaming/polling: use `traceLenRef` to track previous length, slice new content from full response, append via `setTrace(prev => prev + newContent)`
+- `useRef` in React 19 strict mode requires explicit initial value (`useRef<T>(undefined)` not `useRef<T>()`) — TS2554 error otherwise
+- `pipelinePulse` animation from PipelineDetailPage.css is globally available — reuse for any pulsing dot
 - GitLab CI logs contain section markers (`section_start:...`, `section_end:...`) that should be stripped before rendering
 - Use `useMemo` to avoid re-parsing ANSI on every render; key on the trace string
+- For auto-scroll: use `isAutoScrollingRef` flag + `requestAnimationFrame` to suppress scroll handler during programmatic scrolls
+- Scroll-at-bottom detection: `scrollHeight - scrollTop - clientHeight < 30` with 30px threshold for tolerance
 
+---
+
+## 2026-02-16 - US-006
+- Added follow mode toggle button in sticky header toolbar (right side)
+- Follow enabled by default when job is active (running/pending/created)
+- Auto-scrolls to bottom on each trace update when follow is ON
+- Manual scroll up disables follow; scrolling back to bottom re-enables it
+- Uses `isAutoScrollingRef` to prevent programmatic scrolls from triggering the scroll handler
+- Button visually highlights when active (accent color bg + border)
+- Files changed: `src/pages/JobLogPage.tsx`, `src/pages/JobLogPage.css`
+- **Learnings for future iterations:**
+  - Use a ref flag (`isAutoScrollingRef`) + `requestAnimationFrame` to distinguish programmatic scrolls from user scrolls
+  - `useRef<HTMLElement>(null)` for DOM refs (not `undefined`) since React expects `null` for ref objects attached to JSX
+  - Threshold of ~30px for "at bottom" detection accommodates sub-pixel rendering differences
+  - `{ passive: true }` on scroll listeners avoids blocking the main thread
+---
+
+## 2026-02-16 - US-005
+- Added log trace polling every 3s for active jobs (running/pending/created) with append-only updates
+- Added job status polling every 10s via `getPipelineJobs` to detect when job finishes → stops polling
+- Added visibility-based pause/resume: skips fetch when window hidden, catches up immediately on regain focus
+- Added "Live" badge in header with pulsing red dot (reuses `pipelinePulse` animation) — disappears when job completes
+- Status badge in header now reflects live status (updates from polled data)
+- Files changed: `src/pages/JobLogPage.tsx`, `src/pages/JobLogPage.css`
+- **Learnings for future iterations:**
+  - `useRef<T>()` without initial value causes TS2554 in React 19 strict mode — always pass `undefined` explicitly
+  - For append-only streaming: track length in a ref, slice new content from full response, concatenate via state updater
+  - Polling cleanup: use `clearTimeout` in effect cleanup to prevent memory leaks; `isActive` in dependency array ensures effects re-run on status change
+  - Visibility check inside polling callbacks (not just visibility event) provides double protection against unnecessary network calls
 ---
 
 ## 2026-02-16 - US-004
