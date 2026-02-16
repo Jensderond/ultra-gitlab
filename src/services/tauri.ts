@@ -569,6 +569,13 @@ export async function cancelPipelineJob(instanceId: number, projectId: number, j
   return invoke<PipelineJob>('cancel_pipeline_job', { instanceId, projectId, jobId });
 }
 
+/**
+ * Get the raw log trace for a pipeline job.
+ */
+export async function getJobTrace(instanceId: number, projectId: number, jobId: number): Promise<string> {
+  return invoke<string>('get_job_trace', { instanceId, projectId, jobId });
+}
+
 // ============================================================================
 // Notification Settings Commands
 // ============================================================================

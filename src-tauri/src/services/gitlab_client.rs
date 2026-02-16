@@ -937,6 +937,38 @@ impl GitLabClient {
             .map_err(|e| AppError::internal(format!("Failed to read file content: {}", e)))
     }
 
+    /// Get the raw log (trace) output for a job.
+    ///
+    /// Calls `GET /projects/:id/jobs/:job_id/trace` and returns the plain-text log.
+    /// Returns an empty string when the job has no trace (404).
+    pub async fn get_job_trace(&self, project_id: i64, job_id: i64) -> Result<String, AppError> {
+        let endpoint = format!("/projects/{}/jobs/{}/trace", project_id, job_id);
+        let url = self.api_url(&endpoint);
+        let response = self.client.get(&url).send().await?;
+
+        let status = response.status();
+        if status == StatusCode::NOT_FOUND {
+            return Ok(String::new());
+        }
+        if status == StatusCode::UNAUTHORIZED {
+            return Err(AppError::authentication_expired(
+                "GitLab token expired or revoked. Please re-authenticate.",
+            ));
+        }
+        if !status.is_success() {
+            return Err(AppError::gitlab_api_full(
+                "Failed to fetch job trace",
+                status.as_u16(),
+                &endpoint,
+            ));
+        }
+
+        response
+            .text()
+            .await
+            .map_err(|e| AppError::internal(format!("Failed to read job trace: {}", e)))
+    }
+
     /// Get raw file content as bytes at a specific SHA.
     ///
     /// This fetches binary file content from the repository at a specific commit.

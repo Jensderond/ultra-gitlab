@@ -12,6 +12,7 @@ import MyMRsPage from './pages/MyMRsPage';
 import MyMRDetailPage from './pages/MyMRDetailPage';
 import PipelinesPage from './pages/PipelinesPage';
 import PipelineDetailPage from './pages/PipelineDetailPage';
+import JobLogPage from './pages/JobLogPage';
 import { AppSidebar } from './components/AppSidebar';
 import { CommandPalette, type Command } from './components/CommandPalette';
 import { KeyboardHelp } from './components/KeyboardHelp';
@@ -257,6 +258,7 @@ function AppContent() {
           {/* Pipelines dashboard */}
           <Route path="/pipelines" element={<PipelinesPage />} />
           <Route path="/pipelines/:projectId/:pipelineId" element={<PipelineDetailPage />} />
+          <Route path="/pipelines/:projectId/:pipelineId/jobs/:jobId" element={<JobLogPage />} />
 
           {/* Settings page */}
           <Route path="/settings" element={<Settings updateChecker={updateChecker} />} />

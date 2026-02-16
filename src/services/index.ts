@@ -57,6 +57,7 @@ export {
   getNotificationSettings,
   updateNotificationSettings,
   sendNativeNotification,
+  getJobTrace,
   updateTheme,
   updateUiFont,
   updateCustomThemeColors,

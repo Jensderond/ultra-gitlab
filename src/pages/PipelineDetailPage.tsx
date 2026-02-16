@@ -277,6 +277,9 @@ export default function PipelineDetailPage() {
       } else if (e.key === '2') {
         e.preventDefault();
         setActiveTab('history');
+      } else if ((e.key === 'o' || e.key === 'O') && pipelineWebUrl) {
+        e.preventDefault();
+        openUrl(pipelineWebUrl);
       }
     }
     document.addEventListener('keydown', handleKeyDown);
@@ -356,6 +359,31 @@ export default function PipelineDetailPage() {
       }
     },
     [instanceId, pid, loadJobs]
+  );
+
+  // Navigate to job log page
+  const handleNavigateToJob = useCallback(
+    (job: PipelineJob) => {
+      const params = new URLSearchParams({
+        instance: String(instanceId),
+        name: job.name,
+        status: job.status,
+        stage: job.stage,
+        project: projectName,
+        ref: pipelineRef,
+      });
+      if (job.duration != null) {
+        params.set('duration', String(job.duration));
+      }
+      if (pipelineWebUrl) {
+        params.set('url', pipelineWebUrl);
+      }
+      if (job.webUrl) {
+        params.set('jobUrl', job.webUrl);
+      }
+      navigate(`/pipelines/${pid}/${plid}/jobs/${job.id}?${params.toString()}`);
+    },
+    [navigate, instanceId, pid, plid, projectName, pipelineRef, pipelineWebUrl]
   );
 
   // Group jobs by stage, preserving stage order from the pipeline
@@ -475,6 +503,7 @@ export default function PipelineDetailPage() {
                           onPlay={handlePlayJob}
                           onRetry={handleRetryJob}
                           onCancel={handleCancelJob}
+                          onNavigate={handleNavigateToJob}
                         />
                       ))}
                     </div>
@@ -557,9 +586,10 @@ interface JobRowProps {
   onPlay: (jobId: number) => void;
   onRetry: (jobId: number) => void;
   onCancel: (jobId: number) => void;
+  onNavigate: (job: PipelineJob) => void;
 }
 
-function JobRow({ job, loading, onPlay, onRetry, onCancel }: JobRowProps) {
+function JobRow({ job, loading, onPlay, onRetry, onCancel, onNavigate }: JobRowProps) {
   const canPlay = job.status === 'manual' || job.status === 'scheduled';
   const canRetry = job.status === 'failed' || job.status === 'canceled';
   const canCancel = job.status === 'running' || job.status === 'pending' || job.status === 'created';
@@ -567,7 +597,7 @@ function JobRow({ job, loading, onPlay, onRetry, onCancel }: JobRowProps) {
   return (
     <div className={`pipeline-job-row pipeline-job-row--${job.status}`}>
       <span className={`pipeline-job-status-dot pipeline-job-status-dot--${job.status}`} />
-      <div className="pipeline-job-info">
+      <div className="pipeline-job-info pipeline-job-info--clickable" onClick={() => onNavigate(job)}>
         <span className="pipeline-job-name">
           {job.name}
           {job.allowFailure && <span className="pipeline-job-allow-failure" title="Allowed to fail">!</span>}

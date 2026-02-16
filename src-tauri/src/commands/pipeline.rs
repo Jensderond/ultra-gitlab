@@ -392,6 +392,18 @@ pub async fn cancel_pipeline_job(
     })
 }
 
+/// Fetch the raw log trace for a specific job.
+#[tauri::command]
+pub async fn get_job_trace(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+    job_id: i64,
+) -> Result<String, AppError> {
+    let client = create_gitlab_client(&pool, instance_id).await?;
+    client.get_job_trace(project_id, job_id).await
+}
+
 /// Helper to create a GitLab API client from an instance ID.
 async fn create_gitlab_client(
     pool: &State<'_, DbPool>,

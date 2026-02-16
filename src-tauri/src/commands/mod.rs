@@ -32,7 +32,7 @@ pub use gitattributes::{get_gitattributes, refresh_gitattributes};
 pub use mr::{check_merge_status, get_cached_file_pair, get_diff_content, get_diff_file, get_diff_file_metadata, get_diff_files, get_diff_hunks, get_diff_refs, get_file_content, get_file_content_base64, get_merge_request_detail, get_merge_requests, list_my_merge_requests, merge_mr, rebase_mr};
 pub use notification_settings::{get_notification_settings, update_notification_settings};
 pub use notifications::send_native_notification;
-pub use pipeline::{list_pipeline_projects, visit_pipeline_project, toggle_pin_pipeline_project, remove_pipeline_project, search_projects, get_pipeline_statuses, get_project_pipelines, get_pipeline_jobs, play_pipeline_job, retry_pipeline_job, cancel_pipeline_job};
+pub use pipeline::{list_pipeline_projects, visit_pipeline_project, toggle_pin_pipeline_project, remove_pipeline_project, search_projects, get_pipeline_statuses, get_project_pipelines, get_pipeline_jobs, get_job_trace, play_pipeline_job, retry_pipeline_job, cancel_pipeline_job};
 pub use reviewers::get_mr_reviewers;
 pub use settings::{get_collapse_patterns, get_settings, get_sync_settings, update_collapse_patterns, update_custom_theme_colors, update_settings, update_sync_settings, update_theme, update_ui_font};
 pub use sync::{

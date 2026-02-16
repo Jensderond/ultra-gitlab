@@ -422,6 +422,18 @@
   gap: 2px;
 }
 
+.pipeline-job-info--clickable {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  transition: background 0.1s ease;
+}
+
+.pipeline-job-info--clickable:hover {
+  background: var(--overlay-hover);
+}
+
 .pipeline-job-name {
   font-size: 13px;
   font-weight: 500;

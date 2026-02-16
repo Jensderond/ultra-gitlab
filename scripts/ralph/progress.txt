@@ -1,20 +1,65 @@
 # Ralph Progress Log
-Started: Sun Feb 16 2026
+Started: Mon Feb 16 20:41:42 CET 2026
+---
 
 ## Codebase Patterns
-- Tauri v2 + React 19 + TypeScript + Vite
-- Adding Tauri commands requires 3 registrations: command fn in commands/<feature>.rs, re-export in commands/mod.rs, register in lib.rs generate_handler!
-- Frontend service layer: low-level wrappers in src/services/tauri.ts, re-exports in src/services/index.ts
-- Serde: GitLab API structs use snake_case (default), Tauri DTOs use #[serde(rename_all = "camelCase")]
-- GitLab client methods in src-tauri/src/services/gitlab_client.rs, pagination via get_all_pages()
-- Pipeline commands in src-tauri/src/commands/pipeline.rs (11 existing commands)
-- PipelineDetailPage has status dots, badges, formatDuration(), formatRelativeTime(), jobStatusLabel() helpers
-- PipelineDetailPage polls every 10s for running pipelines, pauses on visibility change
-- Existing pipelinePulse CSS animation for running indicators in PipelineDetailPage.css
-- BackButton component available for back navigation
-- TabBar component available for tab interfaces
-- Use `bun` as package manager, `bunx tsc --noEmit` for typecheck, `cargo check` for Rust
-- React 19 uses <Context value={}> directly, not <Context.Provider value={}>
+- The job trace endpoint returns plain text (not JSON), so use `response.text()` not `handle_response` for deserialization
+- For new API methods that return non-JSON (text, bytes), handle status codes manually rather than using the generic `handle_response<T>`
+- `create_gitlab_client` helper in commands/pipeline.rs handles instance lookup + client creation
+- Pipeline pages pass context via URL search params (instance, project, ref, url) — forward them when navigating to sub-pages
+- Status badge CSS classes are in PipelinesPage.css (`pipeline-badge--*`), reuse via class names
+- BackButton component supports `to` prop for explicit navigation path
+- ANSI parser lives in `src/utils/ansiParser.ts` — lightweight, no dependencies, supports 8/16/256/truecolor + bold/dim/italic/underline
+- GitLab CI logs contain section markers (`section_start:...`, `section_end:...`) that should be stripped before rendering
+- Use `useMemo` to avoid re-parsing ANSI on every render; key on the trace string
 
 ---
 
+## 2026-02-16 - US-004
+- Created `src/utils/ansiParser.ts` — lightweight ANSI SGR parser supporting 8/16/256/truecolor and bold/dim/italic/underline
+- Updated `JobLogPage.tsx` to parse trace via `parseAnsi()` and render styled `<span>` elements inside `<pre>`
+- Strips non-SGR escape sequences (cursor movement, OSC, etc.) so they don't appear as raw text
+- Strips GitLab CI section markers (`section_start`/`section_end`)
+- Uses `useMemo` for efficient re-renders
+- Dark terminal background (#1e1e1e) already existed in CSS — ANSI colors applied via inline styles
+- Files changed: `src/utils/ansiParser.ts` (new), `src/pages/JobLogPage.tsx`
+- **Learnings for future iterations:**
+  - GitLab CI trace output contains `section_start:timestamp:name` and `section_end:timestamp:name` markers that need stripping
+  - ANSI parsing is purely text-based — no DOM manipulation needed, just split into styled segments
+  - Carriage returns (`\r`) in CI output overwrite the current line — need to handle by taking only the last segment after `\r`
+  - 256-color table: 0-7 standard, 8-15 bright, 16-231 6x6x6 cube, 232-255 grayscale ramp
+---
+
+## 2026-02-16 - US-003
+- Created `JobLogPage.tsx` with full-page job log viewer: header with job name, status badge, stage, duration
+- Created `JobLogPage.css` with terminal-style dark background for log trace
+- Added route `/pipelines/:projectId/:pipelineId/jobs/:jobId` in App.tsx
+- Made job rows clickable on PipelineDetailPage — clicking info area navigates to job log page
+- Forwards all pipeline context params (instance, project, ref, url) through navigation for proper back-navigation
+- Escape key returns to PipelineDetailPage
+- Files changed: `src/pages/JobLogPage.tsx`, `src/pages/JobLogPage.css`, `src/App.tsx`, `src/pages/PipelineDetailPage.tsx`, `src/pages/PipelineDetailPage.css`
+- **Learnings for future iterations:**
+  - Pipeline page context (instance, project name, ref, web URL) must be forwarded through navigation params for proper back navigation
+  - `pipeline-badge--*` CSS classes from PipelinesPage.css can be reused on any page (they're globally available)
+  - `formatDuration` and `jobStatusLabel` are duplicated — consider extracting to a shared util if more pages need them
+---
+
+## 2026-02-16 - US-002
+- Added `getJobTrace(instanceId, projectId, jobId)` wrapper in `src/services/tauri.ts`
+- Re-exported from `src/services/index.ts`
+- Files changed: `src/services/tauri.ts`, `src/services/index.ts`
+- **Learnings for future iterations:**
+  - Some pipeline functions (getProjectPipelines, getPipelineJobs, play/retry/cancel) are in tauri.ts but missing from index.ts re-exports — may need cleanup later
+  - Simple wrapper story — follow the existing pattern in the file
+---
+
+## 2026-02-16 - US-001
+- Implemented `get_job_trace` method on `GitLabClient` calling `GET /projects/:id/jobs/:job_id/trace`
+- Added `get_job_trace` Tauri command in `commands/pipeline.rs`
+- Re-exported in `commands/mod.rs` and registered in `lib.rs` `generate_handler!`
+- Files changed: `src-tauri/src/services/gitlab_client.rs`, `src-tauri/src/commands/pipeline.rs`, `src-tauri/src/commands/mod.rs`, `src-tauri/src/lib.rs`
+- **Learnings for future iterations:**
+  - The trace endpoint returns plain text, not JSON — used `.text()` instead of `handle_response`
+  - 404 gracefully returns empty string (job may not have trace yet)
+  - Pattern: new pipeline commands reuse `create_gitlab_client` helper in the same file
+---
