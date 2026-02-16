@@ -1175,6 +1175,12 @@ impl SyncEngine {
                 log::debug!("SHAs unchanged for MR {}, skipping file content fetch", mr_id);
                 return;
             }
+
+            // SHAs changed — purge stale cached file versions so they get re-fetched
+            log::debug!("SHAs changed for MR {}, purging cached file versions", mr_id);
+            if let Err(e) = crate::db::file_cache::delete_file_versions_for_mr(&self.pool, mr_id).await {
+                log::warn!("Failed to purge file versions for MR {}: {}", mr_id, e);
+            }
         }
 
         let instance_id_str = instance_id.to_string();
