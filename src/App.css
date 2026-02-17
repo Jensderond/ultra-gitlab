@@ -29,6 +29,14 @@ html, body, #root, .app {
   border-top: 1px solid var(--border-color);
 }
 
+@media (max-width: 767px) {
+  .app-content {
+    margin-left: 0;
+    margin-bottom: 56px;
+    height: calc(100% - 56px);
+  }
+}
+
 :root {
   /* Font */
   font-family: 'Noto Sans JP', -apple-system, sans-serif;

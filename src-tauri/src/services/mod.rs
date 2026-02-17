@@ -5,6 +5,9 @@
 //!
 //! Services are designed to be testable and independent of Tauri-specific code.
 
+pub mod companion_api;
+pub mod companion_auth;
+pub mod companion_server;
 pub mod gitattributes;
 pub mod gitlab_client;
 pub mod highlighter;

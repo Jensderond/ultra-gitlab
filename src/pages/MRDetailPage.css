@@ -865,3 +865,121 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Mobile files toggle button */
+.mobile-files-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: var(--overlay-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.mobile-files-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--accent-color);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  padding: 0 3px;
+  pointer-events: none;
+}
+
+/* Mobile sidebar backdrop */
+.mobile-sidebar-backdrop {
+  display: none;
+}
+
+/* ── Mobile breakpoint ── */
+@media (max-width: 767px) {
+  /* MR Detail page takes full viewport height minus bottom nav bar */
+  .mr-detail-page {
+    height: 100%;
+  }
+
+  /* Compact header */
+  .mr-detail-header {
+    padding: 10px 12px;
+    gap: 4px;
+  }
+
+  .mr-header-top {
+    gap: 8px;
+  }
+
+  .mr-header-top .mr-project {
+    display: none;
+  }
+
+  .mr-header-bottom {
+    gap: 8px;
+  }
+
+  .mr-header-bottom .mr-title {
+    font-size: 13px;
+  }
+
+  .mr-branches {
+    display: none;
+  }
+
+  /* Sidebar: hidden by default, slides in from left */
+  .mr-detail-sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    z-index: 20;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .mr-detail-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  .mobile-sidebar-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 15;
+    animation: fadeIn 0.2s ease;
+  }
+
+  /* Main takes full width */
+  .mr-detail-main {
+    padding: 10px;
+  }
+
+  /* Hide keyboard footer on mobile */
+  .mr-detail-footer {
+    display: none;
+  }
+
+  /* Smaller diff toolbar buttons */
+  .diff-toolbar-btn {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+
+  /* Copy toast above bottom nav bar */
+  .copy-toast {
+    bottom: 72px;
+  }
+}

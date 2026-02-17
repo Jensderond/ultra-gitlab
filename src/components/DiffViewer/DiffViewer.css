@@ -124,3 +124,10 @@
     opacity: 0.6;
   }
 }
+
+/* Hide split/unified toggle on small screens — unified is forced */
+@media (max-width: 767px) {
+  .diff-view-toggle {
+    display: none;
+  }
+}

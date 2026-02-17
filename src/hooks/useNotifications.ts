@@ -4,9 +4,8 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useToast } from '../components/Toast';
-import { getNotificationSettings, sendNativeNotification } from '../services';
+import { isTauri, tauriListen, getNotificationSettings, sendNativeNotification } from '../services';
 
 interface MrReadyPayload {
   title: string;
@@ -38,10 +37,10 @@ export default function useNotifications() {
   addToastRef.current = addToast;
 
   useEffect(() => {
-    let unlistenMrReady: UnlistenFn | undefined;
+    let unlistenMrReady: (() => void) | undefined;
 
-    // Listen for Tauri event: notification:mr-ready
-    listen<MrReadyPayload>('notification:mr-ready', async (event) => {
+    // Listen for Tauri event: notification:mr-ready (only fires in Tauri)
+    tauriListen<MrReadyPayload>('notification:mr-ready', async (event) => {
       try {
         const settings = await getNotificationSettings();
         if (!settings.mrReadyToMerge) return;
@@ -55,7 +54,7 @@ export default function useNotifications() {
           url: webUrl,
         });
 
-        if (settings.nativeNotificationsEnabled) {
+        if (isTauri && settings.nativeNotificationsEnabled) {
           sendNativeNotification(
             'MR Ready to Merge',
             `${title} in ${projectName}`
@@ -86,7 +85,7 @@ export default function useNotifications() {
             url: webUrl,
           });
 
-          if (settings.nativeNotificationsEnabled) {
+          if (isTauri && settings.nativeNotificationsEnabled) {
             sendNativeNotification(
               statusTitle,
               `${projectName} (${refName})`

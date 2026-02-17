@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { tauriListen } from '../services/transport';
 import { listInstances, type GitLabInstanceWithStatus } from '../services/gitlab';
 import { listMyMergeRequests } from '../services/tauri';
 import MRListItem from '../components/MRList/MRListItem';
@@ -86,9 +86,9 @@ export default function MyMRsPage() {
   // Re-fetch on mr-updated events
   useEffect(() => {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    let unlisten: UnlistenFn | undefined;
+    let unlisten: (() => void) | undefined;
 
-    listen<{ mr_id: number }>('mr-updated', () => {
+    tauriListen<{ mr_id: number }>('mr-updated', () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => loadMRs(), 500);
     }).then((fn) => { unlisten = fn; });

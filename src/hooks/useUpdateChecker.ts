@@ -7,8 +7,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { check, type Update } from '@tauri-apps/plugin-updater';
-import { relaunch } from '@tauri-apps/plugin-process';
+import { isTauri } from '../services/transport';
 
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
@@ -44,12 +43,15 @@ export default function useUpdateChecker(): UpdateCheckerState {
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const updateRef = useRef<Update | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateRef = useRef<any>(null);
 
   const checkForUpdate = useCallback(async () => {
+    if (!isTauri) return;
     try {
       setChecking(true);
       setError(null);
+      const { check } = await import('@tauri-apps/plugin-updater');
       const update = await check();
       if (update) {
         updateRef.current = update;
@@ -65,6 +67,7 @@ export default function useUpdateChecker(): UpdateCheckerState {
   }, []);
 
   const installUpdate = useCallback(async () => {
+    if (!isTauri) return;
     const update = updateRef.current;
     if (!update) return;
 
@@ -76,7 +79,7 @@ export default function useUpdateChecker(): UpdateCheckerState {
       let contentLength = 0;
       let downloaded = 0;
 
-      await update.downloadAndInstall((event) => {
+      await update.downloadAndInstall((event: { event: string; data: { contentLength?: number; chunkLength: number } }) => {
         if (event.event === 'Started') {
           contentLength = event.data.contentLength ?? 0;
         } else if (event.event === 'Progress') {
@@ -89,6 +92,7 @@ export default function useUpdateChecker(): UpdateCheckerState {
         }
       });
 
+      const { relaunch } = await import('@tauri-apps/plugin-process');
       await relaunch();
     } catch (err) {
       setInstalling(false);

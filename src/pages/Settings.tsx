@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import BackButton from '../components/BackButton';
-import { getVersion } from '@tauri-apps/api/app';
+import { isTauri } from '../services/transport';
 import InstanceSetup from '../components/InstanceSetup/InstanceSetup';
 import {
   listInstances,
@@ -14,14 +14,15 @@ import {
   type GitLabInstanceWithStatus,
 } from '../services/gitlab';
 import { formatRelativeTime } from '../services/storage';
-import { invoke, getTokenInfo, updateInstanceToken, getCollapsePatterns, updateCollapsePatterns, getNotificationSettings, updateNotificationSettings, sendNativeNotification } from '../services/tauri';
-import type { TokenInfo, NotificationSettings, Theme } from '../types';
+import { invoke, getTokenInfo, updateInstanceToken, getCollapsePatterns, updateCollapsePatterns, getNotificationSettings, updateNotificationSettings, sendNativeNotification, getCompanionSettings, getCompanionQrSvg, updateCompanionSettings, regenerateCompanionPin, revokeCompanionDevice, startCompanionServer, stopCompanionServer } from '../services/tauri';
+import type { TokenInfo, NotificationSettings, Theme, CompanionServerSettings } from '../types';
 import { useToast } from '../components/Toast';
 import type { UpdateCheckerState } from '../hooks/useUpdateChecker';
 import useTheme from '../hooks/useTheme';
 import { THEME_PRESETS, UI_FONTS } from '../components/ThemeProvider';
 import { deriveTheme } from '../themes/deriveTheme';
 import useCustomShortcuts from '../hooks/useCustomShortcuts';
+import { COMPANION_STATUS_CHANGED } from '../hooks/useCompanionStatus';
 import {
   defaultShortcuts,
   categoryLabels,
@@ -280,7 +281,7 @@ export default function Settings({ updateChecker }: SettingsProps) {
       </header>
 
       <main className="settings-content">
-        {updateChecker && (
+        {isTauri && updateChecker && (
           <UpdatesSection updateChecker={updateChecker} />
         )}
 
@@ -459,82 +460,375 @@ export default function Settings({ updateChecker }: SettingsProps) {
           )}
         </section>
 
+        {isTauri && (
+          <section className="settings-section">
+            <CompanionServerSection />
+          </section>
+        )}
+
         <section className="settings-section">
           <AppearanceSection />
         </section>
 
-        <section className="settings-section">
-          <div className="section-header">
-            <h2>Notifications</h2>
-            <button
-              className="add-button"
-              onClick={handleTestNotification}
-            >
-              Test Notification
-            </button>
-          </div>
-
-          {notifSettingsLoading ? (
-            <p className="loading">Loading settings...</p>
-          ) : notifSettings ? (
-            <div className="sync-settings-form">
-              <div className="checkbox-group">
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={notifSettings.mrReadyToMerge}
-                    onChange={(e) => handleNotifToggle('mrReadyToMerge', e.target.checked)}
-                    disabled={notifSettingsSaving}
-                  />
-                  <span>
-                    MR ready to merge
-                    <span className="checkbox-description">Notify when your MR has all approvals and pipeline passed</span>
-                  </span>
-                </label>
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={notifSettings.pipelineStatusPinned}
-                    onChange={(e) => handleNotifToggle('pipelineStatusPinned', e.target.checked)}
-                    disabled={notifSettingsSaving}
-                  />
-                  <span>
-                    Pipeline status (pinned projects)
-                    <span className="checkbox-description">Notify when a pinned project pipeline status changes</span>
-                  </span>
-                </label>
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={notifSettings.nativeNotificationsEnabled}
-                    onChange={(e) => handleNotifToggle('nativeNotificationsEnabled', e.target.checked)}
-                    disabled={notifSettingsSaving}
-                  />
-                  <span>
-                    Native OS notifications
-                    <span className="checkbox-description">Show notifications in macOS Notification Center</span>
-                  </span>
-                </label>
-              </div>
-
-              {notifSettingsSaving && (
-                <p className="saving-indicator">Saving...</p>
-              )}
+        {isTauri && (
+          <section className="settings-section">
+            <div className="section-header">
+              <h2>Notifications</h2>
+              <button
+                className="add-button"
+                onClick={handleTestNotification}
+              >
+                Test Notification
+              </button>
             </div>
-          ) : (
-            <p className="error-message">Failed to load notification settings</p>
-          )}
-        </section>
 
-        <section className="settings-section">
-          <CollapsePatternsEditor />
-        </section>
+            {notifSettingsLoading ? (
+              <p className="loading">Loading settings...</p>
+            ) : notifSettings ? (
+              <div className="sync-settings-form">
+                <div className="checkbox-group">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={notifSettings.mrReadyToMerge}
+                      onChange={(e) => handleNotifToggle('mrReadyToMerge', e.target.checked)}
+                      disabled={notifSettingsSaving}
+                    />
+                    <span>
+                      MR ready to merge
+                      <span className="checkbox-description">Notify when your MR has all approvals and pipeline passed</span>
+                    </span>
+                  </label>
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={notifSettings.pipelineStatusPinned}
+                      onChange={(e) => handleNotifToggle('pipelineStatusPinned', e.target.checked)}
+                      disabled={notifSettingsSaving}
+                    />
+                    <span>
+                      Pipeline status (pinned projects)
+                      <span className="checkbox-description">Notify when a pinned project pipeline status changes</span>
+                    </span>
+                  </label>
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={notifSettings.nativeNotificationsEnabled}
+                      onChange={(e) => handleNotifToggle('nativeNotificationsEnabled', e.target.checked)}
+                      disabled={notifSettingsSaving}
+                    />
+                    <span>
+                      Native OS notifications
+                      <span className="checkbox-description">Show notifications in macOS Notification Center</span>
+                    </span>
+                  </label>
+                </div>
 
-        <section className="settings-section">
-          <ShortcutEditor />
-        </section>
+                {notifSettingsSaving && (
+                  <p className="saving-indicator">Saving...</p>
+                )}
+              </div>
+            ) : (
+              <p className="error-message">Failed to load notification settings</p>
+            )}
+          </section>
+        )}
+
+        {isTauri && (
+          <section className="settings-section">
+            <CollapsePatternsEditor />
+          </section>
+        )}
+
+        {isTauri && (
+          <section className="settings-section">
+            <ShortcutEditor />
+          </section>
+        )}
       </main>
     </div>
+  );
+}
+
+/**
+ * Companion server settings section.
+ * Allows enabling/disabling the embedded HTTP server for mobile access.
+ */
+function CompanionServerSection() {
+  const { addToast } = useToast();
+  const [settings, setSettings] = useState<CompanionServerSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [portInput, setPortInput] = useState('');
+  const [portError, setPortError] = useState<string | null>(null);
+  const [qrSvg, setQrSvg] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadSettings();
+    // Re-poll every 15s so newly authorized devices appear without manual refresh
+    const interval = setInterval(loadSettings, 15_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch QR code SVG via Tauri command when server is enabled
+  useEffect(() => {
+    if (settings?.enabled && settings.port) {
+      getCompanionQrSvg()
+        .then(setQrSvg)
+        .catch(() => setQrSvg(null));
+    } else {
+      setQrSvg(null);
+    }
+  }, [settings?.enabled, settings?.port, settings?.pin]);
+
+  const initialLoadDone = useRef(false);
+
+  async function loadSettings() {
+    try {
+      // Only show loading spinner on initial load, not on re-polls
+      if (!initialLoadDone.current) setLoading(true);
+      const s = await getCompanionSettings();
+      setSettings(s);
+      setPortInput((prev) => {
+        // Don't overwrite user's in-progress edits
+        const currentPort = String(s.port);
+        return prev === '' || prev === currentPort ? currentPort : prev;
+      });
+      initialLoadDone.current = true;
+    } catch (err) {
+      console.error('Failed to load companion settings:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleToggle(enabled: boolean) {
+    if (!settings) return;
+    const updated = { ...settings, enabled };
+    try {
+      setSaving(true);
+      await updateCompanionSettings(updated);
+      if (enabled) {
+        await startCompanionServer();
+        addToast({ type: 'info', title: 'Companion Server', body: `Server started on port ${settings.port}` });
+      } else {
+        await stopCompanionServer();
+        addToast({ type: 'info', title: 'Companion Server', body: 'Server stopped' });
+      }
+      setSettings(updated);
+      window.dispatchEvent(new Event(COMPANION_STATUS_CHANGED));
+    } catch (err) {
+      console.error('Failed to toggle companion server:', err);
+      addToast({ type: 'info', title: 'Error', body: err instanceof Error ? err.message : 'Failed to toggle server' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handlePortBlur() {
+    if (!settings) return;
+    const port = parseInt(portInput, 10);
+    if (isNaN(port) || port < 1024 || port > 65535) {
+      setPortError('Port must be between 1024 and 65535');
+      return;
+    }
+    setPortError(null);
+    if (port === settings.port) return;
+
+    const updated = { ...settings, port };
+    try {
+      setSaving(true);
+      await updateCompanionSettings(updated);
+      setSettings(updated);
+      // If server is running, restart it on the new port
+      if (settings.enabled) {
+        await stopCompanionServer();
+        await startCompanionServer();
+      }
+    } catch (err) {
+      console.error('Failed to update port:', err);
+      setPortInput(String(settings.port));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRegeneratePin() {
+    try {
+      setSaving(true);
+      const newPin = await regenerateCompanionPin();
+      setSettings((prev) => prev ? { ...prev, pin: newPin, authorizedDevices: [] } : prev);
+      addToast({ type: 'info', title: 'PIN Regenerated', body: 'All devices have been disconnected' });
+    } catch (err) {
+      console.error('Failed to regenerate PIN:', err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRevokeDevice(deviceId: string) {
+    try {
+      setSaving(true);
+      await revokeCompanionDevice(deviceId);
+      setSettings((prev) => prev ? {
+        ...prev,
+        authorizedDevices: prev.authorizedDevices.filter((d) => d.id !== deviceId),
+      } : prev);
+    } catch (err) {
+      console.error('Failed to revoke device:', err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function formatDeviceTime(isoStr: string): string {
+    try {
+      const date = new Date(isoStr);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    } catch {
+      return isoStr;
+    }
+  }
+
+  if (loading) {
+    return (
+      <>
+        <h2>Companion Server <span className="beta-badge">Beta</span></h2>
+        <p className="loading">Loading settings...</p>
+      </>
+    );
+  }
+
+  if (!settings) {
+    return (
+      <>
+        <h2>Companion Server <span className="beta-badge">Beta</span></h2>
+        <p className="error-message">Failed to load companion settings</p>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <h2>Companion Server <span className="beta-badge">Beta</span></h2>
+      <p className="companion-description">
+        Access MR reviews from your phone. Enable the companion server to serve the review UI on your local network.
+      </p>
+
+      <div className="companion-settings-form">
+        {/* Enable/disable toggle */}
+        <div className="companion-toggle-row">
+          <label className="companion-toggle-label">
+            <button
+              className={`companion-toggle ${settings.enabled ? 'active' : ''}`}
+              onClick={() => handleToggle(!settings.enabled)}
+              disabled={saving}
+              role="switch"
+              aria-checked={settings.enabled}
+            >
+              <span className="companion-toggle-knob" />
+            </button>
+            <span className={`companion-toggle-text ${settings.enabled ? 'active' : ''}`}>
+              {settings.enabled ? 'Running' : 'Off'}
+            </span>
+          </label>
+        </div>
+
+        {/* Port input — always visible so it can be set before enabling */}
+        <div className="setting-row">
+          <label htmlFor="companion-port">Port</label>
+          <div className="companion-port-row">
+            <input
+              id="companion-port"
+              type="number"
+              className="companion-port-input"
+              value={portInput}
+              onChange={(e) => { setPortInput(e.target.value); setPortError(null); }}
+              onBlur={handlePortBlur}
+              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+              min={1024}
+              max={65535}
+              disabled={saving}
+            />
+            {portError && <span className="companion-port-error">{portError}</span>}
+          </div>
+        </div>
+
+        {/* Remaining options only visible when server is enabled */}
+        {settings.enabled && (
+          <>
+            {/* Server URL and QR code */}
+            <div className="companion-connection-info">
+              {qrSvg ? (
+                <div className="companion-qr-container">
+                  <div
+                    className="companion-qr-code"
+                    dangerouslySetInnerHTML={{ __html: qrSvg }}
+                  />
+                  <p className="companion-qr-hint">Scan with your phone camera</p>
+                </div>
+              ) : (
+                <p className="companion-url-hint">
+                  Open on your phone: <code>http://{'<your-ip>'}:{settings.port}</code>
+                </p>
+              )}
+            </div>
+
+            {/* PIN display */}
+            <div className="companion-pin-row">
+              <label className="companion-pin-label">PIN Code</label>
+              <div className="companion-pin-display">
+                <code className="companion-pin-value">{settings.pin}</code>
+                <button
+                  className="companion-pin-regenerate"
+                  onClick={handleRegeneratePin}
+                  disabled={saving}
+                >
+                  Regenerate
+                </button>
+              </div>
+              <span className="companion-pin-hint">Devices must enter this PIN to connect</span>
+            </div>
+
+            {/* Authorized devices */}
+            <div className="companion-devices">
+              <label className="companion-devices-label">
+                Authorized Devices
+                {settings.authorizedDevices.length > 0 && (
+                  <span className="companion-devices-count">{settings.authorizedDevices.length}</span>
+                )}
+              </label>
+              {settings.authorizedDevices.length === 0 ? (
+                <p className="companion-devices-empty">No devices connected yet</p>
+              ) : (
+                <ul className="companion-device-list">
+                  {settings.authorizedDevices.map((device) => (
+                    <li key={device.id} className="companion-device-item">
+                      <div className="companion-device-info">
+                        <span className="companion-device-name">{device.name}</span>
+                        <span className="companion-device-meta">
+                          Last active: {formatDeviceTime(device.lastActive)}
+                        </span>
+                      </div>
+                      <button
+                        className="companion-device-revoke"
+                        onClick={() => handleRevokeDevice(device.id)}
+                        disabled={saving}
+                      >
+                        Revoke
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {saving && <p className="saving-indicator">Saving...</p>}
+    </>
   );
 }
 
@@ -672,7 +966,10 @@ function UpdatesSection({ updateChecker }: { updateChecker: UpdateCheckerState }
   const [appVersion, setAppVersion] = useState<string>('');
 
   useEffect(() => {
-    getVersion().then(setAppVersion).catch(() => setAppVersion('unknown'));
+    if (!isTauri) { setAppVersion('browser'); return; }
+    import('@tauri-apps/api/app').then(({ getVersion }) =>
+      getVersion().then(setAppVersion)
+    ).catch(() => setAppVersion('unknown'));
   }, []);
 
   const {

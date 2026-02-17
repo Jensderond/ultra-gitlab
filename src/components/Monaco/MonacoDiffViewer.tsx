@@ -435,6 +435,21 @@ export const MonacoDiffViewer = forwardRef<MonacoDiffViewerRef, MonacoDiffViewer
     const isNewFile = !originalContent;
     const effectiveOriginal = isNewFile ? modifiedContent : originalContent;
 
+    // Hide original line numbers for new files — they mirror the modified
+    // numbers and waste horizontal space (especially on mobile).
+    // Must re-apply after every diff update because the DiffEditor component
+    // re-applies shared options on render, resetting our per-side override.
+    useEffect(() => {
+      const ed = editorRef.current;
+      if (!ed || !editorReady) return;
+      const value: 'off' | 'on' = isNewFile ? 'off' : 'on';
+      ed.getOriginalEditor().updateOptions({ lineNumbers: value });
+      const disposable = ed.onDidUpdateDiff(() => {
+        ed.getOriginalEditor().updateOptions({ lineNumbers: value });
+      });
+      return () => disposable.dispose();
+    }, [isNewFile, editorReady, filePath]);
+
     return (
     <DiffEditor
       original={effectiveOriginal}

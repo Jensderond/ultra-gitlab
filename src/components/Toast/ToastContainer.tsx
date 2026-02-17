@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { openExternalUrl } from '../../services/transport';
 import { useToast, type Toast } from './ToastContext';
 import './Toast.css';
 
@@ -47,7 +47,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
 
   const handleView = useCallback(() => {
     if (toast.url) {
-      openUrl(toast.url).catch(console.error);
+      openExternalUrl(toast.url).catch(console.error);
     }
     onDismiss(toast.id);
   }, [toast.url, toast.id, onDismiss]);

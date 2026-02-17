@@ -5,9 +5,9 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { listInstances } from '../services/gitlab';
 import { listMyMergeRequests } from '../services/tauri';
+import { tauriListen } from '../services/transport';
 
 export default function useHasApprovedMRs(): boolean {
   const [hasApproved, setHasApproved] = useState(false);
@@ -34,11 +34,11 @@ export default function useHasApprovedMRs(): boolean {
     checkApproved();
   }, [checkApproved]);
 
-  // Re-check on mr-updated events (debounced)
+  // Re-check on mr-updated events (debounced) — only in Tauri
   useEffect(() => {
-    let unlisten: UnlistenFn | undefined;
+    let unlisten: (() => void) | undefined;
 
-    listen<{ mr_id: number }>('mr-updated', () => {
+    tauriListen<{ mr_id: number }>('mr-updated', () => {
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => checkApproved(), 500);
     }).then((fn) => { unlisten = fn; });

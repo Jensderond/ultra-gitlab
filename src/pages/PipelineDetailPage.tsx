@@ -11,7 +11,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 type TabId = 'jobs' | 'history';
 import BackButton from '../components/BackButton';
 import TabBar from '../components/TabBar';
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { openExternalUrl } from '../services/transport';
 import {
   getPipelineJobs,
   getPipelineStatuses,
@@ -279,7 +279,7 @@ export default function PipelineDetailPage() {
         setActiveTab('history');
       } else if ((e.key === 'o' || e.key === 'O') && pipelineWebUrl) {
         e.preventDefault();
-        openUrl(pipelineWebUrl);
+        openExternalUrl(pipelineWebUrl);
       }
     }
     document.addEventListener('keydown', handleKeyDown);
@@ -443,7 +443,7 @@ export default function PipelineDetailPage() {
           {pipelineWebUrl && (
             <button
               className="pipeline-detail-action-btn"
-              onClick={() => openUrl(pipelineWebUrl)}
+              onClick={() => openExternalUrl(pipelineWebUrl)}
               title="Open in browser"
             >
               <ExternalLinkIcon />
@@ -655,7 +655,7 @@ function JobRow({ job, loading, onPlay, onRetry, onCancel, onNavigate }: JobRowP
         )}
         <button
           className="pipeline-job-action-btn pipeline-job-action-btn--link"
-          onClick={() => openUrl(job.webUrl)}
+          onClick={() => openExternalUrl(job.webUrl)}
           title="Open in browser"
         >
           <ExternalLinkIcon />

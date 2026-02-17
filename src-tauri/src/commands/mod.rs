@@ -13,6 +13,8 @@
 pub mod approval;
 pub mod auth;
 pub mod comments;
+pub mod companion_server;
+pub mod companion_settings;
 pub mod diagnostics;
 pub mod gitattributes;
 pub mod mr;
@@ -25,6 +27,8 @@ pub mod sync;
 
 // Re-export commands for registration in lib.rs
 pub use approval::{approve_mr, get_approval_status, unapprove_mr};
+pub use companion_server::{start_companion_server_cmd, stop_companion_server_cmd};
+pub use companion_settings::{get_companion_settings, get_companion_qr_svg, get_companion_status, update_companion_settings, regenerate_companion_pin, revoke_companion_device};
 pub use auth::{delete_gitlab_instance, get_gitlab_instances, get_token_info, setup_gitlab_instance, update_instance_token};
 pub use comments::{add_comment, get_comments, get_file_comments, reply_to_comment, resolve_discussion};
 pub use diagnostics::{clear_test_data, generate_test_data, get_cache_stats, get_diagnostics_report, get_memory_stats};

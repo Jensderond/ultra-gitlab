@@ -1,0 +1,248 @@
+{
+  "project": "Ultra GitLab",
+  "branchName": "ralph/mobile-web-companion",
+  "description": "Mobile Web Companion Server - Embed an HTTP server in the desktop app so users can access the MR review UI from a mobile browser on the same network",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add companion server settings to Rust backend",
+      "description": "As a developer, I need settings storage for the companion server (enabled, port, PIN, authorized devices) persisted via the existing settings system.",
+      "acceptanceCriteria": [
+        "Add CompanionServerSettings struct with fields: enabled (bool, default false), port (u16, default 8888), pin (String, 6-digit), authorized_devices (Vec<AuthorizedDevice>)",
+        "AuthorizedDevice struct has: id (UUID), name (String), token (String), last_active (DateTime), created_at (DateTime)",
+        "Add companion_server field to the existing Settings model",
+        "Add Tauri commands: get_companion_settings, update_companion_settings, regenerate_companion_pin, revoke_companion_device",
+        "PIN auto-generated on first enable using rand crate (6 random digits)",
+        "Port validation: reject values outside 8000-65535 range",
+        "Register new commands in lib.rs generate_handler!",
+        "Cargo check passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Embed axum HTTP server with static file serving",
+      "description": "As a developer, I need an axum HTTP server that starts/stops based on companion settings and serves the bundled frontend assets.",
+      "acceptanceCriteria": [
+        "Add axum, tower, and tower-http dependencies to Cargo.toml",
+        "Create src-tauri/src/services/companion_server.rs module",
+        "Server starts on configured port bound to 0.0.0.0 via tokio::spawn",
+        "Server serves frontend static files using include_dir or Tauri resource resolver",
+        "Shares DbPool and SyncHandle via Arc in axum state",
+        "start_companion_server() and stop_companion_server() functions callable from Tauri commands",
+        "Graceful shutdown via tokio CancellationToken when disabled or app closes",
+        "Auto-starts on app launch if settings.companion_server.enabled is true",
+        "Logs server start/stop events",
+        "Cargo check passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Add PIN auth and session token endpoints",
+      "description": "As a developer, I need auth endpoints for PIN verification, session token issuance, and rate limiting.",
+      "acceptanceCriteria": [
+        "POST /api/auth/verify-pin endpoint accepts { pin: string } and returns { token: string } on success",
+        "Session token is a random UUID stored in-memory alongside device metadata",
+        "Token set as HTTP cookie with 30-day expiry",
+        "Rate limiting: max 5 failed PIN attempts per IP per minute, returns 429 on exceed",
+        "Auth middleware on all /api/* routes (except /api/auth/*) checks session token cookie",
+        "Returns 401 with JSON error for missing/invalid tokens",
+        "Revoking a device token (from settings) immediately invalidates it",
+        "Changing PIN clears all authorized device sessions",
+        "Cargo check passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Add QR code generation endpoint",
+      "description": "As a developer, I need an endpoint that generates a QR code SVG encoding the companion URL and PIN for easy mobile setup.",
+      "acceptanceCriteria": [
+        "Add qrcode crate dependency to Cargo.toml",
+        "GET /api/auth/qr endpoint returns SVG image (Content-Type: image/svg+xml)",
+        "QR code encodes URL: http://{local_ip}:{port}/auth?pin={pin}",
+        "Local IP detected automatically from network interfaces",
+        "QR regenerates when PIN or network IP changes",
+        "Endpoint does not require auth (pre-login)",
+        "Cargo check passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Add REST API routes for MR read operations",
+      "description": "As a developer, I need REST API endpoints that proxy the MR-related Tauri commands so the frontend can fetch MR data via HTTP.",
+      "acceptanceCriteria": [
+        "GET /api/instances returns list of GitLab instances (calls same service as get_gitlab_instances)",
+        "GET /api/merge-requests?instance_id=X returns MR list (calls same service as get_merge_requests)",
+        "GET /api/merge-requests/:id?instance_id=X returns MR detail",
+        "GET /api/merge-requests/:id/files returns diff file list",
+        "GET /api/merge-requests/:id/files/:path/hunks?start=0&count=10 returns paginated diff hunks",
+        "GET /api/merge-requests/:id/files/:path/content?sha=X returns file content",
+        "GET /api/merge-requests/:id/comments returns comments",
+        "GET /api/merge-requests/:id/reviewers returns reviewer list",
+        "All endpoints return JSON matching existing Tauri command response shapes",
+        "Error responses use { code: string, message: string } matching AppError",
+        "Cargo check passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Add REST API routes for approval and sync operations",
+      "description": "As a developer, I need REST API endpoints for approving MRs and checking sync status.",
+      "acceptanceCriteria": [
+        "POST /api/merge-requests/:id/approve calls same service as approve_mr",
+        "POST /api/merge-requests/:id/unapprove calls same service as unapprove_mr",
+        "GET /api/merge-requests/:id/approval-status returns approval status",
+        "GET /api/sync/status returns sync status",
+        "POST /api/sync/trigger triggers a manual sync",
+        "GET /api/settings returns app settings (read-only)",
+        "All endpoints require valid session token",
+        "Cargo check passes"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Create frontend transport abstraction layer",
+      "description": "As a developer, I need the frontend to detect Tauri vs browser environment and swap invoke() for fetch() transparently.",
+      "acceptanceCriteria": [
+        "Create src/services/transport.ts with isTauri detection (check window.__TAURI_INTERNALS__)",
+        "Export invoke-compatible function that routes to Tauri invoke() or HTTP fetch()",
+        "HTTP transport maps command names to REST API URLs (e.g., get_merge_requests -> GET /api/merge-requests)",
+        "HTTP transport serializes args as query params (GET) or JSON body (POST)",
+        "HTTP transport deserializes JSON responses to match existing return types",
+        "HTTP transport maps error responses to same TauriError shape",
+        "Update src/services/tauri.ts to use transport abstraction instead of direct @tauri-apps/api invoke",
+        "All existing Tauri webview functionality continues to work unchanged",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Add isTauri guards for Tauri-only features",
+      "description": "As a developer, I need the frontend to hide/disable features that require Tauri (native notifications, command palette, keyboard shortcuts) when running in a browser.",
+      "acceptanceCriteria": [
+        "Export isTauri boolean from transport.ts",
+        "Command palette hidden when not in Tauri",
+        "Native notification calls skipped when not in Tauri",
+        "Tauri-specific keyboard shortcuts (Cmd+R sync, etc.) only registered in Tauri",
+        "Settings page hides Tauri-only sections (notification settings) in browser mode",
+        "No broken UI or console errors when running in browser",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Add mobile PIN entry page",
+      "description": "As a user on mobile, I want to see a PIN entry screen when I first visit the companion URL, so I can authenticate.",
+      "acceptanceCriteria": [
+        "New /auth route in React Router",
+        "Centered PIN input with large touch-friendly buttons (6-digit numeric input)",
+        "Submit button sends PIN to POST /api/auth/verify-pin",
+        "On success: stores token cookie and redirects to /mrs",
+        "On failure: shows error message, input clears",
+        "On rate limit (429): shows 'Too many attempts, try again in 1 minute'",
+        "Auto-auth flow: if /auth?pin=123456 query param present, auto-submit PIN (for QR code flow)",
+        "If already authenticated (valid token cookie), redirect straight to /mrs",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Add companion server settings UI section",
+      "description": "As a user, I want to enable/disable the companion server, see the URL/QR code, and manage authorized devices from the settings page.",
+      "acceptanceCriteria": [
+        "New 'Companion Server' section in Settings page",
+        "Toggle switch to enable/disable server (calls update_companion_settings)",
+        "Port number input (default 8888, validates 8000-65535)",
+        "When enabled: displays local URL (http://{ip}:{port})",
+        "When enabled: displays QR code SVG (fetched from /api/auth/qr or generated via Tauri command)",
+        "Displays current 6-digit PIN with 'Regenerate' button",
+        "Shows list of authorized devices with name, last active time, and 'Revoke' button",
+        "Server starts/stops immediately when toggle is changed",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Add connected devices indicator to desktop toolbar",
+      "description": "As a user, I want to see an icon in the desktop toolbar showing how many mobile devices are currently connected.",
+      "acceptanceCriteria": [
+        "Icon/badge in the app sidebar or toolbar when companion server is enabled",
+        "Shows count of currently connected devices (sessions with activity in last 5 minutes)",
+        "Clicking the indicator navigates to Settings > Companion Server section",
+        "Indicator hidden when companion server is disabled",
+        "Polls or receives updates for connected device count",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Force unified diff view on small screens",
+      "description": "As a user on mobile, I want diffs to always show in unified mode since split view is unreadable on a small screen.",
+      "acceptanceCriteria": [
+        "Detect viewport width < 768px in the diff viewer component",
+        "Force unified diff mode regardless of user setting when on small screen",
+        "No split/unified toggle shown on small screens",
+        "Existing desktop behavior unchanged (user can still choose split or unified)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Verify MR browsing and approval flow on mobile",
+      "description": "As a user, I want to browse MR lists, view MR details with diffs and comments, and approve MRs from my mobile browser.",
+      "acceptanceCriteria": [
+        "MR list page loads in mobile browser via companion server",
+        "MR detail page shows description, diff file list, and comments",
+        "Diff viewer renders hunks correctly in unified mode",
+        "Approve/unapprove buttons visible and functional on MR detail page",
+        "Tapping approve calls POST /api/merge-requests/:id/approve and shows confirmation",
+        "Navigation between pages works (React Router history)",
+        "No console errors related to missing Tauri APIs",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

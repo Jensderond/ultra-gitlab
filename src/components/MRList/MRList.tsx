@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { tauriListen } from '../../services/transport';
 import { listMergeRequests } from '../../services/gitlab';
 import type { MergeRequest } from '../../types';
 import MRListItem from './MRListItem';
@@ -138,9 +138,9 @@ export default function MRList({
   // Re-fetch on mr-updated events (debounced at 500ms to handle bursts)
   useEffect(() => {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    let unlisten: UnlistenFn | undefined;
+    let unlisten: (() => void) | undefined;
 
-    listen<{ mr_id: number; update_type: string; instance_id: number; iid: number }>(
+    tauriListen<{ mr_id: number; update_type: string; instance_id: number; iid: number }>(
       'mr-updated',
       () => {
         if (debounceTimer) clearTimeout(debounceTimer);

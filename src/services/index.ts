@@ -4,6 +4,9 @@
  * Re-exports all service functions for convenient importing.
  */
 
+// Transport layer (environment detection)
+export { isTauri, tauriListen, openExternalUrl } from './transport';
+
 // Tauri invoke wrappers (low-level)
 // Note: getFileContent is excluded here because gitlab.ts provides the high-level wrapper
 export {
@@ -62,6 +65,13 @@ export {
   updateUiFont,
   updateCustomThemeColors,
   type CustomThemeColors,
+  getCompanionSettings,
+  updateCompanionSettings,
+  regenerateCompanionPin,
+  revokeCompanionDevice,
+  startCompanionServer,
+  stopCompanionServer,
+  getCompanionStatus,
 } from './tauri';
 
 // GitLab operations (high-level)

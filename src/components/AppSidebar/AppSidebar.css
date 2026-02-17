@@ -110,3 +110,68 @@
   border: 2px solid var(--bg-secondary);
   pointer-events: none;
 }
+
+.app-sidebar-companion {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+}
+
+.companion-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success-color, #28a745);
+  border: 2px solid var(--bg-secondary);
+  pointer-events: none;
+}
+
+/* Mobile: convert sidebar to horizontal bottom bar */
+@media (max-width: 767px) {
+  .app-sidebar {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: auto;
+    height: auto;
+    flex-direction: row;
+    justify-content: center;
+    border-right: none;
+    border-top: 1px solid var(--border-color);
+    padding: 10px 8px 20px;
+  }
+
+  .app-sidebar-top {
+    flex-direction: row;
+    flex: 0;
+    gap: 8px;
+  }
+
+  .app-sidebar-bottom {
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .app-sidebar-item {
+    width: 48px;
+    height: 48px;
+  }
+
+  .app-sidebar-item svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .app-sidebar-bell,
+  .app-sidebar-desktop-only {
+    display: none;
+  }
+}

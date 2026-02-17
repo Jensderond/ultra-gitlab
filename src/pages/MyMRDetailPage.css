@@ -562,3 +562,10 @@
     transform: translateX(-50%) translateY(0) scale(1);
   }
 }
+
+/* Hide keyboard hints on small screens (mobile companion, narrow browser) */
+@media (max-width: 768px) {
+  .my-mr-detail-footer {
+    display: none;
+  }
+}

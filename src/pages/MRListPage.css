@@ -369,3 +369,10 @@
   border-color: var(--wave-glow-strong);
   box-shadow: 0 0 10px var(--wave-glow);
 }
+
+/* Hide keyboard hints on small screens (mobile companion, narrow browser) */
+@media (max-width: 768px) {
+  .mr-list-page-footer {
+    display: none;
+  }
+}

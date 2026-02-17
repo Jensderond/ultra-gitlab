@@ -1,0 +1,239 @@
+## Codebase Patterns
+- Settings use `tauri-plugin-store` (JSON file), not SQLite. Add new fields by: adding store key const, load block in `load_settings()`, set call in `save_settings()`, field in `AppSettings` struct + Default impl.
+- New command files in `src-tauri/src/commands/` need 3 registrations: pub mod + pub use in `mod.rs`, import + generate_handler! in `lib.rs`.
+- Use `pub(crate)` visibility for helper functions shared between command modules (e.g., `load_settings`, `save_settings`, `settings_cache`).
+- `#[serde(rename_all = "camelCase")]` on all DTOs sent to frontend.
+- `AppError` has convenience constructors like `invalid_input_field()`, `not_found_with_id()`, etc.
+- Companion server service: `services::companion_server` has `start_companion_server()`, `stop_companion_server()`, `is_companion_server_running()`.
+- `app_handle` is moved into the sync engine `block_on` async block — use `app.handle()` for code after that block.
+- Frontend dist path: In dev mode, `CARGO_MANIFEST_DIR/../dist`; in prod, Tauri resource dir. Both checked via `index.html` existence.
+- Global singleton pattern: Use `OnceLock<Mutex<T>>` with a getter function instead of `once_cell::sync::Lazy` to avoid extra deps.
+- axum ConnectInfo: Use `into_make_service_with_connect_info::<SocketAddr>()` when handlers need `ConnectInfo<SocketAddr>`.
+- Companion auth: `services::companion_auth` has session store, rate limiter, auth middleware, and auth routes. Protected API routes go in the `api_routes` Router in `companion_server.rs`.
+- QR code: `qrcode` crate renders SVG via `render::<qrcode::render::svg::Color>()`. Local IP from `local_ip_address::local_ip()`.
+- Companion API routes: `services::companion_api::mr_api_routes()` returns a `Router<CompanionState>`. Wire into `companion_server.rs` via `.with_state(companion_state).layer(middleware::from_fn(auth_middleware))`.
+- axum error handling: Use a newtype `ApiErr(AppError)` implementing `IntoResponse` to avoid `impl IntoResponse` type inference issues with `Result`.
+- DbPool is `Pool<Sqlite>` — use `&state.db` directly (not `&*state.db`); Tauri commands use `pool.inner()` which returns the same `&Pool`.
+- Reusable command functions: When companion API needs command internals (e.g., `parse_unified_diff`), expose via a `_public` wrapper function instead of making the original public.
+- `sqlx::Row` trait must be imported explicitly when using `.get()` on raw query rows; `query_as` (FromRow derive) doesn't need it.
+- Companion API route groups: `mr_api_routes()` for reads, `action_api_routes()` for mutations/sync/settings. Both merged into the protected router in `companion_server.rs`.
+- Companion status: `get_companion_status` Tauri command returns `{ enabled, connectedDevices }`. `useCompanionStatus` hook polls every 30s. Sidebar shows smartphone icon with count badge when companion server is enabled.
+- Transport layer: `src/services/transport.ts` detects Tauri vs browser via `window.__TAURI_INTERNALS__`. `tauri.ts` uses `transportInvoke` instead of direct `@tauri-apps/api` invoke. `isTauri` exported from `services/index.ts`.
+- HTTP transport maps Tauri command names → REST API paths in `ROUTE_MAP`. Only companion-server-exposed commands are mapped; Tauri-only commands throw in browser mode.
+- Tauri guards: `tauriListen()` and `openExternalUrl()` in `transport.ts` handle Tauri vs browser seamlessly. All `@tauri-apps/` imports are dynamic (lazy) — no static imports outside transport.ts.
+- Settings page: Tauri-only sections (Updates, Notifications, Collapse Patterns) wrapped in `{isTauri && ...}`. `getVersion()` dynamically imported.
+- Auth page: Renders without sidebar by checking `location.pathname === '/auth'` in AppContent and returning early. Uses direct `fetch()` for pre-login endpoints.
+- ROUTE_MAP must include ALL commands used in the MR browsing flow: `get_diff_refs`, `get_file_comments`, `get_file_content` (with correct params). Commands with `.catch()` fallbacks (e.g., `get_cached_file_pair`, `get_gitattributes`) degrade gracefully without mapping.
+- `get_file_content` in transport.ts uses `/api/file-content` with query params (instanceId, projectId, filePath, sha) — NOT the MR-scoped URL pattern, because the Tauri command doesn't send mrId.
+- Small screen detection: `useSmallScreen` hook with `matchMedia` at 768px breakpoint. MRDetailPage uses `effectiveViewMode` to force unified on mobile.
+
+---
+
+## 2026-02-17 - US-001
+- What was implemented: CompanionServerSettings and AuthorizedDevice structs, 4 Tauri commands (get_companion_settings, update_companion_settings, regenerate_companion_pin, revoke_companion_device), companion_server field added to AppSettings with store persistence.
+- Files changed:
+  - src-tauri/Cargo.toml (added rand, uuid deps)
+  - src-tauri/src/commands/companion_settings.rs (new)
+  - src-tauri/src/commands/settings.rs (added companion_server field, made load/save/cache pub(crate))
+  - src-tauri/src/commands/mod.rs (registered companion_settings module)
+  - src-tauri/src/lib.rs (registered 4 new commands)
+- **Learnings for future iterations:**
+  - load_settings/save_settings/settings_cache were private; made them pub(crate) so companion_settings.rs can reuse them
+  - uuid crate added to Cargo.toml but import removed from companion_settings.rs since it's not used yet (will be needed in US-003 for token generation)
+  - Port validation rejects < 8000 (u16 naturally caps at 65535)
+---
+
+## 2026-02-17 - US-002
+- What was implemented: Axum HTTP server embedded in the Tauri app, serving frontend static files from the dist directory. Server starts/stops via Tauri commands and auto-starts on app launch if enabled in settings.
+- Files changed:
+  - src-tauri/Cargo.toml (added axum, tower, tower-http, tokio-util; added "net" feature to tokio)
+  - src-tauri/Cargo.lock (updated with new deps)
+  - src-tauri/src/services/companion_server.rs (new — CompanionState, start/stop/is_running functions)
+  - src-tauri/src/services/mod.rs (registered companion_server module)
+  - src-tauri/src/commands/companion_server.rs (new — start_companion_server_cmd, stop_companion_server_cmd)
+  - src-tauri/src/commands/mod.rs (registered module + pub use)
+  - src-tauri/src/lib.rs (imported commands, registered in generate_handler!, added auto-start block)
+- **Learnings for future iterations:**
+  - axum::serve needs a TcpListener, not a SocketAddr directly (axum 0.8 API)
+  - CancellationToken from tokio_util is the clean way to do graceful shutdown
+  - ServeDir + ServeFile fallback handles SPA client-side routing (404s → index.html)
+  - `app_handle` is consumed by `SyncEngine::start_background` in the block_on closure; use `app.handle()` for later code
+  - CompanionState holds DbPool + SyncHandle for future API routes (currently unused, prefixed with `_`)
+  - tower-http "fs" feature needed for ServeDir/ServeFile
+---
+
+## 2026-02-17 - US-003
+- What was implemented: PIN verification endpoint (POST /api/auth/verify-pin), in-memory session store with rate limiting (5 failed attempts per IP per minute), auth middleware for protected /api/* routes, session token cookies (30-day expiry), and integration with device revocation and PIN regeneration.
+- Files changed:
+  - src-tauri/src/services/companion_auth.rs (new — SessionStore, rate limiter, verify_pin_handler, auth_middleware, auth_routes)
+  - src-tauri/src/services/companion_server.rs (updated — accepts AppHandle, wires auth routes + middleware, uses into_make_service_with_connect_info for ConnectInfo)
+  - src-tauri/src/services/mod.rs (registered companion_auth module)
+  - src-tauri/src/commands/companion_settings.rs (updated — revoke_companion_device calls revoke_device_session, regenerate_companion_pin calls clear_all_sessions)
+  - src-tauri/src/commands/companion_server.rs (updated — passes app_handle to start_companion_server)
+  - src-tauri/src/lib.rs (updated — auto-start passes app_handle clone)
+- **Learnings for future iterations:**
+  - `axum::extract::ConnectInfo<SocketAddr>` requires `into_make_service_with_connect_info::<SocketAddr>()` instead of `into_make_service()`
+  - Auth routes are merged at router level (not nested) since they need their own state (AuthState with AppHandle)
+  - Protected routes use `Router::new().layer(middleware::from_fn(auth_middleware))` — future stories add routes to this router
+  - Session store uses `OnceLock<RwLock<SessionStore>>` singleton pattern (consistent with codebase)
+  - Cookie parsing is manual (split on `;`, strip prefix) — no extra crate needed for simple cookie extraction
+  - uuid crate (already in Cargo.toml from US-001) used for token and device ID generation
+---
+
+## 2026-02-17 - US-004
+- What was implemented: GET /api/auth/qr endpoint that generates an SVG QR code encoding `http://{local_ip}:{port}/auth?pin={pin}`. Uses `qrcode` crate for SVG generation and `local-ip-address` crate for automatic local network IP detection. Endpoint is unauthenticated (part of auth routes).
+- Files changed:
+  - src-tauri/Cargo.toml (added qrcode 0.14, local-ip-address 0.6)
+  - src-tauri/Cargo.lock (updated with new deps)
+  - src-tauri/src/services/companion_auth.rs (added qr_code_handler, registered /api/auth/qr route)
+- **Learnings for future iterations:**
+  - `qrcode` crate's `render::<qrcode::render::svg::Color>()` produces a complete SVG string — no need for extra SVG templating
+  - `local-ip-address::local_ip()` returns the primary non-loopback interface IP — falls back to 127.0.0.1 on failure
+  - QR endpoint added to the same `auth_routes()` builder as verify-pin, keeping all pre-auth routes together
+  - QR code regenerates dynamically on each request since it reads current settings (PIN, port) and current network IP
+---
+
+## 2026-02-17 - US-005
+- What was implemented: REST API endpoints for MR read operations on the companion server. 8 endpoints: GET /api/instances, GET /api/merge-requests, GET /api/merge-requests/:id, GET /api/merge-requests/:id/files, GET /api/merge-requests/:mr_id/files/:path/hunks, GET /api/merge-requests/:mr_id/files/:path/content, GET /api/merge-requests/:id/comments, GET /api/merge-requests/:id/reviewers. All protected by auth middleware, all returning JSON matching existing Tauri command response shapes.
+- Files changed:
+  - src-tauri/src/services/companion_api.rs (new — all MR read REST API handlers)
+  - src-tauri/src/services/companion_server.rs (wired mr_api_routes into protected api_routes)
+  - src-tauri/src/services/mod.rs (registered companion_api module)
+  - src-tauri/src/commands/mr.rs (added parse_unified_diff_public wrapper)
+- **Learnings for future iterations:**
+  - `Result<Json<T>, impl IntoResponse>` causes type inference errors in axum handlers — use a concrete error newtype `ApiErr(AppError)` implementing `IntoResponse` instead
+  - Be careful with variable shadowing: a match arm like `(Some(state), ...)` shadows the outer `state` variable from `State(state)`, causing confusing field-access errors
+  - DbPool (`Pool<Sqlite>`) doesn't impl `Deref`, so `&*state.db` fails — just use `&state.db`
+  - `mr_api_routes()` returns `Router<CompanionState>` (not `Router<()>`), so you must call `.with_state(companion_state)` before merging into the main router
+  - File content endpoint falls back to GitLab API since local cache is keyed by version_type ("base"/"head") not by SHA
+---
+
+## 2026-02-17 - US-006
+- What was implemented: REST API endpoints for approval and sync operations on the companion server. 6 endpoints: POST /api/merge-requests/:id/approve, POST /api/merge-requests/:id/unapprove, GET /api/merge-requests/:id/approval-status, GET /api/sync/status, POST /api/sync/trigger, GET /api/settings. All protected by auth middleware, all returning JSON matching existing Tauri command response shapes.
+- Files changed:
+  - src-tauri/src/services/companion_api.rs (added action_api_routes(), 6 handler functions, SyncStatusResponse DTO, get_mr_ids helper)
+  - src-tauri/src/services/companion_server.rs (added AppHandle to CompanionState, merged action_api_routes into protected router)
+- **Learnings for future iterations:**
+  - `sqlx::Row` trait must be explicitly imported (`use sqlx::Row;`) when using `.get()` on query rows — the existing `sqlx::query_as` doesn't need it since it uses FromRow derive
+  - Approval handlers mirror the Tauri command logic (optimistic local update + sync queue) rather than calling the command functions, since Tauri commands use `State<'_>` extractors that aren't available outside the Tauri runtime
+  - `SyncEngine::new(pool, app_handle)` can be used outside the background task just for querying sync logs
+  - Settings are accessed via `commands::settings::load_settings(&app_handle)` (pub(crate) visibility works since companion_api is in the same crate)
+---
+
+## 2026-02-17 - US-007
+- What was implemented: Transport abstraction layer that detects Tauri vs browser environment and routes `invoke()` calls to either Tauri IPC or HTTP fetch transparently. Updated `tauri.ts` to use `transportInvoke` from the new transport module instead of direct `@tauri-apps/api/core` import.
+- Files changed:
+  - src/services/transport.ts (new — isTauri detection, ROUTE_MAP command→REST mapping, httpInvoke, transportInvoke)
+  - src/services/tauri.ts (updated — imports transportInvoke instead of tauriInvoke)
+  - src/services/index.ts (added isTauri re-export from transport.ts)
+- **Learnings for future iterations:**
+  - `window.__TAURI_INTERNALS__` is the reliable way to detect Tauri webview environment
+  - Dynamic `import('@tauri-apps/api/core')` in the Tauri path keeps the import lazy and avoids errors in browser
+  - HTTP transport errors are shaped to match TauriError `{ type, details }` for consistent error handling in parseError
+  - Only commands exposed by the companion REST API need mapping; Tauri-only commands throw descriptive errors in browser mode
+  - `credentials: 'include'` on fetch ensures session cookies are sent with every request
+  - GET requests encode args as query params; POST requests use JSON body
+---
+
+## 2026-02-17 - US-008
+- What was implemented: isTauri guards for all Tauri-only features. All static `@tauri-apps/` imports replaced with dynamic imports guarded by `isTauri`. Added `tauriListen()` and `openExternalUrl()` helpers in transport.ts. Command palette hidden in browser. Cmd+R sync shortcut only in Tauri. Titlebar drag region hidden in browser. Settings page hides Tauri-only sections (Updates, Notifications, Collapse Patterns). Native notification calls skipped in browser.
+- Files changed:
+  - src/services/transport.ts (added tauriListen, openExternalUrl helpers)
+  - src/services/index.ts (re-export new helpers)
+  - src/App.tsx (replaced listen import with tauriListen, guarded command palette, Cmd+P, Cmd+R, titlebar)
+  - src/hooks/useUpdateChecker.ts (dynamic imports for plugin-updater/plugin-process, isTauri guard)
+  - src/hooks/useNotifications.ts (tauriListen, isTauri guard on native notifications)
+  - src/hooks/useHasApprovedMRs.ts (tauriListen instead of listen)
+  - src/hooks/useSyncStatus.ts (tauriListen instead of listen)
+  - src/pages/Settings.tsx (dynamic getVersion import, isTauri guards on Updates/Notifications/CollapsePatterns sections)
+  - src/pages/MRDetailPage.tsx (tauriListen, openExternalUrl)
+  - src/pages/MyMRDetailPage.tsx (openExternalUrl)
+  - src/pages/MyMRsPage.tsx (tauriListen)
+  - src/pages/PipelinesPage.tsx (openExternalUrl)
+  - src/pages/PipelineDetailPage.tsx (openExternalUrl)
+  - src/pages/JobLogPage.tsx (openExternalUrl)
+  - src/components/MRList/MRList.tsx (tauriListen)
+  - src/components/Toast/ToastContainer.tsx (openExternalUrl)
+- **Learnings for future iterations:**
+  - All `@tauri-apps/` imports should now be dynamic — any new feature using Tauri APIs must follow this pattern
+  - `tauriListen()` returns a no-op unlisten function in browser mode — safe to use without extra conditionals
+  - `openExternalUrl()` falls back to `window.open()` in browser — replaces all direct `openUrl` usage
+  - Settings page uses `{isTauri && ...}` JSX guards to hide entire sections that would error in browser
+  - `useUpdateChecker` uses `any` type for updateRef since the Update type from plugin-updater is only available via dynamic import
+---
+
+## 2026-02-17 - US-009
+- What was implemented: Mobile PIN entry page at /auth route. Centered PIN input with large touch-friendly styling, 6-digit numeric input with auto-submit via ?pin= query param (QR code flow). Session check on mount redirects to /mrs if already authenticated. Rate limit (429) and invalid PIN (401) error handling. Auth page renders without sidebar (full-screen mobile layout).
+- Files changed:
+  - src/pages/AuthPage.tsx (new — PIN entry form with session check, auto-auth, error handling)
+  - src/pages/AuthPage.css (new — mobile-friendly centered card layout, large PIN input, theme-aware styling)
+  - src/App.tsx (added /auth route, renders AuthPage without sidebar when on /auth path)
+- **Learnings for future iterations:**
+  - Auth page uses direct `fetch()` calls to `/api/auth/verify-pin` instead of `transportInvoke`, since auth endpoints are pre-login and not part of the standard command mapping
+  - Session validation done by probing `GET /api/instances` with credentials — if 200, already authenticated
+  - `location.pathname === '/auth'` check in AppContent renders auth page without sidebar/app-content wrapper for a clean mobile experience
+  - `inputMode="numeric"` + `pattern="[0-9]*"` triggers numeric keyboard on mobile devices
+  - `autoComplete="one-time-code"` helps mobile browsers suggest auto-fill from SMS/notifications
+---
+
+## 2026-02-17 - US-010
+- What was implemented: Companion Server settings UI section in the Settings page. Toggle switch to enable/disable server (with start/stop calls), port number input with validation (8000-65535), QR code display (fetched from companion server /api/auth/qr endpoint), PIN display with Regenerate button, and authorized device list with Revoke buttons. Section is Tauri-only (hidden in browser mode).
+- Files changed:
+  - src/types/index.ts (added CompanionServerSettings, AuthorizedDevice interfaces)
+  - src/services/tauri.ts (added getCompanionSettings, updateCompanionSettings, regenerateCompanionPin, revokeCompanionDevice, startCompanionServer, stopCompanionServer wrappers)
+  - src/services/index.ts (re-exported new companion settings functions)
+  - src/pages/Settings.tsx (added CompanionServerSection component, wired into settings page)
+  - src/pages/Settings.css (added companion server styles: toggle switch, port input, QR code, PIN display, device list)
+- **Learnings for future iterations:**
+  - Companion settings are Tauri-only — no ROUTE_MAP entries needed since these commands control the embedded server (which only makes sense from the desktop app)
+  - QR code is fetched via direct `fetch()` to `http://localhost:{port}/api/auth/qr` — only works when the server is actually running
+  - Toast type must be one of the defined union types ('mr-ready', 'pipeline-success', 'pipeline-failed', 'pipeline-running', 'info') — no 'success' type exists
+  - The toggle switch uses a custom CSS implementation with `.companion-toggle` and `.companion-toggle-knob` for the sliding knob effect
+  - Server start/stop happens immediately on toggle — `start_companion_server_cmd` and `stop_companion_server_cmd` are the Tauri command names
+---
+
+## 2026-02-17 - US-011
+- What was implemented: Connected devices indicator in the desktop sidebar. Smartphone icon with count badge appears when companion server is enabled. Clicking navigates to Settings. Polls every 30 seconds via `get_companion_status` Tauri command.
+- Files changed:
+  - src-tauri/src/services/companion_auth.rs (added `get_active_session_count()`)
+  - src-tauri/src/commands/companion_settings.rs (added `CompanionStatus` struct + `get_companion_status` command)
+  - src-tauri/src/commands/mod.rs (registered new command)
+  - src-tauri/src/lib.rs (registered new command)
+  - src/types/index.ts (added `CompanionStatus` interface)
+  - src/services/tauri.ts (added `getCompanionStatus` wrapper)
+  - src/services/index.ts (re-exported `getCompanionStatus`)
+  - src/hooks/useCompanionStatus.ts (new — polls companion status every 30s)
+  - src/components/AppSidebar/AppSidebar.tsx (added SmartphoneIcon, companion indicator with count badge)
+  - src/components/AppSidebar/AppSidebar.css (added `.companion-count` badge styles)
+  - src/App.tsx (imported hook, passed props to AppSidebar)
+- **Learnings for future iterations:**
+  - `get_active_session_count()` counts in-memory sessions — this is the number of devices that have authenticated, not necessarily "active in last 5 minutes" (would need timestamp tracking per session for that)
+  - The companion indicator is Tauri-only by design — `useCompanionStatus` returns `{ enabled: false, connectedDevices: 0 }` when not in Tauri, so the icon is never shown in browser
+  - Polling interval of 30s keeps it lightweight; could be replaced with event-based updates (Tauri events) if more real-time feedback is needed
+---
+
+## 2026-02-17 - US-012
+- What was implemented: Force unified diff view on small screens (< 768px). Created `useSmallScreen` hook using `matchMedia`. MRDetailPage computes `effectiveViewMode` that overrides to 'unified' on small screens. Keyboard shortcut 'x' (split/unified toggle) disabled on small screens. DiffViewer.css hides `.diff-view-toggle` buttons via `@media (max-width: 767px)`.
+- Files changed:
+  - src/hooks/useSmallScreen.ts (new — matchMedia-based hook returning boolean)
+  - src/pages/MRDetailPage.tsx (import hook, compute effectiveViewMode, pass to MonacoDiffViewer, guard 'x' shortcut)
+  - src/components/DiffViewer/DiffViewer.css (added @media query to hide toggle on small screens)
+- **Learnings for future iterations:**
+  - MRDetailPage uses MonacoDiffViewer (not DiffViewer.tsx) — the custom DiffViewer has its own toggle buttons but isn't mounted in the review page
+  - The 'x' keyboard shortcut in MRDetailPage uses a ref pattern (keydownRef) — values from render scope are captured correctly each render
+  - `effectiveViewMode` pattern: keep the user's choice in state but derive the actual value based on screen size — desktop behavior unchanged
+  - MyMRDetailPage already hardcodes `viewMode="unified"` so no changes needed there
+---
+
+## 2026-02-17 - US-013
+- What was implemented: Fixed MR browsing flow for mobile/browser mode. Added 3 new REST API endpoints: `GET /api/merge-requests/:id/diff-refs` (returns base/head/start SHAs), `GET /api/merge-requests/:id/file-comments?filePath=X` (returns file-specific comments), `GET /api/file-content?instanceId=X&projectId=X&filePath=X&sha=X` (direct file content fetch matching Tauri command signature). Updated transport.ts ROUTE_MAP with `get_diff_refs`, `get_file_comments`, and fixed `get_file_content` mapping to use the new direct endpoint instead of the MR-scoped URL (which lacked mrId in the args).
+- Files changed:
+  - src-tauri/src/services/companion_api.rs (added `get_diff_refs`, `get_file_comments`, `get_file_content_direct` handlers + `FileContentDirectQuery` struct + 3 new routes in `mr_api_routes()`)
+  - src/services/transport.ts (added `get_diff_refs` and `get_file_comments` to ROUTE_MAP; fixed `get_file_content` to use `/api/file-content` with query params)
+- **Learnings for future iterations:**
+  - When adding a Tauri command to the companion REST API, ensure ROUTE_MAP in transport.ts maps the command correctly — check what args the frontend actually sends vs what the REST endpoint expects
+  - `get_file_content` Tauri command sends `{ instanceId, projectId, filePath, sha }` (no mrId) — the direct `/api/file-content` endpoint matches this signature; the MR-scoped endpoint was a mismatch
+  - Commands with `.catch(() => fallback)` in the frontend (like `get_cached_file_pair`, `get_gitattributes`, `get_collapse_patterns`) degrade gracefully without ROUTE_MAP entries
+  - `get_file_content_base64` for image diffs is not mapped — images will show blank in browser mode but text diffs work fine
+  - `add_comment`, `reply_to_comment`, `resolve_discussion` are not mapped — commenting features won't work in browser mode (read-only experience)
+---

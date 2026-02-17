@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { listen, UnlistenFn } from '@tauri-apps/api/event';
+import { isTauri, tauriListen } from './services/transport';
 import Settings from './pages/Settings';
 import MRListPage from './pages/MRListPage';
 import MRDetailPage from './pages/MRDetailPage';
@@ -13,6 +13,7 @@ import MyMRDetailPage from './pages/MyMRDetailPage';
 import PipelinesPage from './pages/PipelinesPage';
 import PipelineDetailPage from './pages/PipelineDetailPage';
 import JobLogPage from './pages/JobLogPage';
+import AuthPage from './pages/AuthPage';
 import { AppSidebar } from './components/AppSidebar';
 import { CommandPalette, type Command } from './components/CommandPalette';
 import { KeyboardHelp } from './components/KeyboardHelp';
@@ -20,6 +21,7 @@ import { ReAuthPrompt } from './components/ReAuthPrompt';
 import useUpdateChecker from './hooks/useUpdateChecker';
 import useHasApprovedMRs from './hooks/useHasApprovedMRs';
 import useNotifications from './hooks/useNotifications';
+import useCompanionStatus from './hooks/useCompanionStatus';
 import { CommandId, CommandCategory, commandDefinitions } from './commands/registry';
 import { manualSync } from './services/storage';
 import { listInstances } from './services/gitlab';
@@ -48,16 +50,41 @@ function AppContent() {
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
   const [authExpired, setAuthExpired] = useState<AuthExpiredState | null>(null);
   const [pipelineProjects, setPipelineProjects] = useState<PipelineProject[]>([]);
+  const [browserAuthChecked, setBrowserAuthChecked] = useState(isTauri);
   const updateChecker = useUpdateChecker();
   const hasApprovedMRs = useHasApprovedMRs();
   const { toasts } = useToast();
   useNotifications();
+  const companionStatus = useCompanionStatus();
 
-  // Listen for auth-expired events from the backend
+  // In browser mode, check if the user has a valid companion session.
+  // If not, redirect to /auth for PIN entry.
   useEffect(() => {
-    let unlisten: UnlistenFn | undefined;
+    if (isTauri || location.pathname === '/auth') return;
 
-    listen<AuthExpiredPayload>('auth-expired', (event) => {
+    let cancelled = false;
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/instances', { credentials: 'include' });
+        if (!res.ok) {
+          navigate('/auth', { replace: true });
+          return;
+        }
+      } catch {
+        navigate('/auth', { replace: true });
+        return;
+      }
+      if (!cancelled) setBrowserAuthChecked(true);
+    }
+    checkAuth();
+    return () => { cancelled = true; };
+  }, [location.pathname, navigate]);
+
+  // Listen for auth-expired events from the backend (Tauri-only)
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    tauriListen<AuthExpiredPayload>('auth-expired', (event) => {
       const payload = event.payload;
       setAuthExpired({
         instanceId: payload.instanceId,
@@ -109,15 +136,15 @@ function AppContent() {
         return;
       }
 
-      // Cmd+P or Ctrl+P to open command palette
-      if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+      // Cmd+P or Ctrl+P to open command palette (Tauri only)
+      if (isTauri && (e.metaKey || e.ctrlKey) && e.key === 'p') {
         e.preventDefault();
         setCommandPaletteOpen(true);
         return;
       }
 
-      // Cmd+, or Ctrl+, to open settings
-      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+      // Cmd+, or Ctrl+, to open settings (desktop only)
+      if (isTauri && (e.metaKey || e.ctrlKey) && e.key === ',') {
         e.preventDefault();
         navigate('/settings');
         return;
@@ -144,8 +171,8 @@ function AppContent() {
         return;
       }
 
-      // Cmd+R or Ctrl+R to trigger sync (prevent browser refresh)
-      if ((e.metaKey || e.ctrlKey) && e.key === 'r') {
+      // Cmd+R or Ctrl+R to trigger sync (only in Tauri — browser needs refresh)
+      if (isTauri && (e.metaKey || e.ctrlKey) && e.key === 'r') {
         e.preventDefault();
         manualSync().catch(console.error);
         return;
@@ -236,10 +263,26 @@ function AppContent() {
     return [...staticCommands, ...pipelineCommands];
   }, [location.pathname, navigate, pipelineProjects]);
 
+  // Auth page renders without sidebar (mobile companion flow)
+  const isAuthPage = location.pathname === '/auth';
+
+  if (isAuthPage) {
+    return (
+      <Routes>
+        <Route path="/auth" element={<AuthPage />} />
+      </Routes>
+    );
+  }
+
+  // In browser mode, wait for auth check before rendering main app
+  if (!browserAuthChecked) {
+    return null;
+  }
+
   return (
     <div className="app">
-      <div className="titlebar-drag-region" data-tauri-drag-region />
-      <AppSidebar updateAvailable={updateChecker.available} hasApprovedMRs={hasApprovedMRs} hasActiveToasts={toasts.length > 0} />
+      {isTauri && <div className="titlebar-drag-region" data-tauri-drag-region />}
+      <AppSidebar updateAvailable={updateChecker.available} hasApprovedMRs={hasApprovedMRs} hasActiveToasts={toasts.length > 0} companionEnabled={companionStatus.enabled} companionDeviceCount={companionStatus.connectedDevices} />
       <div className="app-content">
         <Routes>
           {/* Redirect root to MR list */}
@@ -260,16 +303,20 @@ function AppContent() {
           <Route path="/pipelines/:projectId/:pipelineId" element={<PipelineDetailPage />} />
           <Route path="/pipelines/:projectId/:pipelineId/jobs/:jobId" element={<JobLogPage />} />
 
-          {/* Settings page */}
-          <Route path="/settings" element={<Settings updateChecker={updateChecker} />} />
+          {/* Settings page (desktop only) */}
+          {isTauri && (
+            <Route path="/settings" element={<Settings updateChecker={updateChecker} />} />
+          )}
         </Routes>
       </div>
 
-      <CommandPalette
-        isOpen={commandPaletteOpen}
-        onClose={closeCommandPalette}
-        commands={commands}
-      />
+      {isTauri && (
+        <CommandPalette
+          isOpen={commandPaletteOpen}
+          onClose={closeCommandPalette}
+          commands={commands}
+        />
+      )}
 
       <KeyboardHelp
         isOpen={keyboardHelpOpen}

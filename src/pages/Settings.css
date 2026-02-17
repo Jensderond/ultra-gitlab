@@ -820,6 +820,357 @@
 }
 
 /* ================================================
+   COMPANION SERVER SETTINGS
+   ================================================ */
+
+.beta-badge {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--accent-color, #7e9cd8);
+  color: var(--bg-primary, #1f1f28);
+  vertical-align: middle;
+  margin-left: 6px;
+}
+
+.companion-description {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0 0 14px;
+  line-height: 1.6;
+}
+
+.companion-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Toggle switch */
+.companion-toggle-row {
+  display: flex;
+  align-items: center;
+}
+
+.companion-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.companion-toggle-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  min-width: 60px;
+}
+
+.companion-toggle-text.active {
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.companion-toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: var(--overlay-glass);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.companion-toggle:hover:not(:disabled) {
+  border-color: var(--text-fuji);
+}
+
+.companion-toggle.active {
+  background: var(--accent-color);
+  border-color: var(--accent-hover);
+}
+
+.companion-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.companion-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: var(--text-tertiary);
+  border-radius: 50%;
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.companion-toggle.active .companion-toggle-knob {
+  left: 22px;
+  background: var(--bg-secondary);
+}
+
+/* Port input */
+.companion-port-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.companion-port-input {
+  width: 100px;
+  padding: 8px 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--bg-dim);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  -moz-appearance: textfield;
+}
+
+.companion-port-input::-webkit-outer-spin-button,
+.companion-port-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.companion-port-input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--wave-glow);
+  outline: none;
+}
+
+.companion-port-input:disabled {
+  opacity: 0.5;
+}
+
+.companion-port-error {
+  font-size: 12px;
+  color: var(--error-color);
+}
+
+/* Connection info / QR code */
+.companion-connection-info {
+  padding: 16px;
+  background: var(--overlay-hover);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.companion-qr-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.companion-qr-code {
+  width: 160px;
+  height: 160px;
+  background: white;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.companion-qr-code svg {
+  width: 100%;
+  height: 100%;
+}
+
+.companion-qr-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.companion-url-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.companion-url-hint code {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  background: var(--overlay-surface);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--overlay-divider);
+  color: var(--accent-hover);
+}
+
+/* PIN display */
+.companion-pin-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.companion-pin-label {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.companion-pin-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.companion-pin-value {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--text-primary);
+  background: var(--overlay-hover);
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.companion-pin-regenerate {
+  padding: 6px 14px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: var(--overlay-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.companion-pin-regenerate:hover:not(:disabled) {
+  color: var(--text-secondary);
+  background: var(--overlay-surface-hover);
+  border-color: var(--text-fuji);
+}
+
+.companion-pin-regenerate:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.companion-pin-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Authorized devices */
+.companion-devices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.companion-devices-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.companion-devices-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-hover);
+  background: var(--wave-glow);
+  border-radius: 10px;
+}
+
+.companion-devices-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.companion-device-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.companion-device-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--overlay-divider);
+  transition: background 0.15s ease;
+}
+
+.companion-device-item:last-child {
+  border-bottom: none;
+}
+
+.companion-device-item:hover {
+  background: var(--overlay-hover);
+}
+
+.companion-device-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.companion-device-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.companion-device-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.companion-device-revoke {
+  padding: 5px 12px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--error-color);
+  background: none;
+  border: 1px solid var(--error-bg);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.companion-device-revoke:hover:not(:disabled) {
+  background: var(--error-light);
+  border-color: var(--error-color);
+}
+
+.companion-device-revoke:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ================================================
    COLLAPSE PATTERNS EDITOR
    ================================================ */
 

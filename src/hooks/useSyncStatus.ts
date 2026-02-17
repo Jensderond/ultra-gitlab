@@ -7,8 +7,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { invoke } from '../services/tauri';
+import { tauriListen } from '../services/transport';
 
 /** Sync status state */
 interface SyncStatus {
@@ -168,12 +168,12 @@ export default function useSyncStatus() {
     setNewMrsCount(0);
   }, []);
 
-  // Subscribe to Tauri events
+  // Subscribe to Tauri events (no-op in browser mode)
   useEffect(() => {
-    const unlisteners: UnlistenFn[] = [];
+    const unlisteners: (() => void)[] = [];
 
     // Listen for sync-progress events
-    listen<SyncProgressPayload>('sync-progress', (event) => {
+    tauriListen<SyncProgressPayload>('sync-progress', (event) => {
       const payload = event.payload;
 
       // Update syncing status based on phase
@@ -197,13 +197,13 @@ export default function useSyncStatus() {
     }).then((fn) => unlisteners.push(fn));
 
     // Listen for action-synced events
-    listen<ActionSyncedPayload>('action-synced', () => {
+    tauriListen<ActionSyncedPayload>('action-synced', () => {
       // Refresh status when actions are synced
       fetchStatus();
     }).then((fn) => unlisteners.push(fn));
 
     // Listen for mr-updated events
-    listen<MrUpdatedPayload>('mr-updated', (event) => {
+    tauriListen<MrUpdatedPayload>('mr-updated', (event) => {
       // Track new MRs
       if (event.payload.update_type === 'created') {
         setNewMrsCount((prev) => prev + 1);

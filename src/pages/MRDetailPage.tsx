@@ -6,8 +6,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { tauriListen, openExternalUrl } from '../services/transport';
 import { FileNavigation } from '../components/DiffViewer';
 import { MonacoDiffViewer, type MonacoDiffViewerRef, type LineComment } from '../components/Monaco/MonacoDiffViewer';
 import type { editor } from 'monaco-editor';
@@ -21,6 +20,7 @@ import { invoke, getCollapsePatterns } from '../services/tauri';
 import { classifyFiles } from '../utils/classifyFiles';
 import { useFileContent } from '../hooks/useFileContent';
 import { useCopyToast } from '../hooks/useCopyToast';
+import { useSmallScreen } from '../hooks/useSmallScreen';
 import type { MergeRequest, DiffFileSummary, DiffRefs, Comment } from '../types';
 import './MRDetailPage.css';
 
@@ -45,6 +45,10 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileFocusIndex, setFileFocusIndex] = useState(0);
   const [viewMode, setViewMode] = useState<'unified' | 'split'>('unified');
+  const isSmallScreen = useSmallScreen();
+  // Force unified on small screens (split is unreadable on mobile)
+  const effectiveViewMode = isSmallScreen ? 'unified' : viewMode;
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [collapseState, setCollapseState] = useState<'collapsed' | 'expanded' | 'partial'>('collapsed');
   const [viewedPaths, setViewedPaths] = useState<Set<string>>(new Set());
   const [generatedPaths, setGeneratedPaths] = useState<Set<string>>(new Set());
@@ -150,8 +154,8 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   useEffect(() => {
     if (!mrId) return;
 
-    let unlisten: UnlistenFn | undefined;
-    listen<{ mr_id: number; update_type: string; instance_id: number; iid: number }>(
+    let unlisten: (() => void) | undefined;
+    tauriListen<{ mr_id: number; update_type: string; instance_id: number; iid: number }>(
       'mr-updated',
       async (event) => {
         if (event.payload.mr_id !== mrId) return;
@@ -208,6 +212,9 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     if (index >= 0) {
       setFileFocusIndex(index);
     }
+
+    // Auto-close mobile sidebar on file select
+    setMobileSidebarOpen(false);
   }, [files]);
 
   // Restore view state (scroll, cursor, collapsed regions) after content loads
@@ -347,6 +354,8 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         break;
       case 'x':
         // Toggle unified/split view, preserving collapse state
+        // Disabled on small screens where split view is unreadable
+        if (isSmallScreen) break;
         e.preventDefault();
         if (diffViewerRef.current) {
           pendingViewStateRef.current = diffViewerRef.current.saveViewState();
@@ -362,7 +371,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         // Open MR in browser
         e.preventDefault();
         if (mr?.webUrl) {
-          openUrl(mr.webUrl);
+          openExternalUrl(mr.webUrl);
         }
         break;
       case 'y':
@@ -461,6 +470,19 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
             <span className="mr-project">{mr.projectName.replace(/^Customers\s*\/\s*/, '')}</span>
           )}
           <div className="mr-detail-actions">
+            {isSmallScreen && files.length > 0 && (
+              <button
+                className="mobile-files-toggle"
+                onClick={() => setMobileSidebarOpen((o) => !o)}
+                title="Toggle file list"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+                <span className="mobile-files-badge">{files.length}</span>
+              </button>
+            )}
             {updateAvailable && (
               <span className="mr-update-tag">Update available</span>
             )}
@@ -491,7 +513,10 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
       </header>
 
       <div className="mr-detail-content">
-        <aside className="mr-detail-sidebar">
+        {mobileSidebarOpen && isSmallScreen && (
+          <div className="mobile-sidebar-backdrop" onClick={() => setMobileSidebarOpen(false)} />
+        )}
+        <aside className={`mr-detail-sidebar${mobileSidebarOpen ? ' mobile-open' : ''}`}>
           <FileNavigation
             files={files}
             selectedPath={selectedFile ?? undefined}
@@ -571,7 +596,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
                   originalContent={fileContent.original}
                   modifiedContent={fileContent.modified}
                   filePath={selectedFile}
-                  viewMode={viewMode}
+                  viewMode={effectiveViewMode}
                   hideUnchanged={collapseState !== 'expanded'}
                   comments={fileComments}
                 />

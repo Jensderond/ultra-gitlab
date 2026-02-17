@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { openExternalUrl } from '../services/transport';
 import { getMergeRequest, getMrReviewers, getComments, getCollapsePatterns, mergeMR, checkMergeStatus, rebaseMR } from '../services/tauri';
 import { getMergeRequestFiles, getDiffRefs, getGitattributesPatterns } from '../services/gitlab';
 import BackButton from '../components/BackButton';
@@ -330,7 +330,7 @@ export default function MyMRDetailPage() {
       }
       case 'o':
         e.preventDefault();
-        if (mr?.webUrl) openUrl(mr.webUrl);
+        if (mr?.webUrl) openExternalUrl(mr.webUrl);
         break;
       case 'y':
         // Copy MR link to clipboard

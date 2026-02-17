@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { openExternalUrl } from '../services/transport';
 import { listInstances, type GitLabInstanceWithStatus } from '../services/gitlab';
 import {
   listPipelineProjects,
@@ -604,7 +604,7 @@ function ProjectCard({ project, status, statusLoading, onTogglePin, onRemove, on
         <div className="pipeline-card-actions">
           <button
             className="pipeline-card-action-btn"
-            onClick={() => openUrl(`${project.webUrl}/-/pipelines`)}
+            onClick={() => openExternalUrl(`${project.webUrl}/-/pipelines`)}
             title="Open in browser"
           >
             <ExternalLinkIcon />

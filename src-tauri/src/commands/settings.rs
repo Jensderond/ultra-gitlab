@@ -3,6 +3,7 @@
 //! These commands provide access to sync and other application settings.
 //! Settings are persisted using the tauri-plugin-store.
 
+use crate::commands::companion_settings::CompanionServerSettings;
 use crate::error::AppError;
 use crate::services::sync_engine::{SyncConfig, SyncHandle};
 use serde::{Deserialize, Serialize};
@@ -29,6 +30,9 @@ const UI_FONT_KEY: &str = "ui_font";
 
 /// Key for custom theme colors in the store.
 const CUSTOM_THEME_COLORS_KEY: &str = "custom_theme_colors";
+
+/// Key for companion server settings in the store.
+const COMPANION_SERVER_KEY: &str = "companion_server";
 
 /// Default theme ID.
 const DEFAULT_THEME: &str = "kanagawa-wave";
@@ -76,6 +80,8 @@ pub struct AppSettings {
     pub ui_font: String,
     /// Custom theme input colors (bg, text, accent hex strings). None if no custom theme saved.
     pub custom_theme_colors: Option<CustomThemeColors>,
+    /// Companion server settings (mobile web access).
+    pub companion_server: CompanionServerSettings,
 }
 
 impl Default for AppSettings {
@@ -86,6 +92,7 @@ impl Default for AppSettings {
             theme: DEFAULT_THEME.to_string(),
             ui_font: DEFAULT_UI_FONT.to_string(),
             custom_theme_colors: None,
+            companion_server: CompanionServerSettings::default(),
         }
     }
 }
@@ -94,12 +101,12 @@ impl Default for AppSettings {
 static SETTINGS_CACHE: OnceLock<RwLock<AppSettings>> = OnceLock::new();
 
 /// Get the settings cache, initializing if needed.
-fn settings_cache() -> &'static RwLock<AppSettings> {
+pub(crate) fn settings_cache() -> &'static RwLock<AppSettings> {
     SETTINGS_CACHE.get_or_init(|| RwLock::new(AppSettings::default()))
 }
 
 /// Load settings from store, using defaults if not found.
-async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppError> {
+pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppError> {
     let store = app
         .store(SETTINGS_STORE)
         .map_err(|e| AppError::internal(format!("Failed to open settings store: {}", e)))?;
@@ -134,11 +141,17 @@ async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppError> {
         None => None,
     };
 
-    Ok(AppSettings { sync, collapse_patterns, theme, ui_font, custom_theme_colors })
+    // Try to load companion server settings
+    let companion_server = match store.get(COMPANION_SERVER_KEY) {
+        Some(value) => serde_json::from_value(value.clone()).unwrap_or_default(),
+        None => CompanionServerSettings::default(),
+    };
+
+    Ok(AppSettings { sync, collapse_patterns, theme, ui_font, custom_theme_colors, companion_server })
 }
 
 /// Save settings to store.
-async fn save_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), AppError> {
+pub(crate) async fn save_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), AppError> {
     let store = app
         .store(SETTINGS_STORE)
         .map_err(|e| AppError::internal(format!("Failed to open settings store: {}", e)))?;
@@ -162,6 +175,10 @@ async fn save_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), Ap
     // Save custom theme colors
     let custom_theme_value = serde_json::to_value(&settings.custom_theme_colors)?;
     store.set(CUSTOM_THEME_COLORS_KEY, custom_theme_value);
+
+    // Save companion server settings
+    let companion_value = serde_json::to_value(&settings.companion_server)?;
+    store.set(COMPANION_SERVER_KEY, companion_value);
 
     // Persist to disk
     store

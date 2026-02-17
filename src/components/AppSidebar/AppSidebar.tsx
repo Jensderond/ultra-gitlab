@@ -5,12 +5,15 @@
  */
 
 import { useNavigate, useLocation } from 'react-router-dom';
+import { isTauri } from '../../services/transport';
 import './AppSidebar.css';
 
 interface AppSidebarProps {
   updateAvailable?: boolean;
   hasApprovedMRs?: boolean;
   hasActiveToasts?: boolean;
+  companionEnabled?: boolean;
+  companionDeviceCount?: number;
 }
 
 interface NavItem {
@@ -55,6 +58,13 @@ const BellIcon = () => (
   </svg>
 );
 
+const SmartphoneIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+    <line x1="12" y1="18" x2="12.01" y2="18" />
+  </svg>
+);
+
 const GearIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="3" />
@@ -69,7 +79,7 @@ const navItems: NavItem[] = [
   { path: '/settings', matchPrefix: '/settings', label: 'Settings', icon: <GearIcon />, bottom: true },
 ];
 
-export function AppSidebar({ updateAvailable, hasApprovedMRs, hasActiveToasts }: AppSidebarProps) {
+export function AppSidebar({ updateAvailable, hasApprovedMRs, hasActiveToasts, companionEnabled, companionDeviceCount = 0 }: AppSidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -77,8 +87,9 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs, hasActiveToasts }:
     return location.pathname === item.path || location.pathname.startsWith(item.matchPrefix + '/');
   };
 
-  const topItems = navItems.filter(item => !item.bottom);
-  const bottomItems = navItems.filter(item => item.bottom);
+  const visibleItems = isTauri ? navItems : navItems.filter(item => item.path !== '/settings' && item.path !== '/pipelines');
+  const topItems = visibleItems.filter(item => !item.bottom);
+  const bottomItems = visibleItems.filter(item => item.bottom);
 
   return (
     <nav className="app-sidebar">
@@ -102,6 +113,17 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs, hasActiveToasts }:
           <BellIcon />
           {hasActiveToasts && <span className="notification-dot" />}
         </div>
+        {companionEnabled && (
+          <div
+            className="app-sidebar-companion app-sidebar-desktop-only"
+            title={`Companion: ${companionDeviceCount} device${companionDeviceCount !== 1 ? 's' : ''} connected`}
+          >
+            <SmartphoneIcon />
+            {companionDeviceCount > 0 && (
+              <span className="companion-dot" />
+            )}
+          </div>
+        )}
         {bottomItems.map(item => (
           <button
             key={item.path}

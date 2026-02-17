@@ -11,6 +11,8 @@ pub mod services;
 
 use commands::{
     add_comment, approve_mr, clear_test_data, delete_gitlab_instance, discard_failed_action,
+    get_companion_settings, get_companion_qr_svg, get_companion_status, update_companion_settings, regenerate_companion_pin, revoke_companion_device,
+    start_companion_server_cmd, stop_companion_server_cmd,
     generate_test_data, get_action_counts, get_approval_status, get_cache_stats,
     get_cached_file_pair, get_collapse_patterns, get_comments, get_diagnostics_report,
     get_diff_content, get_diff_file, get_diff_file_metadata, get_diff_files, get_diff_hunks,
@@ -28,6 +30,7 @@ use commands::{
     update_notification_settings, update_settings, update_sync_config, update_sync_settings,
     update_custom_theme_colors, update_theme, update_ui_font, send_native_notification,
 };
+use services::companion_server;
 use services::sync_engine::{SyncConfig, SyncEngine};
 use tauri::{Manager, TitleBarStyle, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_store::StoreExt;
@@ -80,8 +83,52 @@ pub fn run() {
             });
 
             // Store state for use in commands
-            app.manage(pool);
-            app.manage(sync_handle);
+            app.manage(pool.clone());
+            app.manage(sync_handle.clone());
+
+            // Auto-start companion server if enabled in settings
+            {
+                use commands::companion_settings::CompanionServerSettings;
+                let companion_settings: CompanionServerSettings = app
+                    .handle()
+                    .store("settings.json")
+                    .ok()
+                    .and_then(|store| store.get("companion_server"))
+                    .and_then(|v| serde_json::from_value(v.clone()).ok())
+                    .unwrap_or_default();
+
+                if companion_settings.enabled {
+                    let port = companion_settings.port;
+                    let pool_clone = pool.clone();
+                    let sync_clone = sync_handle.clone();
+                    let app_handle_clone = app.handle().clone();
+
+                    // Resolve frontend dist path
+                    let resource_dir = app.path().resource_dir().ok();
+                    let frontend_dist = resource_dir
+                        .filter(|p| p.join("index.html").exists())
+                        .or_else(|| {
+                            let dev = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                                .join("../dist");
+                            dev.join("index.html").exists().then_some(dev)
+                        });
+
+                    if let Some(dist_path) = frontend_dist {
+                        tauri::async_runtime::spawn(async move {
+                            match companion_server::start_companion_server(
+                                port, dist_path, pool_clone, sync_clone, app_handle_clone,
+                            )
+                            .await
+                            {
+                                Ok(()) => eprintln!("[companion] Auto-started on port {}", port),
+                                Err(e) => eprintln!("[companion] Auto-start failed: {}", e),
+                            }
+                        });
+                    } else {
+                        eprintln!("[companion] Auto-start skipped: frontend dist not found");
+                    }
+                }
+            }
 
             // Create window with transparent titlebar
             let win = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
@@ -190,6 +237,15 @@ pub fn run() {
             update_theme,
             update_ui_font,
             update_custom_theme_colors,
+            // Companion server
+            get_companion_settings,
+            get_companion_qr_svg,
+            get_companion_status,
+            update_companion_settings,
+            regenerate_companion_pin,
+            revoke_companion_device,
+            start_companion_server_cmd,
+            stop_companion_server_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
