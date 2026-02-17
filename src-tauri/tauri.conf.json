@@ -27,7 +27,9 @@
     ],
     "createUpdaterArtifacts": true,
     "resources": {
-      "../dist/**/*": "companion-dist/"
+      "../dist/*": "companion-dist/",
+      "../dist/assets/*": "companion-dist/assets/",
+      "../dist/monacoeditorwork/*": "companion-dist/monacoeditorwork/"
     }
   },
   "plugins": {
