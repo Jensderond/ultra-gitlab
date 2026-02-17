@@ -17,17 +17,16 @@ use super::settings::load_settings;
 /// In production builds this is the Tauri `frontendDist` resource directory.
 /// In dev mode we fall back to `../dist` relative to the executable.
 fn resolve_frontend_dist(app: &AppHandle) -> Result<PathBuf, AppError> {
-    // In production, Tauri bundles the frontend into the resource directory.
-    // The resource resolver returns the path to the app's resource dir.
+    // In production, Tauri embeds frontendDist into the binary (not on disk).
+    // We bundle a separate copy via `bundle.resources` into "companion-dist/".
     let resource_dir = app
         .path()
         .resource_dir()
         .map_err(|e| AppError::internal(format!("Failed to resolve resource dir: {}", e)))?;
 
-    // Tauri v2 places frontendDist files directly in the resource directory
-    let dist_path = resource_dir.clone();
-    if dist_path.join("index.html").exists() {
-        return Ok(dist_path);
+    let companion_dist = resource_dir.join("companion-dist");
+    if companion_dist.join("index.html").exists() {
+        return Ok(companion_dist);
     }
 
     // Dev fallback: try ../dist relative to the manifest dir
@@ -38,7 +37,7 @@ fn resolve_frontend_dist(app: &AppHandle) -> Result<PathBuf, AppError> {
 
     Err(AppError::internal(format!(
         "Frontend dist not found. Checked: {:?} and {:?}",
-        resource_dir, dev_dist
+        companion_dist, dev_dist
     )))
 }
 
