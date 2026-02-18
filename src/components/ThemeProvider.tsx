@@ -13,7 +13,7 @@ import type { ThemeDefinition } from '../themes/types';
 import { kanagawaWave } from '../themes/kanagawa-wave';
 import { kanagawaLight } from '../themes/kanagawa-light';
 import { loved } from '../themes/loved';
-import { invoke, updateTheme as persistTheme, updateUiFont as persistUiFont, updateCustomThemeColors as persistCustomColors, type CustomThemeColors } from '../services/tauri';
+import { invoke, updateTheme as persistTheme, updateUiFont as persistUiFont, updateDisplayFont as persistDisplayFont, updateCustomThemeColors as persistCustomColors, type CustomThemeColors } from '../services/tauri';
 import { deriveTheme } from '../themes/deriveTheme';
 import type { Theme } from '../types';
 
@@ -42,6 +42,10 @@ export interface ThemeContextValue {
   uiFont: string;
   /** Switch UI font and persist the choice. */
   setUiFont: (fontId: string) => void;
+  /** Current display font ID. */
+  displayFont: string;
+  /** Switch display font and persist the choice. */
+  setDisplayFont: (fontId: string) => void;
   /** Saved custom theme colors (null if none saved). */
   customColors: CustomThemeColors | null;
   /** Apply a custom theme from 3 colors (live preview, does NOT persist). */
@@ -205,24 +209,28 @@ function loadGoogleFont(googleFont: string | null): (() => void) | undefined {
 interface ThemeState {
   theme: ThemeDefinition;
   uiFont: string;
+  displayFont: string;
   customColors: CustomThemeColors | null;
 }
 
 type ThemeAction =
-  | { type: 'INIT'; theme: ThemeDefinition; uiFont: string; customColors: CustomThemeColors | null }
+  | { type: 'INIT'; theme: ThemeDefinition; uiFont: string; displayFont: string; customColors: CustomThemeColors | null }
   | { type: 'SET_THEME'; theme: ThemeDefinition }
   | { type: 'SET_UI_FONT'; uiFont: string }
+  | { type: 'SET_DISPLAY_FONT'; displayFont: string }
   | { type: 'SAVE_CUSTOM'; colors: CustomThemeColors; theme: ThemeDefinition }
   | { type: 'DELETE_CUSTOM' };
 
 function themeReducer(state: ThemeState, action: ThemeAction): ThemeState {
   switch (action.type) {
     case 'INIT':
-      return { theme: action.theme, uiFont: action.uiFont, customColors: action.customColors };
+      return { theme: action.theme, uiFont: action.uiFont, displayFont: action.displayFont, customColors: action.customColors };
     case 'SET_THEME':
       return { ...state, theme: action.theme };
     case 'SET_UI_FONT':
       return { ...state, uiFont: action.uiFont };
+    case 'SET_DISPLAY_FONT':
+      return { ...state, displayFont: action.displayFont };
     case 'SAVE_CUSTOM':
       return { ...state, customColors: action.colors, theme: action.theme };
     case 'DELETE_CUSTOM':
@@ -234,18 +242,20 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const [state, dispatch] = useReducer(themeReducer, {
     theme: kanagawaWave,
     uiFont: 'Noto Sans JP',
+    displayFont: 'Cormorant Garamond',
     customColors: null,
   });
 
-  const { theme, uiFont, customColors } = state;
+  const { theme, uiFont, displayFont, customColors } = state;
 
   // Load persisted theme, font, and custom colors on mount
   useEffect(() => {
-    invoke<{ theme?: string; uiFont?: string; customThemeColors?: CustomThemeColors | null }>('get_settings')
+    invoke<{ theme?: string; uiFont?: string; displayFont?: string; customThemeColors?: CustomThemeColors | null }>('get_settings')
       .then((settings) => {
         const id = settings.theme || 'kanagawa-wave';
         const savedColors = settings.customThemeColors ?? null;
         const font = settings.uiFont || 'Noto Sans JP';
+        const dFont = settings.displayFont || 'Cormorant Garamond';
 
         let resolvedTheme: ThemeDefinition = kanagawaWave;
         if (id === 'custom' && savedColors) {
@@ -255,11 +265,13 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
           if (def) resolvedTheme = def;
         }
 
-        dispatch({ type: 'INIT', theme: resolvedTheme, uiFont: font, customColors: savedColors });
+        dispatch({ type: 'INIT', theme: resolvedTheme, uiFont: font, displayFont: dFont, customColors: savedColors });
 
-        // Eager-load the saved font
+        // Eager-load the saved fonts
         const fontDef = UI_FONTS.find(f => f.id === font);
         if (fontDef) loadGoogleFont(fontDef.googleFont);
+        const displayFontDef = UI_FONTS.find(f => f.id === dFont);
+        if (displayFontDef) loadGoogleFont(displayFontDef.googleFont);
       })
       .catch(() => {
         // Fall back to defaults (already set)
@@ -288,6 +300,13 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     const fontDef = UI_FONTS.find(f => f.id === fontId);
     if (fontDef) loadGoogleFont(fontDef.googleFont);
     persistUiFont(fontId).catch(console.error);
+  }, []);
+
+  const setDisplayFont = useCallback((fontId: string) => {
+    dispatch({ type: 'SET_DISPLAY_FONT', displayFont: fontId });
+    const fontDef = UI_FONTS.find(f => f.id === fontId);
+    if (fontDef) loadGoogleFont(fontDef.googleFont);
+    persistDisplayFont(fontId).catch(console.error);
   }, []);
 
   const previewCustomTheme = useCallback((colors: CustomThemeColors) => {
@@ -320,12 +339,19 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     const fontDef = UI_FONTS.find(f => f.id === uiFont);
     if (fontDef) {
       document.documentElement.style.setProperty('font-family', fontDef.family);
-      document.documentElement.style.setProperty('--font-display', fontDef.family);
     }
   }, [uiFont]);
 
+  // Apply --font-display to :root whenever displayFont changes
+  useEffect(() => {
+    const fontDef = UI_FONTS.find(f => f.id === displayFont);
+    if (fontDef) {
+      document.documentElement.style.setProperty('--font-display', fontDef.family);
+    }
+  }, [displayFont]);
+
   return (
-    <ThemeContext value={{ theme, setTheme, setThemeById, uiFont, setUiFont, customColors, previewCustomTheme, saveCustomTheme, deleteCustomTheme }}>
+    <ThemeContext value={{ theme, setTheme, setThemeById, uiFont, setUiFont, displayFont, setDisplayFont, customColors, previewCustomTheme, saveCustomTheme, deleteCustomTheme }}>
       {children}
     </ThemeContext>
   );

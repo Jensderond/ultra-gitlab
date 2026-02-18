@@ -28,6 +28,9 @@ const THEME_KEY: &str = "theme";
 /// Key for UI font in the store.
 const UI_FONT_KEY: &str = "ui_font";
 
+/// Key for display font in the store.
+const DISPLAY_FONT_KEY: &str = "display_font";
+
 /// Key for custom theme colors in the store.
 const CUSTOM_THEME_COLORS_KEY: &str = "custom_theme_colors";
 
@@ -39,6 +42,9 @@ const DEFAULT_THEME: &str = "kanagawa-wave";
 
 /// Default UI font.
 const DEFAULT_UI_FONT: &str = "Noto Sans JP";
+
+/// Default display font (decorative heading font for page h1s).
+const DEFAULT_DISPLAY_FONT: &str = "Cormorant Garamond";
 
 /// Default glob patterns for identifying generated/lock files.
 fn default_collapse_patterns() -> Vec<String> {
@@ -78,6 +84,8 @@ pub struct AppSettings {
     pub theme: String,
     /// UI font family name.
     pub ui_font: String,
+    /// Display font family name (decorative heading font for page h1s).
+    pub display_font: String,
     /// Custom theme input colors (bg, text, accent hex strings). None if no custom theme saved.
     pub custom_theme_colors: Option<CustomThemeColors>,
     /// Companion server settings (mobile web access).
@@ -91,6 +99,7 @@ impl Default for AppSettings {
             collapse_patterns: default_collapse_patterns(),
             theme: DEFAULT_THEME.to_string(),
             ui_font: DEFAULT_UI_FONT.to_string(),
+            display_font: DEFAULT_DISPLAY_FONT.to_string(),
             custom_theme_colors: None,
             companion_server: CompanionServerSettings::default(),
         }
@@ -135,6 +144,12 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         None => DEFAULT_UI_FONT.to_string(),
     };
 
+    // Try to load display font
+    let display_font = match store.get(DISPLAY_FONT_KEY) {
+        Some(value) => serde_json::from_value(value.clone()).unwrap_or_else(|_| DEFAULT_DISPLAY_FONT.to_string()),
+        None => DEFAULT_DISPLAY_FONT.to_string(),
+    };
+
     // Try to load custom theme colors
     let custom_theme_colors = match store.get(CUSTOM_THEME_COLORS_KEY) {
         Some(value) => serde_json::from_value(value.clone()).ok(),
@@ -147,7 +162,7 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         None => CompanionServerSettings::default(),
     };
 
-    Ok(AppSettings { sync, collapse_patterns, theme, ui_font, custom_theme_colors, companion_server })
+    Ok(AppSettings { sync, collapse_patterns, theme, ui_font, display_font, custom_theme_colors, companion_server })
 }
 
 /// Save settings to store.
@@ -171,6 +186,10 @@ pub(crate) async fn save_settings(app: &AppHandle, settings: &AppSettings) -> Re
     // Save UI font
     let ui_font_value = serde_json::to_value(&settings.ui_font)?;
     store.set(UI_FONT_KEY, ui_font_value);
+
+    // Save display font
+    let display_font_value = serde_json::to_value(&settings.display_font)?;
+    store.set(DISPLAY_FONT_KEY, display_font_value);
 
     // Save custom theme colors
     let custom_theme_value = serde_json::to_value(&settings.custom_theme_colors)?;
@@ -321,6 +340,24 @@ pub async fn update_ui_font(
 ) -> Result<(), AppError> {
     let mut settings = load_settings(&app).await?;
     settings.ui_font = font;
+    save_settings(&app, &settings).await?;
+    *settings_cache().write().await = settings;
+    Ok(())
+}
+
+/// Update the display font.
+///
+/// Convenience method that updates just the display font family name.
+///
+/// # Arguments
+/// * `font` - The font family name (e.g. "Cormorant Garamond", "Inter", "System Default")
+#[tauri::command]
+pub async fn update_display_font(
+    app: AppHandle,
+    font: String,
+) -> Result<(), AppError> {
+    let mut settings = load_settings(&app).await?;
+    settings.display_font = font;
     save_settings(&app, &settings).await?;
     *settings_cache().write().await = settings;
     Ok(())

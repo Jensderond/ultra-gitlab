@@ -280,6 +280,7 @@ export interface Settings {
   syncIntervalMinutes: number;
   theme: Theme;
   uiFont: string;
+  displayFont: string;
   keyboardShortcuts: Record<string, string>;
   diffViewMode: DiffViewMode;
   collapsePatterns: string[];

@@ -147,18 +147,6 @@
   color: var(--text-tertiary);
 }
 
-.mr-author::before {
-  content: '';
-  width: 20px;
-  height: 20px;
-  background: linear-gradient(135deg,
-    var(--wave-glow-strong) 0%,
-    var(--wave-glow) 100%);
-  border-radius: 50%;
-  border: 1px solid var(--wave-glow-strong);
-  box-shadow: 0 0 8px var(--wave-glow);
-}
-
 .mr-branches {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;

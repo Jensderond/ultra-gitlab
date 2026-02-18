@@ -23,8 +23,8 @@ export const kanagawaWave: ThemeDefinition = {
   text: {
     primary: '#dcd7ba',
     secondary: '#c8c093',
-    tertiary: '#727169',
-    muted: '#625e5a',
+    tertiary: '#8c8787',
+    muted: '#8c8787',
   },
 
   borders: {

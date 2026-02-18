@@ -118,6 +118,15 @@ export async function setUiFont(uiFont: string): Promise<Settings> {
 }
 
 /**
+ * Update the display font setting.
+ *
+ * @param displayFont - The font family name to use for display headings
+ */
+export async function setDisplayFont(displayFont: string): Promise<Settings> {
+  return updateSettings({ displayFont });
+}
+
+/**
  * Update the diff view mode.
  *
  * @param mode - 'unified' or 'split'

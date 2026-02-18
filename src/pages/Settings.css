@@ -899,7 +899,7 @@ fieldset.setting-row {
 
 .companion-toggle.active {
   background: var(--accent-color);
-  border-color: var(--accent-hover);
+  border-color: var(--accent-bg);
 }
 
 .companion-toggle:disabled {

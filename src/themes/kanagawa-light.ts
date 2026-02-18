@@ -15,7 +15,7 @@ export const kanagawaLight: ThemeDefinition = {
   backgrounds: {
     primary: '#f2ecbc',   // editor.background
     secondary: '#e5ddb0', // tab.inactiveBackground
-    tertiary: '#e4d794',  // editor.lineHighlightBackground
+    tertiary: '#F2ECBC',  // editor.lineHighlightBackground
     hover: '#d5cea3',     // dropdown.background / input.background
     selected: '#c7d7e0',  // editor.selectionBackground
     dim: '#e7dba0',       // activityBar.background
@@ -25,7 +25,7 @@ export const kanagawaLight: ThemeDefinition = {
     primary: '#545464',   // editor.foreground
     secondary: '#43436c', // statusBar.foreground
     tertiary: '#716e61',  // comment foreground
-    muted: '#766b90',     // editorLineNumber.foreground
+    muted: '#545454',     // editorLineNumber.foreground
   },
 
   borders: {
@@ -35,7 +35,7 @@ export const kanagawaLight: ThemeDefinition = {
   },
 
   accent: {
-    color: '#4d699b',     // list.highlightForeground
+    color: '#DE9800',     // list.highlightForeground
     hover: '#5a7785',     // activityBarBadge.background
     bg: '#e4d794',        // list.activeSelectionBackground
     primary: '#4d699b',
@@ -59,7 +59,7 @@ export const kanagawaLight: ThemeDefinition = {
       light: 'rgba(232, 36, 36, 0.08)',
     },
     success: {
-      color: '#6e915f',   // editorGutter.addedBackground
+      color: '#3b9e12',   // editorGutter.addedBackground
       bg: 'rgba(110, 145, 95, 0.12)',
       text: '#6e915f',
       light: 'rgba(110, 145, 95, 0.08)',
@@ -110,8 +110,8 @@ export const kanagawaLight: ThemeDefinition = {
   overlays: {
     glass: 'rgba(229, 221, 176, 0.95)',
     glassLight: 'rgba(229, 221, 176, 0.80)',
-    surface: 'rgba(213, 206, 163, 0.50)',
-    surfaceHover: 'rgba(213, 206, 163, 0.80)',
+    surface: 'rgba(204, 190, 115, 0.62)',
+    surfaceHover: 'rgba(204, 190, 115, 0.80)',
     hover: 'rgba(228, 215, 148, 0.50)',
     divider: 'rgba(84, 84, 100, 0.15)',
     backdrop: 'rgba(242, 236, 188, 0.90)',
@@ -129,10 +129,10 @@ export const kanagawaLight: ThemeDefinition = {
     peach: '#d7474b',         // terminal.ansiBrightRed
     crystalBlue: '#6693bf',   // terminal.ansiBrightBlue
     springBlue: '#5e857a',    // terminal.ansiBrightCyan
-    fujiGray: '#766b90',      // editorLineNumber.foreground
+    fujiGray: '#969585',      // editorLineNumber.foreground
     winterBlue: '#e4d794',    // list.activeSelectionBackground
-    waveGlow: 'rgba(77, 105, 155, 0.1)',
-    waveGlowStrong: 'rgba(77, 105, 155, 0.2)',
+    waveGlow: 'rgba(242, 207, 119, 0.25)',
+    waveGlowStrong: 'rgba(242, 207, 119, 0.4)',
   },
 
   monacoTokenColors: [

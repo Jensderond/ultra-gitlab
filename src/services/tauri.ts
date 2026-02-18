@@ -417,6 +417,13 @@ export async function updateUiFont(font: string): Promise<void> {
   return invoke<void>('update_ui_font', { font });
 }
 
+/**
+ * Persist the display font choice to the settings store.
+ */
+export async function updateDisplayFont(font: string): Promise<void> {
+  return invoke<void>('update_display_font', { font });
+}
+
 /** Custom theme color inputs. */
 export interface CustomThemeColors {
   bg: string;

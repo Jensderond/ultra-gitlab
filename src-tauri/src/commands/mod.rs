@@ -38,7 +38,7 @@ pub use notification_settings::{get_notification_settings, update_notification_s
 pub use notifications::send_native_notification;
 pub use pipeline::{list_pipeline_projects, visit_pipeline_project, toggle_pin_pipeline_project, remove_pipeline_project, search_projects, get_pipeline_statuses, get_project_pipelines, get_pipeline_jobs, get_job_trace, play_pipeline_job, retry_pipeline_job, cancel_pipeline_job};
 pub use reviewers::get_mr_reviewers;
-pub use settings::{get_collapse_patterns, get_settings, get_sync_settings, update_collapse_patterns, update_custom_theme_colors, update_settings, update_sync_settings, update_theme, update_ui_font};
+pub use settings::{get_collapse_patterns, get_settings, get_sync_settings, update_collapse_patterns, update_custom_theme_colors, update_display_font, update_settings, update_sync_settings, update_theme, update_ui_font};
 pub use sync::{
     discard_failed_action, get_action_counts, get_sync_config, get_sync_status,
     retry_failed_actions, trigger_sync, update_sync_config,

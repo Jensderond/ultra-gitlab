@@ -11,7 +11,7 @@ const PRESET_THEME_IDS: Theme[] = ['kanagawa-wave', 'kanagawa-light', 'loved'];
  * Appearance section — theme selector with visual swatches + font selector + custom theme editor.
  */
 export default function AppearanceSection() {
-  const { theme, setThemeById, uiFont, setUiFont, customColors, previewCustomTheme, saveCustomTheme, deleteCustomTheme } = useTheme();
+  const { theme, setThemeById, uiFont, setUiFont, displayFont, setDisplayFont, customColors, previewCustomTheme, saveCustomTheme, deleteCustomTheme } = useTheme();
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editorBg, setEditorBg] = useState('#1f1f28');
@@ -199,6 +199,25 @@ export default function AppearanceSection() {
                 key={font.id}
                 className={`font-option ${isActive ? 'active' : ''}`}
                 onClick={() => setUiFont(font.id)}
+                style={{ fontFamily: font.family }}
+              >
+                {font.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="font-selector">
+        <span className="font-selector-label" id="display-font-selector-label">Display Font</span>
+        <div className="font-options" role="group" aria-labelledby="display-font-selector-label">
+          {UI_FONTS.map((font) => {
+            const isActive = displayFont === font.id;
+            return (
+              <button
+                key={font.id}
+                className={`font-option ${isActive ? 'active' : ''}`}
+                onClick={() => setDisplayFont(font.id)}
                 style={{ fontFamily: font.family }}
               >
                 {font.label}
