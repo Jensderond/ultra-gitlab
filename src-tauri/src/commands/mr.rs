@@ -508,15 +508,6 @@ pub async fn get_diff_refs(
     })
 }
 
-/// A syntax highlight token.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HighlightToken {
-    pub start: usize,
-    pub end: usize,
-    pub class: String,
-}
-
 /// A line in a diff hunk.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -526,7 +517,6 @@ pub struct DiffLine {
     pub content: String,
     pub old_line_number: Option<i64>,
     pub new_line_number: Option<i64>,
-    pub tokens: Vec<HighlightToken>,
 }
 
 /// A hunk in a diff.
@@ -821,7 +811,6 @@ fn parse_unified_diff(diff: &str) -> Vec<DiffHunk> {
                 content,
                 old_line_number: old_ln,
                 new_line_number: new_ln,
-                tokens: Vec::new(), // Syntax highlighting added later
             });
         }
     }

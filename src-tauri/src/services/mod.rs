@@ -10,14 +10,12 @@ pub mod companion_auth;
 pub mod companion_server;
 pub mod gitattributes;
 pub mod gitlab_client;
-pub mod highlighter;
 pub mod sync_engine;
 pub mod sync_events;
 pub mod sync_processor;
 pub mod sync_queue;
 
 pub use gitlab_client::GitLabClient;
-pub use highlighter::SyntaxHighlighter;
 pub use sync_engine::{SyncConfig, SyncEngine, SyncLogEntry, SyncResult, SyncStatus};
 pub use sync_events::{
     ActionSyncedPayload, MrUpdateType, MrUpdatedPayload, SyncPhase, SyncProgressPayload,

@@ -128,7 +128,7 @@ export interface DiffContent {
   baseHash: string;
   headHash: string;
   content: string;
-  highlightedTokens?: HighlightToken[];
+
 }
 
 export interface DiffRefs {
@@ -157,13 +157,6 @@ export interface DiffLine {
   content: string;
   oldLineNumber: number | null;
   newLineNumber: number | null;
-  tokens: HighlightToken[];
-}
-
-export interface HighlightToken {
-  start: number;
-  end: number;
-  class: string;
 }
 
 // Progressive diff loading types

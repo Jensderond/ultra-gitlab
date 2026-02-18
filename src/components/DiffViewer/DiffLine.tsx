@@ -1,11 +1,11 @@
 /**
- * Single diff line component with syntax highlighting.
+ * Single diff line component.
  *
  * Renders a line from a diff with proper styling for additions,
- * deletions, and context lines, along with syntax tokens.
+ * deletions, and context lines.
  */
 
-import type { DiffLine as DiffLineType, HighlightToken } from '../../types';
+import type { DiffLine as DiffLineType } from '../../types';
 import './DiffLine.css';
 
 interface DiffLineProps {
@@ -17,44 +17,6 @@ interface DiffLineProps {
   onClick?: () => void;
   /** Which side of split view this line is on (undefined = unified view) */
   splitSide?: 'left' | 'right';
-}
-
-/**
- * Render content with syntax highlighting tokens.
- */
-function renderHighlightedContent(content: string, tokens: HighlightToken[]): React.ReactNode {
-  if (tokens.length === 0) {
-    return content;
-  }
-
-  const result: React.ReactNode[] = [];
-  let lastEnd = 0;
-
-  // Sort tokens by start position
-  const sortedTokens = [...tokens].sort((a, b) => a.start - b.start);
-
-  for (const token of sortedTokens) {
-    // Add unhighlighted text before this token
-    if (token.start > lastEnd) {
-      result.push(content.slice(lastEnd, token.start));
-    }
-
-    // Add highlighted token
-    result.push(
-      <span key={`${token.start}-${token.end}`} className={`hl-${token.class}`}>
-        {content.slice(token.start, token.end)}
-      </span>
-    );
-
-    lastEnd = token.end;
-  }
-
-  // Add remaining unhighlighted text
-  if (lastEnd < content.length) {
-    result.push(content.slice(lastEnd));
-  }
-
-  return result;
 }
 
 /**
@@ -119,7 +81,7 @@ export default function DiffLine({ line, selected, onClick, splitSide }: DiffLin
         )}
       </span>
       <span className="diff-line-content">
-        <code>{renderHighlightedContent(line.content, line.tokens)}</code>
+        <code>{line.content}</code>
       </span>
     </div>
   );

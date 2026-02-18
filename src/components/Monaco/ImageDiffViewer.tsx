@@ -4,10 +4,16 @@
  * Displays side-by-side or overlay comparison of image changes.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import "./ImageDiffViewer.css";
 
 type ViewMode = "side-by-side" | "overlay" | "swipe";
+
+/** Decode a base64 string to UTF-8 text. */
+function decodeBase64(b64: string): string {
+  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
 
 interface ImageDiffViewerProps {
   /** Original image as base64-encoded string */
@@ -34,6 +40,7 @@ export function ImageDiffViewer({
   const [swipePosition, setSwipePosition] = useState(50);
   const [zoom, setZoom] = useState(100);
   const [isDragging, setIsDragging] = useState(false);
+  const [showCode, setShowCode] = useState(false);
 
   // Build data URLs - only compute when base64 content exists
   const originalDataUrl = originalBase64 ? `data:${mimeType};base64,${originalBase64}` : null;
@@ -47,6 +54,16 @@ export function ImageDiffViewer({
   const isNewFile = !originalBase64 && !!modifiedBase64;
   const isDeletedFile = !!originalBase64 && !modifiedBase64;
   const isModified = !!originalBase64 && !!modifiedBase64;
+
+  // Decoded SVG source for code view
+  const originalSource = useMemo(
+    () => (isSvg && originalBase64 ? decodeBase64(originalBase64) : ""),
+    [isSvg, originalBase64]
+  );
+  const modifiedSource = useMemo(
+    () => (isSvg && modifiedBase64 ? decodeBase64(modifiedBase64) : ""),
+    [isSvg, modifiedBase64]
+  );
 
   // Handle swipe drag
   const handleSwipeMove = useCallback(
@@ -98,26 +115,78 @@ export function ImageDiffViewer({
             </div>
           )}
 
-          <div className="image-diff-zoom">
-            <button
-              onClick={() => setZoom((z) => Math.max(25, z - 25))}
-              disabled={zoom <= 25}
-            >
-              -
-            </button>
-            <span>{zoom}%</span>
-            <button
-              onClick={() => setZoom((z) => Math.min(400, z + 25))}
-              disabled={zoom >= 400}
-            >
-              +
-            </button>
-          </div>
+          {isSvg && (
+            <div className="image-diff-view-modes">
+              <button
+                className={!showCode ? "active" : ""}
+                onClick={() => setShowCode(false)}
+                title="Image preview"
+              >
+                Preview
+              </button>
+              <button
+                className={showCode ? "active" : ""}
+                onClick={() => setShowCode(true)}
+                title="View SVG source code"
+              >
+                Code
+              </button>
+            </div>
+          )}
+
+          {!showCode && (
+            <div className="image-diff-zoom">
+              <button
+                onClick={() => setZoom((z) => Math.max(25, z - 25))}
+                disabled={zoom <= 25}
+              >
+                -
+              </button>
+              <span>{zoom}%</span>
+              <button
+                onClick={() => setZoom((z) => Math.min(400, z + 25))}
+                disabled={zoom >= 400}
+              >
+                +
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="image-diff-content">
-        {isNewFile && (
+        {/* SVG code view */}
+        {showCode && isSvg && (
+          <div className="image-diff-code-view">
+            {isModified ? (
+              <div className="image-diff-code-side-by-side">
+                <div className="image-diff-code-panel">
+                  <div className="image-diff-label" style={{ color: "var(--error-color)", background: "var(--error-light)" }}>
+                    Original
+                  </div>
+                  <pre className="image-diff-code-block">{originalSource}</pre>
+                </div>
+                <div className="image-diff-code-panel">
+                  <div className="image-diff-label" style={{ color: "var(--success-color)", background: "var(--success-light)" }}>
+                    Modified
+                  </div>
+                  <pre className="image-diff-code-block">{modifiedSource}</pre>
+                </div>
+              </div>
+            ) : (
+              <div className="image-diff-code-single">
+                <div className="image-diff-label">
+                  {isNewFile ? "Added" : isDeletedFile ? "Deleted" : "Source"}
+                </div>
+                <pre className="image-diff-code-block">
+                  {modifiedSource || originalSource}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!showCode && isNewFile && (
           <div className="image-diff-single added">
             <div className="image-diff-label">Added</div>
             <div
@@ -129,7 +198,7 @@ export function ImageDiffViewer({
           </div>
         )}
 
-        {isDeletedFile && (
+        {!showCode && isDeletedFile && (
           <div className="image-diff-single deleted">
             <div className="image-diff-label">Deleted</div>
             <div
@@ -141,7 +210,7 @@ export function ImageDiffViewer({
           </div>
         )}
 
-        {isModified && viewMode === "side-by-side" && (
+        {!showCode && isModified && viewMode === "side-by-side" && (
           <div className="image-diff-side-by-side">
             <div className="image-diff-panel original">
               <div className="image-diff-label">Original</div>
@@ -164,7 +233,7 @@ export function ImageDiffViewer({
           </div>
         )}
 
-        {isModified && viewMode === "overlay" && (
+        {!showCode && isModified && viewMode === "overlay" && (
           <div className="image-diff-overlay-container">
             <div className="image-diff-overlay-control">
               <span>Original</span>
@@ -198,7 +267,7 @@ export function ImageDiffViewer({
           </div>
         )}
 
-        {isModified && viewMode === "swipe" && (
+        {!showCode && isModified && viewMode === "swipe" && (
           <div
             className="image-diff-swipe-container"
             onMouseMove={handleSwipeMove}
@@ -239,7 +308,7 @@ export function ImageDiffViewer({
           </div>
         )}
 
-        {!originalBase64 && !modifiedBase64 && (
+        {!showCode && !originalBase64 && !modifiedBase64 && (
           <div className="image-diff-empty">
             <p>No image data available</p>
           </div>

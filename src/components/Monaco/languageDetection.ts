@@ -16,6 +16,8 @@ const EXTENSION_TO_LANGUAGE: Record<string, string> = {
   // Web
   html: "html",
   htm: "html",
+  twig: "html",
+  phtml: "html",
   css: "css",
   scss: "scss",
   sass: "scss",
