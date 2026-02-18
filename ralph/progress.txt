@@ -214,3 +214,49 @@
   - The adaptive polling (30s active / 120s idle) uses statusesRef.current inside getInterval() to get fresh status data without re-creating the effect
   - Search state stays local to ProjectSearch component — it's self-contained with its own debounce, keyboard shortcut, and click-outside handling
 ---
+
+## 2026-02-18 - US-013
+- Decomposed monolithic `src/pages/PipelineDetailPage.tsx` (667 lines) into `src/pages/PipelineDetailPage/` directory with 9 focused files
+- Created orchestrator `index.tsx` (160 lines) that wires hooks and sub-components together
+- Extracted components:
+  - `PipelineHeader.tsx` (64 lines) — header with back button, title, status badge, refresh/open actions
+  - `JobsTab.tsx` (80 lines) — stage mini-pipeline bar + stage sections with job rows
+  - `HistoryTab.tsx` (100 lines) — pipeline history listbox with keyboard navigation and auto-focus
+  - `JobRow.tsx` (89 lines) — single job row with status, meta, and action buttons
+- Extracted hooks/data:
+  - `usePipelineData.ts` (180 lines) — jobs loading, polling, pipeline status, history loading, job actions
+  - `pipelineDetailReducer.ts` (77 lines) — useReducer consolidating 8 useState calls (jobs, loading, error, actionLoading, pipelineStatus, pipelines, historyLoading, historyLoaded)
+  - `utils.ts` (80 lines) — formatDuration, formatRelativeTime, jobStatusLabel, aggregateStageStatus, groupJobsByStage
+  - `icons.tsx` (43 lines) — ExternalLinkIcon, PlayIcon, RetryIcon, CancelIcon, RefreshIcon
+- Deleted old `src/pages/PipelineDetailPage.tsx`
+- CSS stays at `src/pages/PipelineDetailPage.css` (imported via `../PipelineDetailPage.css`)
+- Files changed: 1 deleted, 9 created
+- **Learnings for future iterations:**
+  - The `handleNavigateToJob` in the hook takes `navigate` and params as arguments rather than capturing them — avoids coupling the hook to react-router and keeps it testable
+  - History tab auto-focus moved into `HistoryTab` component itself — cleaner than orchestrator managing it via effect
+  - The RESET action in the reducer handles the initial load pattern (set loading true, clear previous data) in one dispatch instead of multiple setState calls
+  - `Set<number>` for actionLoading works well with useReducer — ACTION_START/ACTION_END actions handle the immutable Set operations cleanly
+---
+
+## 2026-02-18 - US-014
+- Decomposed `src/components/DiffViewer/DiffViewer.tsx` (575 lines) into focused sub-components and hooks
+- Created orchestrator `DiffViewer.tsx` (147 lines) that wires hooks and sub-components together
+- Extracted hooks:
+  - `useDiffData.ts` (154 lines) — diff loading (normal + progressive), scroll handling, line selection, uses useReducer
+  - `useDiffComments.ts` (113 lines) — comment loading, adding, and grouping by line
+  - `useDiffKeyboard.ts` (109 lines) — keyboard shortcuts (c/Escape/]/[/x) with ref pattern
+  - `diffViewerReducer.ts` (102 lines) — useReducer consolidating 9 useState calls into typed actions
+- Extracted components:
+  - `DiffHeader.tsx` (44 lines) — file path, large diff indicator, unified/split toggle
+  - `DiffContent.tsx` (153 lines) — virtual scrolling (react-window) and regular hunk rendering
+- Pre-existing files unchanged: `DiffHunk.tsx` (234 lines), `DiffLine.tsx` (88 lines), `FileNavigation.tsx` (141 lines)
+- Consolidated 9 useState calls into a single useReducer with typed actions (LOAD_START, LOAD_CONTENT, HUNKS_LOADED, etc.)
+- Eliminated multi-setState pattern in loadDiff effect — LOAD_START action handles reset in one dispatch
+- Used refs for progressive loading state (loadedRangesRef, loadingHunksRef) to avoid stale closures in loadHunkRange callback
+- Files changed: 1 rewritten (DiffViewer.tsx), 5 created (diffViewerReducer.ts, useDiffData.ts, useDiffComments.ts, useDiffKeyboard.ts, DiffHeader.tsx, DiffContent.tsx)
+- **Learnings for future iterations:**
+  - For progressive loading with `Set<number>` state, refs are needed alongside the reducer to avoid stale closures — the `loadHunkRange` callback checks refs for fresh values while dispatching to the reducer for state updates
+  - The `react-window` `List` component with `RowComponentProps<T>` generic type works well when extracted to a separate file — just re-export the types
+  - DiffViewer is not actually used by any consumer (MR pages use MonacoDiffViewer instead) — but restructuring it still improves maintainability and sets a pattern for the codebase
+  - The keyboard hook uses a single `optionsRef` pattern (update `.current` every render) — simpler than the split ref approach
+---
