@@ -15,6 +15,7 @@
 - To replace `useEffect(() => setState(x), [dep])` derived state pattern: use a ref to track the previous value and reset during render with guards (e.g., `if (dep !== prevRef.current) { prevRef.current = dep; setState(x); }`).
 - Settings page is now at `src/pages/Settings/` (directory with index.tsx orchestrator). Sub-components are in the same directory. CSS is still at `src/pages/Settings.css`.
 - When decomposing a page: keep the CSS file in its original location, import with `../Settings.css` from the new directory. Delete the old monolithic `.tsx` file so the directory `index.tsx` takes priority.
+- When extracting data-loading hooks that need callbacks from other hooks (circular dependency), use a `useRef<() => void>(() => {})` and wire `.current` after both hooks have run.
 
 ---
 
@@ -126,4 +127,43 @@
   - The old `.tsx` file MUST be deleted or it will take priority over the directory's `index.tsx`
   - Token editing state (editingTokenId, tokenInput, etc.) was lifted to the parent InstancesSection — better to push it down into `InstanceItem` so each item owns its edit state independently
   - Components like CompanionServerSection that have "enabled" content panels benefit from extracting the active-state content into a separate presentational component
+---
+
+## 2026-02-18 - US-009
+- Fixed label/control associations in 3 Settings sub-components:
+  - `CompanionActivePanel.tsx`: Changed `<label>` to `<span>` for "PIN Code" (display-only, not a form control)
+  - `AppearanceSection.tsx`: Changed `<label>` to `<span>` with `id` for "UI Font", added `role="group" aria-labelledby` to the font options container
+  - `SyncSettingsSection.tsx`: Replaced `<div>/<label>` with `<fieldset>/<legend>` for "Sync Scope" checkbox group; added CSS reset for fieldset defaults
+- Moved QR SVG fetching from useEffect (reacting to settings changes) to explicit calls in event handlers (`loadSettings`, `handleToggle`, `handlePortBlur`, `handleRegeneratePin`)
+- Reviewed 3 autoFocus instances — all justified (user-initiated edit mode), added comments explaining rationale
+- Removed redundant `inputRef` + `setTimeout(() => focus(), 0)` in `InstanceItem.tsx` since `autoFocus` already handles focus
+- Files changed: `CompanionActivePanel.tsx`, `AppearanceSection.tsx`, `SyncSettingsSection.tsx`, `CompanionServerSection.tsx`, `InstanceItem.tsx`, `ShortcutEditor.tsx`, `CollapsePatternsEditor.tsx`, `Settings.css`
+- **Learnings for future iterations:**
+  - Labels (`<label>`) should only be used for actual form controls — for display-only content or button groups, use `<span>` with `aria-labelledby` or `<fieldset>/<legend>`
+  - When a useEffect fetches data based on state that only changes in event handlers, move the fetch into those handlers directly — eliminates the "useEffect simulating event handler" pattern
+  - `autoFocus` on inputs that appear after user action (click to edit) is correct UX — just document the rationale
+  - `fieldset` needs CSS reset (`border: none; margin: 0; padding: 0;`) to avoid browser defaults
+---
+
+## 2026-02-18 - US-010
+- Decomposed monolithic `src/pages/MRDetailPage.tsx` (641 lines) into `src/pages/MRDetailPage/` directory with 7 focused files
+- Created orchestrator `index.tsx` (286 lines) that wires hooks and sub-components together
+- Extracted components:
+  - `MRHeader.tsx` (78 lines) — top bar with back button, MR info, approval button, mobile toggle
+  - `MRDiffContent.tsx` (131 lines) — main content area with overlays, image diff, Monaco diff
+  - `MRFilePanel.tsx` (50 lines) — sidebar with file navigation and mobile backdrop
+- Extracted hooks:
+  - `useMRData.ts` (146 lines) — MR data loading, file classification, and mr-updated event listener
+  - `useMRKeyboard.ts` (126 lines) — all keyboard shortcuts (n/j/p/k/x/a/o/y/v/g/c/s/Escape)
+  - `useFileComments.ts` (47 lines) — file comment fetching and addComment callback
+  - `viewReducer.ts` (59 lines) — useReducer for 7 related view states (selectedFile, focusIndex, viewMode, collapseState, mobileSidebarOpen, viewedPaths, hideGenerated)
+- Deleted old `src/pages/MRDetailPage.tsx`
+- CSS stays at `src/pages/MRDetailPage.css` (imported via `../MRDetailPage.css`)
+- Refactored setState-in-useEffect for initial file selection: uses render-time dispatch with ref guard instead of useEffect
+- Files changed: 1 deleted, 7 created
+- **Learnings for future iterations:**
+  - When extracting useMRData hook that needs `clearFileCache` from `useFileContent`, use a ref (`clearFileCacheRef`) to break the circular dependency — the hook captures the ref's `.current`, which gets wired up after useFileContent runs
+  - The `initialReviewableFile` pattern (returning first reviewable from data load) avoids the anti-pattern of `useEffect(() => setState(files[0]), [files])` — the orchestrator applies it during render with a ref guard
+  - For view state reducers, `Set<string>` fields (like viewedPaths) need `new Set(prev).add(value)` to trigger re-renders — spreading doesn't work on Sets
+  - The keyboard handler hook takes callbacks as options object rather than refs — keeps the orchestrator cleaner and the hook self-contained
 ---

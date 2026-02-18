@@ -138,7 +138,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "This story depends on US-008 (Settings decomposition). Line numbers refer to the original Settings.tsx before decomposition — find the equivalent code in the new sub-components."
     },
     {
@@ -156,7 +156,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

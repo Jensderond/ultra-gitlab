@@ -1,0 +1,131 @@
+import type { RefObject } from 'react';
+import { MonacoDiffViewer, type MonacoDiffViewerRef, type LineComment } from '../../components/Monaco/MonacoDiffViewer';
+import { ImageDiffViewer } from '../../components/Monaco/ImageDiffViewer';
+import { isImageFile, getImageMimeType } from '../../components/Monaco/languageDetection';
+import type { DiffRefs, DiffFileSummary } from '../../types';
+
+interface MRDiffContentProps {
+  selectedFile: string | null;
+  files: DiffFileSummary[];
+  reviewableFiles: DiffFileSummary[];
+  diffRefs: DiffRefs | null;
+  fileContent: { original: string; modified: string };
+  imageContent: { originalBase64: string; modifiedBase64: string };
+  fileContentLoading: boolean;
+  fileContentError: string | null;
+  collapseState: 'collapsed' | 'expanded' | 'partial';
+  viewMode: 'unified' | 'split';
+  fileComments: LineComment[];
+  diffViewerRef: RefObject<MonacoDiffViewerRef | null>;
+  onCollapse: () => void;
+  onExpand: () => void;
+  onRetry: () => void;
+}
+
+export default function MRDiffContent({
+  selectedFile,
+  files,
+  reviewableFiles,
+  diffRefs,
+  fileContent,
+  imageContent,
+  fileContentLoading,
+  fileContentError,
+  collapseState,
+  viewMode,
+  fileComments,
+  diffViewerRef,
+  onCollapse,
+  onExpand,
+  onRetry,
+}: MRDiffContentProps) {
+  if (!selectedFile) {
+    if (files.length > 0 && reviewableFiles.length === 0) {
+      return (
+        <main className="mr-detail-main">
+          <div className="all-generated-empty-state">
+            <div className="all-generated-icon">~</div>
+            <p className="all-generated-message">Nothing to see here &mdash; the robots wrote all of this.</p>
+            <p className="all-generated-hint">Click any file in the sidebar to peek anyway.</p>
+          </div>
+        </main>
+      );
+    }
+    return (
+      <main className="mr-detail-main">
+        <div className="no-file-selected">
+          Select a file to view its diff
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="mr-detail-main">
+      {fileContentLoading && (
+        <div className="file-loading-overlay">
+          <div className="file-loading-spinner" />
+        </div>
+      )}
+
+      {fileContentError && !fileContentLoading && (
+        <div className="file-loading-overlay">
+          <div className="file-error">
+            <p>{fileContentError}</p>
+            <button onClick={onRetry}>Retry</button>
+          </div>
+        </div>
+      )}
+
+      {!fileContentError && !fileContentLoading && !diffRefs && (
+        <div className="file-loading-overlay">
+          <div className="file-error">
+            <p>Diff information not available. Please sync the merge request first.</p>
+          </div>
+        </div>
+      )}
+
+      {isImageFile(selectedFile) && !fileContentLoading && !fileContentError && diffRefs && (
+        <ImageDiffViewer
+          originalBase64={imageContent.originalBase64}
+          modifiedBase64={imageContent.modifiedBase64}
+          filePath={selectedFile}
+          mimeType={getImageMimeType(selectedFile)}
+        />
+      )}
+
+      <div
+        className="monaco-diff-wrapper"
+        style={{ display: isImageFile(selectedFile) ? 'none' : undefined }}
+      >
+        <div className="diff-toolbar">
+          <button
+            className="diff-toolbar-btn"
+            onClick={onCollapse}
+            disabled={collapseState === 'collapsed'}
+            title="Collapse unchanged regions"
+          >
+            Collapse unchanged
+          </button>
+          <button
+            className="diff-toolbar-btn"
+            onClick={onExpand}
+            disabled={collapseState === 'expanded'}
+            title="Expand all regions"
+          >
+            Expand all
+          </button>
+        </div>
+        <MonacoDiffViewer
+          ref={diffViewerRef}
+          originalContent={fileContent.original}
+          modifiedContent={fileContent.modified}
+          filePath={selectedFile}
+          viewMode={viewMode}
+          hideUnchanged={collapseState !== 'expanded'}
+          comments={fileComments}
+        />
+      </div>
+    </main>
+  );
+}
