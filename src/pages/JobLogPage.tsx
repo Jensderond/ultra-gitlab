@@ -55,15 +55,17 @@ function jobStatusLabel(status: PipelineJobStatus): string {
 }
 
 /** Render ANSI segments as spans. */
-function renderSegments(segments: AnsiSegment[]) {
+function AnsiSegments({ segments }: { segments: AnsiSegment[] }) {
   let offset = 0;
-  return segments.map((seg) => {
-    const key = offset;
-    offset += seg.text.length;
-    return Object.keys(seg.style).length > 0
-      ? <span key={key} style={seg.style}>{seg.text}</span>
-      : <span key={key}>{seg.text}</span>;
-  });
+  return <>
+    {segments.map((seg) => {
+      const key = offset;
+      offset += seg.text.length;
+      return Object.keys(seg.style).length > 0
+        ? <span key={key} style={seg.style}>{seg.text}</span>
+        : <span key={key}>{seg.text}</span>;
+    })}
+  </>;
 }
 
 /** Render a single log line with line number + optional timestamp + content. */
@@ -74,7 +76,7 @@ function LogLineRow({ line, showTimestamp }: { line: LogLine; showTimestamp?: bo
       {showTimestamp && (
         <span className="log-line-timestamp">{line.timestamp ?? ''}</span>
       )}
-      <span className="log-line-content">{renderSegments(line.segments)}</span>
+      <span className="log-line-content"><AnsiSegments segments={line.segments} /></span>
     </div>
   );
 }
@@ -139,7 +141,7 @@ export default function JobLogPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<PipelineJobStatus>(initialStatus);
-  const [followMode, setFollowMode] = useState(ACTIVE_STATUSES.has(initialStatus));
+  const [followMode, setFollowMode] = useState(() => ACTIVE_STATUSES.has(initialStatus));
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
   const isActive = ACTIVE_STATUSES.has(currentStatus);

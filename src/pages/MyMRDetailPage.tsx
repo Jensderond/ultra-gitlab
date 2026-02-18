@@ -189,17 +189,11 @@ export default function MyMRDetailPage() {
     });
   }, [comments]);
 
-  const unresolvedCount = useMemo(
-    () => threads.filter(
-      t => t.some(c => c.discussionId) && !t.some(c => c.resolved)
-    ).length,
-    [threads]
-  );
+  const unresolvedCount = threads.filter(
+    t => t.some(c => c.discussionId) && !t.some(c => c.resolved)
+  ).length;
 
-  const approvedCount = useMemo(
-    () => reviewers.filter(r => r.status === 'approved').length,
-    [reviewers]
-  );
+  const approvedCount = reviewers.filter(r => r.status === 'approved').length;
 
   const handleMerge = useCallback(async () => {
     if (!mr || merging) return;
