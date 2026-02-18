@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { formatRelativeTime } from '../../services/storage';
 import { updateInstanceToken } from '../../services/tauri';
 import type { TokenInfo } from '../../types';
@@ -33,14 +33,12 @@ export default function InstanceItem({ inst, tokenInfo, onDelete, onTokenUpdated
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   function startEdit() {
     setEditing(true);
     setTokenInput('');
     setError(null);
     setSuccess(null);
-    setTimeout(() => inputRef.current?.focus(), 0);
   }
 
   function cancelEdit() {
@@ -97,7 +95,6 @@ export default function InstanceItem({ inst, tokenInfo, onDelete, onTokenUpdated
         {editing ? (
           <div className="edit-token-form">
             <input
-              ref={inputRef}
               type="password"
               className="edit-token-input"
               value={tokenInput}
@@ -108,6 +105,7 @@ export default function InstanceItem({ inst, tokenInfo, onDelete, onTokenUpdated
               }}
               placeholder="glpat-..."
               disabled={saving}
+              // autoFocus: user just clicked "Edit Token" — focus the input immediately
               autoFocus
             />
             <div className="edit-token-actions">

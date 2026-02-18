@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getCompanionSettings, getCompanionQrSvg, updateCompanionSettings, regenerateCompanionPin, revokeCompanionDevice, startCompanionServer, stopCompanionServer } from '../../services/tauri';
 import type { CompanionServerSettings } from '../../types';
 import { useToast } from '../../components/Toast';
@@ -24,23 +24,22 @@ export default function CompanionServerSection() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (settings?.enabled && settings.port) {
-      getCompanionQrSvg()
-        .then(setQrSvg)
-        .catch(() => setQrSvg(null));
+  const initialLoadDone = useRef(false);
+
+  const refreshQrSvg = useCallback((s: CompanionServerSettings) => {
+    if (s.enabled && s.port) {
+      getCompanionQrSvg().then(setQrSvg).catch(() => setQrSvg(null));
     } else {
       setQrSvg(null);
     }
-  }, [settings?.enabled, settings?.port, settings?.pin]);
-
-  const initialLoadDone = useRef(false);
+  }, []);
 
   async function loadSettings() {
     try {
       if (!initialLoadDone.current) setLoading(true);
       const s = await getCompanionSettings();
       setSettings(s);
+      refreshQrSvg(s);
       setPortInput((prev) => {
         const currentPort = String(s.port);
         return prev === '' || prev === currentPort ? currentPort : prev;
@@ -67,6 +66,7 @@ export default function CompanionServerSection() {
         addToast({ type: 'info', title: 'Companion Server', body: 'Server stopped' });
       }
       setSettings(updated);
+      refreshQrSvg(updated);
       window.dispatchEvent(new Event(COMPANION_STATUS_CHANGED));
     } catch (err) {
       console.error('Failed to toggle companion server:', err);
@@ -91,6 +91,7 @@ export default function CompanionServerSection() {
       setSaving(true);
       await updateCompanionSettings(updated);
       setSettings(updated);
+      refreshQrSvg(updated);
       if (settings.enabled) {
         await stopCompanionServer();
         await startCompanionServer();
@@ -107,7 +108,12 @@ export default function CompanionServerSection() {
     try {
       setSaving(true);
       const newPin = await regenerateCompanionPin();
-      setSettings((prev) => prev ? { ...prev, pin: newPin, authorizedDevices: [] } : prev);
+      setSettings((prev) => {
+        if (!prev) return prev;
+        const updated = { ...prev, pin: newPin, authorizedDevices: [] };
+        refreshQrSvg(updated);
+        return updated;
+      });
       addToast({ type: 'info', title: 'PIN Regenerated', body: 'All devices have been disconnected' });
     } catch (err) {
       console.error('Failed to regenerate PIN:', err);

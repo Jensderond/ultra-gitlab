@@ -104,8 +104,8 @@ export default function SyncSettingsSection() {
             </select>
           </div>
 
-          <div className="setting-row">
-            <label>Sync Scope</label>
+          <fieldset className="setting-row">
+            <legend>Sync Scope</legend>
             <div className="checkbox-group">
               <label className="checkbox-label">
                 <input
@@ -126,7 +126,7 @@ export default function SyncSettingsSection() {
                 MRs I'm reviewing
               </label>
             </div>
-          </div>
+          </fieldset>
 
           {saving && (
             <p className="saving-indicator">Saving...</p>

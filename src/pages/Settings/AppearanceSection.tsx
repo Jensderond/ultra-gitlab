@@ -190,8 +190,8 @@ export default function AppearanceSection() {
       )}
 
       <div className="font-selector">
-        <label className="font-selector-label">UI Font</label>
-        <div className="font-options">
+        <span className="font-selector-label" id="font-selector-label">UI Font</span>
+        <div className="font-options" role="group" aria-labelledby="font-selector-label">
           {UI_FONTS.map((font) => {
             const isActive = uiFont === font.id;
             return (

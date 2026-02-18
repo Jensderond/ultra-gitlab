@@ -195,6 +195,7 @@ export default function ShortcutEditor() {
                             onKeyDown={handleKeyDown}
                             onBlur={cancelEditing}
                             placeholder="Press a key..."
+                            // autoFocus: user just clicked a shortcut to edit — capture keystrokes immediately
                             autoFocus
                           />
                           {error && (

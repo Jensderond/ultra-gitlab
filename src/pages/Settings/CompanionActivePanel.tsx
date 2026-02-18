@@ -33,7 +33,7 @@ export default function CompanionActivePanel({ settings, qrSvg, saving, onRegene
       </div>
 
       <div className="companion-pin-row">
-        <label className="companion-pin-label">PIN Code</label>
+        <span className="companion-pin-label">PIN Code</span>
         <div className="companion-pin-display">
           <code className="companion-pin-value">{settings.pin}</code>
           <button

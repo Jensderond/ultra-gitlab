@@ -459,10 +459,17 @@
   gap: 8px;
 }
 
-.setting-row > label {
+.setting-row > label,
+fieldset.setting-row > legend {
   font-weight: 500;
   font-size: 13px;
   color: var(--text-secondary);
+}
+
+fieldset.setting-row {
+  border: none;
+  margin: 0;
+  padding: 0;
 }
 
 .setting-row select {

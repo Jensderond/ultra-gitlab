@@ -100,6 +100,7 @@ export default function CollapsePatternsEditor() {
               onKeyDown={handlePatternKeyDown}
               placeholder="e.g. *.lock"
               disabled={saving}
+              // autoFocus: user just clicked "Add pattern" — focus the new empty input
               autoFocus={pattern === ''}
             />
             <button
