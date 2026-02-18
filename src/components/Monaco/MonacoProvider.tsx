@@ -5,6 +5,9 @@ import { useTheme } from "../../hooks/useTheme";
 import { themeToMonacoTheme } from "../../themes/monacoAdapter";
 import "./monaco.css";
 
+// Activate built-in Twig language (Monarch grammar for {{ }}, {% %}, {# #}, etc.)
+import "monaco-editor/esm/vs/basic-languages/twig/twig.contribution.js";
+
 // Configure Monaco to use the local npm package instead of CDN
 // This ensures the app works offline (local-first)
 loader.config({ monaco });
