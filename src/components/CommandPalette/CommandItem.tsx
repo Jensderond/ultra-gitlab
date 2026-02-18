@@ -27,8 +27,8 @@ function formatShortcut(shortcut: string): React.ReactNode {
   const parts = shortcut.split('+');
   return (
     <span className="command-item-shortcut">
-      {parts.map((part, index) => (
-        <kbd key={index}>{formatKeyPart(part)}</kbd>
+      {parts.map((part) => (
+        <kbd key={part}>{formatKeyPart(part)}</kbd>
       ))}
     </span>
   );

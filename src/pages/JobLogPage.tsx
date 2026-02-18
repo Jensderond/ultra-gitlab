@@ -56,11 +56,14 @@ function jobStatusLabel(status: PipelineJobStatus): string {
 
 /** Render ANSI segments as spans. */
 function renderSegments(segments: AnsiSegment[]) {
-  return segments.map((seg, i) =>
-    Object.keys(seg.style).length > 0
-      ? <span key={i} style={seg.style}>{seg.text}</span>
-      : <span key={i}>{seg.text}</span>
-  );
+  let offset = 0;
+  return segments.map((seg) => {
+    const key = offset;
+    offset += seg.text.length;
+    return Object.keys(seg.style).length > 0
+      ? <span key={key} style={seg.style}>{seg.text}</span>
+      : <span key={key}>{seg.text}</span>;
+  });
 }
 
 /** Render a single log line with line number + optional timestamp + content. */
@@ -370,14 +373,14 @@ export default function JobLogPage() {
           <div className="job-log-empty">No log output for this job.</div>
         ) : (
           <div className={`job-log-trace${parsedLog.timestamped ? ' job-log-trace--timestamped' : ''}`}>
-            {parsedLog.entries.map((entry, i) => {
+            {parsedLog.entries.map((entry) => {
               if (entry.type === 'line') {
-                return <LogLineRow key={i} line={entry.data} showTimestamp={parsedLog.timestamped} />;
+                return <LogLineRow key={`line-${entry.data.lineNumber}`} line={entry.data} showTimestamp={parsedLog.timestamped} />;
               }
               const section = entry.data;
               return (
                 <LogSectionBlock
-                  key={i}
+                  key={`section-${section.name}`}
                   section={section}
                   expanded={!collapsedSections.has(section.name)}
                   onToggle={() => toggleSection(section.name)}

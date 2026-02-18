@@ -544,7 +544,7 @@ export default function DiffViewer({
           effectiveHunks.map((hunk, index) => {
             if (hunk === null) {
               return (
-                <div key={index} className="diff-hunk-loading">
+                <div key={`loading-${index}`} className="diff-hunk-loading">
                   <div className="diff-hunk-header">
                     <span className="hunk-range">Loading...</span>
                   </div>
@@ -554,7 +554,7 @@ export default function DiffViewer({
             }
             return (
               <DiffHunk
-                key={index}
+                key={`${hunk.oldStart}-${hunk.newStart}`}
                 hunk={hunk}
                 hunkIndex={index}
                 selectedLineIndex={selectedHunk === index ? selectedLine ?? undefined : undefined}
