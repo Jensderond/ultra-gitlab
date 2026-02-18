@@ -103,9 +103,10 @@ pub fn run() {
                     let sync_clone = sync_handle.clone();
                     let app_handle_clone = app.handle().clone();
 
-                    // Resolve frontend dist path
+                    // Resolve frontend dist path (must match resolve_frontend_dist in commands)
                     let resource_dir = app.path().resource_dir().ok();
                     let frontend_dist = resource_dir
+                        .map(|p| p.join("companion-dist"))
                         .filter(|p| p.join("index.html").exists())
                         .or_else(|| {
                             let dev = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
