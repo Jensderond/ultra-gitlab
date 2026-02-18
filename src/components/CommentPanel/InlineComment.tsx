@@ -163,7 +163,8 @@ export default function InlineComment({
         <div className="inline-comment-new">
           <CommentInput
             placeholder="Add a comment..."
-            autoFocus
+            autoFocus // autoFocus: user-initiated action (clicked "add comment") — focus is expected
+
             onSubmit={onSubmitComment}
             onCancel={onCancelComment}
             isSubmitting={isSubmitting}

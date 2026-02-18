@@ -302,3 +302,15 @@
   - When converting a `<div>` to `<button>`, always add CSS reset: `border: none; font: inherit; color: inherit; text-align: left;` (and `width: 100%` for block-level elements)
   - The ReAuthPrompt already had `role="dialog"` which is correct — just needed `onKeyDown` for the backdrop click parity
 ---
+
+## 2026-02-18 - US-017
+- Reviewed 2 autoFocus instances (Settings instances already handled in US-009):
+  - `InlineComment.tsx:166` (CommentInput): KEPT — user-initiated action (clicked "add comment"), autoFocus is expected UX. Added justification comment.
+  - `InstanceSetup.tsx:112` (URL input): KEPT — user-initiated form (clicked "Add Instance"), auto-focusing first field is standard form UX. Added justification comment.
+- Both instances are justified: they only appear after explicit user actions, not on page load
+- Files changed: `src/components/CommentPanel/InlineComment.tsx`, `src/components/InstanceSetup/InstanceSetup.tsx`
+- **Learnings for future iterations:**
+  - `autoFocus` is appropriate when the element appears after a user-initiated action (click to add, click to edit) — the user expects focus to move
+  - `autoFocus` is problematic when it fires on page load and steals focus from the user's current position, or when it disrupts screen reader flow
+  - The PRD required documenting rationale for retained autoFocus — inline comments (`// autoFocus: reason`) are sufficient
+---

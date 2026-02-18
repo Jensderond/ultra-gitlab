@@ -109,7 +109,7 @@ export default function InstanceSetup({ onComplete, onCancel }: InstanceSetupPro
             value={url}
             onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'url', value: e.target.value })}
             disabled={loading}
-            autoFocus
+            autoFocus // autoFocus: user-initiated form (clicked "Add Instance") — focus first field
           />
           <span className="form-help">
             The URL of your GitLab instance (e.g., gitlab.com or self-hosted)
