@@ -762,9 +762,10 @@ function CompanionServerSection() {
             <div className="companion-connection-info">
               {qrSvg ? (
                 <div className="companion-qr-container">
-                  <div
+                  <img
                     className="companion-qr-code"
-                    dangerouslySetInnerHTML={{ __html: qrSvg }}
+                    src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`}
+                    alt="QR code to connect your phone"
                   />
                   <p className="companion-qr-hint">Scan with your phone camera</p>
                 </div>
