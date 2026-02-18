@@ -167,3 +167,50 @@
   - For view state reducers, `Set<string>` fields (like viewedPaths) need `new Set(prev).add(value)` to trigger re-renders — spreading doesn't work on Sets
   - The keyboard handler hook takes callbacks as options object rather than refs — keeps the orchestrator cleaner and the hook self-contained
 ---
+
+## 2026-02-18 - US-011
+- Decomposed monolithic `src/pages/MyMRDetailPage.tsx` (679 lines) into `src/pages/MyMRDetailPage/` directory with 10 focused files
+- Created orchestrator `index.tsx` (129 lines) that wires hooks and sub-components together
+- Extracted components:
+  - `OverviewTab.tsx` (112 lines) — details, description, approvals, merge section
+  - `CommentsTab.tsx` (53 lines) — discussion threads display
+  - `CodeTab.tsx` (106 lines) — file navigation + diff viewer
+  - `MergeSection.tsx` (146 lines) — merge status display, merge/rebase actions
+- Extracted hooks:
+  - `useMyMRData.ts` (73 lines) — MR, reviewers, comments loading + thread grouping
+  - `useCodeTab.ts` (161 lines) — lazy code tab data loading, file navigation, file content
+  - `useMyMRKeyboard.ts` (85 lines) — all keyboard shortcuts using ref pattern
+  - `mergeReducer.ts` (60 lines) — useReducer for 6 merge-related states
+  - `utils.ts` (29 lines) — shared utility functions (formatRelativeTime, reviewerStatusClass)
+- Deleted old `src/pages/MyMRDetailPage.tsx`
+- CSS stays at `src/pages/MyMRDetailPage.css` (imported via `../MyMRDetailPage.css`)
+- Files changed: 1 deleted, 10 created
+- **Learnings for future iterations:**
+  - Merge state (merging, mergeError, mergeConfirm, mergeStatus, mergeStatusLoading, rebasing) is a natural fit for useReducer — all 6 states are tightly coupled in merge/rebase workflows
+  - The MergeSection component owns its own fetchMergeStatus effect and merge/rebase handlers — cleaner than lifting all merge logic to the orchestrator
+  - `ImageDiffViewer` expects `string` for base64 props but `useFileContent` returns `string | null` — use `?? ''` to coerce at the call site
+  - The keyboard hook uses a single ref for options (`optionsRef.current = options`) updated on every render — simpler than the split ref pattern used in MRDetailPage
+  - `setMr` needs to be exposed from `useMyMRData` so `MergeSection` can update MR state to 'merged' after successful merge
+---
+
+## 2026-02-18 - US-012
+- Decomposed monolithic `src/pages/PipelinesPage.tsx` (670 lines) into `src/pages/PipelinesPage/` directory with 7 focused files
+- Created orchestrator `index.tsx` (143 lines) that wires the hook and sub-components together
+- Extracted components:
+  - `ProjectCard.tsx` (104 lines) — single pipeline project card with status badge, actions, meta
+  - `ProjectSearch.tsx` (148 lines) — search bar with debounced API search, keyboard shortcut, dropdown
+- Extracted hooks/data:
+  - `usePipelinesData.ts` (193 lines) — all data loading, polling, notification events, and action handlers
+  - `pipelinesReducer.ts` (69 lines) — useReducer for 7 related pipeline states (instances, selectedInstanceId, projects, statuses, loading, statusesLoading, lastFetched)
+  - `utils.ts` (42 lines) — formatRelativeTime, statusLabel, formatDuration
+  - `icons.tsx` (47 lines) — PinIcon, RemoveIcon, SearchIcon, ExternalLinkIcon, BranchIcon
+- Deleted old `src/pages/PipelinesPage.tsx`
+- CSS stays at `src/pages/PipelinesPage.css` (imported via `../PipelinesPage.css`)
+- Consolidated 7 useState calls into a single useReducer with `PROJECTS_LOADED` batch action to avoid multi-setState patterns
+- Files changed: 1 deleted, 7 created
+- **Learnings for future iterations:**
+  - The `PROJECTS_LOADED` action is key — it sets projects, statuses, loading, statusesLoading, and lastFetched in one dispatch, eliminating the multi-setState-in-useEffect pattern
+  - Pipeline notification emission (emitPipelineChanges) uses refs for both statuses and projects to avoid stale closures in the polling callback chain
+  - The adaptive polling (30s active / 120s idle) uses statusesRef.current inside getInterval() to get fresh status data without re-creating the effect
+  - Search state stays local to ProjectSearch component — it's self-contained with its own debounce, keyboard shortcut, and click-outside handling
+---
