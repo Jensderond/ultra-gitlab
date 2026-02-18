@@ -200,16 +200,20 @@
   gap: 6px;
 }
 
-/* Small avatar circle */
-.mr-author::before {
-  content: '';
-  width: 14px;
-  height: 14px;
-  background: linear-gradient(135deg,
-    var(--wave-glow-strong) 0%,
-    var(--wave-glow) 100%);
+/* Author initial avatar — matches .my-mr-reviewer-avatar */
+.mr-author-avatar {
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   flex-shrink: 0;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-tertiary);
 }
 
 .mr-branches {

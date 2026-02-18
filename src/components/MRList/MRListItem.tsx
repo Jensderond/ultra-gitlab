@@ -81,7 +81,10 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
       <h4 className="mr-title">{mr.title}</h4>
 
       <div className="mr-item-meta">
-        <span className="mr-author">{mr.authorUsername}</span>
+        <span className="mr-author">
+          <span className="mr-author-avatar">{mr.authorUsername.charAt(0).toUpperCase()}</span>
+          {mr.authorUsername}
+        </span>
         <span className="mr-branches">
           {mr.sourceBranch} → {mr.targetBranch}
         </span>
