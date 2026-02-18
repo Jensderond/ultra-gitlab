@@ -22,6 +22,7 @@ import useUpdateChecker from './hooks/useUpdateChecker';
 import useHasApprovedMRs from './hooks/useHasApprovedMRs';
 import useNotifications from './hooks/useNotifications';
 import useCompanionStatus from './hooks/useCompanionStatus';
+import useCompanionAuth from './hooks/useCompanionAuth';
 import { CommandId, CommandCategory, commandDefinitions } from './commands/registry';
 import { manualSync } from './services/storage';
 import { listInstances } from './services/gitlab';
@@ -50,35 +51,19 @@ function AppContent() {
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
   const [authExpired, setAuthExpired] = useState<AuthExpiredState | null>(null);
   const [pipelineProjects, setPipelineProjects] = useState<PipelineProject[]>([]);
-  const [browserAuthChecked, setBrowserAuthChecked] = useState(isTauri);
+  const companionAuth = useCompanionAuth(isTauri || location.pathname === '/auth');
   const updateChecker = useUpdateChecker();
   const hasApprovedMRs = useHasApprovedMRs();
   const { toasts } = useToast();
   useNotifications();
   const companionStatus = useCompanionStatus();
 
-  // In browser mode, check if the user has a valid companion session.
-  // If not, redirect to /auth for PIN entry.
+  // In browser mode, redirect to /auth if not authenticated
   useEffect(() => {
-    if (isTauri || location.pathname === '/auth') return;
-
-    let cancelled = false;
-    async function checkAuth() {
-      try {
-        const res = await fetch('/api/instances', { credentials: 'include' });
-        if (!res.ok) {
-          navigate('/auth', { replace: true });
-          return;
-        }
-      } catch {
-        navigate('/auth', { replace: true });
-        return;
-      }
-      if (!cancelled) setBrowserAuthChecked(true);
+    if (companionAuth.isAuthenticated === false) {
+      navigate('/auth', { replace: true });
     }
-    checkAuth();
-    return () => { cancelled = true; };
-  }, [location.pathname, navigate]);
+  }, [companionAuth.isAuthenticated, navigate]);
 
   // Listen for auth-expired events from the backend (Tauri-only)
   useEffect(() => {
@@ -275,7 +260,7 @@ function AppContent() {
   }
 
   // In browser mode, wait for auth check before rendering main app
-  if (!browserAuthChecked) {
+  if (!isTauri && companionAuth.isAuthenticated !== true) {
     return null;
   }
 

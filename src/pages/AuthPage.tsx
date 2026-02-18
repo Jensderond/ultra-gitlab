@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import useCompanionAuth from '../hooks/useCompanionAuth';
 import './AuthPage.css';
 
 export default function AuthPage() {
@@ -16,27 +17,17 @@ export default function AuthPage() {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(true);
+  const companionAuth = useCompanionAuth();
+  const checkingSession = companionAuth.isChecking;
   const inputRef = useRef<HTMLInputElement>(null);
   const autoAuthAttempted = useRef(false);
 
-  // Check if already authenticated by making a lightweight API call
+  // If already authenticated, redirect to MR list
   useEffect(() => {
-    async function checkSession() {
-      try {
-        const res = await fetch('/api/instances', { credentials: 'include' });
-        if (res.ok) {
-          // Already authenticated — go straight to MR list
-          navigate('/mrs', { replace: true });
-          return;
-        }
-      } catch {
-        // Server not reachable or not authenticated — show PIN form
-      }
-      setCheckingSession(false);
+    if (companionAuth.isAuthenticated === true) {
+      navigate('/mrs', { replace: true });
     }
-    checkSession();
-  }, [navigate]);
+  }, [companionAuth.isAuthenticated, navigate]);
 
   // Submit PIN to the verify endpoint
   const submitPin = useCallback(async (pinValue: string) => {
