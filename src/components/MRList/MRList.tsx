@@ -35,6 +35,8 @@ interface MRListProps {
   onFocusChange?: (index: number) => void;
   /** Callback when MRs are loaded/refreshed (for parent state sync) */
   onMRsLoaded?: (mrs: MergeRequest[]) => void;
+  /** Increment to trigger a manual refresh from parent */
+  refreshTrigger?: number;
 }
 
 /**
@@ -47,6 +49,7 @@ export default function MRList({
   focusIndex = 0,
   onFocusChange,
   onMRsLoaded,
+  refreshTrigger = 0,
 }: MRListProps) {
   const [mrs, setMrs] = useState<MergeRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,6 +137,14 @@ export default function MRList({
   useEffect(() => {
     loadMRs(false);
   }, [loadMRs]);
+
+  // Manual refresh from parent
+  const initialTrigger = useRef(refreshTrigger);
+  useEffect(() => {
+    if (refreshTrigger !== initialTrigger.current) {
+      loadMRs(false);
+    }
+  }, [refreshTrigger, loadMRs]);
 
   // Re-fetch on mr-updated events (debounced at 500ms to handle bursts)
   useEffect(() => {

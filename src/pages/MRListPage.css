@@ -131,6 +131,50 @@
   50% { opacity: 0.6; height: 18px; }
 }
 
+/* Header title + refresh grouped together */
+.header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Refresh button — subtle, inline with header */
+.refresh-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin-left: 8px;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.refresh-button:hover {
+  color: var(--accent-color);
+  border-color: var(--border-color);
+  background: var(--overlay-glass);
+}
+
+.refresh-button svg {
+  transition: transform 0.3s ease;
+}
+
+.refresh-button:active svg {
+  transform: rotate(180deg);
+}
+
+.refresh-button:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px var(--wave-glow);
+}
+
 /* Instance selector — minimal, inline with header */
 .instance-selector {
   padding: 7px 32px 7px 12px;
