@@ -88,6 +88,23 @@ export default function CommandPalette({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const prevQueryRef = useRef(query);
+  const prevIsOpenRef = useRef(isOpen);
+
+  // Reset selection when query changes (derived state, computed during render)
+  if (query !== prevQueryRef.current) {
+    prevQueryRef.current = query;
+    if (selectedIndex !== 0) {
+      setSelectedIndex(0);
+    }
+  }
+
+  // Reset state when palette opens (derived from isOpen transition)
+  if (isOpen && !prevIsOpenRef.current) {
+    if (query !== '') setQuery('');
+    if (selectedIndex !== 0) setSelectedIndex(0);
+  }
+  prevIsOpenRef.current = isOpen;
 
   // Filter and sort commands by fuzzy match score
   const filteredCommands = useMemo(() => {
@@ -117,16 +134,9 @@ export default function CommandPalette({
     return scored.map(({ cmd }) => cmd);
   }, [commands, query]);
 
-  // Reset selection when query changes
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [query]);
-
   // Focus input when opened
   useEffect(() => {
     if (isOpen) {
-      setQuery('');
-      setSelectedIndex(0);
       // Small delay to ensure modal is rendered
       requestAnimationFrame(() => {
         inputRef.current?.focus();
