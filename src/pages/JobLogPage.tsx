@@ -8,7 +8,7 @@
  * and appends new content. Polls job status every 10s to detect completion.
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useReducer, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
 import { openExternalUrl } from '../services/transport';
@@ -114,6 +114,50 @@ function LogSectionBlock({
   );
 }
 
+interface JobLogState {
+  trace: string;
+  loading: boolean;
+  error: string | null;
+  currentStatus: PipelineJobStatus;
+  followMode: boolean;
+  collapsedSections: Set<string>;
+}
+
+type JobLogAction =
+  | { type: 'TRACE_LOADED'; trace: string }
+  | { type: 'LOAD_ERROR'; error: string }
+  | { type: 'LOAD_END' }
+  | { type: 'STATUS_CHANGED'; status: PipelineJobStatus }
+  | { type: 'TOGGLE_FOLLOW' }
+  | { type: 'SET_FOLLOW'; follow: boolean }
+  | { type: 'TOGGLE_SECTION'; name: string }
+  | { type: 'INIT_COLLAPSED'; names: Set<string> };
+
+function jobLogReducer(state: JobLogState, action: JobLogAction): JobLogState {
+  switch (action.type) {
+    case 'TRACE_LOADED':
+      return { ...state, trace: action.trace, error: null };
+    case 'LOAD_ERROR':
+      return { ...state, error: action.error };
+    case 'LOAD_END':
+      return { ...state, loading: false };
+    case 'STATUS_CHANGED':
+      return { ...state, currentStatus: action.status };
+    case 'TOGGLE_FOLLOW':
+      return { ...state, followMode: !state.followMode };
+    case 'SET_FOLLOW':
+      return { ...state, followMode: action.follow };
+    case 'TOGGLE_SECTION': {
+      const next = new Set(state.collapsedSections);
+      if (next.has(action.name)) next.delete(action.name);
+      else next.add(action.name);
+      return { ...state, collapsedSections: next };
+    }
+    case 'INIT_COLLAPSED':
+      return { ...state, collapsedSections: action.names };
+  }
+}
+
 export default function JobLogPage() {
   const { projectId, pipelineId, jobId } = useParams<{
     projectId: string;
@@ -137,12 +181,16 @@ export default function JobLogPage() {
   const plid = Number(pipelineId);
   const jid = Number(jobId);
 
-  const [trace, setTrace] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentStatus, setCurrentStatus] = useState<PipelineJobStatus>(initialStatus);
-  const [followMode, setFollowMode] = useState(() => ACTIVE_STATUSES.has(initialStatus));
-  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [state, dispatch] = useReducer(jobLogReducer, {
+    trace: '',
+    loading: true,
+    error: null,
+    currentStatus: initialStatus,
+    followMode: ACTIVE_STATUSES.has(initialStatus),
+    collapsedSections: new Set<string>(),
+  });
+
+  const { trace, loading, error, currentStatus, followMode, collapsedSections } = state;
 
   const isActive = ACTIVE_STATUSES.has(currentStatus);
 
@@ -169,16 +217,11 @@ export default function JobLogPage() {
         collapsed.add(entry.data.name);
       }
     }
-    if (collapsed.size > 0) setCollapsedSections(collapsed);
+    if (collapsed.size > 0) dispatch({ type: 'INIT_COLLAPSED', names: collapsed });
   }, [parsedLog]);
 
   const toggleSection = useCallback((name: string) => {
-    setCollapsedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
+    dispatch({ type: 'TOGGLE_SECTION', name });
   }, []);
 
   const backParams = new URLSearchParams({ instance: String(instanceId) });
@@ -192,14 +235,13 @@ export default function JobLogPage() {
     if (!instanceId || !pid || !jid) return;
     try {
       const result = await getJobTrace(instanceId, pid, jid);
-      setTrace(result);
+      dispatch({ type: 'TRACE_LOADED', trace: result });
       traceLenRef.current = result.length;
-      setError(null);
     } catch (err) {
       console.error('Failed to load job trace:', err);
-      setError('Failed to load job trace');
+      dispatch({ type: 'LOAD_ERROR', error: 'Failed to load job trace' });
     } finally {
-      setLoading(false);
+      dispatch({ type: 'LOAD_END' });
     }
   }, [instanceId, pid, jid]);
 
@@ -218,7 +260,7 @@ export default function JobLogPage() {
             const full = await getJobTrace(instanceId, pid, jid);
             if (full.length > traceLenRef.current) {
               traceLenRef.current = full.length;
-              setTrace(full);
+              dispatch({ type: 'TRACE_LOADED', trace: full });
             }
           } catch {
             // Non-critical — will retry next poll
@@ -243,7 +285,7 @@ export default function JobLogPage() {
             const jobs = await getPipelineJobs(instanceId, pid, plid);
             const thisJob = jobs.find((j) => j.id === jid);
             if (thisJob && thisJob.status !== currentStatus) {
-              setCurrentStatus(thisJob.status);
+              dispatch({ type: 'STATUS_CHANGED', status: thisJob.status });
             }
           } catch {
             // Non-critical
@@ -267,7 +309,7 @@ export default function JobLogPage() {
           getJobTrace(instanceId, pid, jid).then((full) => {
             if (full.length > traceLenRef.current) {
               traceLenRef.current = full.length;
-              setTrace(full);
+              dispatch({ type: 'TRACE_LOADED', trace: full });
             }
           }).catch(() => {});
         }
@@ -296,7 +338,7 @@ export default function JobLogPage() {
       if (isAutoScrollingRef.current) return;
       const { scrollTop, scrollHeight, clientHeight } = el!;
       const atBottom = scrollHeight - scrollTop - clientHeight < 30;
-      setFollowMode(atBottom);
+      dispatch({ type: 'SET_FOLLOW', follow: atBottom });
     }
 
     el.addEventListener('scroll', handleScroll, { passive: true });
@@ -352,7 +394,7 @@ export default function JobLogPage() {
         <div className="job-log-header-right">
           <button
             className={`job-log-follow-btn${followMode ? ' job-log-follow-btn--active' : ''}`}
-            onClick={() => setFollowMode((f) => !f)}
+            onClick={() => dispatch({ type: 'TOGGLE_FOLLOW' })}
             title={followMode ? 'Disable auto-scroll' : 'Enable auto-scroll'}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">

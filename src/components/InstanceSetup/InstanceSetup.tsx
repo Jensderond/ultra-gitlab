@@ -4,7 +4,7 @@
  * Handles adding a new GitLab instance with URL and token validation.
  */
 
-import { useState } from 'react';
+import { useReducer } from 'react';
 import { addGitLabInstance } from '../../services/gitlab';
 import './InstanceSetup.css';
 
@@ -15,32 +15,66 @@ interface InstanceSetupProps {
   onCancel: () => void;
 }
 
+interface SetupState {
+  url: string;
+  token: string;
+  name: string;
+  loading: boolean;
+  error: string | null;
+  success: string | null;
+}
+
+type SetupAction =
+  | { type: 'SET_FIELD'; field: 'url' | 'token' | 'name'; value: string }
+  | { type: 'SUBMIT_START' }
+  | { type: 'SUBMIT_SUCCESS'; message: string }
+  | { type: 'SUBMIT_ERROR'; error: string }
+  | { type: 'SUBMIT_END' };
+
+function setupReducer(state: SetupState, action: SetupAction): SetupState {
+  switch (action.type) {
+    case 'SET_FIELD':
+      return { ...state, [action.field]: action.value };
+    case 'SUBMIT_START':
+      return { ...state, loading: true, error: null };
+    case 'SUBMIT_SUCCESS':
+      return { ...state, success: action.message };
+    case 'SUBMIT_ERROR':
+      return { ...state, error: action.error };
+    case 'SUBMIT_END':
+      return { ...state, loading: false };
+  }
+}
+
 /**
  * Form for adding a new GitLab instance.
  */
 export default function InstanceSetup({ onComplete, onCancel }: InstanceSetupProps) {
-  const [url, setUrl] = useState('');
-  const [token, setToken] = useState('');
-  const [name, setName] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(setupReducer, {
+    url: '',
+    token: '',
+    name: '',
+    loading: false,
+    error: null,
+    success: null,
+  });
+
+  const { url, token, name, loading, error, success } = state;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     if (!url.trim()) {
-      setError('URL is required');
+      dispatch({ type: 'SUBMIT_ERROR', error: 'URL is required' });
       return;
     }
     if (!token.trim()) {
-      setError('Personal Access Token is required');
+      dispatch({ type: 'SUBMIT_ERROR', error: 'Personal Access Token is required' });
       return;
     }
 
     try {
-      setLoading(true);
-      setError(null);
+      dispatch({ type: 'SUBMIT_START' });
 
       const result = await addGitLabInstance({
         url: url.trim(),
@@ -48,16 +82,16 @@ export default function InstanceSetup({ onComplete, onCancel }: InstanceSetupPro
         name: name.trim() || undefined,
       });
 
-      setSuccess(`Successfully connected as ${result.username}`);
+      dispatch({ type: 'SUBMIT_SUCCESS', message: `Successfully connected as ${result.username}` });
 
       // Brief delay to show success message
       setTimeout(() => {
         onComplete();
       }, 1000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add instance');
+      dispatch({ type: 'SUBMIT_ERROR', error: err instanceof Error ? err.message : 'Failed to add instance' });
     } finally {
-      setLoading(false);
+      dispatch({ type: 'SUBMIT_END' });
     }
   }
 
@@ -73,7 +107,7 @@ export default function InstanceSetup({ onComplete, onCancel }: InstanceSetupPro
             type="text"
             placeholder="https://gitlab.com"
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'url', value: e.target.value })}
             disabled={loading}
             autoFocus
           />
@@ -89,7 +123,7 @@ export default function InstanceSetup({ onComplete, onCancel }: InstanceSetupPro
             type="password"
             placeholder="glpat-..."
             value={token}
-            onChange={(e) => setToken(e.target.value)}
+            onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'token', value: e.target.value })}
             disabled={loading}
           />
           <span className="form-help">
@@ -105,7 +139,7 @@ export default function InstanceSetup({ onComplete, onCancel }: InstanceSetupPro
             type="text"
             placeholder="Work GitLab"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'name', value: e.target.value })}
             disabled={loading}
           />
           <span className="form-help">

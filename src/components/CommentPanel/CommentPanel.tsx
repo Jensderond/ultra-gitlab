@@ -4,7 +4,7 @@
  * Shows general comments and inline comments organized by discussion threads.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useReducer, useEffect, useCallback } from 'react';
 import type { Comment } from '../../types';
 import { invoke } from '../../services/tauri';
 import CommentThread from './CommentThread';
@@ -18,6 +18,45 @@ interface CommentPanelProps {
   filePath?: string;
   /** Called when comments change */
   onCommentsChange?: (comments: Comment[]) => void;
+}
+
+interface CommentPanelState {
+  comments: Comment[];
+  loading: boolean;
+  error: string | null;
+  submitting: boolean;
+  replyingTo: string | null;
+}
+
+type CommentPanelAction =
+  | { type: 'FETCH_START' }
+  | { type: 'FETCH_SUCCESS'; comments: Comment[] }
+  | { type: 'FETCH_ERROR'; error: string }
+  | { type: 'SUBMIT_START' }
+  | { type: 'SUBMIT_END' }
+  | { type: 'REPLY_START'; discussionId: string }
+  | { type: 'REPLY_END' }
+  | { type: 'SET_ERROR'; error: string };
+
+function commentPanelReducer(state: CommentPanelState, action: CommentPanelAction): CommentPanelState {
+  switch (action.type) {
+    case 'FETCH_START':
+      return { ...state, loading: true, error: null };
+    case 'FETCH_SUCCESS':
+      return { ...state, loading: false, comments: action.comments };
+    case 'FETCH_ERROR':
+      return { ...state, loading: false, error: action.error };
+    case 'SUBMIT_START':
+      return { ...state, submitting: true };
+    case 'SUBMIT_END':
+      return { ...state, submitting: false };
+    case 'REPLY_START':
+      return { ...state, replyingTo: action.discussionId };
+    case 'REPLY_END':
+      return { ...state, replyingTo: null };
+    case 'SET_ERROR':
+      return { ...state, error: action.error };
+  }
 }
 
 /**
@@ -44,28 +83,29 @@ export default function CommentPanel({
   filePath,
   onCommentsChange,
 }: CommentPanelProps) {
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(commentPanelReducer, {
+    comments: [],
+    loading: true,
+    error: null,
+    submitting: false,
+    replyingTo: null,
+  });
+
+  const { comments, loading, error, submitting, replyingTo } = state;
 
   // Fetch comments
   const fetchComments = useCallback(async () => {
     try {
-      setLoading(true);
-      setError(null);
+      dispatch({ type: 'FETCH_START' });
 
       const result = filePath
         ? await invoke<Comment[]>('get_file_comments', { mrId, filePath })
         : await invoke<Comment[]>('get_comments', { mrId });
 
-      setComments(result);
+      dispatch({ type: 'FETCH_SUCCESS', comments: result });
       onCommentsChange?.(result);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load comments');
-    } finally {
-      setLoading(false);
+      dispatch({ type: 'FETCH_ERROR', error: e instanceof Error ? e.message : 'Failed to load comments' });
     }
   }, [mrId, filePath, onCommentsChange]);
 
@@ -76,30 +116,30 @@ export default function CommentPanel({
   // Add a new general comment
   const handleAddComment = async (body: string) => {
     try {
-      setSubmitting(true);
+      dispatch({ type: 'SUBMIT_START' });
       await invoke('add_comment', {
         input: { mrId, body },
       });
       await fetchComments();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to add comment');
+      dispatch({ type: 'SET_ERROR', error: e instanceof Error ? e.message : 'Failed to add comment' });
     } finally {
-      setSubmitting(false);
+      dispatch({ type: 'SUBMIT_END' });
     }
   };
 
   // Reply to a discussion
   const handleReply = async (discussionId: string, parentId: number, body: string) => {
     try {
-      setReplyingTo(discussionId);
+      dispatch({ type: 'REPLY_START', discussionId });
       await invoke('reply_to_comment', {
         input: { mrId, discussionId, parentId, body },
       });
       await fetchComments();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to reply');
+      dispatch({ type: 'SET_ERROR', error: e instanceof Error ? e.message : 'Failed to reply' });
     } finally {
-      setReplyingTo(null);
+      dispatch({ type: 'REPLY_END' });
     }
   };
 
@@ -111,7 +151,7 @@ export default function CommentPanel({
       });
       await fetchComments();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to resolve');
+      dispatch({ type: 'SET_ERROR', error: e instanceof Error ? e.message : 'Failed to resolve' });
     }
   };
 

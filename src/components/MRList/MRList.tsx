@@ -4,7 +4,7 @@
  * Displays a list of merge requests with filtering and selection.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useReducer, useEffect, useCallback, useRef } from 'react';
 import { tauriListen } from '../../services/transport';
 import { listMergeRequests } from '../../services/gitlab';
 import type { MergeRequest } from '../../types';
@@ -39,6 +39,52 @@ interface MRListProps {
   refreshTrigger?: number;
 }
 
+interface MRListState {
+  mrs: MergeRequest[];
+  loading: boolean;
+  error: string | null;
+  lastSyncedAt: number | null;
+  newMrIds: Set<number>;
+  syncStatus: 'idle' | 'syncing' | 'success' | 'error';
+}
+
+type MRListAction =
+  | { type: 'FETCH_START'; isBackground: boolean }
+  | { type: 'FETCH_SUCCESS'; mrs: MergeRequest[]; newMrIds: Set<number>; timestamp: number }
+  | { type: 'FETCH_ERROR'; error: string }
+  | { type: 'LOAD_END' }
+  | { type: 'SYNC_IDLE' }
+  | { type: 'CLEAR_NEW_MRS' };
+
+function mrListReducer(state: MRListState, action: MRListAction): MRListState {
+  switch (action.type) {
+    case 'FETCH_START':
+      return {
+        ...state,
+        loading: action.isBackground ? state.loading : true,
+        syncStatus: 'syncing',
+        error: null,
+      };
+    case 'FETCH_SUCCESS':
+      return {
+        ...state,
+        mrs: action.mrs,
+        loading: false,
+        lastSyncedAt: action.timestamp,
+        syncStatus: 'success',
+        newMrIds: action.newMrIds.size > 0 ? action.newMrIds : state.newMrIds,
+      };
+    case 'FETCH_ERROR':
+      return { ...state, error: action.error, loading: false, syncStatus: 'error' };
+    case 'LOAD_END':
+      return { ...state, loading: false };
+    case 'SYNC_IDLE':
+      return { ...state, syncStatus: 'idle' };
+    case 'CLEAR_NEW_MRS':
+      return { ...state, newMrIds: new Set() };
+  }
+}
+
 /**
  * Merge request list component with filtering.
  */
@@ -51,12 +97,16 @@ export default function MRList({
   onMRsLoaded,
   refreshTrigger = 0,
 }: MRListProps) {
-  const [mrs, setMrs] = useState<MergeRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
-  const [newMrIds, setNewMrIds] = useState<Set<number>>(new Set());
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [state, dispatch] = useReducer(mrListReducer, {
+    mrs: [],
+    loading: true,
+    error: null,
+    lastSyncedAt: null,
+    newMrIds: new Set<number>(),
+    syncStatus: 'idle',
+  });
+
+  const { mrs, loading, error, lastSyncedAt, newMrIds, syncStatus } = state;
   const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const previousMrIdsRef = useRef<Set<number>>(new Set());
 
@@ -76,42 +126,35 @@ export default function MRList({
     const startTime = performance.now();
 
     try {
-      if (!isBackgroundRefresh) {
-        setLoading(true);
-      }
-      setSyncStatus('syncing');
-      setError(null);
+      dispatch({ type: 'FETCH_START', isBackground: isBackgroundRefresh });
 
       const data = await listMergeRequests(instanceId, { state: 'opened' });
       // Filter out MRs the user has already approved
       const filteredData = data.filter(mr => !mr.userHasApproved);
 
       // Track newly added MRs (only on background refresh)
+      let detectedNewIds = new Set<number>();
       if (isBackgroundRefresh && previousMrIdsRef.current.size > 0) {
         const currentIds = new Set(filteredData.map(mr => mr.id));
-        const newIds = new Set<number>();
         for (const id of currentIds) {
           if (!previousMrIdsRef.current.has(id)) {
-            newIds.add(id);
+            detectedNewIds.add(id);
           }
         }
-        if (newIds.size > 0) {
-          setNewMrIds(newIds);
+        if (detectedNewIds.size > 0) {
           // Clear the "new" indicator after 5 seconds
-          setTimeout(() => setNewMrIds(new Set()), 5000);
+          setTimeout(() => dispatch({ type: 'CLEAR_NEW_MRS' }), 5000);
         }
       }
 
       // Update previous MR IDs ref
       previousMrIdsRef.current = new Set(filteredData.map(mr => mr.id));
 
-      setMrs(filteredData);
+      dispatch({ type: 'FETCH_SUCCESS', mrs: filteredData, newMrIds: detectedNewIds, timestamp: Date.now() });
       onMRsLoaded?.(filteredData);
-      setLastSyncedAt(Date.now());
-      setSyncStatus('success');
 
       // Reset success status after a brief moment
-      setTimeout(() => setSyncStatus('idle'), 2000);
+      setTimeout(() => dispatch({ type: 'SYNC_IDLE' }), 2000);
 
       // Log performance
       const duration = performance.now() - startTime;
@@ -122,14 +165,11 @@ export default function MRList({
         }`
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load merge requests');
-      setSyncStatus('error');
+      dispatch({ type: 'FETCH_ERROR', error: err instanceof Error ? err.message : 'Failed to load merge requests' });
 
       // Log performance even on error
       const duration = performance.now() - startTime;
       console.log(`[Performance] MR list load failed: ${duration.toFixed(1)}ms`);
-    } finally {
-      setLoading(false);
     }
   }, [instanceId, onMRsLoaded]);
 
