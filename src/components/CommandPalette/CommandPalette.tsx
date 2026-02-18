@@ -222,7 +222,7 @@ export default function CommandPalette({
   }
 
   return (
-    <div className="command-palette-overlay" onClick={onClose}>
+    <div className="command-palette-overlay" onClick={onClose} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClose(); }} role="button" tabIndex={0} aria-label="Close command palette">
       <div
         className="command-palette"
         onClick={(e) => e.stopPropagation()}
@@ -253,7 +253,11 @@ export default function CommandPalette({
                       key={cmd.id}
                       className={`command-item ${globalIdx === selectedIndex ? 'selected' : ''}`}
                       onClick={() => executeCommand(cmd)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); executeCommand(cmd); } }}
                       onMouseEnter={() => setSelectedIndex(globalIdx)}
+                      role="option"
+                      aria-selected={globalIdx === selectedIndex}
+                      tabIndex={-1}
                     >
                       <div className="command-item-content">
                         <span className="command-label">{cmd.label}</span>

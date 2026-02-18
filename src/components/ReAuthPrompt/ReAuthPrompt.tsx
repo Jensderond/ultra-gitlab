@@ -59,6 +59,7 @@ export default function ReAuthPrompt({
     <div
       className={`reauth-prompt-overlay ${isDismissing ? 'dismissing' : ''}`}
       onClick={handleBackdropClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleDismiss(); }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="reauth-title"

@@ -82,9 +82,11 @@ export default function CommandItem({
     <div
       className={`command-item-wrapper ${isSelected ? 'selected' : ''}`}
       onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
       onMouseEnter={onMouseEnter}
       role="option"
       aria-selected={isSelected}
+      tabIndex={-1}
     >
       <div className="command-item-main">
         <span className="command-item-label">{command.label}</span>

@@ -259,6 +259,14 @@
 }
 
 /* Section header (clickable) */
+button.log-section-header {
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+}
+
 .log-section-header {
   display: flex;
   align-items: center;

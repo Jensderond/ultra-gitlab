@@ -62,7 +62,7 @@ export default function KeyboardHelp({ isOpen, onClose, pathname }: KeyboardHelp
   const activeContexts = new Set(getContextsForRoute(pathname));
 
   return (
-    <div className="keyboard-help-overlay" onClick={onClose}>
+    <div className="keyboard-help-overlay" onClick={onClose} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClose(); }} role="button" tabIndex={0} aria-label="Close keyboard help">
       <div
         className="keyboard-help-modal"
         onClick={(e) => e.stopPropagation()}

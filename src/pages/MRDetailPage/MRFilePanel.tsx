@@ -31,7 +31,7 @@ export default function MRFilePanel({
   return (
     <>
       {mobileSidebarOpen && isSmallScreen && (
-        <div className="mobile-sidebar-backdrop" onClick={onCloseMobileSidebar} />
+        <div className="mobile-sidebar-backdrop" onClick={onCloseMobileSidebar} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onCloseMobileSidebar(); }} role="button" tabIndex={0} aria-label="Close sidebar" />
       )}
       <aside className={`mr-detail-sidebar${mobileSidebarOpen ? ' mobile-open' : ''}`}>
         <FileNavigation

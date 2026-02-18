@@ -20,7 +20,7 @@ export default function JobRow({ job, loading, onPlay, onRetry, onCancel, onNavi
   return (
     <div className={`pipeline-job-row pipeline-job-row--${job.status}`}>
       <span className={`pipeline-job-status-dot pipeline-job-status-dot--${job.status}`} />
-      <div className="pipeline-job-info pipeline-job-info--clickable" onClick={() => onNavigate(job)}>
+      <button type="button" className="pipeline-job-info pipeline-job-info--clickable" onClick={() => onNavigate(job)}>
         <span className="pipeline-job-name">
           {job.name}
           {job.allowFailure && <span className="pipeline-job-allow-failure" title="Allowed to fail">!</span>}
@@ -41,7 +41,7 @@ export default function JobRow({ job, loading, onPlay, onRetry, onCancel, onNavi
             </span>
           )}
         </div>
-      </div>
+      </button>
       <div className="pipeline-job-actions">
         {canPlay && (
           <button

@@ -422,6 +422,13 @@
   gap: 2px;
 }
 
+button.pipeline-job-info--clickable {
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
 .pipeline-job-info--clickable {
   cursor: pointer;
   border-radius: 4px;

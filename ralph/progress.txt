@@ -260,3 +260,45 @@
   - DiffViewer is not actually used by any consumer (MR pages use MonacoDiffViewer instead) — but restructuring it still improves maintainability and sets a pattern for the codebase
   - The keyboard hook uses a single `optionsRef` pattern (update `.current` every render) — simpler than the split ref approach
 ---
+
+## 2026-02-18 - US-015
+- Consolidated useState calls into useReducer in 5 files:
+  - `CommentPanel.tsx`: 5 useState → useReducer with 8 action types (FETCH_START/SUCCESS/ERROR, SUBMIT_START/END, REPLY_START/END, SET_ERROR)
+  - `InstanceSetup.tsx`: 6 useState → useReducer with SET_FIELD (typed field union), SUBMIT_START/SUCCESS/ERROR/END
+  - `JobLogPage.tsx`: 6 useState → useReducer with TRACE_LOADED, LOAD_ERROR/END, STATUS_CHANGED, TOGGLE_FOLLOW/SET_FOLLOW, TOGGLE_SECTION/INIT_COLLAPSED
+  - `MRList.tsx`: 6 useState → useReducer with FETCH_START (background flag), FETCH_SUCCESS (batches mrs/newMrIds/timestamp), FETCH_ERROR, SYNC_IDLE, CLEAR_NEW_MRS
+  - `ThemeProvider.tsx`: 3 useState → useReducer with INIT (batches theme/uiFont/customColors in one dispatch), SET_THEME, SET_UI_FONT, SAVE_CUSTOM, DELETE_CUSTOM
+- Files changed: `CommentPanel.tsx`, `InstanceSetup.tsx`, `JobLogPage.tsx`, `MRList.tsx`, `ThemeProvider.tsx`
+- **Learnings for future iterations:**
+  - For form components like InstanceSetup, a `SET_FIELD` action with a typed `field` union (`'url' | 'token' | 'name'`) using computed property names (`[action.field]: action.value`) is cleaner than per-field actions
+  - The key benefit of useReducer in MRList is the FETCH_SUCCESS action — it batches 5 setState calls (mrs, loading, lastSyncedAt, syncStatus, newMrIds) into one dispatch, eliminating the multi-setState pattern
+  - ThemeProvider's INIT action eliminates 3 separate setState calls in the mount useEffect — all resolved values are computed first, then dispatched in one action
+  - `Set<string>` fields in reducers need `new Set(state.field)` to create a copy before mutation, same pattern as in earlier story reducers
+  - The tick useState for MRList's sync time display (`const [, setTick] = useState(0)`) stays separate since it's genuinely unrelated to the data state
+---
+
+## 2026-02-18 - US-016
+- Converted clickable div/span elements to semantic buttons or added keyboard accessibility across 10 files
+- **Converted to `<button>`:**
+  - `JobLogPage.tsx`: `.log-section-header` div → `<button>` with `aria-expanded`
+  - `PipelineDetailPage/JobRow.tsx`: `.pipeline-job-info--clickable` div → `<button>`
+- **Added `role`/keyboard handlers to existing divs:**
+  - `KeyboardHelp.tsx`: overlay div → `role="button"` + `onKeyDown` + `tabIndex={0}` + `aria-label`
+  - `CommandPalette.tsx`: overlay div → `role="button"` + `onKeyDown` + `tabIndex={0}` + `aria-label`
+  - `CommandPalette.tsx`: command items → `role="option"` + `aria-selected` + `onKeyDown` + `tabIndex={-1}`
+  - `CommandItem.tsx`: wrapper div → added `onKeyDown` + `tabIndex={-1}` (already had `role="option"`)
+  - `ReAuthPrompt.tsx`: overlay div → added `onKeyDown` (already had `role="dialog"`)
+  - `MRFilePanel.tsx`: backdrop div → `role="button"` + `onKeyDown` + `tabIndex={0}` + `aria-label`
+- **Added ARIA to ImageDiffViewer:**
+  - Swipe handle div → `role="slider"` + `aria-label` + `aria-valuemin/max/now` + `tabIndex={0}` + `onKeyDown` (ArrowLeft/Right keyboard control)
+- **CSS button resets:**
+  - `JobLogPage.css`: added `button.log-section-header` reset (border, font, color, text-align, width)
+  - `PipelineDetailPage.css`: added `button.pipeline-job-info--clickable` reset
+- Files changed: `CommandPalette.tsx`, `CommandItem.tsx`, `KeyboardHelp.tsx`, `ReAuthPrompt.tsx`, `ImageDiffViewer.tsx`, `MRFilePanel.tsx`, `JobRow.tsx`, `JobLogPage.tsx`, `JobLogPage.css`, `PipelineDetailPage.css`
+- **Learnings for future iterations:**
+  - Overlay/backdrop divs should get `role="button"` + `onKeyDown` + `tabIndex={0}` + `aria-label` when they have onClick — even though keyboard Escape is already handled, the click handler itself needs keyboard parity
+  - Command palette items inside a listbox use `role="option"` + `tabIndex={-1}` (not `role="button"`) since the parent manages focus
+  - Swipe/drag handles benefit from `role="slider"` with arrow key control rather than `role="button"` — slider gives the right semantics and allows fine-grained keyboard interaction
+  - When converting a `<div>` to `<button>`, always add CSS reset: `border: none; font: inherit; color: inherit; text-align: left;` (and `width: 100%` for block-level elements)
+  - The ReAuthPrompt already had `role="dialog"` which is correct — just needed `onKeyDown` for the backdrop click parity
+---

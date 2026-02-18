@@ -297,6 +297,16 @@ export function ImageDiffViewer({
                 className="image-diff-swipe-handle"
                 style={{ left: `${swipePosition}%` }}
                 onMouseDown={handleSwipeStart}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowLeft') { e.preventDefault(); setSwipePosition((p) => Math.max(0, p - 2)); }
+                  else if (e.key === 'ArrowRight') { e.preventDefault(); setSwipePosition((p) => Math.min(100, p + 2)); }
+                }}
+                role="slider"
+                aria-label="Image comparison position"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(swipePosition)}
+                tabIndex={0}
               >
                 <div className="image-diff-swipe-handle-line" />
                 <div className="image-diff-swipe-handle-grip">

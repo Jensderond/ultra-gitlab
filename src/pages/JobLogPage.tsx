@@ -96,13 +96,13 @@ function LogSectionBlock({
   // showTimestamp is passed through to child LogLineRows
   return (
     <div className={`log-section${expanded ? ' log-section--expanded' : ''}`}>
-      <div className="log-section-header" onClick={onToggle}>
+      <button type="button" className="log-section-header" onClick={onToggle} aria-expanded={expanded}>
         <span className="log-section-chevron">{expanded ? '\u25BE' : '\u25B8'}</span>
         <span className="log-section-name">{formatSectionName(section.name)}</span>
         {section.duration && (
           <span className="log-duration-badge">{section.duration}</span>
         )}
-      </div>
+      </button>
       {expanded && (
         <div className="log-section-body">
           {section.lines.map((line) => (

@@ -244,7 +244,7 @@
         "Typecheck passes"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -260,7 +260,7 @@
         "Typecheck passes"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "notes": "This depends on US-008 through US-014 (component decomposition). Work with the new sub-component files, not the original monolithic files."
     },
     {
