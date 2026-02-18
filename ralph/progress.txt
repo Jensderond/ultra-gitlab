@@ -12,6 +12,9 @@
 - Package manager: bun (not npm/yarn). Typecheck: `bunx tsc --noEmit`.
 
 - When replacing `dangerouslySetInnerHTML` with SVG content, use `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` as an `<img>` src — avoids XSS while preserving visual output.
+- To replace `useEffect(() => setState(x), [dep])` derived state pattern: use a ref to track the previous value and reset during render with guards (e.g., `if (dep !== prevRef.current) { prevRef.current = dep; setState(x); }`).
+- Settings page is now at `src/pages/Settings/` (directory with index.tsx orchestrator). Sub-components are in the same directory. CSS is still at `src/pages/Settings.css`.
+- When decomposing a page: keep the CSS file in its original location, import with `../Settings.css` from the new directory. Delete the old monolithic `.tsx` file so the directory `index.tsx` takes priority.
 
 ---
 
@@ -26,3 +29,101 @@
   - Data URI approach: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}` works well for trusted SVG rendering
 ---
 
+## 2026-02-18 - US-002
+- Created `src/hooks/useCompanionAuth.ts` — encapsulates the `fetch('/api/instances')` session check
+- Hook returns `{ isAuthenticated: boolean | null, isChecking: boolean }`, accepts `skip` param
+- Updated `src/App.tsx` to use `useCompanionAuth(isTauri || location.pathname === '/auth')` instead of inline fetch-in-useEffect
+- Updated `src/pages/AuthPage.tsx` to use `useCompanionAuth()` instead of inline session check
+- Both callers use separate useEffects to react to auth state (navigate on auth result)
+- Files changed: `src/hooks/useCompanionAuth.ts` (new), `src/App.tsx`, `src/pages/AuthPage.tsx`
+- **Learnings for future iterations:**
+  - The two auth checks had subtly different behaviors: App.tsx redirects to `/auth` on failure, AuthPage redirects to `/mrs` on success — the hook must return the raw state so callers can decide
+  - The `skip` parameter is important — App.tsx needs to skip the check when running in Tauri mode or when already on the auth page
+  - `browserAuthChecked` state in App.tsx was initialized to `isTauri` (true in desktop mode) — the replacement uses `!isTauri && companionAuth.isAuthenticated !== true` guard
+---
+
+
+## 2026-02-18 - US-003
+- Replaced two `useEffect` anti-patterns in `CommandPalette.tsx`:
+  1. `useEffect(() => setSelectedIndex(0), [query])` → inline render-time check using `prevQueryRef`
+  2. `useEffect(() => { setQuery(''); setSelectedIndex(0); focus(); }, [isOpen])` → split into: render-time state reset via `prevIsOpenRef` transition detection + retained `useEffect` only for DOM focus
+- Files changed: `src/components/CommandPalette/CommandPalette.tsx`
+- **Learnings for future iterations:**
+  - The "reset state on prop change" useEffect pattern is replaced by tracking previous values with refs and doing conditional setState during render — React handles the re-render correctly
+  - Guard setState calls with value checks (e.g., `if (selectedIndex !== 0)`) to avoid unnecessary re-renders when state already has the target value
+  - DOM side effects (focus, scroll) still need useEffect — only state derivation moves to render
+---
+
+## 2026-02-18 - US-004
+- Replaced array-index keys with stable unique keys in 4 files:
+  - `CommandItem.tsx`: shortcut parts use the part string itself as key (parts are unique within a shortcut)
+  - `Settings.tsx`: pattern list uses `${index}-${pattern}` composite key (patterns can be duplicated/edited)
+  - `DiffViewer.tsx`: null hunks use `loading-${index}`, real hunks use `${oldStart}-${newStart}`
+  - `JobLogPage.tsx`: ANSI segments use text offset as key; log entries use `line-${lineNumber}` or `section-${name}`
+- Files changed: `src/components/CommandPalette/CommandItem.tsx`, `src/pages/Settings.tsx`, `src/components/DiffViewer/DiffViewer.tsx`, `src/pages/JobLogPage.tsx`
+- **Learnings for future iterations:**
+  - For ANSI segments without IDs, accumulating a text offset produces a stable key since segments are parsed deterministically
+  - DiffHunk's `oldStart`/`newStart` pair uniquely identifies a hunk — good stable key
+  - LogEntry lines have `lineNumber`, sections have `name` — both are unique within a parsed log
+  - When items can be duplicated (like editable pattern strings), a composite `${index}-${value}` key is the best compromise
+---
+
+## 2026-02-18 - US-005
+- Removed 11 dead source files (8 .ts/.tsx + 3 .css):
+  - `src/hooks/useSyncStatus.ts` — unused hook
+  - `src/themes/index.ts` — barrel file, other files import theme sub-modules directly
+  - `src/components/InstanceSetup/index.ts` — barrel file, Settings imports InstanceSetup directly
+  - `src/components/Monaco/collapseRegions.ts` — unused utility
+  - `src/components/SyncStatus/` — entire directory removed (PendingActionsIndicator, SyncLogPanel, SyncStatusBar + their CSS + index.ts)
+- Files changed: 11 files deleted, 1257 lines removed
+- **Learnings for future iterations:**
+  - The SyncStatus components formed a self-contained island — all internal imports (useSyncStatus hook, sibling components) were only referenced within the cluster itself. Safe to remove as a unit.
+  - `themes/index.ts` was a dead barrel — other files import specific sub-modules (deriveTheme, types, kanagawa-wave, monacoAdapter) directly
+  - `InstanceSetup/index.ts` was bypassed — Settings imports `InstanceSetup/InstanceSetup` directly
+---
+
+## 2026-02-18 - US-006
+- Replaced barrel import `import { CommentInput } from './index'` with direct import `import CommentInput from './CommentInput'` in InlineComment.tsx
+- Files changed: `src/components/CommentPanel/InlineComment.tsx`
+- **Learnings for future iterations:**
+  - CommentInput uses `export default` — direct import uses default import syntax (no braces), unlike the named re-export from the barrel
+  - The barrel `index.ts` re-exports with `export { default as CommentInput }` — consumers within the same directory should import directly to avoid circular dependency risk and improve tree-shaking
+---
+
+## 2026-02-18 - US-007
+- Converted `renderSegments()` helper in JobLogPage.tsx to a proper named component `AnsiSegments` that returns a fragment with the segment spans
+- Changed `useState(ACTIVE_STATUSES.has(initialStatus))` to lazy initializer `useState(() => ACTIVE_STATUSES.has(initialStatus))`
+- Removed unnecessary `useMemo` wrappers from `unresolvedCount` and `approvedCount` in MyMRDetailPage.tsx — these were trivially cheap `.filter().length` calls
+- DiffLine.tsx:122 `renderHighlightedContent()` referenced in PRD no longer exists — the file is 89 lines with no inline render functions
+- Files changed: `src/pages/JobLogPage.tsx`, `src/pages/MyMRDetailPage.tsx`
+- **Learnings for future iterations:**
+  - When converting a render helper to a component, wrap the returned array in a `<>...</>` fragment
+  - PRD line numbers become stale after previous stories modify files — always search for the actual function/pattern name rather than relying on line numbers
+  - `useMemo` around `.filter().length` on small arrays (reviewers, threads) is unnecessary overhead — only memoize expensive computations
+---
+
+## 2026-02-18 - US-008
+- Decomposed monolithic `src/pages/Settings.tsx` (1505 lines) into `src/pages/Settings/` directory with 12 focused sub-components
+- Created orchestrator `index.tsx` (70 lines) that imports and renders all sections
+- Extracted components:
+  - `UpdatesSection.tsx` (88 lines) — version info and update downloads
+  - `InstancesSection.tsx` (113 lines) — instance list management
+  - `InstanceItem.tsx` (147 lines) — single instance row with inline token editing
+  - `SyncSettingsSection.tsx` (142 lines) — sync interval and scope
+  - `CompanionServerSection.tsx` (210 lines) — companion server toggle, port config
+  - `CompanionActivePanel.tsx` (57 lines) — QR code, PIN, device list when server is on
+  - `CompanionDeviceList.tsx` (55 lines) — authorized device list with revoke
+  - `AppearanceSection.tsx` (212 lines) — theme swatches, custom theme editor, font selector
+  - `NotificationsSection.tsx` (122 lines) — notification toggles
+  - `CollapsePatternsEditor.tsx` (128 lines) — file collapse pattern management
+  - `ShortcutEditor.tsx` (239 lines) — keyboard shortcut customization
+- Deleted old `src/pages/Settings.tsx`
+- CSS stays at `src/pages/Settings.css` (imported via `../Settings.css` from the new directory)
+- `App.tsx` import `'./pages/Settings'` resolves to directory `index.tsx` automatically
+- Files changed: 1 deleted, 12 created
+- **Learnings for future iterations:**
+  - When converting `src/pages/Foo.tsx` to `src/pages/Foo/index.tsx`, existing imports like `'./pages/Foo'` resolve automatically — no import changes needed in consumers
+  - The old `.tsx` file MUST be deleted or it will take priority over the directory's `index.tsx`
+  - Token editing state (editingTokenId, tokenInput, etc.) was lifted to the parent InstancesSection — better to push it down into `InstanceItem` so each item owns its edit state independently
+  - Components like CompanionServerSection that have "enabled" content panels benefit from extracting the active-state content into a separate presentational component
+---
