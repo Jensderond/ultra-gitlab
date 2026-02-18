@@ -11,6 +11,5 @@ pub struct MrReviewer {
     pub username: String,
     /// Status: "approved", "pending", or "changes_requested".
     pub status: String,
-    pub avatar_url: Option<String>,
     pub cached_at: i64,
 }

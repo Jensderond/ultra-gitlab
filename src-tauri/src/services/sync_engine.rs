@@ -1379,14 +1379,13 @@ impl SyncEngine {
 
             if let Err(e) = sqlx::query(
                 r#"
-                INSERT INTO mr_reviewers (mr_id, username, status, avatar_url, cached_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO mr_reviewers (mr_id, username, status, cached_at)
+                VALUES (?, ?, ?, ?)
                 "#,
             )
             .bind(mr_id)
             .bind(&reviewer.username)
             .bind(status)
-            .bind(&reviewer.avatar_url)
             .bind(now())
             .execute(&self.pool)
             .await
@@ -1403,13 +1402,12 @@ impl SyncEngine {
             if !reviewers.iter().any(|r| r.username == approved.user.username) {
                 if let Err(e) = sqlx::query(
                     r#"
-                    INSERT OR IGNORE INTO mr_reviewers (mr_id, username, status, avatar_url, cached_at)
-                    VALUES (?, ?, 'approved', ?, ?)
+                    INSERT OR IGNORE INTO mr_reviewers (mr_id, username, status, cached_at)
+                    VALUES (?, ?, 'approved', ?)
                     "#,
                 )
                 .bind(mr_id)
                 .bind(&approved.user.username)
-                .bind(&approved.user.avatar_url)
                 .bind(now())
                 .execute(&self.pool)
                 .await

@@ -87,7 +87,6 @@ export interface MrReviewer {
   mrId: number;
   username: string;
   status: 'approved' | 'pending' | 'changes_requested';
-  avatarUrl: string | null;
   cachedAt: number;
 }
 

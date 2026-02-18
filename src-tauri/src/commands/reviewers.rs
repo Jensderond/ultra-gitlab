@@ -19,7 +19,7 @@ pub async fn get_mr_reviewers(
 ) -> Result<Vec<MrReviewer>, AppError> {
     let reviewers: Vec<MrReviewer> = sqlx::query_as(
         r#"
-        SELECT mr_id, username, status, avatar_url, cached_at
+        SELECT mr_id, username, status, cached_at
         FROM mr_reviewers
         WHERE mr_id = ?
         ORDER BY username

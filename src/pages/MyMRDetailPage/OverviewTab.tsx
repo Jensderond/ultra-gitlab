@@ -83,13 +83,6 @@ export function OverviewTab({
             {reviewers.map(reviewer => (
               <div key={reviewer.username} className={`my-mr-reviewer-chip ${reviewerStatusClass(reviewer.status)}`}>
                 <div className="my-mr-reviewer-avatar">
-                  {reviewer.avatarUrl && (
-                    <img
-                      src={reviewer.avatarUrl}
-                      alt=""
-                      onError={(e) => { e.currentTarget.hidden = true; }}
-                    />
-                  )}
                   <span>{reviewer.username.charAt(0).toUpperCase()}</span>
                 </div>
                 <span className="my-mr-reviewer-name">{reviewer.username}</span>
