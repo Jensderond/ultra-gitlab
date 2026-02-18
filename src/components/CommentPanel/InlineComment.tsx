@@ -5,7 +5,7 @@
  */
 
 import type { Comment, SyncStatus } from '../../types';
-import { CommentInput } from './index';
+import CommentInput from './CommentInput';
 import './InlineComment.css';
 
 interface InlineCommentProps {
