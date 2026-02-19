@@ -14,6 +14,7 @@ pub async fn send_native_notification(
         .builder()
         .title(&title)
         .body(&body)
+        .sound("default")
         .show()
         .map_err(|e| AppError::internal(format!("Failed to send notification: {}", e)))?;
     Ok(())
