@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
-use tower_http::services::{ServeDir, ServeFile};
+use tower_http::services::ServeDir;
 
 /// Shared state for the companion server's axum routes.
 #[derive(Clone)]
@@ -70,16 +70,26 @@ pub async fn start_companion_server(
         .with_state(companion_state)
         .layer(middleware::from_fn(auth_middleware));
 
+    // Read index.html at startup so the SPA fallback always returns 200.
+    // Using ServeFile as not_found_service can propagate a 404 status code;
+    // serving the content from memory avoids that and is faster (no file I/O per request).
+    let index_html = std::fs::read_to_string(frontend_dist.join("index.html"))
+        .map_err(|e| format!("Failed to read index.html: {}", e))?;
+
     // Build the full router:
     // 1. Auth routes (unprotected) — /api/auth/*
     // 2. Protected API routes — /api/*
-    // 3. Static file fallback for SPA
-    let index_path = frontend_dist.join("index.html");
+    // 3. Static file fallback for SPA — serves index.html for any unknown route
     let app = Router::new()
         .merge(auth_routes(auth_state))
         .merge(api_routes)
         .fallback_service(
-            ServeDir::new(&frontend_dist).not_found_service(ServeFile::new(&index_path)),
+            ServeDir::new(&frontend_dist).not_found_service(
+                axum::routing::any(move || {
+                    let html = index_html.clone();
+                    async move { axum::response::Html(html) }
+                }),
+            ),
         );
 
     let addr = std::net::SocketAddr::from(([0, 0, 0, 0], port));
