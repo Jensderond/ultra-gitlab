@@ -76,14 +76,15 @@ test.describe('Navigation & Sidebar', () => {
 
     await page.keyboard.press('?');
 
-    // Keyboard help dialog should be visible
-    await expect(page.locator('[class*="keyboard-help"]')).toBeVisible();
+    // Keyboard help modal should be visible
+    await expect(page.locator('.keyboard-help-modal')).toBeVisible();
   });
 
   test('titlebar drag region is present in desktop mode', async ({ page }) => {
     await page.goto('/mrs');
 
-    await expect(page.locator('.titlebar-drag-region')).toBeVisible();
+    // In browser mode the drag region exists but is hidden (only visible in Tauri window)
+    await expect(page.locator('.titlebar-drag-region')).toBeAttached();
   });
 
   test('notifications bell is visible in sidebar', async ({ page }) => {
