@@ -87,8 +87,12 @@ function AppContent() {
     };
   }, []);
 
-  // Load pipeline projects for command palette
+  // Load pipeline projects for command palette.
+  // In browser mode, wait until authenticated to avoid 401 spam.
+  const isAuthed = companionAuth.isAuthenticated;
   useEffect(() => {
+    if (!isTauri && isAuthed !== true) return;
+
     async function loadPipelineProjects() {
       try {
         const instances = await listInstances();
@@ -103,7 +107,7 @@ function AppContent() {
       }
     }
     loadPipelineProjects();
-  }, []);
+  }, [isAuthed]);
 
   // Clear auth expired state
   const dismissAuthExpired = useCallback(() => {

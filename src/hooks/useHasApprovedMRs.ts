@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { listInstances } from '../services/gitlab';
 import { listMyMergeRequests } from '../services/tauri';
-import { tauriListen } from '../services/transport';
+import { isTauri, tauriListen } from '../services/transport';
 
 export default function useHasApprovedMRs(): boolean {
   const [hasApproved, setHasApproved] = useState(false);
@@ -29,8 +29,9 @@ export default function useHasApprovedMRs(): boolean {
     }
   }, []);
 
-  // Check on mount
+  // Check on mount — skip in browser mode (companion auth gate handles this)
   useEffect(() => {
+    if (!isTauri) return;
     checkApproved();
   }, [checkApproved]);
 
