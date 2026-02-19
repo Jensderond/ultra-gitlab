@@ -864,7 +864,7 @@ async fn create_gitlab_client(
 ) -> Result<GitLabClient, AppError> {
     let instance: Option<GitLabInstance> = sqlx::query_as(
         r#"
-        SELECT id, url, name, token, created_at, authenticated_username
+        SELECT id, url, name, token, created_at, authenticated_username, session_cookie
         FROM gitlab_instances
         WHERE id = $1
         "#,
