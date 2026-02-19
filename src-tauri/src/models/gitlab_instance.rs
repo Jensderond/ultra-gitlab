@@ -24,6 +24,9 @@ pub struct GitLabInstance {
 
     /// Authenticated username (cached from GitLab API).
     pub authenticated_username: Option<String>,
+
+    /// Session cookie for downloading avatar images.
+    pub session_cookie: Option<String>,
 }
 
 /// Data required to create a new GitLab instance.

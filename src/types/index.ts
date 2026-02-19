@@ -12,6 +12,7 @@ export interface GitLabInstance {
   url: string;
   name: string | null;
   createdAt: number;
+  sessionCookie: string | null;
 }
 
 export interface GitLabInstanceSetup {

@@ -443,6 +443,34 @@
   color: var(--success-color);
 }
 
+/* Session cookie section */
+.session-cookie-section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+}
+
+.session-cookie-status {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.session-cookie-input {
+  resize: vertical;
+  min-height: 40px;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.session-cookie-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  display: block;
+  margin-top: 4px;
+}
+
 /* ================================================
    SYNC SETTINGS
    ================================================ */

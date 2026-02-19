@@ -71,6 +71,7 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("0011_create_notification_settings", include_str!("migrations/0011_create_notification_settings.sql")),
     ("0012_add_head_pipeline_status", include_str!("migrations/0012_add_head_pipeline_status.sql")),
     ("0013_drop_reviewer_avatar_url", include_str!("migrations/0013_drop_reviewer_avatar_url.sql")),
+    ("0014_avatar_cache", include_str!("migrations/0014_avatar_cache.sql")),
 ];
 
 /// Run all pending database migrations.

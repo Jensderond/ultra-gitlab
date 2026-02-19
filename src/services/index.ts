@@ -72,6 +72,10 @@ export {
   startCompanionServer,
   stopCompanionServer,
   getCompanionStatus,
+  getAvatar,
+  getAvatars,
+  updateSessionCookie,
+  refreshAvatars,
 } from './tauri';
 
 // GitLab operations (high-level)

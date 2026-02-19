@@ -6,6 +6,7 @@
 
 import { forwardRef } from 'react';
 import type { MergeRequest, ApprovalStatus } from '../../types';
+import UserAvatar from '../UserAvatar/UserAvatar';
 import './MRListItem.css';
 
 interface MRListItemProps {
@@ -82,7 +83,7 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
 
       <div className="mr-item-meta">
         <span className="mr-author">
-          <span className="mr-author-avatar">{mr.authorUsername.charAt(0).toUpperCase()}</span>
+          <UserAvatar instanceId={mr.instanceId} username={mr.authorUsername} size={20} className="mr-author-avatar" />
           {mr.authorUsername}
         </span>
         <span className="mr-branches">

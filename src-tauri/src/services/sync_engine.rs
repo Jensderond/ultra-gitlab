@@ -629,6 +629,9 @@ impl SyncEngine {
         // Refresh gitattributes cache for projects with MRs (if stale or missing)
         self.refresh_gitattributes_for_projects(instance.id, &mrs).await;
 
+        // Sync user avatars (non-fatal)
+        self.sync_user_avatars(instance, &mrs).await;
+
         // Emit purging event
         self.emit_progress(SyncPhase::Purging, "Purging merged/closed MRs");
 
@@ -976,6 +979,51 @@ impl SyncEngine {
                         e
                     );
                 }
+            }
+        }
+    }
+
+    /// Sync user avatars for MR authors and reviewers.
+    async fn sync_user_avatars(
+        &self,
+        instance: &GitLabInstanceRow,
+        mrs: &[GitLabMergeRequest],
+    ) {
+        use std::collections::HashMap;
+
+        // Collect unique (username, avatar_url) pairs from authors and reviewers
+        let mut users: HashMap<String, Option<String>> = HashMap::new();
+        for mr in mrs {
+            users
+                .entry(mr.author.username.clone())
+                .or_insert_with(|| mr.author.avatar_url.clone());
+            if let Some(reviewers) = &mr.reviewers {
+                for r in reviewers {
+                    users
+                        .entry(r.username.clone())
+                        .or_insert_with(|| r.avatar_url.clone());
+                }
+            }
+        }
+
+        let user_list: Vec<(String, Option<String>)> = users.into_iter().collect();
+
+        match crate::services::avatar::sync_avatars(
+            &self.pool,
+            instance.id,
+            &instance.url,
+            instance.session_cookie.as_deref(),
+            &user_list,
+        )
+        .await
+        {
+            Ok(count) => {
+                if count > 0 {
+                    eprintln!("[sync] Downloaded {} avatar(s) for instance {}", count, instance.id);
+                }
+            }
+            Err(e) => {
+                eprintln!("[sync] Avatar sync error (non-fatal): {}", e);
             }
         }
     }
@@ -1731,7 +1779,7 @@ impl SyncEngine {
     /// Get all GitLab instances from the database.
     async fn get_gitlab_instances(&self) -> Result<Vec<GitLabInstanceRow>, AppError> {
         let instances = sqlx::query_as::<_, GitLabInstanceRow>(
-            "SELECT id, url, name, token FROM gitlab_instances ORDER BY id",
+            "SELECT id, url, name, token, session_cookie FROM gitlab_instances ORDER BY id",
         )
         .fetch_all(&self.pool)
         .await?;
@@ -1823,6 +1871,7 @@ struct GitLabInstanceRow {
     #[allow(dead_code)]
     name: Option<String>,
     token: Option<String>,
+    session_cookie: Option<String>,
 }
 
 /// Extract the project path with namespace from a GitLab MR web URL.

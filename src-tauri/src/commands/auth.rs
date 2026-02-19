@@ -108,7 +108,7 @@ pub async fn get_gitlab_instances(
     pool: State<'_, DbPool>,
 ) -> Result<Vec<GitLabInstanceWithStatus>, AppError> {
     let instances: Vec<GitLabInstance> =
-        sqlx::query_as("SELECT id, url, name, token, created_at, authenticated_username FROM gitlab_instances ORDER BY created_at DESC")
+        sqlx::query_as("SELECT id, url, name, token, created_at, authenticated_username, session_cookie FROM gitlab_instances ORDER BY created_at DESC")
             .fetch_all(pool.inner())
             .await?;
 
@@ -163,7 +163,7 @@ pub async fn get_token_info(
     instance_id: i64,
 ) -> Result<TokenInfoResponse, AppError> {
     let instance: GitLabInstance = sqlx::query_as(
-        "SELECT id, url, name, token, created_at, authenticated_username FROM gitlab_instances WHERE id = $1",
+        "SELECT id, url, name, token, created_at, authenticated_username, session_cookie FROM gitlab_instances WHERE id = $1",
     )
     .bind(instance_id)
     .fetch_optional(pool.inner())
@@ -195,7 +195,7 @@ pub async fn update_instance_token(
     token: String,
 ) -> Result<String, AppError> {
     let instance: GitLabInstance = sqlx::query_as(
-        "SELECT id, url, name, token, created_at, authenticated_username FROM gitlab_instances WHERE id = $1",
+        "SELECT id, url, name, token, created_at, authenticated_username, session_cookie FROM gitlab_instances WHERE id = $1",
     )
     .bind(instance_id)
     .fetch_optional(pool.inner())

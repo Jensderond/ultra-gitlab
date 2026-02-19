@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { formatRelativeTime } from '../../services/storage';
-import { updateInstanceToken } from '../../services/tauri';
+import { updateInstanceToken, updateSessionCookie, refreshAvatars } from '../../services/tauri';
+import { clearAvatarCache } from '../../components/UserAvatar/UserAvatar';
 import type { TokenInfo } from '../../types';
 import type { GitLabInstanceWithStatus } from '../../services/gitlab';
 
@@ -34,6 +35,14 @@ export default function InstanceItem({ inst, tokenInfo, onDelete, onTokenUpdated
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Cookie state
+  const [editingCookie, setEditingCookie] = useState(false);
+  const [cookieInput, setCookieInput] = useState('');
+  const [cookieSaving, setCookieSaving] = useState(false);
+  const [cookieError, setCookieError] = useState<string | null>(null);
+  const [cookieSuccess, setCookieSuccess] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
   function startEdit() {
     setEditing(true);
     setTokenInput('');
@@ -66,6 +75,70 @@ export default function InstanceItem({ inst, tokenInfo, onDelete, onTokenUpdated
       setSaving(false);
     }
   }
+
+  function startCookieEdit() {
+    setEditingCookie(true);
+    setCookieInput('');
+    setCookieError(null);
+    setCookieSuccess(null);
+  }
+
+  function cancelCookieEdit() {
+    setEditingCookie(false);
+    setCookieInput('');
+    setCookieError(null);
+    setCookieSuccess(null);
+  }
+
+  async function handleCookieSave() {
+    if (!cookieInput.trim()) return;
+    try {
+      setCookieSaving(true);
+      setCookieError(null);
+      await updateSessionCookie(inst.id, cookieInput.trim());
+      setCookieSuccess('Session cookie saved');
+      setCookieInput('');
+      setTimeout(() => {
+        cancelCookieEdit();
+        onTokenUpdated(); // refresh instance list to reflect cookie status
+      }, 1500);
+    } catch (err) {
+      setCookieError(err instanceof Error ? err.message : 'Failed to save cookie');
+    } finally {
+      setCookieSaving(false);
+    }
+  }
+
+  async function handleClearCookie() {
+    try {
+      setCookieSaving(true);
+      await updateSessionCookie(inst.id, null);
+      setCookieSuccess('Cookie cleared');
+      onTokenUpdated();
+      setTimeout(() => setCookieSuccess(null), 1500);
+    } catch (err) {
+      setCookieError(err instanceof Error ? err.message : 'Failed to clear cookie');
+    } finally {
+      setCookieSaving(false);
+    }
+  }
+
+  async function handleRefreshAvatars() {
+    try {
+      setRefreshing(true);
+      setCookieError(null);
+      const count = await refreshAvatars(inst.id);
+      clearAvatarCache();
+      setCookieSuccess(`Downloaded ${count} avatar${count === 1 ? '' : 's'}`);
+      setTimeout(() => setCookieSuccess(null), 3000);
+    } catch (err) {
+      setCookieError(err instanceof Error ? err.message : 'Refresh failed');
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  const hasCookie = !!inst.sessionCookie;
 
   return (
     <li className="instance-item">
@@ -132,6 +205,76 @@ export default function InstanceItem({ inst, tokenInfo, onDelete, onTokenUpdated
             Edit Token
           </button>
         )}
+
+        {/* Session Cookie Section */}
+        <div className="session-cookie-section">
+          <span className="session-cookie-status">
+            Avatars: {hasCookie ? 'Cookie set' : 'No cookie'}
+          </span>
+          {editingCookie ? (
+            <div className="edit-token-form">
+              <textarea
+                className="edit-token-input session-cookie-input"
+                value={cookieInput}
+                onChange={(e) => setCookieInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') cancelCookieEdit();
+                }}
+                placeholder="Paste _gitlab_session cookie value..."
+                disabled={cookieSaving}
+                rows={2}
+                autoFocus
+              />
+              <div className="edit-token-actions">
+                <button
+                  className="edit-token-save"
+                  onClick={handleCookieSave}
+                  disabled={cookieSaving || !cookieInput.trim()}
+                >
+                  {cookieSaving ? 'Saving...' : 'Save'}
+                </button>
+                {hasCookie && (
+                  <button
+                    className="edit-token-cancel"
+                    onClick={handleClearCookie}
+                    disabled={cookieSaving}
+                  >
+                    Clear
+                  </button>
+                )}
+                <button
+                  className="edit-token-cancel"
+                  onClick={cancelCookieEdit}
+                  disabled={cookieSaving}
+                >
+                  Cancel
+                </button>
+              </div>
+              <span className="session-cookie-hint">
+                Cookie expires with your browser session. Re-paste after logging in again.
+              </span>
+              {cookieError && <span className="edit-token-error">{cookieError}</span>}
+              {cookieSuccess && <span className="edit-token-success">{cookieSuccess}</span>}
+            </div>
+          ) : (
+            <div className="edit-token-actions">
+              <button className="edit-token-button" onClick={startCookieEdit}>
+                {hasCookie ? 'Update Cookie' : 'Set Session Cookie'}
+              </button>
+              {hasCookie && (
+                <button
+                  className="edit-token-button"
+                  onClick={handleRefreshAvatars}
+                  disabled={refreshing}
+                >
+                  {refreshing ? 'Refreshing...' : 'Refresh Avatars'}
+                </button>
+              )}
+            </div>
+          )}
+          {!editingCookie && cookieError && <span className="edit-token-error">{cookieError}</span>}
+          {!editingCookie && cookieSuccess && <span className="edit-token-success">{cookieSuccess}</span>}
+        </div>
       </div>
       <button
         className="delete-button"

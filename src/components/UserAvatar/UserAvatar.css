@@ -1,0 +1,16 @@
+.user-avatar {
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+
+.user-avatar-initial {
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  font-weight: 600;
+  line-height: 1;
+}

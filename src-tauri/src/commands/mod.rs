@@ -11,6 +11,7 @@
 //! - `diagnostics`: Memory and performance verification
 
 pub mod approval;
+pub mod avatar;
 pub mod auth;
 pub mod comments;
 pub mod companion_server;
@@ -27,6 +28,7 @@ pub mod sync;
 
 // Re-export commands for registration in lib.rs
 pub use approval::{approve_mr, get_approval_status, unapprove_mr};
+pub use avatar::{get_avatar, get_avatars, update_session_cookie, refresh_avatars};
 pub use companion_server::{start_companion_server_cmd, stop_companion_server_cmd};
 pub use companion_settings::{get_companion_settings, get_companion_qr_svg, get_companion_status, update_companion_settings, regenerate_companion_pin, revoke_companion_device};
 pub use auth::{delete_gitlab_instance, get_gitlab_instances, get_token_info, setup_gitlab_instance, update_instance_token};

@@ -4,6 +4,7 @@
 
 import { formatRelativeTime, reviewerStatusClass, reviewerStatusLabel } from './utils';
 import { MergeSection } from './MergeSection';
+import UserAvatar from '../../components/UserAvatar/UserAvatar';
 import type { MergeRequest, MrReviewer } from '../../types';
 import type { MergeState, MergeAction } from './mergeReducer';
 
@@ -83,7 +84,7 @@ export function OverviewTab({
             {reviewers.map(reviewer => (
               <div key={reviewer.username} className={`my-mr-reviewer-chip ${reviewerStatusClass(reviewer.status)}`}>
                 <div className="my-mr-reviewer-avatar">
-                  <span>{reviewer.username.charAt(0).toUpperCase()}</span>
+                  <UserAvatar instanceId={mr.instanceId} username={reviewer.username} size={24} />
                 </div>
                 <span className="my-mr-reviewer-name">{reviewer.username}</span>
                 <span className="my-mr-reviewer-dot" title={reviewerStatusLabel(reviewer.status)} />

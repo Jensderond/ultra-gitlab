@@ -670,3 +670,35 @@ export async function stopCompanionServer(): Promise<void> {
 export async function getCompanionStatus(): Promise<CompanionStatus> {
   return invoke<CompanionStatus>('get_companion_status');
 }
+
+// ============================================================================
+// Avatar Commands
+// ============================================================================
+
+/**
+ * Get a cached avatar data URI for a user.
+ */
+export async function getAvatar(instanceId: number, username: string): Promise<string | null> {
+  return invoke<string | null>('get_avatar', { instanceId, username });
+}
+
+/**
+ * Get cached avatar data URIs for multiple users.
+ */
+export async function getAvatars(instanceId: number, usernames: string[]): Promise<Record<string, string>> {
+  return invoke<Record<string, string>>('get_avatars', { instanceId, usernames });
+}
+
+/**
+ * Store or clear the session cookie for avatar downloads.
+ */
+export async function updateSessionCookie(instanceId: number, sessionCookie: string | null): Promise<void> {
+  return invoke<void>('update_session_cookie', { instanceId, sessionCookie });
+}
+
+/**
+ * Manually refresh all avatars for an instance. Returns count downloaded.
+ */
+export async function refreshAvatars(instanceId: number): Promise<number> {
+  return invoke<number>('refresh_avatars', { instanceId });
+}

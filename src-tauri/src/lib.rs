@@ -11,6 +11,7 @@ pub mod services;
 
 use commands::{
     add_comment, approve_mr, clear_test_data, delete_gitlab_instance, discard_failed_action,
+    get_avatar, get_avatars, update_session_cookie, refresh_avatars,
     get_companion_settings, get_companion_qr_svg, get_companion_status, update_companion_settings, regenerate_companion_pin, revoke_companion_device,
     start_companion_server_cmd, stop_companion_server_cmd,
     generate_test_data, get_action_counts, get_approval_status, get_cache_stats,
@@ -248,6 +249,11 @@ pub fn run() {
             revoke_companion_device,
             start_companion_server_cmd,
             stop_companion_server_cmd,
+            // Avatars
+            get_avatar,
+            get_avatars,
+            update_session_cookie,
+            refresh_avatars,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
