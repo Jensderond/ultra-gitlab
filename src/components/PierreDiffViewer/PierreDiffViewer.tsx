@@ -1,7 +1,7 @@
 import { MultiFileDiff } from '@pierre/diffs/react';
 import type { FileContents } from '@pierre/diffs/react';
-import type { DiffLineAnnotation } from '@pierre/diffs';
-import { useMemo, useCallback, type ReactNode } from 'react';
+import type { DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
+import { useMemo, useCallback, useState, type ReactNode } from 'react';
 
 /** Comment data attached to a diff line annotation. */
 export interface LineComment {
@@ -38,6 +38,8 @@ export interface PierreDiffViewerProps {
   comments?: LineComment[];
   /** Called when a line number is clicked in the diff */
   onLineClick?: (info: DiffLineClickInfo) => void;
+  /** Called when the user selects a line range in the diff */
+  onLineSelected?: (range: SelectedLineRange | null) => void;
 }
 
 /** Map LineComment[] to Pierre DiffLineAnnotation<LineComment>[]. */
@@ -101,8 +103,18 @@ export function PierreDiffViewer({
   sha,
   comments,
   onLineClick,
+  onLineSelected,
 }: PierreDiffViewerProps) {
   const cacheKey = `${mrIid}:${filePath}:${sha}`;
+  const [selectedLines, setSelectedLines] = useState<SelectedLineRange | null>(null);
+
+  const handleLineSelected = useCallback(
+    (range: SelectedLineRange | null) => {
+      setSelectedLines(range);
+      onLineSelected?.(range);
+    },
+    [onLineSelected]
+  );
 
   const oldFile: FileContents = useMemo(
     () => ({
@@ -140,8 +152,10 @@ export function PierreDiffViewer({
       expandUnchanged: true,
       themeType: 'system' as const,
       onLineNumberClick: onLineClick ? handleLineNumberClick : undefined,
+      enableLineSelection: true,
+      onLineSelected: handleLineSelected,
     }),
-    [viewMode, onLineClick, handleLineNumberClick]
+    [viewMode, onLineClick, handleLineNumberClick, handleLineSelected]
   );
 
   const lineAnnotations = useMemo(
@@ -156,6 +170,7 @@ export function PierreDiffViewer({
       options={options}
       lineAnnotations={lineAnnotations}
       renderAnnotation={lineAnnotations ? renderAnnotation : undefined}
+      selectedLines={selectedLines}
     />
   );
 }
