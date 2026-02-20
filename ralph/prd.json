@@ -1,282 +1,169 @@
 {
   "project": "Ultra GitLab",
-  "branchName": "ralph/frontend-health",
-  "description": "Frontend Health Improvements - Fix react-doctor errors, decompose giant components, improve accessibility, and remove dead code to raise score from 83 to 90+",
+  "branchName": "ralph/pierre-diffs",
+  "description": "Replace Monaco editor diff viewer with @pierre/diffs/react and @pierre/diffs/worker for lighter, purpose-built MR diff rendering",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Remove dangerouslySetInnerHTML in Settings",
-      "description": "As a developer, I want to eliminate the XSS risk in Settings so that the app does not render unsanitized HTML.",
+      "title": "Merge Playwright E2E testing infrastructure",
+      "description": "As a developer, I need the Playwright testing infrastructure available on this branch so we can verify diff rendering with E2E tests.",
       "acceptanceCriteria": [
-        "dangerouslySetInnerHTML at src/pages/Settings.tsx:767 is replaced with safe text rendering or a sanitization approach",
-        "The rendered output is visually identical to before",
+        "Merge branch claude/add-playwright-testing-Q6qK6 into the current branch",
+        "Resolve any merge conflicts cleanly",
+        "playwright.config.ts exists at project root",
+        "e2e/ directory exists with fixtures and spec files",
+        "bun install completes without errors",
+        "Existing Playwright tests pass: bunx playwright test",
         "Typecheck passes (bunx tsc --noEmit)"
       ],
       "priority": 1,
       "passes": true,
-      "notes": ""
+      "notes": "The Playwright branch is claude/add-playwright-testing-Q6qK6. It adds playwright.config.ts, e2e/ directory with fixtures (seed-data, seed.sql, tauri-mock, test-base) and specs (mr-detail, mr-list, my-mrs, navigation), plus a GitHub Actions workflow."
     },
     {
       "id": "US-002",
-      "title": "Extract companion auth checks into shared hook",
-      "description": "As a developer, I want the duplicated companion-server auth checks consolidated into a reusable hook so the fetch-in-useEffect pattern is encapsulated.",
+      "title": "Install @pierre/diffs and set up WorkerPoolContextProvider",
+      "description": "As a developer, I need to install the Pierre Diffs package and configure the Web Worker pool so that syntax highlighting runs off the main thread.",
       "acceptanceCriteria": [
-        "Create a useCompanionAuth() hook (or similar) in src/hooks/ that encapsulates the fetch('/api/instances') session check logic",
-        "src/App.tsx:62 uses the shared hook instead of inline fetch-in-useEffect",
-        "src/pages/AuthPage.tsx:24 uses the shared hook instead of inline fetch-in-useEffect",
-        "Loading and redirect states are preserved — behavior unchanged",
-        "These are browser-mode companion-server auth guards, NOT data fetching — do NOT add tanstack query",
-        "Typecheck passes"
+        "Run `bun i @pierre/diffs` to install the package",
+        "@pierre/diffs appears in package.json dependencies",
+        "Add WorkerPoolContextProvider wrapping the app's diff-viewing subtree (in App.tsx or MRDetailPage)",
+        "Worker factory uses Vite pattern: () => new Worker(new URL('@pierre/diffs/worker/worker.js', import.meta.url), { type: 'module' })",
+        "Use Pierre's default pool size (no poolSize override needed)",
+        "Typecheck passes (bunx tsc --noEmit)"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Pierre docs: https://diffs.com/docs. The worker entry point is @pierre/diffs/worker/worker.js. WorkerPoolContextProvider is imported from @pierre/diffs/react. ESM-only package — Vite handles this natively."
     },
     {
       "id": "US-003",
-      "title": "Fix derived state and event handler simulation in CommandPalette",
-      "description": "As a developer, I want derived state computed during render and event-simulating useEffects moved to actual handlers in CommandPalette.",
+      "title": "Create PierreDiffViewer component with MultiFileDiff",
+      "description": "As a user, I want to see file diffs rendered with syntax highlighting so I can review merge request changes.",
       "acceptanceCriteria": [
-        "src/components/CommandPalette/CommandPalette.tsx:121 — useEffect computing derived state replaced with inline computation during render (const derived = computeFrom(dep))",
-        "src/components/CommandPalette/CommandPalette.tsx:126 — useEffect simulating event handler moved to actual event handler",
-        "Behavior is unchanged — command palette filters and responds identically",
+        "Create src/components/PierreDiffViewer/PierreDiffViewer.tsx",
+        "Create src/components/PierreDiffViewer/index.ts barrel export",
+        "Uses <MultiFileDiff> from @pierre/diffs/react with oldFile and newFile props",
+        "Props: oldContent (string | null), newContent (string | null), filePath (string), viewMode ('split' | 'unified'), mrIid and sha for cacheKey",
+        "FileContents.name set to filePath for language auto-detection by Pierre",
+        "FileContents.cacheKey set to `${mrIid}:${filePath}:${sha}` for worker cache hits",
+        "options.diffStyle maps viewMode prop to 'split' or 'unified'",
+        "options.lineDiffType set to 'word' for inline word-level change highlighting",
+        "options.expandUnchanged set to true",
+        "options.theme set to { dark: 'pierre-dark', light: 'pierre-light' }",
+        "options.themeType set to 'system' so Pierre follows OS light/dark preference automatically",
+        "Handles new files (oldContent is null — pass empty string) and deleted files (newContent is null — pass empty string) gracefully",
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Pierre docs: https://diffs.com/docs. MultiFileDiff takes { oldFile: FileContents, newFile: FileContents } where FileContents is { name: string, contents: string, cacheKey?: string }. For new files, oldFile.contents should be empty string. For deleted files, newFile.contents should be empty string. Pierre uses Shadow DOM — app CSS won't leak in."
     },
     {
       "id": "US-004",
-      "title": "Fix array-index keys across codebase",
-      "description": "As a developer, I want list items to use stable unique keys so React reconciliation works correctly when lists are reordered or filtered.",
+      "title": "Wire PierreDiffViewer into MRDiffContent and remove old refs",
+      "description": "As a developer, I need to update MRDiffContent to render PierreDiffViewer instead of MonacoDiffViewer and clean up all MonacoDiffViewerRef usage from parent components.",
       "acceptanceCriteria": [
-        "src/components/CommandPalette/CommandItem.tsx:31 — index key replaced with stable ID (e.g., item.id or item.label)",
-        "src/pages/Settings.tsx:925 — index key replaced with stable ID",
-        "src/components/DiffViewer/DiffViewer.tsx:547, 557 — index keys replaced with stable IDs (e.g., line number, hunk id)",
-        "src/pages/JobLogPage.tsx:61, 62, 375, 380 — index keys replaced with stable IDs",
-        "No visual or behavioral regressions",
+        "MRDiffContent.tsx imports PierreDiffViewer instead of MonacoDiffViewer",
+        "PierreDiffViewer receives oldContent from fileContent.original and newContent from fileContent.modified",
+        "PierreDiffViewer receives filePath from selectedFile, viewMode from current view state",
+        "ImageDiffViewer still renders for image files (unchanged)",
+        "MRDetailPage no longer creates or passes diffViewerRef",
+        "Remove any 'next change' / 'previous change' buttons or keyboard shortcut handlers that call diffViewerRef methods",
+        "Remove view state persistence logic (saveViewState/restoreViewState, viewStatesRef map) from MRDetailPage",
+        "No remaining references to MonacoDiffViewerRef type anywhere in the codebase",
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "MRDiffContent is at src/pages/MRDetailPage/MRDiffContent.tsx. MRDetailPage is at src/pages/MRDetailPage/index.tsx. The viewStatesRef is a Map<string, IDiffEditorViewState> used to save/restore scroll position per file — drop it entirely, Pierre components mount/unmount per file switch."
     },
     {
       "id": "US-005",
-      "title": "Remove dead source files",
-      "description": "As a developer, I want confirmed dead source files removed so the codebase is cleaner and has no misleading unused code.",
+      "title": "Migrate inline comments to Pierre annotations",
+      "description": "As a user, I want to see inline MR comments displayed directly in the diff so I can follow review discussions in context.",
       "acceptanceCriteria": [
-        "src/hooks/useSyncStatus.ts — removed (confirmed unused)",
-        "src/themes/index.ts — removed (confirmed unused)",
-        "src/components/InstanceSetup/index.ts — removed (confirmed unused)",
-        "src/components/Monaco/collapseRegions.ts — removed (confirmed unused)",
-        "src/components/SyncStatus/PendingActionsIndicator.tsx — removed (confirmed unused)",
-        "src/components/SyncStatus/SyncLogPanel.tsx — removed (confirmed unused)",
-        "src/components/SyncStatus/SyncStatusBar.tsx — removed (confirmed unused)",
-        "src/components/SyncStatus/index.ts — removed (confirmed unused)",
-        "Also remove any associated CSS files for the deleted components (e.g., SyncStatusBar.css, PendingActionsIndicator.css, SyncLogPanel.css)",
-        "No import errors after removal — verify no other file imports from these modules",
+        "Map existing LineComment[] data to Pierre's DiffLineAnnotation<T>[] format",
+        "Each annotation has correct side ('deletions' for old side, 'additions' for new side) and lineNumber",
+        "Pass lineAnnotations prop to PierreDiffViewer → MultiFileDiff",
+        "Implement renderAnnotation prop that returns a React node showing comment thread (author, timestamp, body)",
+        "Comments appear inline below the annotated line in the diff",
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Pierre's DiffLineAnnotation type: { side: 'deletions' | 'additions', lineNumber: number, metadata: T }. The renderAnnotation callback receives the annotation and returns a ReactNode. Check existing useFileComments hook and LineComment type in src/types/index.ts for the current data shape."
     },
     {
       "id": "US-006",
-      "title": "Fix barrel import in InlineComment",
-      "description": "As a developer, I want direct imports used instead of barrel imports for better tree-shaking.",
+      "title": "Wire up line number click for adding comments",
+      "description": "As a user, I want to click a line number in the diff to start adding a new comment on that line.",
       "acceptanceCriteria": [
-        "src/components/CommentPanel/InlineComment.tsx:8 — barrel/index import replaced with direct module path",
+        "Configure onLineNumberClick in PierreDiffViewer options",
+        "Clicking a line number triggers the existing add-comment flow (opens comment input at that line)",
+        "Line number, side (old/new mapped to deletions/additions), and file path passed to comment creation handler",
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "onLineNumberClick receives { lineNumber, side, ... } from Pierre. Map Pierre's 'deletions'/'additions' sides to the existing comment system's old/new line concept. Check existing addComment handler in MRDetailPage."
     },
     {
       "id": "US-007",
-      "title": "Extract inline render functions and fix useState initializer",
-      "description": "As a developer, I want inline render functions extracted to named components and useState lazy initializer added where needed.",
+      "title": "Enable line selection in PierreDiffViewer",
+      "description": "As a user, I want to select line ranges in the diff so I can reference specific code in comments or copy selections.",
       "acceptanceCriteria": [
-        "src/components/DiffViewer/DiffLine.tsx:122 — renderHighlightedContent() extracted to a named component (e.g., HighlightedContent)",
-        "src/pages/JobLogPage.tsx:74 — inline render function extracted to a named component",
-        "src/pages/JobLogPage.tsx:139 — useState(has()) changed to useState(() => has()) for lazy initialization",
-        "Remove unnecessary useMemo at src/pages/MyMRDetailPage.tsx:192 and 199 — these wrap trivially cheap expressions",
+        "Set enableLineSelection: true in Pierre options",
+        "Wire onLineSelected callback to update component state with the selected SelectedLineRange",
+        "Selected lines are visually highlighted in the diff (Pierre handles this automatically)",
+        "Selected range information available for use by comment creation or copy actions",
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Pierre's SelectedLineRange: { start: number, side?: 'deletions' | 'additions', end: number, endSide?: 'deletions' | 'additions' }. The selectedLines prop can be used for programmatic control."
     },
     {
       "id": "US-008",
-      "title": "Break up Settings page — extract sub-components",
-      "description": "As a developer, I want the Settings page decomposed into focused sub-components so it is easier to maintain.",
+      "title": "Remove Monaco dependencies and component files",
+      "description": "As a developer, I want to remove all Monaco-related code and the old custom DiffViewer components to reduce bundle size and eliminate dead code.",
       "acceptanceCriteria": [
-        "Create src/pages/Settings/ directory with index.tsx as the orchestrator",
-        "Extract logical sections into separate files (e.g., InstanceSettings.tsx, ThemeSettings.tsx, CompanionServerSection.tsx, etc.)",
-        "Each sub-component is under ~150 lines",
-        "The parent Settings orchestrator imports and renders all sub-components",
-        "All existing Settings functionality works identically",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Run `bun remove monaco-editor @monaco-editor/react vite-plugin-monaco-editor`",
+        "Delete entire src/components/Monaco/ directory (MonacoDiffViewer.tsx, MonacoProvider.tsx, languageDetection.ts, monaco.css, index.ts) — BUT keep ImageDiffViewer and move it first",
+        "Delete entire src/components/DiffViewer/ directory (DiffViewer.tsx, DiffContent.tsx, DiffHunk.tsx, DiffLine.tsx, DiffHeader.tsx, useDiffData.ts, useDiffComments.ts, useDiffKeyboard.ts)",
+        "Remove monacoAdapter.ts from src/themes/ or remove Monaco-specific parts",
+        "Remove vite-plugin-monaco-editor from vite.config.ts plugin array if referenced",
+        "Remove MonacoProvider from any component tree (likely in App.tsx or a layout)",
+        "Remove all unused Monaco imports and type references across the codebase",
+        "No remaining references to 'monaco-editor' or '@monaco-editor' in any .ts/.tsx file",
+        "ImageDiffViewer is preserved and still works for image file diffs (move to src/components/ImageDiffViewer/ before deleting Monaco directory)",
+        "Typecheck passes (bunx tsc --noEmit)",
+        "Rust backend still compiles (cargo check in src-tauri/)"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "IMPORTANT: ImageDiffViewer (src/components/Monaco/ImageDiffViewer.tsx) is independent of Monaco — it's a pure React component for image comparison. It must NOT be deleted. Move it to src/components/ImageDiffViewer/ before deleting the Monaco directory. Update MRDiffContent.tsx import path accordingly."
     },
     {
       "id": "US-009",
-      "title": "Fix Settings accessibility — labels, autoFocus, event handlers",
-      "description": "As a developer, I want Settings accessibility issues fixed now that the page is decomposed into manageable sub-components.",
+      "title": "Add Playwright E2E tests for Pierre diff rendering",
+      "description": "As a developer, I want Playwright tests that verify diff files render correctly with no console errors, so we can catch regressions in the diff viewer.",
       "acceptanceCriteria": [
-        "Labels at former lines 431, 780, 1484 are associated with their controls via htmlFor or by wrapping the control",
-        "useEffect simulating event handler (former line 1325) moved to an actual event handler",
-        "autoFocus at former lines 360, 935, 1245 reviewed — removed if not essential, kept with justification comment if needed (e.g., modal focus trap)",
+        "Create e2e/pierre-diff.spec.ts with tests for the diff viewer",
+        "Test: Navigate to an MR detail page, select a file, verify the Pierre diff component renders (shadow DOM host element visible)",
+        "Test: Verify diff content is visible — at least one line of code text is rendered inside the diff",
+        "Test: Verify no console errors are emitted during diff rendering (capture console messages, assert zero 'error' level entries)",
+        "Test: Verify no console warnings related to Pierre/Shiki/worker (filter for relevant warning patterns)",
+        "Test: Switch between split and unified view modes, verify the diff re-renders without errors",
+        "Test: Select a different file from the file list, verify the new diff renders without errors",
+        "Test: Verify new files (additions only) and deleted files (deletions only) render without errors",
+        "All new tests pass: bunx playwright test e2e/pierre-diff.spec.ts",
+        "Existing Playwright tests still pass: bunx playwright test",
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": true,
-      "notes": "This story depends on US-008 (Settings decomposition). Line numbers refer to the original Settings.tsx before decomposition — find the equivalent code in the new sub-components."
-    },
-    {
-      "id": "US-010",
-      "title": "Break up MRDetailPage into sub-components",
-      "description": "As a developer, I want MRDetailPage decomposed into focused sub-components so the file is easier to navigate and modify.",
-      "acceptanceCriteria": [
-        "Create src/pages/MRDetailPage/ directory with index.tsx as orchestrator",
-        "Extract logical sections (e.g., MRHeader, MRFileList, MRDiscussion) into separate files",
-        "Multiple useState calls consolidated into useReducer where state is related",
-        "Multiple setState-in-useEffect instances refactored (derive state during render or move to event handlers)",
-        "Each sub-component is under ~200 lines",
-        "All existing MR detail functionality works identically",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 10,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-011",
-      "title": "Break up MyMRDetailPage into sub-components",
-      "description": "As a developer, I want MyMRDetailPage decomposed into focused sub-components.",
-      "acceptanceCriteria": [
-        "Create src/pages/MyMRDetailPage/ directory with index.tsx as orchestrator",
-        "Extract logical sections into separate files",
-        "Multiple useState calls consolidated into useReducer where state is related",
-        "Multiple setState-in-useEffect instances refactored",
-        "Each sub-component is under ~200 lines",
-        "All existing My MR detail functionality works identically",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 11,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-012",
-      "title": "Break up PipelinesPage into sub-components",
-      "description": "As a developer, I want PipelinesPage decomposed into focused sub-components.",
-      "acceptanceCriteria": [
-        "Create src/pages/PipelinesPage/ directory with index.tsx as orchestrator",
-        "Extract logical sections into separate files",
-        "Multiple useState calls consolidated into useReducer where state is related",
-        "setState-in-useEffect instances refactored",
-        "Each sub-component is under ~200 lines",
-        "All existing pipelines functionality works identically",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 12,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-013",
-      "title": "Break up PipelineDetailPage into sub-components",
-      "description": "As a developer, I want PipelineDetailPage decomposed into focused sub-components.",
-      "acceptanceCriteria": [
-        "Create src/pages/PipelineDetailPage/ directory with index.tsx as orchestrator",
-        "Extract logical sections into separate files",
-        "Multiple useState calls consolidated into useReducer where state is related",
-        "Multiple setState-in-useEffect instances refactored",
-        "Each sub-component is under ~200 lines",
-        "All existing pipeline detail functionality works identically",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 13,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-014",
-      "title": "Break up DiffViewer into sub-components",
-      "description": "As a developer, I want DiffViewer decomposed into focused sub-components.",
-      "acceptanceCriteria": [
-        "Restructure src/components/DiffViewer/ with smaller focused files",
-        "Multiple useState calls consolidated into useReducer where state is related",
-        "setState-in-useEffect at line 142 refactored",
-        "Use React context for shared state if sub-components are deeply nested",
-        "Each sub-component is under ~200 lines",
-        "All existing diff viewing functionality works identically",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 14,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-015",
-      "title": "Consolidate useState in CommentPanel, InstanceSetup, JobLogPage, MRList",
-      "description": "As a developer, I want components with 5+ useState calls to use useReducer for related state.",
-      "acceptanceCriteria": [
-        "src/components/CommentPanel/CommentPanel.tsx:46 — related useState calls grouped into useReducer",
-        "src/components/InstanceSetup/InstanceSetup.tsx:21 — related useState calls grouped into useReducer",
-        "src/pages/JobLogPage.tsx:112 — related useState calls grouped into useReducer",
-        "src/components/MRList/MRList.tsx:50 — related useState calls grouped into useReducer",
-        "Multi-setState useEffect in src/components/ThemeProvider.tsx:211 consolidated into single dispatch",
-        "Typecheck passes"
-      ],
-      "priority": 15,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-016",
-      "title": "Convert clickable divs to semantic buttons for accessibility",
-      "description": "As a developer, I want all clickable non-interactive elements converted to semantic HTML (button) which simultaneously fixes keyboard accessibility, ARIA roles, and click handling.",
-      "acceptanceCriteria": [
-        "All 12 flagged clickable elements converted from div/span onClick to <button> elements (or given role='button' + onKeyDown if button is not viable)",
-        "Files to update: KeyboardHelp, CommandPalette, CommandItem, ReAuthPrompt, Settings sub-components, PipelinesPage, MRDetailPage, JobLogPage, PipelineDetailPage",
-        "Note: PendingActionsIndicator was deleted in US-005 — skip it",
-        "Note: ImageDiffViewer (src/components/Monaco/ImageDiffViewer.tsx:202, 227) also needs role attributes added",
-        "Keyboard interaction (Enter/Space) works on all converted elements",
-        "Typecheck passes"
-      ],
-      "priority": 16,
-      "passes": true,
-      "notes": "This depends on US-008 through US-014 (component decomposition). Work with the new sub-component files, not the original monolithic files."
-    },
-    {
-      "id": "US-017",
-      "title": "Review and remove unnecessary autoFocus usage",
-      "description": "As a developer, I want autoFocus usage reviewed so it does not harm accessibility.",
-      "acceptanceCriteria": [
-        "src/components/CommentPanel/InlineComment.tsx:166 — autoFocus reviewed; removed if not essential",
-        "src/components/InstanceSetup/InstanceSetup.tsx:78 — autoFocus reviewed; removed if not essential",
-        "Any retained autoFocus has a comment justifying it (e.g., // autoFocus: modal focus trap)",
-        "Note: Settings autoFocus instances handled in US-009",
-        "Typecheck passes"
-      ],
-      "priority": 17,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Pierre renders inside Shadow DOM, so use page.locator('pierce/...') or evaluate into shadowRoot to assert on diff content. Use page.on('console', ...) to capture console messages and filter by level. The existing e2e/fixtures/tauri-mock.ts and test-base.ts provide the test harness — follow the patterns in existing spec files (e2e/mr-detail.spec.ts) for navigating to MR detail pages."
     }
   ]
 }
