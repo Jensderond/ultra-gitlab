@@ -1,5 +1,6 @@
 import { PierreDiffViewer } from '../../components/PierreDiffViewer';
 import type { LineComment, DiffLineClickInfo } from '../../components/PierreDiffViewer/PierreDiffViewer';
+import type { SelectedLineRange } from '../../components/PierreDiffViewer';
 import { ImageDiffViewer } from '../../components/ImageDiffViewer';
 import { isImageFile, getImageMimeType } from '../../utils/languageDetection';
 import type { DiffRefs, DiffFileSummary } from '../../types';
@@ -17,6 +18,7 @@ interface MRDiffContentProps {
   mrIid: number;
   comments?: LineComment[];
   onLineClick?: (info: DiffLineClickInfo) => void;
+  onLineSelected?: (range: SelectedLineRange | null) => void;
   onRetry: () => void;
 }
 
@@ -33,6 +35,7 @@ export default function MRDiffContent({
   mrIid,
   comments,
   onLineClick,
+  onLineSelected,
   onRetry,
 }: MRDiffContentProps) {
   if (!selectedFile) {
@@ -100,6 +103,7 @@ export default function MRDiffContent({
           sha={diffRefs.headSha}
           comments={comments}
           onLineClick={onLineClick}
+          onLineSelected={onLineSelected}
         />
       )}
     </main>

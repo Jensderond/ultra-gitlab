@@ -23,6 +23,8 @@
 - CommentOverlay uses a plain `<textarea>` for comment input (Monaco editor removed in US-008).
 - Pierre annotations: `DiffLineAnnotation<T>` imported from `@pierre/diffs` (not `@pierre/diffs/react`). `renderAnnotation` callback receives the annotation and returns ReactNode.
 - `LineComment` type moved from `Monaco/MonacoDiffViewer` to `PierreDiffViewer/PierreDiffViewer.tsx`; `CursorPosition`/`LineSelection` moved to `CommentOverlay.tsx`.
+- Pierre renders `<diffs-container>` custom element with Shadow DOM — scope Playwright selectors to avoid matching Pierre-rendered text in file headers.
+- Playwright: use `.mr-detail-sidebar` to scope file list selectors; use `{ exact: true }` for `getByText()` to avoid matching substring file names (e.g., `theme.css` vs `OldTheme.css`).
 
 ---
 
@@ -145,4 +147,20 @@
   - CommentOverlay's textarea uses Cmd+Enter for submit via `onKeyDown` handler (previously Monaco's `addCommand` API). Esc closes the overlay.
   - `languageDetection.ts` has generic utility functions (`isImageFile`, `getImageMimeType`, `getLanguageFromPath`) that are useful beyond any specific editor library.
   - When deleting a component directory, always check for non-obvious dependents — `FileNavigation` was still used by MRFilePanel and CodeTab even though the rest of DiffViewer was dead code.
+---
+
+## 2026-02-20 - US-009
+- Created `e2e/pierre-diff.spec.ts` with 8 tests covering all acceptance criteria
+- Tests: shadow DOM rendering, diff content visibility, no console errors, no Pierre/Shiki/worker warnings, split/unified view switching, file switching, new file rendering, deleted file rendering
+- Added deleted file (`OldTheme.css`) to seed data for deleted file test coverage
+- Enhanced `get_cached_file_pair` mock to return file-type-specific content (TSX/CSS/generic)
+- Fixed existing `mr-detail.spec.ts` test that broke due to Pierre diff header matching `getByText` — scoped selectors to `.mr-detail-sidebar`
+- All 36 Playwright tests pass (28 existing + 8 new)
+- Files changed: `e2e/pierre-diff.spec.ts` (new), `e2e/fixtures/seed-data.ts`, `e2e/fixtures/tauri-mock.ts`, `e2e/mr-detail.spec.ts`
+- **Learnings for future iterations:**
+  - Pierre renders `<diffs-container>` custom element with Shadow DOM — use `page.locator('diffs-container')` to find the host, and `.evaluate()` into `el.shadowRoot` to inspect content
+  - `getByText()` in Playwright matches across the entire page including Pierre diff headers rendered inside Shadow DOM — always scope selectors (e.g., `.mr-detail-sidebar`) when testing file list items to avoid strict mode violations
+  - When adding seed data files, check if existing tests use loose `getByText()` matchers that could break with new data — use `{ exact: true }` for ambiguous text matches
+  - Pierre's Shadow DOM means `page.locator('pierce/...')` syntax works but `.evaluate()` on the host element is more reliable for content assertions
+  - The `'v'` keyboard shortcut toggles between split and unified view modes in MRDetailPage
 ---

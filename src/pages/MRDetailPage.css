@@ -224,15 +224,10 @@
   display: flex;
   flex-direction: column;
   padding: 20px;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: var(--overlay-backdrop-light);
   position: relative;
-}
-
-/* DiffViewer wrapper */
-.mr-detail-main > .diff-viewer {
-  flex: 1;
-  min-height: 0;
 }
 
 /* No file selected */

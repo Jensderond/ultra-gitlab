@@ -158,6 +158,103 @@ async fn get_mr_info(pool: &DbPool, mr_id: i64) -> Result<MrInfo, AppError> {
     })
 }
 
+/// Resolve context line numbers from a unified diff.
+///
+/// Given a line number on one side, find the corresponding line on the other side
+/// by parsing the unified diff hunk headers and counting lines.
+///
+/// Returns (old_line, new_line).
+fn resolve_context_lines(
+    diff_content: &str,
+    known_line: i64,
+    is_old_side: bool,
+) -> Option<(i64, i64)> {
+    // Parse unified diff hunk headers: @@ -old_start,old_count +new_start,new_count @@
+    let mut old_line: i64 = 0;
+    let mut new_line: i64 = 0;
+
+    for line in diff_content.lines() {
+        if line.starts_with("@@") {
+            // Parse hunk header
+            let parts: Vec<&str> = line.splitn(4, ' ').collect();
+            if parts.len() >= 3 {
+                if let Some(old_start) = parts[1].strip_prefix('-') {
+                    old_line = old_start
+                        .split(',')
+                        .next()
+                        .and_then(|s| s.parse::<i64>().ok())
+                        .unwrap_or(0)
+                        - 1; // will be incremented on first context/deletion line
+                }
+                if let Some(new_start) = parts[2].strip_prefix('+') {
+                    new_line = new_start
+                        .split(',')
+                        .next()
+                        .and_then(|s| s.parse::<i64>().ok())
+                        .unwrap_or(0)
+                        - 1;
+                }
+            }
+            continue;
+        }
+
+        if line.starts_with("---") || line.starts_with("+++") || line.starts_with("diff ") || line.starts_with("index ") {
+            continue;
+        }
+
+        if line.starts_with('-') {
+            old_line += 1;
+        } else if line.starts_with('+') {
+            new_line += 1;
+        } else {
+            // Context line — both sides advance
+            old_line += 1;
+            new_line += 1;
+
+            let target_matches = if is_old_side {
+                old_line == known_line
+            } else {
+                new_line == known_line
+            };
+
+            if target_matches {
+                return Some((old_line, new_line));
+            }
+        }
+    }
+
+    None
+}
+
+/// Look up the other side's line number for a context line comment.
+async fn resolve_context_line_numbers(
+    pool: &DbPool,
+    mr_id: i64,
+    file_path: &str,
+    known_line: i64,
+    is_old_side: bool,
+) -> Result<(i64, i64), AppError> {
+    let row = sqlx::query(
+        "SELECT diff_content FROM diff_files WHERE mr_id = ? AND new_path = ?",
+    )
+    .bind(mr_id)
+    .bind(file_path)
+    .fetch_optional(pool)
+    .await?;
+
+    if let Some(row) = row {
+        let diff_content: Option<String> = row.get("diff_content");
+        if let Some(diff) = diff_content {
+            if let Some(pair) = resolve_context_lines(&diff, known_line, is_old_side) {
+                return Ok(pair);
+            }
+        }
+    }
+
+    // Fallback: use the same line for both (may fail for files with many changes)
+    Ok((known_line, known_line))
+}
+
 /// Look up diff refs (base_sha, head_sha, start_sha) for a merge request.
 async fn get_diff_shas(pool: &DbPool, mr_id: i64) -> Result<(String, String, String), AppError> {
     let row = sqlx::query("SELECT base_sha, head_sha, start_sha FROM diffs WHERE mr_id = ?")
@@ -199,6 +296,10 @@ pub struct AddCommentInput {
     pub old_line: Option<i64>,
     /// Line in new version.
     pub new_line: Option<i64>,
+    /// When true, this is an unchanged (context) line — resolve the other side's
+    /// line number from the stored diff.
+    #[serde(default)]
+    pub is_context_line: bool,
 }
 
 /// Add a new comment to a merge request.
@@ -232,6 +333,27 @@ pub async fn add_comment(
     // Get the authenticated username for optimistic display
     let author_username = get_authenticated_username(pool.inner(), mr_info.instance_id).await?;
 
+    // For context lines, resolve both old and new line numbers from the diff
+    let (old_line, new_line) = if input.is_context_line {
+        if let Some(file_path) = &input.file_path {
+            let known_line = input.new_line.or(input.old_line).unwrap_or(1);
+            let is_old_side = input.old_line.is_some() && input.new_line.is_none();
+            let (old, new) = resolve_context_line_numbers(
+                pool.inner(),
+                input.mr_id,
+                file_path,
+                known_line,
+                is_old_side,
+            )
+            .await?;
+            (Some(old), Some(new))
+        } else {
+            (input.old_line, input.new_line)
+        }
+    } else {
+        (input.old_line, input.new_line)
+    };
+
     let timestamp = now();
     let local_id = generate_local_id();
 
@@ -249,8 +371,8 @@ pub async fn add_comment(
     .bind(&author_username)
     .bind(&input.body)
     .bind(&input.file_path)
-    .bind(input.old_line)
-    .bind(input.new_line)
+    .bind(old_line)
+    .bind(new_line)
     .bind(timestamp)
     .bind(timestamp)
     .bind(timestamp)
@@ -263,8 +385,8 @@ pub async fn add_comment(
         "mr_iid": mr_info.iid,
         "body": input.body,
         "file_path": input.file_path,
-        "old_line": input.old_line,
-        "new_line": input.new_line,
+        "old_line": old_line,
+        "new_line": new_line,
         "base_sha": base_sha,
         "head_sha": head_sha,
         "start_sha": start_sha,
@@ -295,8 +417,8 @@ pub async fn add_comment(
         author_username,
         body: input.body,
         file_path: input.file_path,
-        old_line: input.old_line,
-        new_line: input.new_line,
+        old_line,
+        new_line,
         line_type: None,
         resolved: false,
         resolvable: true,

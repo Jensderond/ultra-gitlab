@@ -14,10 +14,14 @@ export interface LineComment {
   resolved?: boolean;
 }
 
+/** Pierre line type for diff lines. */
+export type DiffLineType = 'change-deletion' | 'change-addition' | 'context' | 'context-expanded';
+
 /** Info passed when a line number is clicked in the diff. */
 export interface DiffLineClickInfo {
   lineNumber: number;
   side: 'old' | 'new';
+  lineType: DiffLineType;
   filePath: string;
 }
 
@@ -105,7 +109,6 @@ export function PierreDiffViewer({
   onLineClick,
   onLineSelected,
 }: PierreDiffViewerProps) {
-  const cacheKey = `${mrIid}:${filePath}:${sha}`;
   const [selectedLines, setSelectedLines] = useState<SelectedLineRange | null>(null);
 
   const handleLineSelected = useCallback(
@@ -120,25 +123,26 @@ export function PierreDiffViewer({
     () => ({
       name: filePath,
       contents: oldContent ?? '',
-      cacheKey,
+      cacheKey: `${mrIid}:${filePath}:${sha}:old`,
     }),
-    [filePath, oldContent, cacheKey]
+    [filePath, oldContent, mrIid, sha]
   );
 
   const newFile: FileContents = useMemo(
     () => ({
       name: filePath,
       contents: newContent ?? '',
-      cacheKey,
+      cacheKey: `${mrIid}:${filePath}:${sha}:new`,
     }),
-    [filePath, newContent, cacheKey]
+    [filePath, newContent, mrIid, sha]
   );
 
   const handleLineNumberClick = useCallback(
-    (props: { lineNumber: number; annotationSide: 'deletions' | 'additions' }) => {
+    (props: { lineNumber: number; annotationSide: 'deletions' | 'additions'; lineType: DiffLineType }) => {
       onLineClick?.({
         lineNumber: props.lineNumber,
         side: props.annotationSide === 'deletions' ? 'old' : 'new',
+        lineType: props.lineType,
         filePath,
       });
     },
@@ -149,7 +153,7 @@ export function PierreDiffViewer({
     () => ({
       diffStyle: viewMode,
       lineDiffType: 'word' as const,
-      expandUnchanged: true,
+      expandUnchanged: false,
       themeType: 'system' as const,
       onLineNumberClick: onLineClick ? handleLineNumberClick : undefined,
       enableLineSelection: true,

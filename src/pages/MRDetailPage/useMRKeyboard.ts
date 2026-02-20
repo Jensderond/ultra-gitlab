@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { openExternalUrl } from '../../services/transport';
 import type { ApprovalButtonRef } from '../../components/Approval';
 import type { CommentOverlayRef } from '../../components/CommentOverlay';
+import type { SelectedLineRange } from '../../components/PierreDiffViewer';
 
 interface UseMRKeyboardOptions {
   selectedFile: string | null;
@@ -9,6 +10,7 @@ interface UseMRKeyboardOptions {
   webUrl?: string;
   approvalButtonRef: React.RefObject<ApprovalButtonRef | null>;
   commentOverlayRef: React.RefObject<CommentOverlayRef | null>;
+  lineSelectionRef: React.RefObject<SelectedLineRange | null>;
   onNavigateFile: (direction: 1 | -1) => void;
   onToggleViewMode: () => void;
   onMarkViewedAndNext: () => void;
@@ -23,6 +25,7 @@ export function useMRKeyboard({
   webUrl,
   approvalButtonRef,
   commentOverlayRef,
+  lineSelectionRef,
   onNavigateFile,
   onToggleViewMode,
   onMarkViewedAndNext,
@@ -82,14 +85,39 @@ export function useMRKeyboard({
       case 'c':
         e.preventDefault();
         if (selectedFile) {
-          commentOverlayRef.current?.open({ line: 1, isOriginal: false }, null);
+          const selC = lineSelectionRef.current;
+          if (selC) {
+            const isOriginal = selC.side === 'deletions';
+            const startLine = Math.min(selC.start, selC.end);
+            const endLine = Math.max(selC.start, selC.end);
+            commentOverlayRef.current?.open(
+              { line: startLine, isOriginal },
+              { startLine, endLine, isOriginal, text: '' },
+            );
+          } else {
+            commentOverlayRef.current?.open({ line: 1, isOriginal: false }, null);
+          }
         }
         break;
       case 's':
         e.preventDefault();
         if (selectedFile) {
-          const suggestionText = '```suggestion:-0+0\n\n```\n';
-          commentOverlayRef.current?.open({ line: 1, isOriginal: false }, null, suggestionText);
+          const selS = lineSelectionRef.current;
+          if (selS) {
+            const isOriginal = selS.side === 'deletions';
+            const startLine = Math.min(selS.start, selS.end);
+            const endLine = Math.max(selS.start, selS.end);
+            const linesBelow = endLine - startLine;
+            const suggestionText = `\`\`\`suggestion:-0+${linesBelow}\n\n\`\`\`\n`;
+            commentOverlayRef.current?.open(
+              { line: startLine, isOriginal },
+              { startLine, endLine, isOriginal, text: '' },
+              suggestionText,
+            );
+          } else {
+            const suggestionText = '```suggestion:-0+0\n\n```\n';
+            commentOverlayRef.current?.open({ line: 1, isOriginal: false }, null, suggestionText);
+          }
         }
         break;
       case 'Escape':

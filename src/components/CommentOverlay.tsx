@@ -12,6 +12,8 @@ import type { LineComment } from './PierreDiffViewer/PierreDiffViewer';
 export interface CursorPosition {
   line: number;
   isOriginal: boolean;
+  /** True for unchanged (context) lines — GitLab requires both old_line and new_line. */
+  isContext?: boolean;
 }
 
 export interface LineSelection {
@@ -83,6 +85,7 @@ export const CommentOverlay = forwardRef<CommentOverlayRef, CommentOverlayProps>
           ...(position.isOriginal
             ? { oldLine: position.line }
             : { newLine: position.line }),
+          ...(position.isContext && { isContextLine: true }),
         };
 
         const response = await invoke<CommentResponse>('add_comment', { input: request });

@@ -207,6 +207,8 @@ export interface AddCommentRequest {
   filePath?: string;
   oldLine?: number;
   newLine?: number;
+  /** When true, this is an unchanged (context) line — backend resolves both line numbers from the diff. */
+  isContextLine?: boolean;
 }
 
 export interface ReplyToCommentRequest {

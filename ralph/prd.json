@@ -162,7 +162,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Pierre renders inside Shadow DOM, so use page.locator('pierce/...') or evaluate into shadowRoot to assert on diff content. Use page.on('console', ...) to capture console messages and filter by level. The existing e2e/fixtures/tauri-mock.ts and test-base.ts provide the test harness — follow the patterns in existing spec files (e2e/mr-detail.spec.ts) for navigating to MR detail pages."
     }
   ]

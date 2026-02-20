@@ -9,6 +9,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import type { ApprovalButtonRef } from '../../components/Approval';
 import { CommentOverlay, type CommentOverlayRef } from '../../components/CommentOverlay';
 import type { DiffLineClickInfo } from '../../components/PierreDiffViewer';
+import type { SelectedLineRange } from '../../components/PierreDiffViewer';
 import { useFileContent } from '../../hooks/useFileContent';
 import { useCopyToast } from '../../hooks/useCopyToast';
 import { useSmallScreen } from '../../hooks/useSmallScreen';
@@ -32,6 +33,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
 
   const approvalButtonRef = useRef<ApprovalButtonRef>(null);
   const commentOverlayRef = useRef<CommentOverlayRef>(null);
+  const lineSelectionRef = useRef<SelectedLineRange | null>(null);
   const previousFileRef = useRef<string | null>(null);
 
   const [showCopyToast, copyToClipboard] = useCopyToast();
@@ -131,10 +133,15 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   }, [view.viewMode, dispatch]);
 
   const handleLineClick = useCallback((info: DiffLineClickInfo) => {
+    const isContext = info.lineType === 'context' || info.lineType === 'context-expanded';
     commentOverlayRef.current?.open(
-      { line: info.lineNumber, isOriginal: info.side === 'old' },
+      { line: info.lineNumber, isOriginal: info.side === 'old', isContext },
       null,
     );
+  }, []);
+
+  const handleLineSelected = useCallback((range: SelectedLineRange | null) => {
+    lineSelectionRef.current = range;
   }, []);
 
   useMRKeyboard({
@@ -143,6 +150,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     webUrl: mr?.webUrl,
     approvalButtonRef,
     commentOverlayRef,
+    lineSelectionRef,
     onNavigateFile: navigateFile,
     onToggleViewMode: handleToggleViewMode,
     onMarkViewedAndNext: markViewedAndNext,
@@ -211,6 +219,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           mrIid={mr.iid}
           comments={fileComments}
           onLineClick={handleLineClick}
+          onLineSelected={handleLineSelected}
           onRetry={() => view.selectedFile && handleFileSelect(view.selectedFile)}
         />
       </div>
