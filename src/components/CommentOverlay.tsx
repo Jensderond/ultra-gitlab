@@ -9,7 +9,19 @@ import Editor from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { invoke } from '../services/tauri';
 import type { AddCommentRequest } from '../types';
-import type { LineComment, CursorPosition, LineSelection } from './Monaco/MonacoDiffViewer';
+import type { LineComment } from './PierreDiffViewer/PierreDiffViewer';
+
+export interface CursorPosition {
+  line: number;
+  isOriginal: boolean;
+}
+
+export interface LineSelection {
+  startLine: number;
+  endLine: number;
+  isOriginal: boolean;
+  text: string;
+}
 
 interface CommentResponse {
   id: number;

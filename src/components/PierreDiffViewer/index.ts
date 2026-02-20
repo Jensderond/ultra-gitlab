@@ -1,2 +1,2 @@
-export { PierreDiffViewer, type PierreDiffViewerProps } from './PierreDiffViewer';
+export { PierreDiffViewer, type PierreDiffViewerProps, type LineComment } from './PierreDiffViewer';
 export { PierreDiffViewer as default } from './PierreDiffViewer';

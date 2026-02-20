@@ -33,7 +33,7 @@
         "Typecheck passes (bunx tsc --noEmit)"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Pierre docs: https://diffs.com/docs. The worker entry point is @pierre/diffs/worker/worker.js. WorkerPoolContextProvider is imported from @pierre/diffs/react. ESM-only package — Vite handles this natively."
     },
     {
@@ -56,7 +56,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Pierre docs: https://diffs.com/docs. MultiFileDiff takes { oldFile: FileContents, newFile: FileContents } where FileContents is { name: string, contents: string, cacheKey?: string }. For new files, oldFile.contents should be empty string. For deleted files, newFile.contents should be empty string. Pierre uses Shadow DOM — app CSS won't leak in."
     },
     {
@@ -75,7 +75,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "MRDiffContent is at src/pages/MRDetailPage/MRDiffContent.tsx. MRDetailPage is at src/pages/MRDetailPage/index.tsx. The viewStatesRef is a Map<string, IDiffEditorViewState> used to save/restore scroll position per file — drop it entirely, Pierre components mount/unmount per file switch."
     },
     {
@@ -91,7 +91,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Pierre's DiffLineAnnotation type: { side: 'deletions' | 'additions', lineNumber: number, metadata: T }. The renderAnnotation callback receives the annotation and returns a ReactNode. Check existing useFileComments hook and LineComment type in src/types/index.ts for the current data shape."
     },
     {

@@ -10,8 +10,15 @@
 - All `@tauri-apps/` imports should be dynamic — any new feature using Tauri APIs must follow this pattern.
 - `tauriListen()` and `openExternalUrl()` in `transport.ts` handle Tauri vs browser seamlessly.
 - Package manager: bun (not npm/yarn). Typecheck: `bunx tsc --noEmit`.
+- Pierre diffs: Worker pool controls theme/tokenizeMaxLineLength — don't set these on individual components. Vite worker uses `?worker&url` import suffix.
+- Pierre diffs: `lineDiffType`, `diffStyle`, `expandUnchanged`, `themeType` are per-component options (set on `<MultiFileDiff options={...}>`).
+- Pierre diffs: `FileDiffOptions` type is NOT re-exported from `@pierre/diffs/react` — use `as const` on literal option values or import from `@pierre/diffs` directly.
+- Pierre diffs: `FileContents` type: `{ name: string, contents: string, cacheKey?: string, lang?: SupportedLanguages }`. Name is used for language auto-detection.
 - GitLab API supports URL-encoded project paths instead of numeric project IDs: `/projects/group%2Fsubgroup%2Fproject/...`
 - Route ordering in react-router: static routes (e.g., `/mrs/loading`) must be defined before dynamic routes (e.g., `/mrs/:id`).
+- Two diff viewer consumers: `MRDetailPage/MRDiffContent.tsx` (reviewing others' MRs) and `MyMRDetailPage/CodeTab.tsx` (viewing own MRs). Both must be updated when changing the diff viewer component.
+- Pierre annotations: `DiffLineAnnotation<T>` imported from `@pierre/diffs` (not `@pierre/diffs/react`). `renderAnnotation` callback receives the annotation and returns ReactNode.
+- `LineComment` type moved from `Monaco/MonacoDiffViewer` to `PierreDiffViewer/PierreDiffViewer.tsx`; `CursorPosition`/`LineSelection` moved to `CommentOverlay.tsx`.
 
 ---
 
@@ -24,4 +31,64 @@
   - Playwright tests use mock data from `e2e/fixtures/seed-data.ts` and `e2e/fixtures/tauri-mock.ts` — no real Tauri backend needed
   - Test base fixture at `e2e/fixtures/test-base.ts` provides the standard test setup
   - Follow patterns in existing specs (e.g., `e2e/mr-detail.spec.ts`) for navigating to pages
+---
+
+## 2026-02-20 - US-002
+- Installed `@pierre/diffs@^1.0.11` via `bun i @pierre/diffs`
+- Replaced `MonacoProvider` with `WorkerPoolContextProvider` in `App.tsx`
+- Worker factory uses Vite `?worker&url` import pattern: `import WorkerUrl from '@pierre/diffs/worker/worker.js?worker&url'`
+- WorkerPoolContextProvider configured with `{ dark: 'pierre-dark', light: 'pierre-light' }` theme
+- Default pool size (8 workers) used — no override needed
+- Files changed: `src/App.tsx`, `package.json`, `bun.lock`
+- **Learnings for future iterations:**
+  - Vite worker factory for Pierre uses `?worker&url` suffix import, not `new URL()` pattern
+  - `WorkerPoolContextProvider` controls theme, lineDiffType, and tokenizeMaxLineLength — these options on individual components are ignored when using the worker pool
+  - `MonacoProvider` still exists in `src/components/Monaco/` — will need removal in US-008
+  - Pierre renders into Shadow DOM — app CSS won't leak in
+---
+
+## 2026-02-20 - US-003
+- Created `src/components/PierreDiffViewer/PierreDiffViewer.tsx` with `<MultiFileDiff>` from `@pierre/diffs/react`
+- Created `src/components/PierreDiffViewer/index.ts` barrel export
+- Props: oldContent (string|null), newContent (string|null), filePath, viewMode, mrIid, sha
+- FileContents.name = filePath for language auto-detection, cacheKey = `${mrIid}:${filePath}:${sha}`
+- Options: diffStyle=viewMode, lineDiffType='word', expandUnchanged=true, themeType='system'
+- Null content handled via `?? ''` (empty string for new/deleted files)
+- Files changed: `src/components/PierreDiffViewer/PierreDiffViewer.tsx`, `src/components/PierreDiffViewer/index.ts`
+- **Learnings for future iterations:**
+  - `FileDiffOptions` type is NOT re-exported from `@pierre/diffs/react` — use `as const` on string literal values or import from the root `@pierre/diffs`
+  - Theme colors (dark/light) are controlled by WorkerPoolContextProvider (pool-level), while `themeType` ('system'/'dark'/'light') is per-component
+  - `lineDiffType` and `diffStyle` are per-component options, NOT pool-level despite what progress.txt previously said
+---
+
+## 2026-02-20 - US-004
+- Replaced MonacoDiffViewer with PierreDiffViewer in MRDiffContent.tsx and MyMRDetailPage/CodeTab.tsx
+- Removed diffViewerRef, viewStatesRef, pendingViewStateRef from MRDetailPage (Pierre handles its own state)
+- Removed wasImageRef Monaco layout hack (not needed with Pierre)
+- Removed collapse/expand toolbar from MRDiffContent (Pierre uses expandUnchanged option)
+- Simplified useMRKeyboard: removed diffViewerRef dependency; 'c' and 's' key handlers now open comment overlay without cursor position (will be re-wired in US-006)
+- Removed MonacoDiffViewerRef from MyMRDetailPage/useCodeTab.ts and CodeTab.tsx
+- Added mrIid prop to MRDiffContent and CodeTab for Pierre cache key
+- Files changed: MRDiffContent.tsx, MRDetailPage/index.tsx, useMRKeyboard.ts, MyMRDetailPage/CodeTab.tsx, MyMRDetailPage/index.tsx, MyMRDetailPage/useCodeTab.ts
+- **Learnings for future iterations:**
+  - MyMRDetailPage has a separate `CodeTab.tsx` component that also used MonacoDiffViewer — don't forget it when replacing Monaco
+  - `useCodeTab.ts` is the MyMRDetailPage equivalent of MRDetailPage's hooks — it exposed diffViewerRef too
+  - The 'c' (comment) and 's' (suggest) keyboard shortcuts relied on Monaco's getCursorPosition/getSelectedLines — these will need Pierre equivalents in US-006/US-007
+  - Pierre components mount/unmount per file switch, so no view state save/restore is needed
+---
+
+## 2026-02-20 - US-005
+- Migrated inline comments to Pierre's `DiffLineAnnotation<T>` annotation system
+- Defined `LineComment` interface in `PierreDiffViewer/PierreDiffViewer.tsx` (moved from Monaco)
+- Added `comments` prop to PierreDiffViewer, maps to `DiffLineAnnotation<LineComment>[]` via `toAnnotations()`
+- Implemented `renderAnnotation` callback rendering author, timestamp, resolved status, and body inline below the annotated line
+- Wired `fileComments` from `useFileComments` → MRDetailPage → MRDiffContent → PierreDiffViewer
+- Moved `CursorPosition` and `LineSelection` types from Monaco to `CommentOverlay.tsx` (where they're used)
+- Updated `useFileComments.ts` import to use PierreDiffViewer's `LineComment` instead of Monaco's
+- Files changed: PierreDiffViewer.tsx, PierreDiffViewer/index.ts, MRDiffContent.tsx, MRDetailPage/index.tsx, useFileComments.ts, CommentOverlay.tsx
+- **Learnings for future iterations:**
+  - `DiffLineAnnotation<T>` must be imported from `@pierre/diffs` (the root), not from `@pierre/diffs/react`
+  - `renderAnnotation` receives a single `DiffLineAnnotation<T>` (not an array) — Pierre calls it once per annotation
+  - Pierre annotations render inside Shadow DOM so inline styles are needed (CSS variables can bridge to host)
+  - `isOldLine` maps to `side: 'deletions'`, `!isOldLine` maps to `side: 'additions'`
 ---

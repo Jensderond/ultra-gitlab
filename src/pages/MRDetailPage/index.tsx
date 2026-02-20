@@ -61,7 +61,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   // Wire up the stable ref so useMRData can call clearFileCache
   clearFileCacheRef.current = clearFileCache;
 
-  const { addComment } = useFileComments(mrId, view.selectedFile);
+  const { fileComments, addComment } = useFileComments(mrId, view.selectedFile);
 
   // Auto-select first reviewable file on initial load
   const appliedInitialRef = useRef(false);
@@ -201,6 +201,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           fileContentError={fileContentError}
           viewMode={effectiveViewMode}
           mrIid={mr.iid}
+          comments={fileComments}
           onRetry={() => view.selectedFile && handleFileSelect(view.selectedFile)}
         />
       </div>

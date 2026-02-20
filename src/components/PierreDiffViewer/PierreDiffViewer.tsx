@@ -1,6 +1,18 @@
 import { MultiFileDiff } from '@pierre/diffs/react';
 import type { FileContents } from '@pierre/diffs/react';
-import { useMemo } from 'react';
+import type { DiffLineAnnotation } from '@pierre/diffs';
+import { useMemo, type ReactNode } from 'react';
+
+/** Comment data attached to a diff line annotation. */
+export interface LineComment {
+  id: number;
+  line: number;
+  isOldLine?: boolean;
+  authorUsername: string;
+  body: string;
+  createdAt: number;
+  resolved?: boolean;
+}
 
 export interface PierreDiffViewerProps {
   /** Original file content (null for new files) */
@@ -15,6 +27,56 @@ export interface PierreDiffViewerProps {
   mrIid: number;
   /** Commit SHA for cache key */
   sha: string;
+  /** Inline comments to display as line annotations */
+  comments?: LineComment[];
+}
+
+/** Map LineComment[] to Pierre DiffLineAnnotation<LineComment>[]. */
+function toAnnotations(comments: LineComment[]): DiffLineAnnotation<LineComment>[] {
+  return comments.map((c) => ({
+    side: c.isOldLine ? 'deletions' as const : 'additions' as const,
+    lineNumber: c.line,
+    metadata: c,
+  }));
+}
+
+/** Format a Unix timestamp (seconds) as a relative or short date string. */
+function formatDate(ts: number): string {
+  const date = new Date(ts * 1000);
+  const now = Date.now();
+  const diffMs = now - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 30) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
+
+/** Render a single annotation (comment thread) inline in the diff. */
+function renderAnnotation(annotation: DiffLineAnnotation<LineComment>): ReactNode {
+  const c = annotation.metadata;
+  return (
+    <div className="pierre-annotation-comment" style={{
+      padding: '8px 12px',
+      borderTop: '1px solid var(--border-secondary, #333)',
+      background: 'var(--bg-secondary, #1e1e2e)',
+      fontSize: '13px',
+      lineHeight: '1.4',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+        <strong style={{ color: 'var(--text-primary, #e0e0e0)' }}>{c.authorUsername}</strong>
+        <span style={{ color: 'var(--text-tertiary, #888)', fontSize: '12px' }}>{formatDate(c.createdAt)}</span>
+        {c.resolved && (
+          <span style={{ color: 'var(--color-success, #4caf50)', fontSize: '11px', fontWeight: 600 }}>Resolved</span>
+        )}
+      </div>
+      <div style={{ color: 'var(--text-secondary, #ccc)', whiteSpace: 'pre-wrap' }}>{c.body}</div>
+    </div>
+  );
 }
 
 /**
@@ -28,6 +90,7 @@ export function PierreDiffViewer({
   viewMode,
   mrIid,
   sha,
+  comments,
 }: PierreDiffViewerProps) {
   const cacheKey = `${mrIid}:${filePath}:${sha}`;
 
@@ -59,11 +122,18 @@ export function PierreDiffViewer({
     [viewMode]
   );
 
+  const lineAnnotations = useMemo(
+    () => comments && comments.length > 0 ? toAnnotations(comments) : undefined,
+    [comments]
+  );
+
   return (
     <MultiFileDiff
       oldFile={oldFile}
       newFile={newFile}
       options={options}
+      lineAnnotations={lineAnnotations}
+      renderAnnotation={lineAnnotations ? renderAnnotation : undefined}
     />
   );
 }
