@@ -17,6 +17,10 @@
 - GitLab API supports URL-encoded project paths instead of numeric project IDs: `/projects/group%2Fsubgroup%2Fproject/...`
 - Route ordering in react-router: static routes (e.g., `/mrs/loading`) must be defined before dynamic routes (e.g., `/mrs/:id`).
 - Two diff viewer consumers: `MRDetailPage/MRDiffContent.tsx` (reviewing others' MRs) and `MyMRDetailPage/CodeTab.tsx` (viewing own MRs). Both must be updated when changing the diff viewer component.
+- `ImageDiffViewer` lives at `src/components/ImageDiffViewer/` (moved from Monaco dir in US-008).
+- `FileNavigation` lives at `src/components/FileNavigation/` (moved from DiffViewer dir in US-008).
+- `languageDetection.ts` (isImageFile, getImageMimeType, getLanguageFromPath) lives at `src/utils/languageDetection.ts`.
+- CommentOverlay uses a plain `<textarea>` for comment input (Monaco editor removed in US-008).
 - Pierre annotations: `DiffLineAnnotation<T>` imported from `@pierre/diffs` (not `@pierre/diffs/react`). `renderAnnotation` callback receives the annotation and returns ReactNode.
 - `LineComment` type moved from `Monaco/MonacoDiffViewer` to `PierreDiffViewer/PierreDiffViewer.tsx`; `CursorPosition`/`LineSelection` moved to `CommentOverlay.tsx`.
 
@@ -91,4 +95,54 @@
   - `renderAnnotation` receives a single `DiffLineAnnotation<T>` (not an array) — Pierre calls it once per annotation
   - Pierre annotations render inside Shadow DOM so inline styles are needed (CSS variables can bridge to host)
   - `isOldLine` maps to `side: 'deletions'`, `!isOldLine` maps to `side: 'additions'`
+---
+
+## 2026-02-20 - US-006
+- Wired up Pierre's `onLineNumberClick` to open the CommentOverlay for adding comments
+- Added `DiffLineClickInfo` type and `onLineClick` prop to PierreDiffViewer
+- Pierre's `onLineNumberClick` callback receives `{ lineNumber, annotationSide: 'deletions' | 'additions', lineType, event }` for diff mode
+- Mapped `annotationSide: 'deletions'` → `isOriginal: true` (old side) and `'additions'` → `isOriginal: false` (new side)
+- Threaded callback through MRDiffContent → MRDetailPage → CommentOverlay.open()
+- Files changed: PierreDiffViewer.tsx, PierreDiffViewer/index.ts, MRDiffContent.tsx, MRDetailPage/index.tsx
+- **Learnings for future iterations:**
+  - Pierre's `onLineNumberClick` in diff mode gives `annotationSide` (not `side`) — it's typed as `EventClickProps<"diff">` with `DiffLineEventBaseProps`
+  - The callback also has `lineType` ('change-deletion', 'change-addition', 'context', 'context-expanded') which could be useful for restricting comment placement
+  - CommentOverlay.open() takes `CursorPosition { line, isOriginal }` and optional `LineSelection | null` — passing null for selection when clicking a single line
+  - MyMRDetailPage CodeTab doesn't have a CommentOverlay, so `onLineClick` is not wired there (author view, no commenting)
+---
+
+## 2026-02-20 - US-007
+- Enabled line selection in PierreDiffViewer with `enableLineSelection: true` in Pierre options
+- Added `onLineSelected` callback prop to PierreDiffViewer for parent components to receive selection changes
+- Internal state tracks `selectedLines` via `useState` and passes it to `<MultiFileDiff selectedLines={...}>` for programmatic control
+- Pierre handles visual highlighting of selected lines automatically via `data-selected-line` DOM attributes
+- Re-exported `SelectedLineRange` type from `@pierre/diffs` via the barrel export for consumer use
+- Files changed: `PierreDiffViewer.tsx`, `PierreDiffViewer/index.ts`
+- **Learnings for future iterations:**
+  - `SelectedLineRange` is exported from `@pierre/diffs` root (not from `@pierre/diffs/react`)
+  - `enableLineSelection` and `onLineSelected` are part of `LineSelectionOptions`, which `FileDiffOptions` extends — they go in the `options` object
+  - `selectedLines` prop on `<MultiFileDiff>` is for programmatic control (setting selection from outside)
+  - `onLineSelected` fires with `null` when selection is cleared (e.g., clicking elsewhere)
+  - Pierre's `LineSelectionManager` handles click, shift-click, and drag selection automatically
+---
+
+## 2026-02-20 - US-008
+- Removed all Monaco dependencies: `monaco-editor`, `@monaco-editor/react`, `vite-plugin-monaco-editor`
+- Moved `ImageDiffViewer` from `src/components/Monaco/` to `src/components/ImageDiffViewer/`
+- Moved `FileNavigation` from `src/components/DiffViewer/` to `src/components/FileNavigation/`
+- Moved `languageDetection.ts` from `src/components/Monaco/` to `src/utils/languageDetection.ts`
+- Replaced Monaco Editor in `CommentOverlay.tsx` with plain `<textarea>` (preserves Cmd+Enter submit, Esc close)
+- Deleted entire `src/components/Monaco/` directory (MonacoDiffViewer, MonacoProvider, languageDetection, monaco.css, index)
+- Deleted entire `src/components/DiffViewer/` directory (DiffViewer, DiffContent, DiffHunk, DiffLine, DiffHeader, FileNavigation, useDiffData, useDiffComments, useDiffKeyboard, diffViewerReducer)
+- Deleted `src/themes/monacoAdapter.ts`
+- Cleaned `vite.config.ts`: removed `vite-plugin-monaco-editor` import, plugin config, and `removeUnusedMonacoWorkers` plugin
+- Updated all import paths in consuming files: MRDiffContent, CodeTab, MRFilePanel, useFileContent
+- Added textarea CSS in MRDetailPage.css for the comment editor
+- Zero references to `monaco-editor` or `@monaco-editor` remain in any .ts/.tsx file
+- Files changed: CommentOverlay.tsx, MRDiffContent.tsx, CodeTab.tsx, MRFilePanel.tsx, useFileContent.ts, vite.config.ts, deriveTheme.ts, MRDetailPage.css, package.json, bun.lock + new files in ImageDiffViewer/, FileNavigation/, utils/
+- **Learnings for future iterations:**
+  - `monacoTokenColors` and `monacoEditorColors` fields still exist in the ThemeDefinition type — they're naming artifacts, not package dependencies. Renaming would touch every theme preset file.
+  - CommentOverlay's textarea uses Cmd+Enter for submit via `onKeyDown` handler (previously Monaco's `addCommand` API). Esc closes the overlay.
+  - `languageDetection.ts` has generic utility functions (`isImageFile`, `getImageMimeType`, `getLanguageFromPath`) that are useful beyond any specific editor library.
+  - When deleting a component directory, always check for non-obvious dependents — `FileNavigation` was still used by MRFilePanel and CodeTab even though the rest of DiffViewer was dead code.
 ---

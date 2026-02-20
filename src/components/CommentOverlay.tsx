@@ -4,9 +4,7 @@
  * Extracted to isolate re-renders during comment typing from the diff viewer.
  */
 
-import { useState, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
-import Editor from '@monaco-editor/react';
-import type { editor } from 'monaco-editor';
+import { useState, useCallback, useRef, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { invoke } from '../services/tauri';
 import type { AddCommentRequest } from '../types';
 import type { LineComment } from './PierreDiffViewer/PierreDiffViewer';
@@ -63,7 +61,7 @@ export const CommentOverlay = forwardRef<CommentOverlayRef, CommentOverlayProps>
     const stateRef = useRef(state);
     stateRef.current = state;
     const visibleRef = useRef(false);
-    const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const submitRef = useRef<() => void>(() => {});
 
     const close = useCallback(() => {
@@ -118,10 +116,19 @@ export const CommentOverlay = forwardRef<CommentOverlayRef, CommentOverlayProps>
           text: initialText,
           submitting: false,
         });
-        requestAnimationFrame(() => editorRef.current?.focus());
       },
       close,
     }), [close]);
+
+    // Focus textarea when overlay opens
+    useEffect(() => {
+      if (state.visible && textareaRef.current) {
+        const ta = textareaRef.current;
+        ta.focus();
+        ta.selectionStart = ta.value.length;
+        ta.selectionEnd = ta.value.length;
+      }
+    }, [state.visible]);
 
     if (!state.visible || !state.position) return null;
 
@@ -163,42 +170,24 @@ export const CommentOverlay = forwardRef<CommentOverlayRef, CommentOverlayProps>
             </div>
           </div>
           <div className="comment-editor-wrapper">
-            <Editor
-              height="180px"
-              defaultLanguage="markdown"
-              theme="vs-dark"
+            <textarea
+              ref={textareaRef}
+              className="comment-textarea"
               value={state.text}
-              onChange={(value) => setState((prev) => ({ ...prev, text: value ?? '' }))}
-              onMount={(ed) => {
-                editorRef.current = ed;
-                ed.focus();
-                const model = ed.getModel();
-                if (model) {
-                  const lastLine = model.getLineCount();
-                  const lastCol = model.getLineMaxColumn(lastLine);
-                  ed.setPosition({ lineNumber: lastLine, column: lastCol });
+              onChange={(e) => setState((prev) => ({ ...prev, text: e.target.value }))}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                  e.preventDefault();
+                  submitRef.current();
                 }
-                ed.addCommand(
-                  2048 | 3,
-                  () => { submitRef.current(); }
-                );
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  close();
+                }
               }}
-              options={{
-                minimap: { enabled: false },
-                lineNumbers: 'off',
-                scrollBeyondLastLine: false,
-                wordWrap: 'on',
-                fontSize: 13,
-                fontFamily: '"SF Mono", Menlo, Monaco, "Courier New", monospace',
-                padding: { top: 8, bottom: 8 },
-                renderLineHighlight: 'none',
-                overviewRulerLanes: 0,
-                hideCursorInOverviewRuler: true,
-                scrollbar: { vertical: 'auto', horizontal: 'hidden' },
-                folding: false,
-                glyphMargin: false,
-                readOnly: state.submitting,
-              }}
+              placeholder="Write a comment... (Markdown supported)"
+              disabled={state.submitting}
+              rows={8}
             />
           </div>
           <div className="comment-input-actions">

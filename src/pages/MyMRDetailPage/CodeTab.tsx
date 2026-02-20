@@ -2,10 +2,10 @@
  * Code tab for MyMRDetailPage — file navigation + diff viewer.
  */
 
-import { FileNavigation } from '../../components/DiffViewer';
+import { FileNavigation } from '../../components/FileNavigation';
 import { PierreDiffViewer } from '../../components/PierreDiffViewer';
-import { ImageDiffViewer } from '../../components/Monaco/ImageDiffViewer';
-import { isImageFile, getImageMimeType } from '../../components/Monaco/languageDetection';
+import { ImageDiffViewer } from '../../components/ImageDiffViewer';
+import { isImageFile, getImageMimeType } from '../../utils/languageDetection';
 import type { CodeTabState } from './useCodeTab';
 
 type CodeTabProps = Pick<

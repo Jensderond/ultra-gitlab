@@ -1,7 +1,7 @@
 import { PierreDiffViewer } from '../../components/PierreDiffViewer';
 import type { LineComment, DiffLineClickInfo } from '../../components/PierreDiffViewer/PierreDiffViewer';
-import { ImageDiffViewer } from '../../components/Monaco/ImageDiffViewer';
-import { isImageFile, getImageMimeType } from '../../components/Monaco/languageDetection';
+import { ImageDiffViewer } from '../../components/ImageDiffViewer';
+import { isImageFile, getImageMimeType } from '../../utils/languageDetection';
 import type { DiffRefs, DiffFileSummary } from '../../types';
 
 interface MRDiffContentProps {

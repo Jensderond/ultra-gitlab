@@ -105,7 +105,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "onLineNumberClick receives { lineNumber, side, ... } from Pierre. Map Pierre's 'deletions'/'additions' sides to the existing comment system's old/new line concept. Check existing addComment handler in MRDetailPage."
     },
     {
@@ -120,7 +120,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Pierre's SelectedLineRange: { start: number, side?: 'deletions' | 'additions', end: number, endSide?: 'deletions' | 'additions' }. The selectedLines prop can be used for programmatic control."
     },
     {
@@ -141,7 +141,7 @@
         "Rust backend still compiles (cargo check in src-tauri/)"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "IMPORTANT: ImageDiffViewer (src/components/Monaco/ImageDiffViewer.tsx) is independent of Monaco — it's a pure React component for image comparison. It must NOT be deleted. Move it to src/components/ImageDiffViewer/ before deleting the Monaco directory. Update MRDiffContent.tsx import path accordingly."
     },
     {

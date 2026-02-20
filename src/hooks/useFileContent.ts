@@ -7,7 +7,7 @@
  */
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
-import { isImageFile } from '../components/Monaco/languageDetection';
+import { isImageFile } from '../utils/languageDetection';
 import { getCachedFilePair, getFileContent, getFileContentBase64 } from '../services/gitlab';
 import type { MergeRequest, DiffRefs, DiffFileSummary } from '../types';
 

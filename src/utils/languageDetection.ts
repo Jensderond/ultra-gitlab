@@ -1,6 +1,5 @@
 /**
- * Maps file extensions to Monaco language IDs.
- * @see https://github.com/microsoft/monaco-editor/blob/main/src/basic-languages/monaco.contribution.ts
+ * Maps file extensions to language IDs for syntax highlighting.
  */
 const EXTENSION_TO_LANGUAGE: Record<string, string> = {
   // JavaScript/TypeScript
