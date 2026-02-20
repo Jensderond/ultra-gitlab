@@ -1,5 +1,4 @@
-import type { RefObject } from 'react';
-import { MonacoDiffViewer, type MonacoDiffViewerRef, type LineComment } from '../../components/Monaco/MonacoDiffViewer';
+import { PierreDiffViewer } from '../../components/PierreDiffViewer';
 import { ImageDiffViewer } from '../../components/Monaco/ImageDiffViewer';
 import { isImageFile, getImageMimeType } from '../../components/Monaco/languageDetection';
 import type { DiffRefs, DiffFileSummary } from '../../types';
@@ -13,12 +12,8 @@ interface MRDiffContentProps {
   imageContent: { originalBase64: string; modifiedBase64: string };
   fileContentLoading: boolean;
   fileContentError: string | null;
-  collapseState: 'collapsed' | 'expanded' | 'partial';
   viewMode: 'unified' | 'split';
-  fileComments: LineComment[];
-  diffViewerRef: RefObject<MonacoDiffViewerRef | null>;
-  onCollapse: () => void;
-  onExpand: () => void;
+  mrIid: number;
   onRetry: () => void;
 }
 
@@ -31,12 +26,8 @@ export default function MRDiffContent({
   imageContent,
   fileContentLoading,
   fileContentError,
-  collapseState,
   viewMode,
-  fileComments,
-  diffViewerRef,
-  onCollapse,
-  onExpand,
+  mrIid,
   onRetry,
 }: MRDiffContentProps) {
   if (!selectedFile) {
@@ -94,38 +85,16 @@ export default function MRDiffContent({
         />
       )}
 
-      <div
-        className="monaco-diff-wrapper"
-        style={{ display: isImageFile(selectedFile) ? 'none' : undefined }}
-      >
-        <div className="diff-toolbar">
-          <button
-            className="diff-toolbar-btn"
-            onClick={onCollapse}
-            disabled={collapseState === 'collapsed'}
-            title="Collapse unchanged regions"
-          >
-            Collapse unchanged
-          </button>
-          <button
-            className="diff-toolbar-btn"
-            onClick={onExpand}
-            disabled={collapseState === 'expanded'}
-            title="Expand all regions"
-          >
-            Expand all
-          </button>
-        </div>
-        <MonacoDiffViewer
-          ref={diffViewerRef}
-          originalContent={fileContent.original}
-          modifiedContent={fileContent.modified}
+      {!isImageFile(selectedFile) && !fileContentLoading && !fileContentError && diffRefs && (
+        <PierreDiffViewer
+          oldContent={fileContent.original}
+          newContent={fileContent.modified}
           filePath={selectedFile}
           viewMode={viewMode}
-          hideUnchanged={collapseState !== 'expanded'}
-          comments={fileComments}
+          mrIid={mrIid}
+          sha={diffRefs.headSha}
         />
-      </div>
+      )}
     </main>
   );
 }

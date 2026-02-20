@@ -3,7 +3,7 @@
  */
 
 import { FileNavigation } from '../../components/DiffViewer';
-import { MonacoDiffViewer } from '../../components/Monaco/MonacoDiffViewer';
+import { PierreDiffViewer } from '../../components/PierreDiffViewer';
 import { ImageDiffViewer } from '../../components/Monaco/ImageDiffViewer';
 import { isImageFile, getImageMimeType } from '../../components/Monaco/languageDetection';
 import type { CodeTabState } from './useCodeTab';
@@ -21,10 +21,11 @@ type CodeTabProps = Pick<
   | 'fileContent'
   | 'imageContent'
   | 'fileContentLoading'
-  | 'diffViewerRef'
   | 'handleFileSelect'
   | 'toggleHideGenerated'
->;
+> & {
+  mrIid: number;
+};
 
 export function CodeTab({
   files,
@@ -38,7 +39,7 @@ export function CodeTab({
   fileContent,
   imageContent,
   fileContentLoading,
-  diffViewerRef,
+  mrIid,
   handleFileSelect,
   toggleHideGenerated,
 }: CodeTabProps) {
@@ -81,19 +82,16 @@ export function CodeTab({
               />
             )}
 
-            <div
-              className="my-mr-monaco-wrapper"
-              style={{ display: isImageFile(selectedFile) ? 'none' : undefined }}
-            >
-              <MonacoDiffViewer
-                ref={diffViewerRef}
-                originalContent={fileContent.original}
-                modifiedContent={fileContent.modified}
+            {!isImageFile(selectedFile) && !fileContentLoading && diffRefs && (
+              <PierreDiffViewer
+                oldContent={fileContent.original}
+                newContent={fileContent.modified}
                 filePath={selectedFile}
                 viewMode="unified"
-                comments={[]}
+                mrIid={mrIid}
+                sha={diffRefs.headSha}
               />
-            </div>
+            )}
           </>
         ) : files.length > 0 && reviewableFiles.length === 0 ? (
           <div className="my-mr-code-loading">All files are generated. Click a file to view.</div>

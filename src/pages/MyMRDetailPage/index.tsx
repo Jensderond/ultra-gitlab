@@ -106,7 +106,7 @@ export default function MyMRDetailPage() {
         )}
 
         {activeTab === 'code' && (
-          <CodeTab {...codeTab} />
+          <CodeTab {...codeTab} mrIid={mr.iid} />
         )}
       </div>
 
