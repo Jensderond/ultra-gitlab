@@ -248,6 +248,16 @@ export const diffFiles: Record<number, DiffFile[]> = {
       deletions: 5,
       filePosition: 2,
     },
+    {
+      id: 1004,
+      mrId: 101,
+      oldPath: 'src/legacy/OldTheme.css',
+      newPath: 'src/legacy/OldTheme.css',
+      changeType: 'deleted',
+      additions: 0,
+      deletions: 20,
+      filePosition: 3,
+    },
   ],
 };
 

@@ -28,9 +28,10 @@ test.describe('MR Detail Page', () => {
     await page.goto('/mrs/101');
 
     // The file panel should show the seeded diff files
-    await expect(page.getByText('ThemeToggle.tsx')).toBeVisible();
-    await expect(page.getByText('App.tsx')).toBeVisible();
-    await expect(page.getByText('theme.css')).toBeVisible();
+    const sidebar = page.locator('.mr-detail-sidebar');
+    await expect(sidebar.getByText('ThemeToggle.tsx')).toBeVisible();
+    await expect(sidebar.getByText('App.tsx')).toBeVisible();
+    await expect(sidebar.getByText('theme.css', { exact: true })).toBeVisible();
   });
 
   test('shows back button that navigates to MR list', async ({ page }) => {

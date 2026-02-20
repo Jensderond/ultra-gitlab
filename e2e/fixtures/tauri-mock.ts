@@ -127,10 +127,26 @@ export async function mockTauriIPC(page: Page) {
       },
       get_file_content: () => '// file content mock',
       get_file_content_base64: () => '',
-      get_cached_file_pair: () => ({
-        baseContent: '// base content',
-        headContent: '// head content',
-      }),
+      get_cached_file_pair: (args) => {
+        const filePath = args.filePath as string;
+        // Return realistic content based on file type
+        if (filePath.endsWith('.tsx') || filePath.endsWith('.ts')) {
+          return {
+            baseContent: 'import React from "react";\n\nfunction Component() {\n  return <div>Original</div>;\n}\n\nexport default Component;\n',
+            headContent: 'import React from "react";\nimport { useState } from "react";\n\nfunction Component() {\n  const [active, setActive] = useState(false);\n  return <div className="updated">Modified</div>;\n}\n\nexport default Component;\n',
+          };
+        }
+        if (filePath.endsWith('.css')) {
+          return {
+            baseContent: ':root {\n  --color-primary: #333;\n  --color-bg: #fff;\n}\n',
+            headContent: ':root {\n  --color-primary: #1a1a2e;\n  --color-bg: #fafafa;\n  --color-accent: #e94560;\n}\n',
+          };
+        }
+        return {
+          baseContent: '// base content\nline 2\nline 3\n',
+          headContent: '// head content\nline 2 modified\nline 3\nline 4 added\n',
+        };
+      },
 
       // -- Comments --
       get_comments: (args) => data.comments[args.mrId as number] || [],
