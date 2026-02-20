@@ -29,11 +29,17 @@ import { CommandId, CommandCategory, commandDefinitions } from './commands/regis
 import { manualSync } from './services/storage';
 import { listInstances } from './services/gitlab';
 import { listPipelineProjects, visitPipelineProject } from './services/tauri';
-import { MonacoProvider } from './components/Monaco';
+import { WorkerPoolContextProvider } from '@pierre/diffs/react';
+import WorkerUrl from '@pierre/diffs/worker/worker.js?worker&url';
 import { ThemeProvider } from './components/ThemeProvider';
 import { ToastProvider, useToast, ToastContainer } from './components/Toast';
 import type { AuthExpiredPayload, PipelineProject } from './types';
 import './App.css';
+
+/** Worker factory for Pierre diffs syntax highlighting (runs off main thread) */
+function workerFactory(): Worker {
+  return new Worker(WorkerUrl, { type: 'module' });
+}
 
 /** Auth expired state for re-auth prompt */
 interface AuthExpiredState {
@@ -349,13 +355,18 @@ function AppContent() {
 function App() {
   return (
     <ThemeProvider>
-      <MonacoProvider>
+      <WorkerPoolContextProvider
+        poolOptions={{ workerFactory }}
+        highlighterOptions={{
+          theme: { dark: 'pierre-dark', light: 'pierre-light' },
+        }}
+      >
         <ToastProvider>
           <BrowserRouter>
             <AppContent />
           </BrowserRouter>
         </ToastProvider>
-      </MonacoProvider>
+      </WorkerPoolContextProvider>
     </ThemeProvider>
   );
 }
