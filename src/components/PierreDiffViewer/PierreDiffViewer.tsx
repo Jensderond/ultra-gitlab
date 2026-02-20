@@ -1,7 +1,7 @@
 import { MultiFileDiff } from '@pierre/diffs/react';
 import type { FileContents } from '@pierre/diffs/react';
 import type { DiffLineAnnotation } from '@pierre/diffs';
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useCallback, type ReactNode } from 'react';
 
 /** Comment data attached to a diff line annotation. */
 export interface LineComment {
@@ -12,6 +12,13 @@ export interface LineComment {
   body: string;
   createdAt: number;
   resolved?: boolean;
+}
+
+/** Info passed when a line number is clicked in the diff. */
+export interface DiffLineClickInfo {
+  lineNumber: number;
+  side: 'old' | 'new';
+  filePath: string;
 }
 
 export interface PierreDiffViewerProps {
@@ -29,6 +36,8 @@ export interface PierreDiffViewerProps {
   sha: string;
   /** Inline comments to display as line annotations */
   comments?: LineComment[];
+  /** Called when a line number is clicked in the diff */
+  onLineClick?: (info: DiffLineClickInfo) => void;
 }
 
 /** Map LineComment[] to Pierre DiffLineAnnotation<LineComment>[]. */
@@ -91,6 +100,7 @@ export function PierreDiffViewer({
   mrIid,
   sha,
   comments,
+  onLineClick,
 }: PierreDiffViewerProps) {
   const cacheKey = `${mrIid}:${filePath}:${sha}`;
 
@@ -112,14 +122,26 @@ export function PierreDiffViewer({
     [filePath, newContent, cacheKey]
   );
 
+  const handleLineNumberClick = useCallback(
+    (props: { lineNumber: number; annotationSide: 'deletions' | 'additions' }) => {
+      onLineClick?.({
+        lineNumber: props.lineNumber,
+        side: props.annotationSide === 'deletions' ? 'old' : 'new',
+        filePath,
+      });
+    },
+    [onLineClick, filePath]
+  );
+
   const options = useMemo(
     () => ({
       diffStyle: viewMode,
       lineDiffType: 'word' as const,
       expandUnchanged: true,
       themeType: 'system' as const,
+      onLineNumberClick: onLineClick ? handleLineNumberClick : undefined,
     }),
-    [viewMode]
+    [viewMode, onLineClick, handleLineNumberClick]
   );
 
   const lineAnnotations = useMemo(

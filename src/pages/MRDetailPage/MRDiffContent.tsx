@@ -1,5 +1,5 @@
 import { PierreDiffViewer } from '../../components/PierreDiffViewer';
-import type { LineComment } from '../../components/PierreDiffViewer/PierreDiffViewer';
+import type { LineComment, DiffLineClickInfo } from '../../components/PierreDiffViewer/PierreDiffViewer';
 import { ImageDiffViewer } from '../../components/Monaco/ImageDiffViewer';
 import { isImageFile, getImageMimeType } from '../../components/Monaco/languageDetection';
 import type { DiffRefs, DiffFileSummary } from '../../types';
@@ -16,6 +16,7 @@ interface MRDiffContentProps {
   viewMode: 'unified' | 'split';
   mrIid: number;
   comments?: LineComment[];
+  onLineClick?: (info: DiffLineClickInfo) => void;
   onRetry: () => void;
 }
 
@@ -31,6 +32,7 @@ export default function MRDiffContent({
   viewMode,
   mrIid,
   comments,
+  onLineClick,
   onRetry,
 }: MRDiffContentProps) {
   if (!selectedFile) {
@@ -97,6 +99,7 @@ export default function MRDiffContent({
           mrIid={mrIid}
           sha={diffRefs.headSha}
           comments={comments}
+          onLineClick={onLineClick}
         />
       )}
     </main>

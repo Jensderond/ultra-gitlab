@@ -8,6 +8,7 @@ import { useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { ApprovalButtonRef } from '../../components/Approval';
 import { CommentOverlay, type CommentOverlayRef } from '../../components/CommentOverlay';
+import type { DiffLineClickInfo } from '../../components/PierreDiffViewer';
 import { useFileContent } from '../../hooks/useFileContent';
 import { useCopyToast } from '../../hooks/useCopyToast';
 import { useSmallScreen } from '../../hooks/useSmallScreen';
@@ -129,6 +130,13 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     });
   }, [view.viewMode, dispatch]);
 
+  const handleLineClick = useCallback((info: DiffLineClickInfo) => {
+    commentOverlayRef.current?.open(
+      { line: info.lineNumber, isOriginal: info.side === 'old' },
+      null,
+    );
+  }, []);
+
   useMRKeyboard({
     selectedFile: view.selectedFile,
     isSmallScreen,
@@ -202,6 +210,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           viewMode={effectiveViewMode}
           mrIid={mr.iid}
           comments={fileComments}
+          onLineClick={handleLineClick}
           onRetry={() => view.selectedFile && handleFileSelect(view.selectedFile)}
         />
       </div>
