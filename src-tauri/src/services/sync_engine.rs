@@ -10,16 +10,16 @@
 
 use crate::db::pool::DbPool;
 use crate::error::AppError;
+use crate::models::project::{self, Project};
+use crate::models::sync_action::ActionType;
 use crate::services::gitlab_client::{
     GitLabClient, GitLabClientConfig, GitLabDiffVersion, GitLabDiscussion, GitLabMergeRequest,
     MergeRequestsQuery,
 };
-use crate::models::project::{self, Project};
-use crate::models::sync_action::ActionType;
 use crate::services::sync_events::{
-    ActionSyncedPayload, AuthExpiredPayload, MrReadyPayload, MrUpdatedPayload, MrUpdateType,
-    SyncProgressPayload, SyncPhase,
-    ACTION_SYNCED_EVENT, AUTH_EXPIRED_EVENT, MR_READY_EVENT, MR_UPDATED_EVENT, SYNC_PROGRESS_EVENT,
+    ActionSyncedPayload, AuthExpiredPayload, MrReadyPayload, MrUpdateType, MrUpdatedPayload,
+    SyncPhase, SyncProgressPayload, ACTION_SYNCED_EVENT, AUTH_EXPIRED_EVENT, MR_READY_EVENT,
+    MR_UPDATED_EVENT, SYNC_PROGRESS_EVENT,
 };
 use crate::services::sync_processor::{self, ProcessResult};
 use crate::services::sync_queue;
@@ -289,7 +289,11 @@ impl SyncEngine {
     /// Spawns a background task that owns the engine and runs sync at the
     /// configured interval. Returns a lightweight `SyncHandle` for sending
     /// commands (trigger, config update, stop) without holding a lock.
-    pub fn start_background(pool: DbPool, config: SyncConfig, app_handle: tauri::AppHandle) -> SyncHandle {
+    pub fn start_background(
+        pool: DbPool,
+        config: SyncConfig,
+        app_handle: tauri::AppHandle,
+    ) -> SyncHandle {
         let (tx, mut rx) = mpsc::channel::<SyncCommand>(16);
         let config_shared = Arc::new(RwLock::new(config.clone()));
         let config_for_task = config_shared.clone();
@@ -318,9 +322,7 @@ impl SyncEngine {
                 Err(e) => eprintln!("[sync] Initial sync error: {}", e),
             }
 
-            let interval_secs = {
-                engine.config.read().await.interval_secs
-            };
+            let interval_secs = { engine.config.read().await.interval_secs };
             let mut interval = time::interval(Duration::from_secs(interval_secs));
             // Consume the first (immediate) tick since we just ran sync
             interval.tick().await;
@@ -401,7 +403,10 @@ impl SyncEngine {
         eprintln!("[sync] Found {} GitLab instance(s)", instances.len());
 
         for instance in &instances {
-            eprintln!("[sync] Syncing instance: {} (id={})", instance.url, instance.id);
+            eprintln!(
+                "[sync] Syncing instance: {} (id={})",
+                instance.url, instance.id
+            );
         }
 
         for instance in instances {
@@ -419,7 +424,8 @@ impl SyncEngine {
                             AUTH_EXPIRED_EVENT,
                             AuthExpiredPayload {
                                 instance_id: e.get_expired_instance_id().unwrap_or(instance.id),
-                                instance_url: e.get_expired_instance_url()
+                                instance_url: e
+                                    .get_expired_instance_url()
                                     .unwrap_or(&instance.url)
                                     .to_string(),
                                 message: format!(
@@ -431,7 +437,9 @@ impl SyncEngine {
                             log::warn!("Failed to emit auth-expired event: {}", emit_err);
                         }
                     }
-                    result.errors.push(format!("Instance {}: {}", instance.url, e));
+                    result
+                        .errors
+                        .push(format!("Instance {}: {}", instance.url, e));
                 }
             }
         }
@@ -507,7 +515,11 @@ impl SyncEngine {
         // Log the sync operation
         self.log_sync_operation(
             "sync_complete",
-            if result.errors.is_empty() { "success" } else { "error" },
+            if result.errors.is_empty() {
+                "success"
+            } else {
+                "error"
+            },
             None,
             Some(format!(
                 "Synced {} MRs, purged {}, pushed {} actions",
@@ -521,7 +533,10 @@ impl SyncEngine {
     }
 
     /// Sync a single GitLab instance.
-    async fn sync_instance(&mut self, instance: &GitLabInstanceRow) -> Result<SyncResult, AppError> {
+    async fn sync_instance(
+        &mut self,
+        instance: &GitLabInstanceRow,
+    ) -> Result<SyncResult, AppError> {
         let config = self.config.read().await;
         eprintln!(
             "[sync] sync_instance: url={}, has_token={}, sync_authored={}, sync_reviewing={}",
@@ -533,7 +548,10 @@ impl SyncEngine {
 
         // Get token from DB
         let token = instance.token.clone().ok_or_else(|| {
-            eprintln!("[sync] ERROR: No token for instance {} (id={})", instance.url, instance.id);
+            eprintln!(
+                "[sync] ERROR: No token for instance {} (id={})",
+                instance.url, instance.id
+            );
             AppError::authentication_expired_for_instance(
                 "GitLab token missing. Please re-authenticate.",
                 instance.id,
@@ -582,7 +600,10 @@ impl SyncEngine {
         }
 
         // Emit fetching_mrs event
-        self.emit_progress(SyncPhase::FetchingMrs, format!("Fetching MRs from {}", instance.url));
+        self.emit_progress(
+            SyncPhase::FetchingMrs,
+            format!("Fetching MRs from {}", instance.url),
+        );
 
         // Fetch MRs based on scope
         let mrs = match self.fetch_mrs_for_instance(&client, &config).await {
@@ -621,13 +642,15 @@ impl SyncEngine {
         }
 
         // Detect MR ready-to-merge transitions and emit notifications
-        self.check_mr_ready_transitions(&mr_ids, &pre_sync_ready, &mrs).await;
+        self.check_mr_ready_transitions(&mr_ids, &pre_sync_ready, &mrs)
+            .await;
 
         // Fetch and cache project titles for any new project IDs
         self.cache_project_titles(instance.id, &client, &mrs).await;
 
         // Refresh gitattributes cache for projects with MRs (if stale or missing)
-        self.refresh_gitattributes_for_projects(instance.id, &mrs).await;
+        self.refresh_gitattributes_for_projects(instance.id, &mrs)
+            .await;
 
         // Sync user avatars (non-fatal)
         self.sync_user_avatars(instance, &mrs).await;
@@ -643,10 +666,7 @@ impl SyncEngine {
 
         // Push pending actions for this instance
         let push_results = self.push_pending_actions(&client).await?;
-        result.actions_pushed = push_results
-            .iter()
-            .filter(|r| r.success)
-            .count() as i64;
+        result.actions_pushed = push_results.iter().filter(|r| r.success).count() as i64;
 
         for push_result in &push_results {
             // Emit action-synced event for each processed action
@@ -666,7 +686,9 @@ impl SyncEngine {
 
             if !push_result.success {
                 if let Some(err) = &push_result.error {
-                    result.errors.push(format!("Action {}: {}", push_result.action.id, err));
+                    result
+                        .errors
+                        .push(format!("Action {}: {}", push_result.action.id, err));
                 }
             }
         }
@@ -684,7 +706,10 @@ impl SyncEngine {
 
         // Validate token and get current user
         let current_user = client.validate_token().await?;
-        eprintln!("[sync] Authenticated as user: '{}' (id={})", current_user.username, current_user.id);
+        eprintln!(
+            "[sync] Authenticated as user: '{}' (id={})",
+            current_user.username, current_user.id
+        );
 
         // Fetch authored MRs if enabled
         if config.sync_authored {
@@ -760,12 +785,10 @@ impl SyncEngine {
         let start = Instant::now();
 
         // Check if MR already exists (to determine created vs updated)
-        let existing: Option<(i64,)> = sqlx::query_as(
-            "SELECT id FROM merge_requests WHERE id = ?",
-        )
-        .bind(mr.id)
-        .fetch_optional(&self.pool)
-        .await?;
+        let existing: Option<(i64,)> = sqlx::query_as("SELECT id FROM merge_requests WHERE id = ?")
+            .bind(mr.id)
+            .fetch_optional(&self.pool)
+            .await?;
         let is_new = existing.is_none();
 
         // Upsert MR metadata
@@ -776,7 +799,11 @@ impl SyncEngine {
             mr.id,
             instance_id,
             mr.iid,
-            if is_new { MrUpdateType::Created } else { MrUpdateType::Updated },
+            if is_new {
+                MrUpdateType::Created
+            } else {
+                MrUpdateType::Updated
+            },
         );
 
         // Fetch and store approval status + per-reviewer data
@@ -788,7 +815,11 @@ impl SyncEngine {
                     approvals.approved_by.iter().any(|a| a.user.id == u.id)
                 });
 
-                let approval_status = if approvals.approved { "approved" } else { "pending" };
+                let approval_status = if approvals.approved {
+                    "approved"
+                } else {
+                    "pending"
+                };
                 let approvals_count = approvals.approvals_required - approvals.approvals_left;
 
                 sqlx::query(
@@ -797,7 +828,7 @@ impl SyncEngine {
                         approvals_count = ?,
                         approvals_required = ?,
                         user_has_approved = ?
-                     WHERE id = ?"
+                     WHERE id = ?",
                 )
                 .bind(approval_status)
                 .bind(approvals_count)
@@ -817,7 +848,10 @@ impl SyncEngine {
         }
 
         // Emit fetching_diff event
-        self.emit_progress(SyncPhase::FetchingDiff, format!("Fetching diff for MR !{}", mr.iid));
+        self.emit_progress(
+            SyncPhase::FetchingDiff,
+            format!("Fetching diff for MR !{}", mr.iid),
+        );
 
         // Fetch and store diff
         match client.get_merge_request_diff(mr.project_id, mr.iid).await {
@@ -856,7 +890,10 @@ impl SyncEngine {
         }
 
         // Emit fetching_comments event
-        self.emit_progress(SyncPhase::FetchingComments, format!("Fetching comments for MR !{}", mr.iid));
+        self.emit_progress(
+            SyncPhase::FetchingComments,
+            format!("Fetching comments for MR !{}", mr.iid),
+        );
 
         // Fetch and store comments
         match client.list_discussions(mr.project_id, mr.iid).await {
@@ -904,13 +941,14 @@ impl SyncEngine {
         project_ids.dedup();
 
         // Find which ones are missing from cache
-        let missing = match project::get_missing_project_ids(&self.pool, instance_id, &project_ids).await {
-            Ok(ids) => ids,
-            Err(e) => {
-                log::warn!("Failed to check cached project IDs: {}", e);
-                return;
-            }
-        };
+        let missing =
+            match project::get_missing_project_ids(&self.pool, instance_id, &project_ids).await {
+                Ok(ids) => ids,
+                Err(e) => {
+                    log::warn!("Failed to check cached project IDs: {}", e);
+                    return;
+                }
+            };
 
         if missing.is_empty() {
             return;
@@ -984,11 +1022,7 @@ impl SyncEngine {
     }
 
     /// Sync user avatars for MR authors and reviewers.
-    async fn sync_user_avatars(
-        &self,
-        instance: &GitLabInstanceRow,
-        mrs: &[GitLabMergeRequest],
-    ) {
+    async fn sync_user_avatars(&self, instance: &GitLabInstanceRow, mrs: &[GitLabMergeRequest]) {
         use std::collections::HashMap;
 
         // Collect unique (username, avatar_url) pairs from authors and reviewers
@@ -1019,7 +1053,10 @@ impl SyncEngine {
         {
             Ok(count) => {
                 if count > 0 {
-                    eprintln!("[sync] Downloaded {} avatar(s) for instance {}", count, instance.id);
+                    eprintln!(
+                        "[sync] Downloaded {} avatar(s) for instance {}",
+                        count, instance.id
+                    );
                 }
             }
             Err(e) => {
@@ -1029,11 +1066,7 @@ impl SyncEngine {
     }
 
     /// Upsert MR metadata into the database.
-    async fn upsert_mr(
-        &self,
-        instance_id: i64,
-        mr: &GitLabMergeRequest,
-    ) -> Result<(), AppError> {
+    async fn upsert_mr(&self, instance_id: i64, mr: &GitLabMergeRequest) -> Result<(), AppError> {
         let created_at = parse_iso_timestamp(&mr.created_at);
         let updated_at = parse_iso_timestamp(&mr.updated_at);
         let merged_at = mr.merged_at.as_ref().map(|s| parse_iso_timestamp(s));
@@ -1215,18 +1248,26 @@ impl SyncEngine {
         diff: &GitLabDiffVersion,
         prev_shas: Option<&(String, String)>,
     ) {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
 
         // If base_sha and head_sha are unchanged, skip all file fetching
         if let Some((prev_base, prev_head)) = prev_shas {
             if prev_base == &diff.base_commit_sha && prev_head == &diff.head_commit_sha {
-                log::debug!("SHAs unchanged for MR {}, skipping file content fetch", mr_id);
+                log::debug!(
+                    "SHAs unchanged for MR {}, skipping file content fetch",
+                    mr_id
+                );
                 return;
             }
 
             // SHAs changed — purge stale cached file versions so they get re-fetched
-            log::debug!("SHAs changed for MR {}, purging cached file versions", mr_id);
-            if let Err(e) = crate::db::file_cache::delete_file_versions_for_mr(&self.pool, mr_id).await {
+            log::debug!(
+                "SHAs changed for MR {}, purging cached file versions",
+                mr_id
+            );
+            if let Err(e) =
+                crate::db::file_cache::delete_file_versions_for_mr(&self.pool, mr_id).await
+            {
                 log::warn!("Failed to purge file versions for MR {}: {}", mr_id, e);
             }
         }
@@ -1236,7 +1277,8 @@ impl SyncEngine {
 
         for file_diff in &diff.diffs {
             // Skip binary files
-            if is_binary_extension(&file_diff.new_path) || is_binary_extension(&file_diff.old_path) {
+            if is_binary_extension(&file_diff.new_path) || is_binary_extension(&file_diff.old_path)
+            {
                 continue;
             }
 
@@ -1252,8 +1294,13 @@ impl SyncEngine {
             if change_type != "added" {
                 // Skip if already cached
                 let has_cached = crate::db::file_cache::has_cached_version(
-                    &self.pool, mr_id, &file_diff.old_path, "base",
-                ).await.unwrap_or(false);
+                    &self.pool,
+                    mr_id,
+                    &file_diff.old_path,
+                    "base",
+                )
+                .await
+                .unwrap_or(false);
 
                 if has_cached {
                     skipped += 1;
@@ -1270,17 +1317,39 @@ impl SyncEngine {
 
                             if let Err(e) = crate::db::file_cache::upsert_file_blob(
                                 &self.pool, &sha, &content, size_bytes,
-                            ).await {
-                                log::warn!("Failed to cache base blob for {}: {}", file_diff.old_path, e);
+                            )
+                            .await
+                            {
+                                log::warn!(
+                                    "Failed to cache base blob for {}: {}",
+                                    file_diff.old_path,
+                                    e
+                                );
                             }
                             if let Err(e) = crate::db::file_cache::upsert_file_version(
-                                &self.pool, mr_id, &file_diff.old_path, "base", &sha, &instance_id_str, project_id,
-                            ).await {
-                                log::warn!("Failed to cache base version for {}: {}", file_diff.old_path, e);
+                                &self.pool,
+                                mr_id,
+                                &file_diff.old_path,
+                                "base",
+                                &sha,
+                                &instance_id_str,
+                                project_id,
+                            )
+                            .await
+                            {
+                                log::warn!(
+                                    "Failed to cache base version for {}: {}",
+                                    file_diff.old_path,
+                                    e
+                                );
                             }
                         }
                         Err(e) => {
-                            log::warn!("Failed to fetch base content for {}: {}", file_diff.old_path, e);
+                            log::warn!(
+                                "Failed to fetch base content for {}: {}",
+                                file_diff.old_path,
+                                e
+                            );
                         }
                     }
                 }
@@ -1290,8 +1359,13 @@ impl SyncEngine {
             if change_type != "deleted" {
                 // Skip if already cached
                 let has_cached = crate::db::file_cache::has_cached_version(
-                    &self.pool, mr_id, &file_diff.new_path, "head",
-                ).await.unwrap_or(false);
+                    &self.pool,
+                    mr_id,
+                    &file_diff.new_path,
+                    "head",
+                )
+                .await
+                .unwrap_or(false);
 
                 if has_cached {
                     skipped += 1;
@@ -1308,17 +1382,39 @@ impl SyncEngine {
 
                             if let Err(e) = crate::db::file_cache::upsert_file_blob(
                                 &self.pool, &sha, &content, size_bytes,
-                            ).await {
-                                log::warn!("Failed to cache head blob for {}: {}", file_diff.new_path, e);
+                            )
+                            .await
+                            {
+                                log::warn!(
+                                    "Failed to cache head blob for {}: {}",
+                                    file_diff.new_path,
+                                    e
+                                );
                             }
                             if let Err(e) = crate::db::file_cache::upsert_file_version(
-                                &self.pool, mr_id, &file_diff.new_path, "head", &sha, &instance_id_str, project_id,
-                            ).await {
-                                log::warn!("Failed to cache head version for {}: {}", file_diff.new_path, e);
+                                &self.pool,
+                                mr_id,
+                                &file_diff.new_path,
+                                "head",
+                                &sha,
+                                &instance_id_str,
+                                project_id,
+                            )
+                            .await
+                            {
+                                log::warn!(
+                                    "Failed to cache head version for {}: {}",
+                                    file_diff.new_path,
+                                    e
+                                );
                             }
                         }
                         Err(e) => {
-                            log::warn!("Failed to fetch head content for {}: {}", file_diff.new_path, e);
+                            log::warn!(
+                                "Failed to fetch head content for {}: {}",
+                                file_diff.new_path,
+                                e
+                            );
                         }
                     }
                 }
@@ -1326,7 +1422,11 @@ impl SyncEngine {
         }
 
         if skipped > 0 {
-            log::debug!("Skipped {} already-cached file versions for MR {}", skipped, mr_id);
+            log::debug!(
+                "Skipped {} already-cached file versions for MR {}",
+                skipped,
+                mr_id
+            );
         }
     }
 
@@ -1440,14 +1540,19 @@ impl SyncEngine {
             {
                 log::warn!(
                     "Failed to upsert reviewer {} for MR {}: {}",
-                    reviewer.username, mr_id, e
+                    reviewer.username,
+                    mr_id,
+                    e
                 );
             }
         }
 
         // Also add approved users who may not be in the reviewers list
         for approved in &approvals.approved_by {
-            if !reviewers.iter().any(|r| r.username == approved.user.username) {
+            if !reviewers
+                .iter()
+                .any(|r| r.username == approved.user.username)
+            {
                 if let Err(e) = sqlx::query(
                     r#"
                     INSERT OR IGNORE INTO mr_reviewers (mr_id, username, status, cached_at)
@@ -1462,7 +1567,9 @@ impl SyncEngine {
                 {
                     log::warn!(
                         "Failed to upsert approved-only reviewer {} for MR {}: {}",
-                        approved.user.username, mr_id, e
+                        approved.user.username,
+                        mr_id,
+                        e
                     );
                 }
             }
@@ -1491,7 +1598,8 @@ impl SyncEngine {
                 .fetch_all(&self.pool)
                 .await?
         } else {
-            let placeholders: Vec<String> = (0..open_mr_ids.len()).map(|_| "?".to_string()).collect();
+            let placeholders: Vec<String> =
+                (0..open_mr_ids.len()).map(|_| "?".to_string()).collect();
             let query = format!(
                 "SELECT id, iid FROM merge_requests WHERE instance_id = ? AND id NOT IN ({})",
                 placeholders.join(", ")
@@ -1505,7 +1613,9 @@ impl SyncEngine {
 
         // Delete file versions for each purged MR
         for (mr_id, _iid) in &purge_rows {
-            if let Err(e) = crate::db::file_cache::delete_file_versions_for_mr(&self.pool, *mr_id).await {
+            if let Err(e) =
+                crate::db::file_cache::delete_file_versions_for_mr(&self.pool, *mr_id).await
+            {
                 log::warn!("Failed to delete file versions for MR {}: {}", mr_id, e);
             }
         }
@@ -1517,7 +1627,8 @@ impl SyncEngine {
                 .execute(&self.pool)
                 .await?
         } else {
-            let placeholders: Vec<String> = (0..open_mr_ids.len()).map(|_| "?".to_string()).collect();
+            let placeholders: Vec<String> =
+                (0..open_mr_ids.len()).map(|_| "?".to_string()).collect();
             let query = format!(
                 "DELETE FROM merge_requests WHERE instance_id = ? AND id NOT IN ({})",
                 placeholders.join(", ")
@@ -1575,9 +1686,8 @@ impl SyncEngine {
         // Collect pending actions for all requested types
         let mut actions = Vec::new();
         for action_type in action_types {
-            actions.extend(
-                sync_queue::get_pending_actions_by_type(&self.pool, *action_type).await?,
-            );
+            actions
+                .extend(sync_queue::get_pending_actions_by_type(&self.pool, *action_type).await?);
         }
 
         if actions.is_empty() {
@@ -1599,12 +1709,11 @@ impl SyncEngine {
 
         for action in &actions {
             // Find the instance for this action's MR
-            let instance_id: Option<i64> = sqlx::query_scalar(
-                "SELECT instance_id FROM merge_requests WHERE id = ?",
-            )
-            .bind(action.mr_id)
-            .fetch_optional(&self.pool)
-            .await?;
+            let instance_id: Option<i64> =
+                sqlx::query_scalar("SELECT instance_id FROM merge_requests WHERE id = ?")
+                    .bind(action.mr_id)
+                    .fetch_optional(&self.pool)
+                    .await?;
 
             let Some(instance_id) = instance_id else {
                 eprintln!(
@@ -1663,9 +1772,15 @@ impl SyncEngine {
             }
 
             if result.success {
-                eprintln!("[sync] Flushed action {} ({}) successfully", action.id, action.action_type);
+                eprintln!(
+                    "[sync] Flushed action {} ({}) successfully",
+                    action.id, action.action_type
+                );
             } else if let Some(err) = &result.error {
-                eprintln!("[sync] Action {} ({}) failed: {}", action.id, action.action_type, err);
+                eprintln!(
+                    "[sync] Action {} ({}) failed: {}",
+                    action.id, action.action_type, err
+                );
             }
         }
 
@@ -1729,13 +1844,14 @@ impl SyncEngine {
         mrs: &[GitLabMergeRequest],
     ) {
         // Check notification settings first
-        let settings = match crate::db::notification_settings::get_notification_settings(&self.pool).await {
-            Ok(s) => s,
-            Err(e) => {
-                log::warn!("Failed to read notification settings: {}", e);
-                return;
-            }
-        };
+        let settings =
+            match crate::db::notification_settings::get_notification_settings(&self.pool).await {
+                Ok(s) => s,
+                Err(e) => {
+                    log::warn!("Failed to read notification settings: {}", e);
+                    return;
+                }
+            };
 
         if !settings.mr_ready_to_merge {
             return;
@@ -1771,7 +1887,10 @@ impl SyncEngine {
                 }
 
                 self.notified_mr_ready.insert(mr_id);
-                eprintln!("[sync] MR !{} is now ready to merge, notification emitted", mr.iid);
+                eprintln!(
+                    "[sync] MR !{} is now ready to merge, notification emitted",
+                    mr.iid
+                );
             }
         }
     }
@@ -1894,11 +2013,9 @@ fn extract_project_path(web_url: &str) -> String {
 
 /// Known binary file extensions to skip during file content caching.
 const BINARY_EXTENSIONS: &[&str] = &[
-    "png", "jpg", "jpeg", "gif", "svg", "ico", "webp", "bmp", "tiff",
-    "mp4", "mp3", "wav", "zip", "tar", "gz", "rar", "7z",
-    "exe", "dll", "so", "dylib",
-    "woff", "woff2", "ttf", "eot",
-    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+    "png", "jpg", "jpeg", "gif", "svg", "ico", "webp", "bmp", "tiff", "mp4", "mp3", "wav", "zip",
+    "tar", "gz", "rar", "7z", "exe", "dll", "so", "dylib", "woff", "woff2", "ttf", "eot", "pdf",
+    "doc", "docx", "xls", "xlsx", "ppt", "pptx",
 ];
 
 /// Check if a file path has a known binary extension.

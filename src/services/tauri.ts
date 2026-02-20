@@ -37,6 +37,7 @@ import type {
   NotificationSettings,
   CompanionServerSettings,
   CompanionStatus,
+  ResolvedMr,
 } from '../types';
 
 // ============================================================================
@@ -222,6 +223,22 @@ export async function getFileContentBase64(
  */
 export async function getDiffRefs(mrId: number): Promise<DiffRefs> {
   return invoke<DiffRefs>('get_diff_refs', { mrId });
+}
+
+/**
+ * Resolve a merge request by its GitLab web URL.
+ * Returns the local DB ID and state if found, or null if not synced.
+ */
+export async function resolveMrByWebUrl(webUrl: string): Promise<ResolvedMr | null> {
+  return invoke<ResolvedMr | null>('resolve_mr_by_web_url', { webUrl });
+}
+
+/**
+ * Fetch a single MR from GitLab by web URL and persist it to the local DB.
+ * Returns the local DB ID and state after fetching and storing.
+ */
+export async function fetchMrByWebUrl(webUrl: string): Promise<ResolvedMr> {
+  return invoke<ResolvedMr>('fetch_mr_by_web_url', { webUrl });
 }
 
 /**

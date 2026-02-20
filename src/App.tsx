@@ -8,6 +8,7 @@ import { isTauri, tauriListen } from './services/transport';
 import Settings from './pages/Settings';
 import MRListPage from './pages/MRListPage';
 import MRDetailPage from './pages/MRDetailPage';
+import MRLoadingPage from './pages/MRLoadingPage';
 import MyMRsPage from './pages/MyMRsPage';
 import MyMRDetailPage from './pages/MyMRDetailPage';
 import PipelinesPage from './pages/PipelinesPage';
@@ -23,6 +24,7 @@ import useHasApprovedMRs from './hooks/useHasApprovedMRs';
 import useNotifications from './hooks/useNotifications';
 import useCompanionStatus from './hooks/useCompanionStatus';
 import useCompanionAuth from './hooks/useCompanionAuth';
+import useDeepLink from './hooks/useDeepLink';
 import { CommandId, CommandCategory, commandDefinitions } from './commands/registry';
 import { manualSync } from './services/storage';
 import { listInstances } from './services/gitlab';
@@ -56,6 +58,7 @@ function AppContent() {
   const hasApprovedMRs = useHasApprovedMRs();
   const { toasts } = useToast();
   useNotifications();
+  useDeepLink();
   const companionStatus = useCompanionStatus();
 
   // In browser mode, redirect to /auth if not authenticated
@@ -279,6 +282,9 @@ function AppContent() {
 
           {/* MR list page */}
           <Route path="/mrs" element={<MRListPage />} />
+
+          {/* MR loading page (deep-link fetch for unsynced MRs) */}
+          <Route path="/mrs/loading" element={<MRLoadingPage />} />
 
           {/* MR detail page */}
           <Route path="/mrs/:id" element={<MRDetailPage updateAvailable={updateChecker.available} />} />

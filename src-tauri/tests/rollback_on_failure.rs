@@ -38,7 +38,7 @@ async fn setup_test_mr(pool: &sqlx::Pool<sqlx::Sqlite>) -> i64 {
             source_branch, target_branch, state, web_url, created_at, updated_at,
             approval_status, approvals_required, approvals_count
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        "#
+        "#,
     )
     .bind(mr_id)
     .bind(instance_id)
@@ -66,7 +66,7 @@ async fn setup_test_mr(pool: &sqlx::Pool<sqlx::Sqlite>) -> i64 {
             id, mr_id, discussion_id, author_username, body,
             resolved, resolvable, system, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        "#
+        "#,
     )
     .bind(100i64)
     .bind(mr_id)
@@ -100,23 +100,19 @@ async fn test_rollback_approval_on_sync_failure() {
     let mr_id = setup_test_mr(&pool).await;
 
     // Initial state: 0 approvals
-    let initial: (i32,) = sqlx::query_as(
-        "SELECT approvals_count FROM merge_requests WHERE id = ?"
-    )
-    .bind(mr_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let initial: (i32,) = sqlx::query_as("SELECT approvals_count FROM merge_requests WHERE id = ?")
+        .bind(mr_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(initial.0, 0);
 
     // Step 1: Optimistic approval
-    sqlx::query(
-        "UPDATE merge_requests SET approvals_count = approvals_count + 1 WHERE id = ?"
-    )
-    .bind(mr_id)
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("UPDATE merge_requests SET approvals_count = approvals_count + 1 WHERE id = ?")
+        .bind(mr_id)
+        .execute(&pool)
+        .await
+        .unwrap();
 
     // Queue sync action
     let action_id: i64 = sqlx::query_scalar(
@@ -128,29 +124,29 @@ async fn test_rollback_approval_on_sync_failure() {
     .unwrap();
 
     // Verify optimistic update applied
-    let after_approve: (i32,) = sqlx::query_as(
-        "SELECT approvals_count FROM merge_requests WHERE id = ?"
-    )
-    .bind(mr_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert_eq!(after_approve.0, 1, "Optimistic approval should increase count");
+    let after_approve: (i32,) =
+        sqlx::query_as("SELECT approvals_count FROM merge_requests WHERE id = ?")
+            .bind(mr_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        after_approve.0, 1,
+        "Optimistic approval should increase count"
+    );
 
     // Step 2: Simulate sync failure
-    sqlx::query(
-        "UPDATE sync_queue SET status = 'failed', last_error = ? WHERE id = ?"
-    )
-    .bind("401 Unauthorized - Token expired")
-    .bind(action_id)
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("UPDATE sync_queue SET status = 'failed', last_error = ? WHERE id = ?")
+        .bind("401 Unauthorized - Token expired")
+        .bind(action_id)
+        .execute(&pool)
+        .await
+        .unwrap();
 
     // Step 3: Rollback on failure
     // This simulates what the sync processor would do on permanent failure
     sqlx::query(
-        "UPDATE merge_requests SET approvals_count = MAX(0, approvals_count - 1) WHERE id = ?"
+        "UPDATE merge_requests SET approvals_count = MAX(0, approvals_count - 1) WHERE id = ?",
     )
     .bind(mr_id)
     .execute(&pool)
@@ -158,23 +154,24 @@ async fn test_rollback_approval_on_sync_failure() {
     .unwrap();
 
     // Verify rollback
-    let after_rollback: (i32,) = sqlx::query_as(
-        "SELECT approvals_count FROM merge_requests WHERE id = ?"
-    )
-    .bind(mr_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert_eq!(after_rollback.0, 0, "Rollback should restore original count");
+    let after_rollback: (i32,) =
+        sqlx::query_as("SELECT approvals_count FROM merge_requests WHERE id = ?")
+            .bind(mr_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        after_rollback.0, 0,
+        "Rollback should restore original count"
+    );
 
     // Verify action marked as failed
-    let action: (String, String) = sqlx::query_as(
-        "SELECT status, last_error FROM sync_queue WHERE id = ?"
-    )
-    .bind(action_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let action: (String, String) =
+        sqlx::query_as("SELECT status, last_error FROM sync_queue WHERE id = ?")
+            .bind(action_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(action.0, "failed");
     assert!(action.1.contains("Token expired"));
 
@@ -207,7 +204,7 @@ async fn test_rollback_comment_on_sync_failure() {
             id, mr_id, discussion_id, author_username, body,
             file_path, new_line, resolved, resolvable, system, created_at, updated_at, is_local
         ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 1, 0, ?, ?, 1)
-        "#
+        "#,
     )
     .bind(local_id)
     .bind(mr_id)
@@ -237,25 +234,21 @@ async fn test_rollback_comment_on_sync_failure() {
     .unwrap();
 
     // Verify comment exists locally
-    let comment: (i64, i32) = sqlx::query_as(
-        "SELECT id, is_local FROM comments WHERE id = ?"
-    )
-    .bind(local_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let comment: (i64, i32) = sqlx::query_as("SELECT id, is_local FROM comments WHERE id = ?")
+        .bind(local_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(comment.0, local_id);
     assert_eq!(comment.1, 1, "Comment should be marked as local");
 
     // Step 2: Simulate sync failure (line deleted in remote)
-    sqlx::query(
-        "UPDATE sync_queue SET status = 'failed', last_error = ? WHERE id = ?"
-    )
-    .bind("400 Bad Request - Line no longer exists in diff")
-    .bind(action_id)
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("UPDATE sync_queue SET status = 'failed', last_error = ? WHERE id = ?")
+        .bind("400 Bad Request - Line no longer exists in diff")
+        .bind(action_id)
+        .execute(&pool)
+        .await
+        .unwrap();
 
     // Step 3: On failure, we DON'T delete the comment, but mark the sync as failed
     // The user can see it's pending and choose to retry or discard
@@ -271,44 +264,40 @@ async fn test_rollback_comment_on_sync_failure() {
     .unwrap();
 
     // Verify retry state
-    let retry_action: (String, i32) = sqlx::query_as(
-        "SELECT status, retry_count FROM sync_queue WHERE id = ?"
-    )
-    .bind(action_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let retry_action: (String, i32) =
+        sqlx::query_as("SELECT status, retry_count FROM sync_queue WHERE id = ?")
+            .bind(action_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(retry_action.0, "pending");
     assert_eq!(retry_action.1, 1, "Retry count should increment");
 
     // Option B: User discards the action and comment
     // First mark as discarded
-    sqlx::query(
-        "UPDATE sync_queue SET status = 'discarded' WHERE id = ?"
-    )
-    .bind(action_id)
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("UPDATE sync_queue SET status = 'discarded' WHERE id = ?")
+        .bind(action_id)
+        .execute(&pool)
+        .await
+        .unwrap();
 
     // Then optionally remove the local comment
-    sqlx::query(
-        "DELETE FROM comments WHERE id = ? AND is_local = 1"
-    )
-    .bind(local_id)
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("DELETE FROM comments WHERE id = ? AND is_local = 1")
+        .bind(local_id)
+        .execute(&pool)
+        .await
+        .unwrap();
 
     // Verify comment removed
-    let deleted: Option<(i64,)> = sqlx::query_as(
-        "SELECT id FROM comments WHERE id = ?"
-    )
-    .bind(local_id)
-    .fetch_optional(&pool)
-    .await
-    .unwrap();
-    assert!(deleted.is_none(), "Discarded local comment should be deleted");
+    let deleted: Option<(i64,)> = sqlx::query_as("SELECT id FROM comments WHERE id = ?")
+        .bind(local_id)
+        .fetch_optional(&pool)
+        .await
+        .unwrap();
+    assert!(
+        deleted.is_none(),
+        "Discarded local comment should be deleted"
+    );
 
     println!("✅ PASS: Comment rollback/discard on sync failure works");
 }
@@ -329,25 +318,22 @@ async fn test_rollback_resolve_on_sync_failure() {
     let discussion_id = "disc-100";
 
     // Initial state: not resolved
-    let initial: (i32,) = sqlx::query_as(
-        "SELECT resolved FROM comments WHERE mr_id = ? AND discussion_id = ?"
-    )
-    .bind(mr_id)
-    .bind(discussion_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let initial: (i32,) =
+        sqlx::query_as("SELECT resolved FROM comments WHERE mr_id = ? AND discussion_id = ?")
+            .bind(mr_id)
+            .bind(discussion_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(initial.0, 0);
 
     // Step 1: Optimistic resolve
-    sqlx::query(
-        "UPDATE comments SET resolved = 1 WHERE mr_id = ? AND discussion_id = ?"
-    )
-    .bind(mr_id)
-    .bind(discussion_id)
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("UPDATE comments SET resolved = 1 WHERE mr_id = ? AND discussion_id = ?")
+        .bind(mr_id)
+        .bind(discussion_id)
+        .execute(&pool)
+        .await
+        .unwrap();
 
     // Queue sync action
     let action_id: i64 = sqlx::query_scalar(
@@ -355,7 +341,7 @@ async fn test_rollback_resolve_on_sync_failure() {
         INSERT INTO sync_queue (mr_id, action_type, payload, status)
         VALUES (?, 'resolve', '{"discussion_id": "disc-100", "resolved": true}', 'pending')
         RETURNING id
-        "#
+        "#,
     )
     .bind(mr_id)
     .fetch_one(&pool)
@@ -363,55 +349,54 @@ async fn test_rollback_resolve_on_sync_failure() {
     .unwrap();
 
     // Verify optimistic update
-    let after_resolve: (i32,) = sqlx::query_as(
-        "SELECT resolved FROM comments WHERE mr_id = ? AND discussion_id = ?"
-    )
-    .bind(mr_id)
-    .bind(discussion_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert_eq!(after_resolve.0, 1, "Optimistic resolve should set resolved=1");
+    let after_resolve: (i32,) =
+        sqlx::query_as("SELECT resolved FROM comments WHERE mr_id = ? AND discussion_id = ?")
+            .bind(mr_id)
+            .bind(discussion_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        after_resolve.0, 1,
+        "Optimistic resolve should set resolved=1"
+    );
 
     // Step 2: Simulate sync failure
-    sqlx::query(
-        "UPDATE sync_queue SET status = 'failed', last_error = ? WHERE id = ?"
-    )
-    .bind("405 Method Not Allowed - MR is merged")
-    .bind(action_id)
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("UPDATE sync_queue SET status = 'failed', last_error = ? WHERE id = ?")
+        .bind("405 Method Not Allowed - MR is merged")
+        .bind(action_id)
+        .execute(&pool)
+        .await
+        .unwrap();
 
     // Step 3: Rollback
-    sqlx::query(
-        "UPDATE comments SET resolved = 0 WHERE mr_id = ? AND discussion_id = ?"
-    )
-    .bind(mr_id)
-    .bind(discussion_id)
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("UPDATE comments SET resolved = 0 WHERE mr_id = ? AND discussion_id = ?")
+        .bind(mr_id)
+        .bind(discussion_id)
+        .execute(&pool)
+        .await
+        .unwrap();
 
     // Verify rollback
-    let after_rollback: (i32,) = sqlx::query_as(
-        "SELECT resolved FROM comments WHERE mr_id = ? AND discussion_id = ?"
-    )
-    .bind(mr_id)
-    .bind(discussion_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert_eq!(after_rollback.0, 0, "Rollback should restore unresolved state");
+    let after_rollback: (i32,) =
+        sqlx::query_as("SELECT resolved FROM comments WHERE mr_id = ? AND discussion_id = ?")
+            .bind(mr_id)
+            .bind(discussion_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        after_rollback.0, 0,
+        "Rollback should restore unresolved state"
+    );
 
     // Verify action marked as failed
-    let action: (String, String) = sqlx::query_as(
-        "SELECT status, last_error FROM sync_queue WHERE id = ?"
-    )
-    .bind(action_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let action: (String, String) =
+        sqlx::query_as("SELECT status, last_error FROM sync_queue WHERE id = ?")
+            .bind(action_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(action.0, "failed");
     assert!(action.1.contains("merged"));
 
@@ -445,24 +430,21 @@ async fn test_discard_stale_actions_on_mr_close() {
     }
 
     // Verify 3 pending actions
-    let pending: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM sync_queue WHERE mr_id = ? AND status = 'pending'"
-    )
-    .bind(mr_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let pending: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM sync_queue WHERE mr_id = ? AND status = 'pending'")
+            .bind(mr_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(pending.0, 3);
 
     // Simulate: MR is merged, sync processor detects this
     // Update MR state
-    sqlx::query(
-        "UPDATE merge_requests SET state = 'merged' WHERE id = ?"
-    )
-    .bind(mr_id)
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("UPDATE merge_requests SET state = 'merged' WHERE id = ?")
+        .bind(mr_id)
+        .execute(&pool)
+        .await
+        .unwrap();
 
     // Discard all pending actions for merged MR
     sqlx::query(
@@ -470,7 +452,7 @@ async fn test_discard_stale_actions_on_mr_close() {
         UPDATE sync_queue
         SET status = 'discarded', last_error = 'MR merged - action no longer applicable'
         WHERE mr_id = ? AND status = 'pending'
-        "#
+        "#,
     )
     .bind(mr_id)
     .execute(&pool)
@@ -478,22 +460,20 @@ async fn test_discard_stale_actions_on_mr_close() {
     .unwrap();
 
     // Verify all actions discarded
-    let discarded: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM sync_queue WHERE mr_id = ? AND status = 'discarded'"
-    )
-    .bind(mr_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let discarded: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM sync_queue WHERE mr_id = ? AND status = 'discarded'")
+            .bind(mr_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(discarded.0, 3);
 
-    let pending_after: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM sync_queue WHERE mr_id = ? AND status = 'pending'"
-    )
-    .bind(mr_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let pending_after: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM sync_queue WHERE mr_id = ? AND status = 'pending'")
+            .bind(mr_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(pending_after.0, 0);
 
     println!("✅ PASS: Stale actions discarded when MR is merged");
@@ -526,23 +506,20 @@ async fn test_retry_on_transient_failure() {
     // Simulate retries
     for retry in 1..=MAX_RETRIES {
         // Attempt sync, fail with transient error
-        sqlx::query(
-            "UPDATE sync_queue SET retry_count = ?, last_error = ? WHERE id = ?"
-        )
-        .bind(retry)
-        .bind(format!("Network timeout (attempt {})", retry))
-        .bind(action_id)
-        .execute(&pool)
-        .await
-        .unwrap();
+        sqlx::query("UPDATE sync_queue SET retry_count = ?, last_error = ? WHERE id = ?")
+            .bind(retry)
+            .bind(format!("Network timeout (attempt {})", retry))
+            .bind(action_id)
+            .execute(&pool)
+            .await
+            .unwrap();
 
-        let action: (i32, String) = sqlx::query_as(
-            "SELECT retry_count, status FROM sync_queue WHERE id = ?"
-        )
-        .bind(action_id)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+        let action: (i32, String) =
+            sqlx::query_as("SELECT retry_count, status FROM sync_queue WHERE id = ?")
+                .bind(action_id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
 
         if retry < MAX_RETRIES {
             // Should still be pending for retry
@@ -551,23 +528,20 @@ async fn test_retry_on_transient_failure() {
     }
 
     // After max retries, mark as failed
-    sqlx::query(
-        "UPDATE sync_queue SET status = 'failed' WHERE id = ? AND retry_count >= ?"
-    )
-    .bind(action_id)
-    .bind(MAX_RETRIES)
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("UPDATE sync_queue SET status = 'failed' WHERE id = ? AND retry_count >= ?")
+        .bind(action_id)
+        .bind(MAX_RETRIES)
+        .execute(&pool)
+        .await
+        .unwrap();
 
     // Verify final state
-    let final_action: (String, i32) = sqlx::query_as(
-        "SELECT status, retry_count FROM sync_queue WHERE id = ?"
-    )
-    .bind(action_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let final_action: (String, i32) =
+        sqlx::query_as("SELECT status, retry_count FROM sync_queue WHERE id = ?")
+            .bind(action_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(final_action.0, "failed");
     assert_eq!(final_action.1, MAX_RETRIES);
 

@@ -210,13 +210,12 @@ pub async fn list_my_merge_requests(
     instance_id: i64,
 ) -> Result<Vec<MergeRequestListItem>, AppError> {
     // Get the authenticated username for this instance
-    let username: Option<String> = sqlx::query_scalar(
-        "SELECT authenticated_username FROM gitlab_instances WHERE id = ?",
-    )
-    .bind(instance_id)
-    .fetch_optional(pool.inner())
-    .await?
-    .flatten();
+    let username: Option<String> =
+        sqlx::query_scalar("SELECT authenticated_username FROM gitlab_instances WHERE id = ?")
+            .bind(instance_id)
+            .fetch_optional(pool.inner())
+            .await?
+            .flatten();
 
     let username = username.ok_or_else(|| {
         AppError::not_found("No authenticated username found. Please re-authenticate.")
@@ -442,8 +441,7 @@ pub async fn get_diff_content(
         .fetch_optional(pool.inner())
         .await?;
 
-        let diff =
-            diff.ok_or_else(|| AppError::not_found_with_id("Diff", mr_id.to_string()))?;
+        let diff = diff.ok_or_else(|| AppError::not_found_with_id("Diff", mr_id.to_string()))?;
 
         Ok(DiffContentResponse {
             base_sha: diff.base_sha,
@@ -464,8 +462,7 @@ pub async fn get_diff_content(
         .fetch_optional(pool.inner())
         .await?;
 
-        let diff =
-            diff.ok_or_else(|| AppError::not_found_with_id("Diff", mr_id.to_string()))?;
+        let diff = diff.ok_or_else(|| AppError::not_found_with_id("Diff", mr_id.to_string()))?;
 
         Ok(DiffContentResponse {
             base_sha: diff.base_sha,
@@ -736,7 +733,11 @@ pub async fn get_diff_hunks(
 
     // Extract the requested range
     let end = (start + count).min(total_hunks);
-    let hunks: Vec<DiffHunk> = all_hunks.into_iter().skip(start).take(end - start).collect();
+    let hunks: Vec<DiffHunk> = all_hunks
+        .into_iter()
+        .skip(start)
+        .take(end - start)
+        .collect();
     let has_more = end < total_hunks;
 
     Ok(DiffHunksResponse {
@@ -787,24 +788,25 @@ fn parse_unified_diff(diff: &str) -> Vec<DiffHunk> {
                 });
             }
         } else if let Some(ref mut hunk) = current_hunk {
-            let (line_type, content, old_ln, new_ln) = if let Some(stripped) = line.strip_prefix('+') {
-                let ln = new_line;
-                new_line += 1;
-                ("add", stripped.to_string(), None, Some(ln))
-            } else if let Some(stripped) = line.strip_prefix('-') {
-                let ln = old_line;
-                old_line += 1;
-                ("remove", stripped.to_string(), Some(ln), None)
-            } else if let Some(stripped) = line.strip_prefix(' ') {
-                let oln = old_line;
-                let nln = new_line;
-                old_line += 1;
-                new_line += 1;
-                ("context", stripped.to_string(), Some(oln), Some(nln))
-            } else {
-                // Handle lines without prefix (shouldn't happen in valid diff)
-                continue;
-            };
+            let (line_type, content, old_ln, new_ln) =
+                if let Some(stripped) = line.strip_prefix('+') {
+                    let ln = new_line;
+                    new_line += 1;
+                    ("add", stripped.to_string(), None, Some(ln))
+                } else if let Some(stripped) = line.strip_prefix('-') {
+                    let ln = old_line;
+                    old_line += 1;
+                    ("remove", stripped.to_string(), Some(ln), None)
+                } else if let Some(stripped) = line.strip_prefix(' ') {
+                    let oln = old_line;
+                    let nln = new_line;
+                    old_line += 1;
+                    new_line += 1;
+                    ("context", stripped.to_string(), Some(oln), Some(nln))
+                } else {
+                    // Handle lines without prefix (shouldn't happen in valid diff)
+                    continue;
+                };
 
             hunk.lines.push(DiffLine {
                 line_type: line_type.to_string(),
@@ -873,13 +875,12 @@ async fn create_gitlab_client(
     .fetch_optional(pool.inner())
     .await?;
 
-    let instance = instance.ok_or_else(|| {
-        AppError::not_found_with_id("GitLabInstance", instance_id.to_string())
-    })?;
+    let instance = instance
+        .ok_or_else(|| AppError::not_found_with_id("GitLabInstance", instance_id.to_string()))?;
 
-    let token = instance.token.ok_or_else(|| {
-        AppError::authentication("No token configured for GitLab instance")
-    })?;
+    let token = instance
+        .token
+        .ok_or_else(|| AppError::authentication("No token configured for GitLab instance"))?;
 
     GitLabClient::new(GitLabClientConfig {
         base_url: instance.url,
@@ -937,7 +938,9 @@ pub async fn get_file_content_base64(
     use base64::{engine::general_purpose::STANDARD, Engine};
 
     let client = create_gitlab_client(&pool, instance_id).await?;
-    let bytes = client.get_file_content_bytes(project_id, &file_path, &sha).await?;
+    let bytes = client
+        .get_file_content_bytes(project_id, &file_path, &sha)
+        .await?;
 
     Ok(STANDARD.encode(&bytes))
 }
@@ -969,6 +972,194 @@ pub async fn get_cached_file_pair(
     })
 }
 
+/// Response for resolve_mr_by_web_url command.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResolvedMr {
+    pub local_id: i64,
+    pub state: String,
+}
+
+/// Resolve a merge request by its GitLab web URL.
+///
+/// Looks up a merge request in the local database by its web_url field.
+/// Returns the local DB ID and state if found, or null if not synced.
+///
+/// # Arguments
+/// * `web_url` - The full GitLab web URL of the merge request
+///
+/// # Returns
+/// The local ID and state if found, or null if not synced.
+#[tauri::command]
+pub async fn resolve_mr_by_web_url(
+    pool: State<'_, DbPool>,
+    web_url: String,
+) -> Result<Option<ResolvedMr>, AppError> {
+    // Normalize: strip trailing slash
+    let normalized = web_url.trim_end_matches('/');
+
+    let result: Option<(i64, String)> = sqlx::query_as(
+        "SELECT id, state FROM merge_requests WHERE web_url = $1",
+    )
+    .bind(normalized)
+    .fetch_optional(pool.inner())
+    .await?;
+
+    Ok(result.map(|(local_id, state)| ResolvedMr { local_id, state }))
+}
+
+/// Fetch a single MR from GitLab by web URL and persist it to the local DB.
+///
+/// Parses the web URL to extract project path and MR IID, finds the matching
+/// configured instance, fetches the MR from the GitLab API, upserts it into
+/// the local database, and returns the local ID and state.
+///
+/// # Arguments
+/// * `web_url` - Full GitLab MR web URL (e.g., `https://gitlab.com/group/project/-/merge_requests/42`)
+///
+/// # Returns
+/// The local MR ID and state after fetching and storing.
+#[tauri::command]
+pub async fn fetch_mr_by_web_url(
+    pool: State<'_, DbPool>,
+    web_url: String,
+) -> Result<ResolvedMr, AppError> {
+    let normalized = web_url.trim_end_matches('/');
+
+    // Parse project path and MR IID from the web URL
+    let (host, project_path, mr_iid) = parse_mr_web_url(normalized)?;
+
+    // Find the matching configured instance by host
+    let instances: Vec<(i64, String)> = sqlx::query_as(
+        "SELECT id, url FROM gitlab_instances",
+    )
+    .fetch_all(pool.inner())
+    .await?;
+
+    let instance_id = instances
+        .iter()
+        .find(|(_, url)| {
+            url.trim_end_matches('/')
+                .split("://")
+                .nth(1)
+                .map(|h| h.trim_end_matches('/'))
+                .map(|h| h.eq_ignore_ascii_case(&host))
+                .unwrap_or(false)
+        })
+        .map(|(id, _)| *id)
+        .ok_or_else(|| {
+            AppError::invalid_input_field(
+                "web_url",
+                format!("No configured instance matches host '{}'", host),
+            )
+        })?;
+
+    // Create client and fetch the MR from GitLab API
+    let client = create_gitlab_client(&pool, instance_id).await?;
+    let gitlab_mr = client.get_merge_request_by_path(&project_path, mr_iid).await?;
+
+    // Upsert into local DB using the same pattern as sync_engine
+    let created_at = chrono::DateTime::parse_from_rfc3339(&gitlab_mr.created_at)
+        .map(|dt| dt.timestamp())
+        .unwrap_or(0);
+    let updated_at = chrono::DateTime::parse_from_rfc3339(&gitlab_mr.updated_at)
+        .map(|dt| dt.timestamp())
+        .unwrap_or(0);
+    let merged_at = gitlab_mr
+        .merged_at
+        .as_ref()
+        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.timestamp());
+    let labels_json =
+        serde_json::to_string(&gitlab_mr.labels).unwrap_or_else(|_| "[]".to_string());
+    let reviewers_json = gitlab_mr
+        .reviewers
+        .as_ref()
+        .map(|r| {
+            serde_json::to_string(&r.iter().map(|u| &u.username).collect::<Vec<_>>())
+                .unwrap_or_else(|_| "[]".to_string())
+        })
+        .unwrap_or_else(|| "[]".to_string());
+    let head_pipeline_status = gitlab_mr.head_pipeline.as_ref().map(|p| p.status.clone());
+    let now = chrono::Utc::now().timestamp();
+
+    sqlx::query(
+        r#"
+        INSERT INTO merge_requests (
+            id, instance_id, iid, project_id, title, description,
+            author_username, source_branch, target_branch, state, web_url,
+            created_at, updated_at, merged_at, labels, reviewers, cached_at,
+            project_name, head_pipeline_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            title = excluded.title,
+            description = excluded.description,
+            state = excluded.state,
+            updated_at = excluded.updated_at,
+            merged_at = excluded.merged_at,
+            labels = excluded.labels,
+            reviewers = excluded.reviewers,
+            cached_at = excluded.cached_at,
+            project_name = excluded.project_name,
+            head_pipeline_status = excluded.head_pipeline_status
+        "#,
+    )
+    .bind(gitlab_mr.id)
+    .bind(instance_id)
+    .bind(gitlab_mr.iid)
+    .bind(gitlab_mr.project_id)
+    .bind(&gitlab_mr.title)
+    .bind(&gitlab_mr.description)
+    .bind(&gitlab_mr.author.username)
+    .bind(&gitlab_mr.source_branch)
+    .bind(&gitlab_mr.target_branch)
+    .bind(&gitlab_mr.state)
+    .bind(&gitlab_mr.web_url)
+    .bind(created_at)
+    .bind(updated_at)
+    .bind(merged_at)
+    .bind(&labels_json)
+    .bind(&reviewers_json)
+    .bind(now)
+    .bind(&project_path)
+    .bind(&head_pipeline_status)
+    .execute(pool.inner())
+    .await?;
+
+    Ok(ResolvedMr {
+        local_id: gitlab_mr.id,
+        state: gitlab_mr.state,
+    })
+}
+
+/// Parse a GitLab MR web URL into (host, project_path, mr_iid).
+fn parse_mr_web_url(url: &str) -> Result<(String, String, i64), AppError> {
+    let after_scheme = url
+        .find("://")
+        .map(|i| &url[i + 3..])
+        .ok_or_else(|| AppError::invalid_input_field("web_url", "Missing scheme"))?;
+
+    let slash_idx = after_scheme.find('/').ok_or_else(|| {
+        AppError::invalid_input_field("web_url", "Missing path")
+    })?;
+
+    let host = after_scheme[..slash_idx].to_string();
+    let path = &after_scheme[slash_idx + 1..];
+
+    let delimiter = "/-/merge_requests/";
+    let mr_idx = path.find(delimiter).ok_or_else(|| {
+        AppError::invalid_input_field("web_url", "Not a merge request URL")
+    })?;
+
+    let project_path = path[..mr_idx].to_string();
+    let iid_str = &path[mr_idx + delimiter.len()..];
+    let mr_iid: i64 = iid_str.parse().map_err(|_| {
+        AppError::invalid_input_field("web_url", "Invalid MR IID")
+    })?;
+
+    Ok((host, project_path, mr_iid))
+}
+
 /// Merge a merge request via the GitLab API.
 ///
 /// This calls the GitLab merge endpoint directly (not via sync queue)
@@ -982,10 +1173,7 @@ pub async fn get_cached_file_pair(
 /// # Returns
 /// Success or error (e.g., conflicts, pipeline failures, permissions).
 #[tauri::command]
-pub async fn merge_mr(
-    pool: State<'_, DbPool>,
-    mr_id: i64,
-) -> Result<(), AppError> {
+pub async fn merge_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppError> {
     let (instance_id, project_id, mr_iid) = get_mr_api_ids(pool.inner(), mr_id).await?;
     let client = create_gitlab_client(&pool, instance_id).await?;
 
@@ -994,13 +1182,11 @@ pub async fn merge_mr(
 
     // Update local DB on success
     let now = chrono::Utc::now().timestamp();
-    sqlx::query(
-        "UPDATE merge_requests SET state = 'merged', merged_at = ? WHERE id = ?"
-    )
-    .bind(now)
-    .bind(mr_id)
-    .execute(pool.inner())
-    .await?;
+    sqlx::query("UPDATE merge_requests SET state = 'merged', merged_at = ? WHERE id = ?")
+        .bind(now)
+        .bind(mr_id)
+        .execute(pool.inner())
+        .await?;
 
     Ok(())
 }
@@ -1008,7 +1194,7 @@ pub async fn merge_mr(
 /// Helper to look up instance_id, project_id, iid for a merge request.
 async fn get_mr_api_ids(pool: &DbPool, mr_id: i64) -> Result<(i64, i64, i64), AppError> {
     sqlx::query_as::<_, (i64, i64, i64)>(
-        "SELECT instance_id, project_id, iid FROM merge_requests WHERE id = ?"
+        "SELECT instance_id, project_id, iid FROM merge_requests WHERE id = ?",
     )
     .bind(mr_id)
     .fetch_optional(pool)
@@ -1030,15 +1216,14 @@ async fn get_mr_api_ids(pool: &DbPool, mr_id: i64) -> Result<(i64, i64, i64), Ap
 /// # Arguments
 /// * `mr_id` - The local MR database ID
 #[tauri::command]
-pub async fn check_merge_status(
-    pool: State<'_, DbPool>,
-    mr_id: i64,
-) -> Result<String, AppError> {
+pub async fn check_merge_status(pool: State<'_, DbPool>, mr_id: i64) -> Result<String, AppError> {
     let (instance_id, project_id, mr_iid) = get_mr_api_ids(pool.inner(), mr_id).await?;
     let client = create_gitlab_client(&pool, instance_id).await?;
     let gitlab_mr = client.get_merge_request(project_id, mr_iid).await?;
 
-    Ok(gitlab_mr.detailed_merge_status.unwrap_or_else(|| "unknown".into()))
+    Ok(gitlab_mr
+        .detailed_merge_status
+        .unwrap_or_else(|| "unknown".into()))
 }
 
 /// Rebase a merge request's source branch via the GitLab API.
@@ -1046,10 +1231,7 @@ pub async fn check_merge_status(
 /// # Arguments
 /// * `mr_id` - The local MR database ID
 #[tauri::command]
-pub async fn rebase_mr(
-    pool: State<'_, DbPool>,
-    mr_id: i64,
-) -> Result<(), AppError> {
+pub async fn rebase_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppError> {
     let (instance_id, project_id, mr_iid) = get_mr_api_ids(pool.inner(), mr_id).await?;
     let client = create_gitlab_client(&pool, instance_id).await?;
     client.rebase_merge_request(project_id, mr_iid).await

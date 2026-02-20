@@ -58,20 +58,62 @@ pub async fn initialize(db_path: &Path) -> Result<pool::DbPool, DbError> {
 
 /// Available migrations in order.
 const MIGRATIONS: &[(&str, &str)] = &[
-    ("0001_initial_schema", include_str!("migrations/0001_initial_schema.sql")),
-    ("0002_add_discarded_status", include_str!("migrations/0002_add_discarded_status.sql")),
-    ("0003_add_user_has_approved", include_str!("migrations/0003_add_user_has_approved.sql")),
-    ("0004_add_project_name", include_str!("migrations/0004_add_project_name.sql")),
-    ("0005_create_projects_table", include_str!("migrations/0005_create_projects_table.sql")),
-    ("0006_file_content_cache", include_str!("migrations/0006_file_content_cache.sql")),
-    ("0007_gitattributes_cache", include_str!("migrations/0007_gitattributes_cache.sql")),
-    ("0008_add_authenticated_username", include_str!("migrations/0008_add_authenticated_username.sql")),
-    ("0009_create_mr_reviewers", include_str!("migrations/0009_create_mr_reviewers.sql")),
-    ("0010_create_pipeline_projects", include_str!("migrations/0010_create_pipeline_projects.sql")),
-    ("0011_create_notification_settings", include_str!("migrations/0011_create_notification_settings.sql")),
-    ("0012_add_head_pipeline_status", include_str!("migrations/0012_add_head_pipeline_status.sql")),
-    ("0013_drop_reviewer_avatar_url", include_str!("migrations/0013_drop_reviewer_avatar_url.sql")),
-    ("0014_avatar_cache", include_str!("migrations/0014_avatar_cache.sql")),
+    (
+        "0001_initial_schema",
+        include_str!("migrations/0001_initial_schema.sql"),
+    ),
+    (
+        "0002_add_discarded_status",
+        include_str!("migrations/0002_add_discarded_status.sql"),
+    ),
+    (
+        "0003_add_user_has_approved",
+        include_str!("migrations/0003_add_user_has_approved.sql"),
+    ),
+    (
+        "0004_add_project_name",
+        include_str!("migrations/0004_add_project_name.sql"),
+    ),
+    (
+        "0005_create_projects_table",
+        include_str!("migrations/0005_create_projects_table.sql"),
+    ),
+    (
+        "0006_file_content_cache",
+        include_str!("migrations/0006_file_content_cache.sql"),
+    ),
+    (
+        "0007_gitattributes_cache",
+        include_str!("migrations/0007_gitattributes_cache.sql"),
+    ),
+    (
+        "0008_add_authenticated_username",
+        include_str!("migrations/0008_add_authenticated_username.sql"),
+    ),
+    (
+        "0009_create_mr_reviewers",
+        include_str!("migrations/0009_create_mr_reviewers.sql"),
+    ),
+    (
+        "0010_create_pipeline_projects",
+        include_str!("migrations/0010_create_pipeline_projects.sql"),
+    ),
+    (
+        "0011_create_notification_settings",
+        include_str!("migrations/0011_create_notification_settings.sql"),
+    ),
+    (
+        "0012_add_head_pipeline_status",
+        include_str!("migrations/0012_add_head_pipeline_status.sql"),
+    ),
+    (
+        "0013_drop_reviewer_avatar_url",
+        include_str!("migrations/0013_drop_reviewer_avatar_url.sql"),
+    ),
+    (
+        "0014_avatar_cache",
+        include_str!("migrations/0014_avatar_cache.sql"),
+    ),
 ];
 
 /// Run all pending database migrations.
@@ -94,12 +136,10 @@ async fn run_migrations(pool: &pool::DbPool) -> Result<(), DbError> {
 
     // Run each migration if not already applied
     for (name, sql) in MIGRATIONS {
-        let applied: Option<(i64,)> = sqlx::query_as(
-            "SELECT id FROM _migrations WHERE name = ?",
-        )
-        .bind(*name)
-        .fetch_optional(&mut *conn)
-        .await?;
+        let applied: Option<(i64,)> = sqlx::query_as("SELECT id FROM _migrations WHERE name = ?")
+            .bind(*name)
+            .fetch_optional(&mut *conn)
+            .await?;
 
         if applied.is_none() {
             // Parse and run SQL statements

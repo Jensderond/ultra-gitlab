@@ -2,13 +2,16 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the main window",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "core:default",
     "opener:default",
     "store:default",
     "updater:default",
     "process:default",
-    "notification:default"
+    "notification:default",
+    "deep-link:default"
   ]
 }

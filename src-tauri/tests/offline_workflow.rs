@@ -61,14 +61,17 @@ async fn setup_synced_data(pool: &sqlx::Pool<sqlx::Sqlite>) -> i64 {
                 author_username, source_branch, target_branch, state, web_url,
                 created_at, updated_at, approval_status, approvals_required, approvals_count
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            "#
+            "#,
         )
         .bind(mr_id)
         .bind(instance_id)
         .bind(100 + i as i64)
         .bind(1000)
         .bind(format!("Feature #{}: Implement new functionality", i + 1))
-        .bind(format!("This MR implements feature #{} with full test coverage.", i + 1))
+        .bind(format!(
+            "This MR implements feature #{} with full test coverage.",
+            i + 1
+        ))
         .bind("developer")
         .bind(format!("feature-{}", i + 1))
         .bind("main")
@@ -123,14 +126,18 @@ async fn setup_synced_data(pool: &sqlx::Pool<sqlx::Sqlite>) -> i64 {
                     id, mr_id, discussion_id, author_username, body,
                     file_path, new_line, resolved, resolvable, system, created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                "#
+                "#,
             )
             .bind(mr_id * 100 + j)
             .bind(mr_id)
             .bind(format!("disc-{}-{}", mr_id, j))
             .bind(format!("reviewer{}", j % 2))
             .bind(format!("Comment {} on MR {}: Looks good!", j + 1, mr_id))
-            .bind(if j % 2 == 0 { Some("src/Button.tsx") } else { None::<&str> })
+            .bind(if j % 2 == 0 {
+                Some("src/Button.tsx")
+            } else {
+                None::<&str>
+            })
             .bind(if j % 2 == 0 { Some(5 + j) } else { None::<i64> })
             .bind(0)
             .bind(1)
@@ -168,13 +175,12 @@ async fn test_offline_browse_mr_list() {
     assert!(mrs[0].1.contains("Feature"));
 
     // Filter by state
-    let open_mrs: Vec<(i64,)> = sqlx::query_as(
-        "SELECT id FROM merge_requests WHERE instance_id = ? AND state = 'opened'"
-    )
-    .bind(instance_id)
-    .fetch_all(&pool)
-    .await
-    .unwrap();
+    let open_mrs: Vec<(i64,)> =
+        sqlx::query_as("SELECT id FROM merge_requests WHERE instance_id = ? AND state = 'opened'")
+            .bind(instance_id)
+            .fetch_all(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(open_mrs.len(), 8);
 
@@ -197,7 +203,7 @@ async fn test_offline_view_mr_details() {
         r#"
         SELECT title, description, approval_status, approvals_required, approvals_count
         FROM merge_requests WHERE id = ?
-        "#
+        "#,
     )
     .bind(mr_id)
     .fetch_one(&pool)
@@ -210,25 +216,23 @@ async fn test_offline_view_mr_details() {
     assert_eq!(mr.3, 2);
 
     // Get diff summary
-    let diff: (i32, i32, i32) = sqlx::query_as(
-        "SELECT file_count, additions, deletions FROM diffs WHERE mr_id = ?"
-    )
-    .bind(mr_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let diff: (i32, i32, i32) =
+        sqlx::query_as("SELECT file_count, additions, deletions FROM diffs WHERE mr_id = ?")
+            .bind(mr_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(diff.0, 1);
     assert!(diff.1 > 0);
 
     // Get pending actions count
-    let pending: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM sync_queue WHERE mr_id = ? AND status = 'pending'"
-    )
-    .bind(mr_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let pending: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM sync_queue WHERE mr_id = ? AND status = 'pending'")
+            .bind(mr_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(pending.0, 0); // No pending actions yet
 
@@ -247,13 +251,12 @@ async fn test_offline_view_diff() {
     let mr_id = 1i64;
 
     // OFFLINE: Get diff content
-    let diff: (String, String, String, String) = sqlx::query_as(
-        "SELECT content, base_sha, head_sha, start_sha FROM diffs WHERE mr_id = ?"
-    )
-    .bind(mr_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let diff: (String, String, String, String) =
+        sqlx::query_as("SELECT content, base_sha, head_sha, start_sha FROM diffs WHERE mr_id = ?")
+            .bind(mr_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     assert!(diff.0.contains("Button"));
     assert!(diff.0.contains("onClick"));
@@ -301,20 +304,19 @@ async fn test_offline_view_comments() {
     assert!(comments[0].2.contains("Comment"));
 
     // Get inline comments for specific file
-    let inline_comments: Vec<(i64, i32)> = sqlx::query_as(
-        "SELECT id, new_line FROM comments WHERE mr_id = ? AND file_path = ?"
-    )
-    .bind(mr_id)
-    .bind("src/Button.tsx")
-    .fetch_all(&pool)
-    .await
-    .unwrap();
+    let inline_comments: Vec<(i64, i32)> =
+        sqlx::query_as("SELECT id, new_line FROM comments WHERE mr_id = ? AND file_path = ?")
+            .bind(mr_id)
+            .bind("src/Button.tsx")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
 
     assert!(inline_comments.len() > 0);
 
     // Get discussion threads
     let discussions: Vec<(String, i64)> = sqlx::query_as(
-        "SELECT discussion_id, COUNT(*) FROM comments WHERE mr_id = ? GROUP BY discussion_id"
+        "SELECT discussion_id, COUNT(*) FROM comments WHERE mr_id = ? GROUP BY discussion_id",
     )
     .bind(mr_id)
     .fetch_all(&pool)
@@ -350,7 +352,7 @@ async fn test_offline_add_comment() {
             id, mr_id, discussion_id, author_username, body,
             file_path, new_line, resolved, resolvable, system, created_at, updated_at, is_local
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        "#
+        "#,
     )
     .bind(local_id)
     .bind(mr_id)
@@ -385,7 +387,7 @@ async fn test_offline_add_comment() {
 
     // Verify comment is visible locally
     let comments: Vec<(i64, String, i32)> = sqlx::query_as(
-        "SELECT id, body, is_local FROM comments WHERE mr_id = ? ORDER BY created_at DESC"
+        "SELECT id, body, is_local FROM comments WHERE mr_id = ? ORDER BY created_at DESC",
     )
     .bind(mr_id)
     .fetch_all(&pool)
@@ -422,22 +424,18 @@ async fn test_offline_approve_mr() {
     let mr_id = 1i64;
 
     // Get initial approval count
-    let initial: (i32,) = sqlx::query_as(
-        "SELECT approvals_count FROM merge_requests WHERE id = ?"
-    )
-    .bind(mr_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let initial: (i32,) = sqlx::query_as("SELECT approvals_count FROM merge_requests WHERE id = ?")
+        .bind(mr_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
 
     // OFFLINE: Approve MR (optimistic update)
-    sqlx::query(
-        "UPDATE merge_requests SET approvals_count = approvals_count + 1 WHERE id = ?"
-    )
-    .bind(mr_id)
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("UPDATE merge_requests SET approvals_count = approvals_count + 1 WHERE id = ?")
+        .bind(mr_id)
+        .execute(&pool)
+        .await
+        .unwrap();
 
     // Queue the action for sync
     sqlx::query(
@@ -449,13 +447,11 @@ async fn test_offline_approve_mr() {
     .unwrap();
 
     // Verify approval count increased locally
-    let after: (i32,) = sqlx::query_as(
-        "SELECT approvals_count FROM merge_requests WHERE id = ?"
-    )
-    .bind(mr_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let after: (i32,) = sqlx::query_as("SELECT approvals_count FROM merge_requests WHERE id = ?")
+        .bind(mr_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
 
     assert_eq!(after.0, initial.0 + 1);
 
@@ -486,26 +482,23 @@ async fn test_offline_resolve_discussion() {
     let discussion_id = "disc-1-0";
 
     // Verify discussion is not resolved
-    let initial: (i32,) = sqlx::query_as(
-        "SELECT resolved FROM comments WHERE mr_id = ? AND discussion_id = ?"
-    )
-    .bind(mr_id)
-    .bind(discussion_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let initial: (i32,) =
+        sqlx::query_as("SELECT resolved FROM comments WHERE mr_id = ? AND discussion_id = ?")
+            .bind(mr_id)
+            .bind(discussion_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(initial.0, 0);
 
     // OFFLINE: Resolve discussion (optimistic update)
-    sqlx::query(
-        "UPDATE comments SET resolved = 1 WHERE mr_id = ? AND discussion_id = ?"
-    )
-    .bind(mr_id)
-    .bind(discussion_id)
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("UPDATE comments SET resolved = 1 WHERE mr_id = ? AND discussion_id = ?")
+        .bind(mr_id)
+        .bind(discussion_id)
+        .execute(&pool)
+        .await
+        .unwrap();
 
     // Queue the action for sync
     sqlx::query(
@@ -518,14 +511,13 @@ async fn test_offline_resolve_discussion() {
     .unwrap();
 
     // Verify discussion is resolved locally
-    let after: (i32,) = sqlx::query_as(
-        "SELECT resolved FROM comments WHERE mr_id = ? AND discussion_id = ?"
-    )
-    .bind(mr_id)
-    .bind(discussion_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let after: (i32,) =
+        sqlx::query_as("SELECT resolved FROM comments WHERE mr_id = ? AND discussion_id = ?")
+            .bind(mr_id)
+            .bind(discussion_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(after.0, 1);
 
@@ -568,36 +560,35 @@ async fn test_complete_offline_workflow() {
 
     // Step 2: Select and view MR
     let selected_mr = mrs[0].0;
-    let mr_detail: (String, i32) = sqlx::query_as(
-        "SELECT title, approvals_count FROM merge_requests WHERE id = ?"
-    )
-    .bind(selected_mr)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let mr_detail: (String, i32) =
+        sqlx::query_as("SELECT title, approvals_count FROM merge_requests WHERE id = ?")
+            .bind(selected_mr)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
-    println!("Step 2: Viewing '{}' (approvals: {})", mr_detail.0, mr_detail.1);
+    println!(
+        "Step 2: Viewing '{}' (approvals: {})",
+        mr_detail.0, mr_detail.1
+    );
 
     // Step 3: View diff
-    let diff: (String, i32, i32) = sqlx::query_as(
-        "SELECT content, additions, deletions FROM diffs WHERE mr_id = ?"
-    )
-    .bind(selected_mr)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let diff: (String, i32, i32) =
+        sqlx::query_as("SELECT content, additions, deletions FROM diffs WHERE mr_id = ?")
+            .bind(selected_mr)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     println!("Step 3: Viewing diff (+{} -{})", diff.1, diff.2);
     assert!(diff.0.contains("@@"));
 
     // Step 4: View comments
-    let comments: Vec<(i64,)> = sqlx::query_as(
-        "SELECT id FROM comments WHERE mr_id = ?"
-    )
-    .bind(selected_mr)
-    .fetch_all(&pool)
-    .await
-    .unwrap();
+    let comments: Vec<(i64,)> = sqlx::query_as("SELECT id FROM comments WHERE mr_id = ?")
+        .bind(selected_mr)
+        .fetch_all(&pool)
+        .await
+        .unwrap();
 
     println!("Step 4: Viewing {} comments", comments.len());
 
@@ -636,13 +627,11 @@ async fn test_complete_offline_workflow() {
     println!("Step 5: Added comment (queued for sync)");
 
     // Step 6: Approve MR (offline)
-    sqlx::query(
-        "UPDATE merge_requests SET approvals_count = approvals_count + 1 WHERE id = ?"
-    )
-    .bind(selected_mr)
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("UPDATE merge_requests SET approvals_count = approvals_count + 1 WHERE id = ?")
+        .bind(selected_mr)
+        .execute(&pool)
+        .await
+        .unwrap();
 
     sqlx::query(
         "INSERT INTO sync_queue (mr_id, action_type, payload, status) VALUES (?, 'approve', '{}', 'pending')"
@@ -655,24 +644,25 @@ async fn test_complete_offline_workflow() {
     println!("Step 6: Approved MR (queued for sync)");
 
     // Verify final state
-    let final_approvals: (i32,) = sqlx::query_as(
-        "SELECT approvals_count FROM merge_requests WHERE id = ?"
-    )
-    .bind(selected_mr)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let final_approvals: (i32,) =
+        sqlx::query_as("SELECT approvals_count FROM merge_requests WHERE id = ?")
+            .bind(selected_mr)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
-    let pending_actions: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM sync_queue WHERE mr_id = ? AND status = 'pending'"
-    )
-    .bind(selected_mr)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let pending_actions: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM sync_queue WHERE mr_id = ? AND status = 'pending'")
+            .bind(selected_mr)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     println!("\n=== Final State ===");
-    println!("Approval count: {} (was {})", final_approvals.0, mr_detail.1);
+    println!(
+        "Approval count: {} (was {})",
+        final_approvals.0, mr_detail.1
+    );
     println!("Pending sync actions: {}", pending_actions.0);
     println!("\n✅ PASS: Complete offline workflow works!");
     println!("   - All reads served from local SQLite cache");

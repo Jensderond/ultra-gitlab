@@ -336,7 +336,11 @@ impl GitLabClient {
 
     /// Get the base URL for API requests.
     fn api_url(&self, path: &str) -> String {
-        format!("{}/api/v4{}", self.config.base_url.trim_end_matches('/'), path)
+        format!(
+            "{}/api/v4{}",
+            self.config.base_url.trim_end_matches('/'),
+            path
+        )
     }
 
     /// Parse pagination headers from response.
@@ -474,10 +478,16 @@ impl GitLabClient {
     }
 
     /// Search for projects by name.
-    pub async fn search_projects(&self, query: &str, per_page: u32) -> Result<Vec<GitLabProject>, AppError> {
+    pub async fn search_projects(
+        &self,
+        query: &str,
+        per_page: u32,
+    ) -> Result<Vec<GitLabProject>, AppError> {
         let endpoint = "/projects";
         let url = self.api_url(endpoint);
-        let response = self.client.get(&url)
+        let response = self
+            .client
+            .get(&url)
             .query(&[("search", query), ("per_page", &per_page.to_string())])
             .send()
             .await?;
@@ -485,10 +495,15 @@ impl GitLabClient {
     }
 
     /// Get the latest pipeline for a project.
-    pub async fn get_latest_pipeline(&self, project_id: i64) -> Result<Option<GitLabPipeline>, AppError> {
+    pub async fn get_latest_pipeline(
+        &self,
+        project_id: i64,
+    ) -> Result<Option<GitLabPipeline>, AppError> {
         let endpoint = format!("/projects/{}/pipelines", project_id);
         let url = self.api_url(&endpoint);
-        let response = self.client.get(&url)
+        let response = self
+            .client
+            .get(&url)
             .query(&[("per_page", "1")])
             .send()
             .await?;
@@ -497,10 +512,16 @@ impl GitLabClient {
     }
 
     /// Get recent pipelines for a project (up to `limit`).
-    pub async fn get_project_pipelines(&self, project_id: i64, limit: u32) -> Result<Vec<GitLabPipeline>, AppError> {
+    pub async fn get_project_pipelines(
+        &self,
+        project_id: i64,
+        limit: u32,
+    ) -> Result<Vec<GitLabPipeline>, AppError> {
         let endpoint = format!("/projects/{}/pipelines", project_id);
         let url = self.api_url(&endpoint);
-        let response = self.client.get(&url)
+        let response = self
+            .client
+            .get(&url)
             .query(&[("per_page", &limit.to_string())])
             .send()
             .await?;
@@ -508,13 +529,21 @@ impl GitLabClient {
     }
 
     /// Get jobs for a specific pipeline.
-    pub async fn get_pipeline_jobs(&self, project_id: i64, pipeline_id: i64) -> Result<Vec<GitLabJob>, AppError> {
+    pub async fn get_pipeline_jobs(
+        &self,
+        project_id: i64,
+        pipeline_id: i64,
+    ) -> Result<Vec<GitLabJob>, AppError> {
         let endpoint = format!("/projects/{}/pipelines/{}/jobs", project_id, pipeline_id);
         self.get_all_pages(&endpoint, None::<&()>).await
     }
 
     /// Get bridge (downstream/child pipeline trigger) jobs for a pipeline.
-    pub async fn get_pipeline_bridges(&self, project_id: i64, pipeline_id: i64) -> Result<Vec<GitLabJob>, AppError> {
+    pub async fn get_pipeline_bridges(
+        &self,
+        project_id: i64,
+        pipeline_id: i64,
+    ) -> Result<Vec<GitLabJob>, AppError> {
         let endpoint = format!("/projects/{}/pipelines/{}/bridges", project_id, pipeline_id);
         // Bridges may not exist on all pipelines, treat 404 as empty
         match self.get_all_pages(&endpoint, None::<&()>).await {
@@ -562,6 +591,19 @@ impl GitLabClient {
         mr_iid: i64,
     ) -> Result<GitLabMergeRequest, AppError> {
         let endpoint = format!("/projects/{}/merge_requests/{}", project_id, mr_iid);
+        let url = self.api_url(&endpoint);
+        let response = self.client.get(&url).send().await?;
+        self.handle_response(response, &endpoint).await
+    }
+
+    /// Get a single merge request by project path (URL-encoded) and IID.
+    pub async fn get_merge_request_by_path(
+        &self,
+        project_path: &str,
+        mr_iid: i64,
+    ) -> Result<GitLabMergeRequest, AppError> {
+        let encoded = urlencoding::encode(project_path);
+        let endpoint = format!("/projects/{}/merge_requests/{}", encoded, mr_iid);
         let url = self.api_url(&endpoint);
         let response = self.client.get(&url).send().await?;
         self.handle_response(response, &endpoint).await
@@ -630,7 +672,6 @@ impl GitLabClient {
         }
     }
 
-
     /// Approve a merge request.
     pub async fn approve_merge_request(
         &self,
@@ -658,15 +699,8 @@ impl GitLabClient {
     }
 
     /// Merge a merge request.
-    pub async fn merge_merge_request(
-        &self,
-        project_id: i64,
-        mr_iid: i64,
-    ) -> Result<(), AppError> {
-        let endpoint = format!(
-            "/projects/{}/merge_requests/{}/merge",
-            project_id, mr_iid
-        );
+    pub async fn merge_merge_request(&self, project_id: i64, mr_iid: i64) -> Result<(), AppError> {
+        let endpoint = format!("/projects/{}/merge_requests/{}/merge", project_id, mr_iid);
         let url = self.api_url(&endpoint);
         let response = self.client.put(&url).send().await?;
 
@@ -696,15 +730,8 @@ impl GitLabClient {
     }
 
     /// Rebase a merge request's source branch.
-    pub async fn rebase_merge_request(
-        &self,
-        project_id: i64,
-        mr_iid: i64,
-    ) -> Result<(), AppError> {
-        let endpoint = format!(
-            "/projects/{}/merge_requests/{}/rebase",
-            project_id, mr_iid
-        );
+    pub async fn rebase_merge_request(&self, project_id: i64, mr_iid: i64) -> Result<(), AppError> {
+        let endpoint = format!("/projects/{}/merge_requests/{}/rebase", project_id, mr_iid);
         let url = self.api_url(&endpoint);
         let response = self.client.put(&url).send().await?;
 
@@ -834,7 +861,10 @@ impl GitLabClient {
         project_id: i64,
         mr_iid: i64,
     ) -> Result<MergeRequestApprovals, AppError> {
-        let endpoint = format!("/projects/{}/merge_requests/{}/approvals", project_id, mr_iid);
+        let endpoint = format!(
+            "/projects/{}/merge_requests/{}/approvals",
+            project_id, mr_iid
+        );
         let url = self.api_url(&endpoint);
         let response = self.client.get(&url).send().await?;
         self.handle_response(response, &endpoint).await
@@ -888,12 +918,7 @@ impl GitLabClient {
         );
         let url = self.api_url(&endpoint);
 
-        let response = self
-            .client
-            .get(&url)
-            .query(&[("ref", sha)])
-            .send()
-            .await?;
+        let response = self.client.get(&url).query(&[("ref", sha)]).send().await?;
 
         let status = response.status();
 

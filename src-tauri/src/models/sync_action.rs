@@ -131,7 +131,10 @@ impl SyncAction {
 
     /// Check if the action is pending or in progress.
     pub fn is_pending(&self) -> bool {
-        matches!(self.status_enum(), SyncStatus::Pending | SyncStatus::Syncing)
+        matches!(
+            self.status_enum(),
+            SyncStatus::Pending | SyncStatus::Syncing
+        )
     }
 }
 

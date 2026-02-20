@@ -259,10 +259,9 @@ pub async fn verify_pin_handler(
             );
 
             let mut response = Json(VerifyPinResponse { token }).into_response();
-            response.headers_mut().insert(
-                header::SET_COOKIE,
-                cookie.parse().unwrap(),
-            );
+            response
+                .headers_mut()
+                .insert(header::SET_COOKIE, cookie.parse().unwrap());
             response
         }
         Err(()) => {
@@ -340,7 +339,10 @@ pub async fn qr_code_handler(
 /// are used before authentication is established.
 pub fn auth_routes(state: AuthState) -> axum::Router {
     axum::Router::new()
-        .route("/api/auth/verify-pin", axum::routing::post(verify_pin_handler))
+        .route(
+            "/api/auth/verify-pin",
+            axum::routing::post(verify_pin_handler),
+        )
         .route("/api/auth/qr", axum::routing::get(qr_code_handler))
         .with_state(state)
 }

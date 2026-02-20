@@ -212,12 +212,14 @@ pub async fn update_instance_token(
     let user = client.validate_token().await?;
 
     // Update the token and authenticated username in the database
-    sqlx::query("UPDATE gitlab_instances SET token = $1, authenticated_username = $2 WHERE id = $3")
-        .bind(&token)
-        .bind(&user.username)
-        .bind(instance_id)
-        .execute(pool.inner())
-        .await?;
+    sqlx::query(
+        "UPDATE gitlab_instances SET token = $1, authenticated_username = $2 WHERE id = $3",
+    )
+    .bind(&token)
+    .bind(&user.username)
+    .bind(instance_id)
+    .execute(pool.inner())
+    .await?;
 
     Ok(user.username)
 }

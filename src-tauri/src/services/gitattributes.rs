@@ -114,10 +114,7 @@ mod tests {
 src/important.js linguist-generated=false
 ";
         let result = parse_gitattributes(content);
-        assert_eq!(
-            result,
-            vec!["*.lock", "*.min.js", "*.min.css", "*.map"]
-        );
+        assert_eq!(result, vec!["*.lock", "*.min.js", "*.min.css", "*.map"]);
     }
 
     #[test]

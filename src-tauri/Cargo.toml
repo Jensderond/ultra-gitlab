@@ -1,6 +1,6 @@
 [package]
 name = "ultra-gitlab"
-version = "0.10.1"
+version = "0.11.0"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -79,6 +79,7 @@ qrcode = "0.14"
 
 # Local network interface detection
 local-ip-address = "0.6"
+tauri-plugin-deep-link = "2"
 
 [target."cfg(target_os = \"macos\")".dependencies]
 cocoa = "0.26"

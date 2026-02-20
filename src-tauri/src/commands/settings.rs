@@ -128,25 +128,32 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
 
     // Try to load collapse patterns
     let collapse_patterns = match store.get(COLLAPSE_PATTERNS_KEY) {
-        Some(value) => serde_json::from_value(value.clone()).unwrap_or_else(|_| default_collapse_patterns()),
+        Some(value) => {
+            serde_json::from_value(value.clone()).unwrap_or_else(|_| default_collapse_patterns())
+        }
         None => default_collapse_patterns(),
     };
 
     // Try to load theme
     let theme = match store.get(THEME_KEY) {
-        Some(value) => serde_json::from_value(value.clone()).unwrap_or_else(|_| DEFAULT_THEME.to_string()),
+        Some(value) => {
+            serde_json::from_value(value.clone()).unwrap_or_else(|_| DEFAULT_THEME.to_string())
+        }
         None => DEFAULT_THEME.to_string(),
     };
 
     // Try to load UI font
     let ui_font = match store.get(UI_FONT_KEY) {
-        Some(value) => serde_json::from_value(value.clone()).unwrap_or_else(|_| DEFAULT_UI_FONT.to_string()),
+        Some(value) => {
+            serde_json::from_value(value.clone()).unwrap_or_else(|_| DEFAULT_UI_FONT.to_string())
+        }
         None => DEFAULT_UI_FONT.to_string(),
     };
 
     // Try to load display font
     let display_font = match store.get(DISPLAY_FONT_KEY) {
-        Some(value) => serde_json::from_value(value.clone()).unwrap_or_else(|_| DEFAULT_DISPLAY_FONT.to_string()),
+        Some(value) => serde_json::from_value(value.clone())
+            .unwrap_or_else(|_| DEFAULT_DISPLAY_FONT.to_string()),
         None => DEFAULT_DISPLAY_FONT.to_string(),
     };
 
@@ -162,7 +169,15 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         None => CompanionServerSettings::default(),
     };
 
-    Ok(AppSettings { sync, collapse_patterns, theme, ui_font, display_font, custom_theme_colors, companion_server })
+    Ok(AppSettings {
+        sync,
+        collapse_patterns,
+        theme,
+        ui_font,
+        display_font,
+        custom_theme_colors,
+        companion_server,
+    })
 }
 
 /// Save settings to store.
@@ -316,10 +331,7 @@ pub async fn update_collapse_patterns(
 /// # Arguments
 /// * `theme_id` - The new theme ID (e.g. "kanagawa-wave", "kanagawa-light", "loved", "custom")
 #[tauri::command]
-pub async fn update_theme(
-    app: AppHandle,
-    theme_id: String,
-) -> Result<(), AppError> {
+pub async fn update_theme(app: AppHandle, theme_id: String) -> Result<(), AppError> {
     let mut settings = load_settings(&app).await?;
     settings.theme = theme_id;
     save_settings(&app, &settings).await?;
@@ -334,10 +346,7 @@ pub async fn update_theme(
 /// # Arguments
 /// * `font` - The font family name (e.g. "Noto Sans JP", "Inter", "System Default")
 #[tauri::command]
-pub async fn update_ui_font(
-    app: AppHandle,
-    font: String,
-) -> Result<(), AppError> {
+pub async fn update_ui_font(app: AppHandle, font: String) -> Result<(), AppError> {
     let mut settings = load_settings(&app).await?;
     settings.ui_font = font;
     save_settings(&app, &settings).await?;
@@ -352,10 +361,7 @@ pub async fn update_ui_font(
 /// # Arguments
 /// * `font` - The font family name (e.g. "Cormorant Garamond", "Inter", "System Default")
 #[tauri::command]
-pub async fn update_display_font(
-    app: AppHandle,
-    font: String,
-) -> Result<(), AppError> {
+pub async fn update_display_font(app: AppHandle, font: String) -> Result<(), AppError> {
     let mut settings = load_settings(&app).await?;
     settings.display_font = font;
     save_settings(&app, &settings).await?;
@@ -399,7 +405,11 @@ mod tests {
         let settings = AppSettings::default();
         assert!(!settings.collapse_patterns.is_empty());
         assert!(settings.collapse_patterns.contains(&"*.lock".to_string()));
-        assert!(settings.collapse_patterns.contains(&"package-lock.json".to_string()));
-        assert!(settings.collapse_patterns.contains(&"Cargo.lock".to_string()));
+        assert!(settings
+            .collapse_patterns
+            .contains(&"package-lock.json".to_string()));
+        assert!(settings
+            .collapse_patterns
+            .contains(&"Cargo.lock".to_string()));
     }
 }

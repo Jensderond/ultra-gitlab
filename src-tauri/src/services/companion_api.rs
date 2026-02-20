@@ -10,12 +10,12 @@ use crate::models::{Comment, Diff, DiffFile, GitLabInstance, MergeRequest, MrRev
 use crate::services::companion_server::CompanionState;
 use crate::services::sync_queue::{self, ApprovalPayload, EnqueueInput};
 use axum::extract::{Path, Query, State};
-use sqlx::Row;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
+use sqlx::Row;
 
 // ── Error handling ───────────────────────────────────────────────────────────
 
@@ -104,7 +104,6 @@ struct FileContentDirectQuery {
     sha: String,
 }
 
-
 // ── Instance response (safe — omits token) ───────────────────────────────────
 
 #[derive(Serialize)]
@@ -151,18 +150,9 @@ pub fn mr_api_routes() -> Router<CompanionState> {
             "/api/merge-requests/{mr_id}/files/{file_path}/content",
             get(get_file_content),
         )
-        .route(
-            "/api/merge-requests/{id}/comments",
-            get(get_comments),
-        )
-        .route(
-            "/api/merge-requests/{id}/reviewers",
-            get(get_reviewers),
-        )
-        .route(
-            "/api/merge-requests/{id}/diff-refs",
-            get(get_diff_refs),
-        )
+        .route("/api/merge-requests/{id}/comments", get(get_comments))
+        .route("/api/merge-requests/{id}/reviewers", get(get_reviewers))
+        .route("/api/merge-requests/{id}/diff-refs", get(get_diff_refs))
         .route(
             "/api/merge-requests/{id}/file-comments",
             get(get_file_comments),
@@ -285,13 +275,12 @@ async fn get_my_merge_requests(
     let db = &app_state.db;
 
     // Get the authenticated username for this instance
-    let username: Option<String> = sqlx::query_scalar(
-        "SELECT authenticated_username FROM gitlab_instances WHERE id = $1",
-    )
-    .bind(instance_id)
-    .fetch_optional(db)
-    .await?
-    .flatten();
+    let username: Option<String> =
+        sqlx::query_scalar("SELECT authenticated_username FROM gitlab_instances WHERE id = $1")
+            .bind(instance_id)
+            .fetch_optional(db)
+            .await?
+            .flatten();
 
     let username = username.ok_or_else(|| {
         ApiErr::from(AppError::not_found(
@@ -451,7 +440,11 @@ async fn get_diff_hunks(
     let start = params.start.unwrap_or(0);
     let count = params.count.unwrap_or(total_hunks);
     let end = (start + count).min(total_hunks);
-    let hunks: Vec<DiffHunk> = all_hunks.into_iter().skip(start).take(end - start).collect();
+    let hunks: Vec<DiffHunk> = all_hunks
+        .into_iter()
+        .skip(start)
+        .take(end - start)
+        .collect();
     let has_more = end < total_hunks;
 
     Ok(Json(DiffHunksResponse {
@@ -470,12 +463,11 @@ async fn get_file_content(
     Query(params): Query<FileContentQuery>,
 ) -> Result<Json<String>, ApiErr> {
     // Look up instance_id and project_id from the MR
-    let row: Option<(i64, i64)> = sqlx::query_as(
-        "SELECT instance_id, project_id FROM merge_requests WHERE id = $1",
-    )
-    .bind(mr_id)
-    .fetch_optional(&state.db)
-    .await?;
+    let row: Option<(i64, i64)> =
+        sqlx::query_as("SELECT instance_id, project_id FROM merge_requests WHERE id = $1")
+            .bind(mr_id)
+            .fetch_optional(&state.db)
+            .await?;
 
     let (instance_id, project_id) = row.ok_or_else(|| {
         ApiErr::from(AppError::not_found_with_id(
@@ -579,7 +571,8 @@ async fn get_diff_refs(
     .fetch_optional(&state.db)
     .await?;
 
-    let diff = diff.ok_or_else(|| ApiErr::from(AppError::not_found_with_id("Diff", mr_id.to_string())))?;
+    let diff =
+        diff.ok_or_else(|| ApiErr::from(AppError::not_found_with_id("Diff", mr_id.to_string())))?;
 
     Ok(Json(DiffRefsResponse {
         base_sha: diff.base_sha,
@@ -595,7 +588,9 @@ async fn get_file_comments(
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<Vec<CommentResponse>>, ApiErr> {
     let file_path = params.get("filePath").ok_or_else(|| {
-        ApiErr::from(AppError::invalid_input("filePath query parameter is required"))
+        ApiErr::from(AppError::invalid_input(
+            "filePath query parameter is required",
+        ))
     })?;
 
     let comments: Vec<Comment> = sqlx::query_as(
@@ -722,10 +717,7 @@ async fn get_comment_sync_status(pool: &DbPool, comment_id: i64) -> Result<Strin
 pub fn action_api_routes() -> Router<CompanionState> {
     Router::new()
         // Approval
-        .route(
-            "/api/merge-requests/{id}/approve",
-            post(approve_mr_handler),
-        )
+        .route("/api/merge-requests/{id}/approve", post(approve_mr_handler))
         .route(
             "/api/merge-requests/{id}/unapprove",
             post(unapprove_mr_handler),
@@ -769,11 +761,8 @@ async fn approve_mr_handler(
     .await?;
 
     // Queue for sync
-    let payload = serde_json::to_string(&ApprovalPayload {
-        project_id,
-        mr_iid,
-    })
-    .map_err(|e| ApiErr(AppError::internal(e.to_string())))?;
+    let payload = serde_json::to_string(&ApprovalPayload { project_id, mr_iid })
+        .map_err(|e| ApiErr(AppError::internal(e.to_string())))?;
 
     sync_queue::enqueue_action(
         &state.db,
@@ -858,7 +847,12 @@ async fn get_approval_status_handler(
     .bind(mr_id)
     .fetch_optional(&state.db)
     .await?
-    .ok_or_else(|| ApiErr::from(AppError::not_found_with_id("MergeRequest", mr_id.to_string())))?;
+    .ok_or_else(|| {
+        ApiErr::from(AppError::not_found_with_id(
+            "MergeRequest",
+            mr_id.to_string(),
+        ))
+    })?;
 
     Ok(Json(ApprovalStatus {
         status: row.get::<Option<String>, _>("approval_status"),
@@ -873,7 +867,12 @@ async fn get_mr_ids(pool: &DbPool, mr_id: i64) -> Result<(i64, i64), ApiErr> {
         .bind(mr_id)
         .fetch_optional(pool)
         .await?
-        .ok_or_else(|| ApiErr::from(AppError::not_found_with_id("MergeRequest", mr_id.to_string())))?;
+        .ok_or_else(|| {
+            ApiErr::from(AppError::not_found_with_id(
+                "MergeRequest",
+                mr_id.to_string(),
+            ))
+        })?;
 
     Ok((row.get("project_id"), row.get("iid")))
 }
@@ -938,10 +937,12 @@ async fn get_sync_status_handler(
 }
 
 /// POST /api/sync/trigger — trigger a manual sync.
-async fn trigger_sync_handler(
-    State(state): State<CompanionState>,
-) -> Result<Json<()>, ApiErr> {
-    state.sync_handle.trigger_sync().await.map_err(ApiErr::from)?;
+async fn trigger_sync_handler(State(state): State<CompanionState>) -> Result<Json<()>, ApiErr> {
+    state
+        .sync_handle
+        .trigger_sync()
+        .await
+        .map_err(ApiErr::from)?;
     Ok(Json(()))
 }
 

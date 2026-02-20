@@ -76,6 +76,8 @@ export {
   getAvatars,
   updateSessionCookie,
   refreshAvatars,
+  resolveMrByWebUrl,
+  fetchMrByWebUrl,
 } from './tauri';
 
 // GitLab operations (high-level)

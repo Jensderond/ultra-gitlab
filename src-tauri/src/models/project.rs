@@ -49,10 +49,7 @@ pub async fn get_project(
 }
 
 /// Upsert a project (insert or update on conflict).
-pub async fn upsert_project(
-    pool: &sqlx::SqlitePool,
-    project: &Project,
-) -> Result<(), sqlx::Error> {
+pub async fn upsert_project(pool: &sqlx::SqlitePool, project: &Project) -> Result<(), sqlx::Error> {
     sqlx::query(
         "INSERT INTO projects (id, instance_id, name, name_with_namespace, path_with_namespace, web_url, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -88,7 +85,11 @@ pub async fn get_missing_project_ids(
     }
 
     // Get IDs that ARE cached
-    let placeholders: String = project_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    let placeholders: String = project_ids
+        .iter()
+        .map(|_| "?")
+        .collect::<Vec<_>>()
+        .join(",");
     let query = format!(
         "SELECT id FROM projects WHERE instance_id = ? AND id IN ({})",
         placeholders
@@ -121,10 +122,12 @@ mod tests {
         let pool = db::initialize(&db_path).await.unwrap();
 
         // Insert a test instance
-        sqlx::query("INSERT INTO gitlab_instances (url, name) VALUES ('https://gitlab.com', 'GitLab')")
-            .execute(&pool)
-            .await
-            .unwrap();
+        sqlx::query(
+            "INSERT INTO gitlab_instances (url, name) VALUES ('https://gitlab.com', 'GitLab')",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
 
         pool
     }
@@ -194,7 +197,9 @@ mod tests {
         };
         upsert_project(&pool, &project).await.unwrap();
 
-        let missing = get_missing_project_ids(&pool, 1, &[10, 20, 30]).await.unwrap();
+        let missing = get_missing_project_ids(&pool, 1, &[10, 20, 30])
+            .await
+            .unwrap();
         assert_eq!(missing, vec![20, 30]);
     }
 

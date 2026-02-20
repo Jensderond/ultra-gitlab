@@ -313,9 +313,6 @@ mod tests {
     #[test]
     fn test_display_impl() {
         let err = AppError::authentication("invalid token");
-        assert_eq!(
-            format!("{}", err),
-            "Authentication error: invalid token"
-        );
+        assert_eq!(format!("{}", err), "Authentication error: invalid token");
     }
 }

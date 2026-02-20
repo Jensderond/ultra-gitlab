@@ -137,7 +137,9 @@ impl MergeRequest {
 
     /// Parse the approval status string into an enum.
     pub fn approval_status_enum(&self) -> Option<ApprovalStatus> {
-        self.approval_status.as_ref().map(|s| ApprovalStatus::from(s.as_str()))
+        self.approval_status
+            .as_ref()
+            .map(|s| ApprovalStatus::from(s.as_str()))
     }
 
     /// Parse labels from JSON string.
@@ -170,7 +172,10 @@ mod tests {
         assert_eq!(MergeRequestState::from("opened"), MergeRequestState::Opened);
         assert_eq!(MergeRequestState::from("MERGED"), MergeRequestState::Merged);
         assert_eq!(MergeRequestState::from("Closed"), MergeRequestState::Closed);
-        assert_eq!(MergeRequestState::from("unknown"), MergeRequestState::Opened);
+        assert_eq!(
+            MergeRequestState::from("unknown"),
+            MergeRequestState::Opened
+        );
     }
 
     #[test]

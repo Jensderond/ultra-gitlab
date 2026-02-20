@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Ultra Gitlab",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "identifier": "com.jens.ultra-gitlab",
   "build": {
     "beforeDevCommand": "bun run dev",
@@ -33,6 +33,12 @@
     }
   },
   "plugins": {
+    "deep-link": {
+      "mobile": [],
+      "desktop": {
+        "schemes": ["ultra-gitlab"]
+      }
+    },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZCODgyNTE2Mjc4QjM0NTMKUldSVE5Jc25GaVdJYS96aHBtL2J1dllLVUE1T1FCMHdjVUE1Tk1NTVhKVlBTc2E1QmF1bFQvdkMK",
       "endpoints": [

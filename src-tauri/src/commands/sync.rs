@@ -68,9 +68,7 @@ pub async fn get_action_counts(pool: State<'_, DbPool>) -> Result<ActionCountsRe
 /// Sends a trigger command to the background sync engine.
 /// The sync runs asynchronously; poll get_sync_status for results.
 #[tauri::command]
-pub async fn trigger_sync(
-    sync_handle: State<'_, SyncHandle>,
-) -> Result<(), AppError> {
+pub async fn trigger_sync(sync_handle: State<'_, SyncHandle>) -> Result<(), AppError> {
     sync_handle.trigger_sync().await
 }
 
@@ -196,7 +194,9 @@ pub async fn retry_failed_actions(
                     AuthExpiredPayload {
                         instance_id: e.get_expired_instance_id().unwrap_or(0),
                         instance_url: e.get_expired_instance_url().unwrap_or(&url).to_string(),
-                        message: "Your GitLab token has expired or been revoked. Please re-authenticate.".to_string(),
+                        message:
+                            "Your GitLab token has expired or been revoked. Please re-authenticate."
+                                .to_string(),
                     },
                 );
             }
@@ -247,9 +247,7 @@ pub async fn discard_failed_action(
 
 /// Get the current sync configuration.
 #[tauri::command]
-pub async fn get_sync_config(
-    sync_handle: State<'_, SyncHandle>,
-) -> Result<SyncConfig, AppError> {
+pub async fn get_sync_config(sync_handle: State<'_, SyncHandle>) -> Result<SyncConfig, AppError> {
     Ok(sync_handle.get_config().await)
 }
 

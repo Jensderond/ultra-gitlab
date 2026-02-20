@@ -188,9 +188,7 @@ pub async fn get_pipeline_statuses(
 
     let futures = project_ids.iter().map(|&pid| {
         let client = client.clone();
-        async move {
-            client.get_latest_pipeline(pid).await.ok().flatten()
-        }
+        async move { client.get_latest_pipeline(pid).await.ok().flatten() }
     });
 
     let results = join_all(futures).await;
@@ -203,7 +201,11 @@ pub async fn get_pipeline_statuses(
             project_id: p.project_id,
             status: p.status,
             ref_name: p.ref_name,
-            sha: if p.sha.len() > 8 { p.sha[..8].to_string() } else { p.sha },
+            sha: if p.sha.len() > 8 {
+                p.sha[..8].to_string()
+            } else {
+                p.sha
+            },
             web_url: p.web_url,
             created_at: p.created_at,
             updated_at: p.updated_at,
@@ -294,7 +296,9 @@ pub async fn get_project_pipelines(
     limit: Option<u32>,
 ) -> Result<Vec<PipelineStatus>, AppError> {
     let client = create_gitlab_client(&pool, instance_id).await?;
-    let pipelines = client.get_project_pipelines(project_id, limit.unwrap_or(20)).await?;
+    let pipelines = client
+        .get_project_pipelines(project_id, limit.unwrap_or(20))
+        .await?;
 
     let statuses: Vec<PipelineStatus> = pipelines
         .into_iter()
@@ -303,7 +307,11 @@ pub async fn get_project_pipelines(
             project_id: p.project_id,
             status: p.status,
             ref_name: p.ref_name,
-            sha: if p.sha.len() > 8 { p.sha[..8].to_string() } else { p.sha },
+            sha: if p.sha.len() > 8 {
+                p.sha[..8].to_string()
+            } else {
+                p.sha
+            },
             web_url: p.web_url,
             created_at: p.created_at,
             updated_at: p.updated_at,
@@ -420,13 +428,12 @@ async fn create_gitlab_client(
     .fetch_optional(pool.inner())
     .await?;
 
-    let instance = instance.ok_or_else(|| {
-        AppError::not_found_with_id("GitLabInstance", instance_id.to_string())
-    })?;
+    let instance = instance
+        .ok_or_else(|| AppError::not_found_with_id("GitLabInstance", instance_id.to_string()))?;
 
-    let token = instance.token.ok_or_else(|| {
-        AppError::authentication("No token configured for GitLab instance")
-    })?;
+    let token = instance
+        .token
+        .ok_or_else(|| AppError::authentication("No token configured for GitLab instance"))?;
 
     GitLabClient::new(GitLabClientConfig {
         base_url: instance.url,

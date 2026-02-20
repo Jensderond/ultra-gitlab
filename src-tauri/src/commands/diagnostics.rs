@@ -79,10 +79,7 @@ pub async fn get_memory_stats() -> Result<MemoryStats, AppError> {
     let pid = Pid::from_u32(std::process::id());
     sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
 
-    let process_memory = sys
-        .process(pid)
-        .map(|p| p.memory())
-        .unwrap_or(0);
+    let process_memory = sys.process(pid).map(|p| p.memory()).unwrap_or(0);
 
     Ok(MemoryStats {
         process_memory_bytes: process_memory,
@@ -97,7 +94,6 @@ pub async fn get_memory_stats() -> Result<MemoryStats, AppError> {
 /// Get database cache statistics.
 #[tauri::command]
 pub async fn get_cache_stats(pool: State<'_, DbPool>) -> Result<CacheStats, AppError> {
-
     // Get counts
     let mr_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM merge_requests")
         .fetch_one(pool.inner())
@@ -112,9 +108,11 @@ pub async fn get_cache_stats(pool: State<'_, DbPool>) -> Result<CacheStats, AppE
         .await?;
 
     // Get database size
-    let row = sqlx::query("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")
-        .fetch_one(pool.inner())
-        .await?;
+    let row = sqlx::query(
+        "SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()",
+    )
+    .fetch_one(pool.inner())
+    .await?;
     let db_size_bytes: i64 = row.get("size");
 
     Ok(CacheStats {
@@ -128,7 +126,9 @@ pub async fn get_cache_stats(pool: State<'_, DbPool>) -> Result<CacheStats, AppE
 
 /// Get a full diagnostics report.
 #[tauri::command]
-pub async fn get_diagnostics_report(pool: State<'_, DbPool>) -> Result<DiagnosticsReport, AppError> {
+pub async fn get_diagnostics_report(
+    pool: State<'_, DbPool>,
+) -> Result<DiagnosticsReport, AppError> {
     let memory = get_memory_stats().await?;
     let cache = get_cache_stats(pool).await?;
 
@@ -165,7 +165,7 @@ pub async fn generate_test_data(
         VALUES ('https://test.gitlab.com', 'Test Instance')
         ON CONFLICT (url) DO UPDATE SET name = 'Test Instance'
         RETURNING id
-        "#
+        "#,
     )
     .fetch_one(pool.inner())
     .await?;
@@ -391,7 +391,9 @@ fn generate_file_diff_content(file_path: &str, lines: i32) -> String {
     } else if is_rs {
         content.push_str(" pub fn process_data(items: &[Item]) -> HashMap<String, Value> {\n");
         content.push_str("-    let mut result = HashMap::new();\n");
-        content.push_str("+    let mut result: HashMap<String, Value> = HashMap::with_capacity(items.len());\n");
+        content.push_str(
+            "+    let mut result: HashMap<String, Value> = HashMap::with_capacity(items.len());\n",
+        );
         content.push_str("     for item in items {\n");
         content.push_str("-        result.insert(item.id.clone(), item.value.clone());\n");
         content.push_str("+        result.insert(item.id.clone(), process_item(item)?);\n");

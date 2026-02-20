@@ -60,10 +60,7 @@ pub async fn approve_mr(
     .await?;
 
     // Build payload for sync queue
-    let payload = serde_json::to_string(&ApprovalPayload {
-        project_id,
-        mr_iid,
-    })?;
+    let payload = serde_json::to_string(&ApprovalPayload { project_id, mr_iid })?;
 
     // Queue for sync
     sync_queue::enqueue_action(

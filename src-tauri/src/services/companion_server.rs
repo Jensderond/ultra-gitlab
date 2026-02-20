@@ -65,7 +65,11 @@ pub async fn start_companion_server(
     let cancel_token = CancellationToken::new();
     let cancel_clone = cancel_token.clone();
 
-    let companion_state = CompanionState { db, sync_handle, app_handle: app_handle.clone() };
+    let companion_state = CompanionState {
+        db,
+        sync_handle,
+        app_handle: app_handle.clone(),
+    };
     let auth_state = AuthState { app_handle };
 
     // Protected API routes (require valid session token).
@@ -109,10 +113,9 @@ pub async fn start_companion_server(
 
     // Spawn the server task with graceful shutdown
     tokio::spawn(async move {
-        let server = axum::serve(listener, make_service)
-            .with_graceful_shutdown(async move {
-                cancel_clone.cancelled().await;
-            });
+        let server = axum::serve(listener, make_service).with_graceful_shutdown(async move {
+            cancel_clone.cancelled().await;
+        });
 
         if let Err(e) = server.await {
             log::error!("[companion] Server error: {}", e);
@@ -156,10 +159,7 @@ async fn spa_fallback(uri: Uri, dist: &PathBuf, index_html: &str) -> Response {
     }
 
     // Try to serve a static file (JS, CSS, images, etc.).
-    let req = Request::builder()
-        .uri(&uri)
-        .body(Body::empty())
-        .unwrap();
+    let req = Request::builder().uri(&uri).body(Body::empty()).unwrap();
 
     match ServeDir::new(dist).oneshot(req).await {
         Ok(res) if res.status() != StatusCode::NOT_FOUND => res.into_response(),

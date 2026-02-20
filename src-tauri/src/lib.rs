@@ -10,26 +10,26 @@ pub mod models;
 pub mod services;
 
 use commands::{
-    add_comment, approve_mr, clear_test_data, delete_gitlab_instance, discard_failed_action,
-    get_avatar, get_avatars, update_session_cookie, refresh_avatars,
-    get_companion_settings, get_companion_qr_svg, get_companion_status, update_companion_settings, regenerate_companion_pin, revoke_companion_device,
-    start_companion_server_cmd, stop_companion_server_cmd,
-    generate_test_data, get_action_counts, get_approval_status, get_cache_stats,
-    get_cached_file_pair, get_collapse_patterns, get_comments, get_diagnostics_report,
-    get_diff_content, get_diff_file, get_diff_file_metadata, get_diff_files, get_diff_hunks,
-    get_diff_refs, get_file_comments, get_file_content, get_file_content_base64,
-    get_gitattributes, get_gitlab_instances, get_memory_stats, get_merge_request_detail,
-    get_merge_requests, get_notification_settings, get_settings, get_sync_config,
-    get_sync_settings, get_sync_status,
-    check_merge_status, get_mr_reviewers, get_token_info, list_my_merge_requests, merge_mr,
-    rebase_mr, list_pipeline_projects,
-    visit_pipeline_project, toggle_pin_pipeline_project, remove_pipeline_project, search_projects, get_pipeline_statuses,
-    get_pipeline_jobs, get_job_trace, get_project_pipelines, play_pipeline_job, retry_pipeline_job, cancel_pipeline_job,
-    refresh_gitattributes, reply_to_comment,
-    resolve_discussion, retry_failed_actions, setup_gitlab_instance, trigger_sync,
-    unapprove_mr, update_collapse_patterns, update_instance_token,
-    update_notification_settings, update_settings, update_sync_config, update_sync_settings,
-    update_custom_theme_colors, update_display_font, update_theme, update_ui_font, send_native_notification,
+    add_comment, approve_mr, cancel_pipeline_job, check_merge_status, clear_test_data,
+    delete_gitlab_instance, discard_failed_action, generate_test_data, get_action_counts,
+    get_approval_status, get_avatar, get_avatars, get_cache_stats, get_cached_file_pair,
+    get_collapse_patterns, get_comments, get_companion_qr_svg, get_companion_settings,
+    get_companion_status, get_diagnostics_report, get_diff_content, get_diff_file,
+    get_diff_file_metadata, get_diff_files, get_diff_hunks, get_diff_refs, get_file_comments,
+    get_file_content, get_file_content_base64, get_gitattributes, get_gitlab_instances,
+    get_job_trace, get_memory_stats, get_merge_request_detail, get_merge_requests,
+    get_mr_reviewers, get_notification_settings, get_pipeline_jobs, get_pipeline_statuses,
+    get_project_pipelines, get_settings, get_sync_config, get_sync_settings, get_sync_status,
+    get_token_info, list_my_merge_requests, list_pipeline_projects, merge_mr, play_pipeline_job,
+    resolve_mr_by_web_url, fetch_mr_by_web_url,
+    rebase_mr, refresh_avatars, refresh_gitattributes, regenerate_companion_pin,
+    remove_pipeline_project, reply_to_comment, resolve_discussion, retry_failed_actions,
+    retry_pipeline_job, revoke_companion_device, search_projects, send_native_notification,
+    setup_gitlab_instance, start_companion_server_cmd, stop_companion_server_cmd,
+    toggle_pin_pipeline_project, trigger_sync, unapprove_mr, update_collapse_patterns,
+    update_companion_settings, update_custom_theme_colors, update_display_font,
+    update_instance_token, update_notification_settings, update_session_cookie, update_settings,
+    update_sync_config, update_sync_settings, update_theme, update_ui_font, visit_pipeline_project,
 };
 use services::companion_server;
 use services::sync_engine::{SyncConfig, SyncEngine};
@@ -44,6 +44,7 @@ fn greet(name: &str) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -74,10 +75,14 @@ pub fn run() {
                     .and_then(|store| store.get("sync_config"))
                     .and_then(|v| serde_json::from_value(v.clone()).ok())
                     .unwrap_or_default();
-                eprintln!("[sync] Loaded sync config: sync_authored={}, sync_reviewing={}", sync_config.sync_authored, sync_config.sync_reviewing);
+                eprintln!(
+                    "[sync] Loaded sync config: sync_authored={}, sync_reviewing={}",
+                    sync_config.sync_authored, sync_config.sync_reviewing
+                );
 
                 // Start background sync engine (needs active Tokio runtime for tokio::spawn)
-                let sync_handle = SyncEngine::start_background(pool.clone(), sync_config, app_handle);
+                let sync_handle =
+                    SyncEngine::start_background(pool.clone(), sync_config, app_handle);
                 eprintln!("[sync] Background sync engine started");
 
                 (pool, sync_handle)
@@ -118,7 +123,11 @@ pub fn run() {
                     if let Some(dist_path) = frontend_dist {
                         tauri::async_runtime::spawn(async move {
                             match companion_server::start_companion_server(
-                                port, dist_path, pool_clone, sync_clone, app_handle_clone,
+                                port,
+                                dist_path,
+                                pool_clone,
+                                sync_clone,
+                                app_handle_clone,
                             )
                             .await
                             {
@@ -212,6 +221,9 @@ pub fn run() {
             clear_test_data,
             get_token_info,
             update_instance_token,
+            // Deep-link
+            resolve_mr_by_web_url,
+            fetch_mr_by_web_url,
             // Merge
             merge_mr,
             check_merge_status,

@@ -75,9 +75,7 @@ fn validate_port(port: u16) -> Result<(), AppError> {
 
 /// Get the current companion server settings.
 #[tauri::command]
-pub async fn get_companion_settings(
-    app: AppHandle,
-) -> Result<CompanionServerSettings, AppError> {
+pub async fn get_companion_settings(app: AppHandle) -> Result<CompanionServerSettings, AppError> {
     let settings = load_settings(&app).await?;
     Ok(settings.companion_server)
 }
@@ -103,9 +101,7 @@ pub async fn update_companion_settings(
 ///
 /// Clears all authorized devices since the old PIN is no longer valid.
 #[tauri::command]
-pub async fn regenerate_companion_pin(
-    app: AppHandle,
-) -> Result<String, AppError> {
+pub async fn regenerate_companion_pin(app: AppHandle) -> Result<String, AppError> {
     let mut settings = load_settings(&app).await?;
     let new_pin = generate_pin();
     settings.companion_server.pin = new_pin.clone();
@@ -149,9 +145,7 @@ pub async fn get_companion_status() -> Result<CompanionStatus, AppError> {
 /// the desktop settings UI can display the QR without the companion
 /// HTTP server needing to be running.
 #[tauri::command]
-pub async fn get_companion_qr_svg(
-    app: AppHandle,
-) -> Result<String, AppError> {
+pub async fn get_companion_qr_svg(app: AppHandle) -> Result<String, AppError> {
     let settings = load_settings(&app).await?;
     let pin = &settings.companion_server.pin;
     let port = settings.companion_server.port;
@@ -163,9 +157,8 @@ pub async fn get_companion_qr_svg(
 
     let url = format!("http://{}:{}/auth?pin={}", local_ip, port, pin);
 
-    let qr = qrcode::QrCode::new(url.as_bytes()).map_err(|e| {
-        AppError::internal(format!("Failed to generate QR code: {}", e))
-    })?;
+    let qr = qrcode::QrCode::new(url.as_bytes())
+        .map_err(|e| AppError::internal(format!("Failed to generate QR code: {}", e)))?;
 
     let svg = qr
         .render::<qrcode::render::svg::Color>()
@@ -177,10 +170,7 @@ pub async fn get_companion_qr_svg(
 
 /// Revoke an authorized device by its ID.
 #[tauri::command]
-pub async fn revoke_companion_device(
-    app: AppHandle,
-    device_id: String,
-) -> Result<(), AppError> {
+pub async fn revoke_companion_device(app: AppHandle, device_id: String) -> Result<(), AppError> {
     let mut settings = load_settings(&app).await?;
     let before = settings.companion_server.authorized_devices.len();
     settings

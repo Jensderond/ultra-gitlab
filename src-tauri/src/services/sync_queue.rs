@@ -250,7 +250,10 @@ pub async fn mark_failed(pool: &DbPool, action_id: i64, error: &str) -> Result<(
         .await?;
 
     let Some(row) = row else {
-        return Err(AppError::not_found_with_id("SyncAction", action_id.to_string()));
+        return Err(AppError::not_found_with_id(
+            "SyncAction",
+            action_id.to_string(),
+        ));
     };
 
     let retry_count: i64 = row.get("retry_count");
@@ -264,15 +267,13 @@ pub async fn mark_failed(pool: &DbPool, action_id: i64, error: &str) -> Result<(
         "pending"
     };
 
-    sqlx::query(
-        "UPDATE sync_queue SET status = ?, retry_count = ?, last_error = ? WHERE id = ?",
-    )
-    .bind(new_status)
-    .bind(new_retry_count)
-    .bind(error)
-    .bind(action_id)
-    .execute(pool)
-    .await?;
+    sqlx::query("UPDATE sync_queue SET status = ?, retry_count = ?, last_error = ? WHERE id = ?")
+        .bind(new_status)
+        .bind(new_retry_count)
+        .bind(error)
+        .bind(action_id)
+        .execute(pool)
+        .await?;
 
     Ok(())
 }
@@ -291,7 +292,10 @@ pub async fn retry_action(pool: &DbPool, action_id: i64) -> Result<(), AppError>
     .await?;
 
     if result.rows_affected() == 0 {
-        return Err(AppError::not_found_with_id("SyncAction", action_id.to_string()));
+        return Err(AppError::not_found_with_id(
+            "SyncAction",
+            action_id.to_string(),
+        ));
     }
 
     Ok(())
@@ -311,7 +315,10 @@ pub async fn delete_action(pool: &DbPool, action_id: i64) -> Result<(), AppError
         .await?;
 
     if result.rows_affected() == 0 {
-        return Err(AppError::not_found_with_id("SyncAction", action_id.to_string()));
+        return Err(AppError::not_found_with_id(
+            "SyncAction",
+            action_id.to_string(),
+        ));
     }
 
     Ok(())
@@ -507,7 +514,9 @@ mod tests {
         .unwrap();
 
         // First failure should set back to pending
-        mark_failed(&pool, action.id, "Network error").await.unwrap();
+        mark_failed(&pool, action.id, "Network error")
+            .await
+            .unwrap();
 
         let pending = get_pending_actions(&pool).await.unwrap();
         assert_eq!(pending.len(), 1);
@@ -533,7 +542,9 @@ mod tests {
 
         // Fail MAX_RETRIES times
         for i in 0..SyncAction::MAX_RETRIES {
-            mark_failed(&pool, action.id, &format!("Error {}", i)).await.unwrap();
+            mark_failed(&pool, action.id, &format!("Error {}", i))
+                .await
+                .unwrap();
         }
 
         // Should now be permanently failed
@@ -650,7 +661,9 @@ mod tests {
         .unwrap();
 
         // Discard the action
-        mark_discarded(&pool, action.id, "MR was merged").await.unwrap();
+        mark_discarded(&pool, action.id, "MR was merged")
+            .await
+            .unwrap();
 
         // Should not appear in pending actions
         let pending = get_pending_actions(&pool).await.unwrap();
@@ -704,7 +717,9 @@ mod tests {
         .unwrap();
 
         // Discard the first action
-        mark_discarded(&pool, action1.id, "MR was closed").await.unwrap();
+        mark_discarded(&pool, action1.id, "MR was closed")
+            .await
+            .unwrap();
 
         // Only the pending action should be counted
         let (pending, failed) = get_action_counts(&pool).await.unwrap();

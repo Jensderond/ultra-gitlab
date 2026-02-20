@@ -8,14 +8,12 @@ pub async fn upsert_file_blob(
     content: &str,
     size_bytes: i64,
 ) -> Result<(), AppError> {
-    sqlx::query(
-        "INSERT OR IGNORE INTO file_blobs (sha, content, size_bytes) VALUES (?, ?, ?)",
-    )
-    .bind(sha)
-    .bind(content)
-    .bind(size_bytes)
-    .execute(pool)
-    .await?;
+    sqlx::query("INSERT OR IGNORE INTO file_blobs (sha, content, size_bytes) VALUES (?, ?, ?)")
+        .bind(sha)
+        .bind(content)
+        .bind(size_bytes)
+        .execute(pool)
+        .await?;
 
     Ok(())
 }
@@ -107,12 +105,11 @@ pub async fn get_cached_diff_shas(
     pool: &DbPool,
     mr_id: i64,
 ) -> Result<Option<(String, String)>, AppError> {
-    let row: Option<(String, String)> = sqlx::query_as(
-        "SELECT base_sha, head_sha FROM diffs WHERE mr_id = ?",
-    )
-    .bind(mr_id)
-    .fetch_optional(pool)
-    .await?;
+    let row: Option<(String, String)> =
+        sqlx::query_as("SELECT base_sha, head_sha FROM diffs WHERE mr_id = ?")
+            .bind(mr_id)
+            .fetch_optional(pool)
+            .await?;
 
     Ok(row)
 }
@@ -129,11 +126,9 @@ pub async fn delete_file_versions_for_mr(pool: &DbPool, mr_id: i64) -> Result<()
 
 /// Delete file blobs that are no longer referenced by any file version.
 pub async fn delete_orphaned_blobs(pool: &DbPool) -> Result<(), AppError> {
-    sqlx::query(
-        "DELETE FROM file_blobs WHERE sha NOT IN (SELECT sha FROM file_versions)",
-    )
-    .execute(pool)
-    .await?;
+    sqlx::query("DELETE FROM file_blobs WHERE sha NOT IN (SELECT sha FROM file_versions)")
+        .execute(pool)
+        .await?;
 
     Ok(())
 }

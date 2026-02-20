@@ -49,10 +49,7 @@ pub async fn update_session_cookie(
 /// Manually refresh all avatars for an instance (ignores TTL).
 /// Returns the number of avatars downloaded.
 #[tauri::command]
-pub async fn refresh_avatars(
-    pool: State<'_, DbPool>,
-    instance_id: i64,
-) -> Result<u32, AppError> {
+pub async fn refresh_avatars(pool: State<'_, DbPool>, instance_id: i64) -> Result<u32, AppError> {
     let instance: GitLabInstance = sqlx::query_as(
         "SELECT id, url, name, token, created_at, authenticated_username, session_cookie FROM gitlab_instances WHERE id = ?",
     )
@@ -61,9 +58,9 @@ pub async fn refresh_avatars(
     .await?
     .ok_or_else(|| AppError::not_found("GitLab instance not found"))?;
 
-    let cookie = instance.session_cookie.ok_or_else(|| {
-        AppError::invalid_input("No session cookie configured for this instance")
-    })?;
+    let cookie = instance
+        .session_cookie
+        .ok_or_else(|| AppError::invalid_input("No session cookie configured for this instance"))?;
 
     avatar::refresh_all_avatars(pool.inner(), instance_id, &instance.url, &cookie).await
 }

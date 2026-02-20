@@ -11,13 +11,14 @@
 
 use tempfile::tempdir;
 
-
 /// Test 1: GitLab instance setup and retrieval
 #[tokio::test]
 async fn test_connection_gitlab_instance() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().join("test.db");
-    let pool = ultra_gitlab_lib::db::initialize(&db_path).await.expect("Failed to initialize database");
+    let pool = ultra_gitlab_lib::db::initialize(&db_path)
+        .await
+        .expect("Failed to initialize database");
 
     // Insert a GitLab instance
     let instance_id: i64 = sqlx::query_scalar(
@@ -25,20 +26,19 @@ async fn test_connection_gitlab_instance() {
         INSERT INTO gitlab_instances (url, name)
         VALUES ('https://gitlab.example.com', 'Example GitLab')
         RETURNING id
-        "#
+        "#,
     )
     .fetch_one(&pool)
     .await
     .expect("Failed to insert instance");
 
     // Retrieve the instance
-    let instance: (i64, String, Option<String>) = sqlx::query_as(
-        "SELECT id, url, name FROM gitlab_instances WHERE id = ?"
-    )
-    .bind(instance_id)
-    .fetch_one(&pool)
-    .await
-    .expect("Failed to retrieve instance");
+    let instance: (i64, String, Option<String>) =
+        sqlx::query_as("SELECT id, url, name FROM gitlab_instances WHERE id = ?")
+            .bind(instance_id)
+            .fetch_one(&pool)
+            .await
+            .expect("Failed to retrieve instance");
 
     assert_eq!(instance.0, instance_id);
     assert_eq!(instance.1, "https://gitlab.example.com");
@@ -52,7 +52,9 @@ async fn test_connection_gitlab_instance() {
 async fn test_initial_sync_and_offline_access() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().join("test.db");
-    let pool = ultra_gitlab_lib::db::initialize(&db_path).await.expect("Failed to initialize database");
+    let pool = ultra_gitlab_lib::db::initialize(&db_path)
+        .await
+        .expect("Failed to initialize database");
 
     // Create instance
     let instance_id: i64 = sqlx::query_scalar(
@@ -76,7 +78,7 @@ async fn test_initial_sync_and_offline_access() {
                 author_username, source_branch, target_branch, state, web_url,
                 created_at, updated_at, approval_status, approvals_required, approvals_count
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            "#
+            "#,
         )
         .bind(i + 1)
         .bind(instance_id)
@@ -100,24 +102,22 @@ async fn test_initial_sync_and_offline_access() {
     }
 
     // Verify offline access - retrieve all MRs from local cache
-    let mrs: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT id, title FROM merge_requests WHERE instance_id = ? ORDER BY id"
-    )
-    .bind(instance_id)
-    .fetch_all(&pool)
-    .await
-    .expect("Failed to retrieve MRs");
+    let mrs: Vec<(i64, String)> =
+        sqlx::query_as("SELECT id, title FROM merge_requests WHERE instance_id = ? ORDER BY id")
+            .bind(instance_id)
+            .fetch_all(&pool)
+            .await
+            .expect("Failed to retrieve MRs");
 
     assert_eq!(mrs.len(), 5);
     assert!(mrs[0].1.contains("MR #1"));
 
     // Verify filtering works
-    let open_mrs: Vec<(i64,)> = sqlx::query_as(
-        "SELECT id FROM merge_requests WHERE state = 'opened'"
-    )
-    .fetch_all(&pool)
-    .await
-    .expect("Failed to filter MRs");
+    let open_mrs: Vec<(i64,)> =
+        sqlx::query_as("SELECT id FROM merge_requests WHERE state = 'opened'")
+            .fetch_all(&pool)
+            .await
+            .expect("Failed to filter MRs");
 
     assert_eq!(open_mrs.len(), 5);
 
@@ -129,7 +129,9 @@ async fn test_initial_sync_and_offline_access() {
 async fn test_diff_viewing() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().join("test.db");
-    let pool = ultra_gitlab_lib::db::initialize(&db_path).await.expect("Failed to initialize database");
+    let pool = ultra_gitlab_lib::db::initialize(&db_path)
+        .await
+        .expect("Failed to initialize database");
 
     // Create instance and MR
     let instance_id: i64 = sqlx::query_scalar(
@@ -152,7 +154,7 @@ async fn test_diff_viewing() {
             author_username, source_branch, target_branch, state, web_url,
             created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        "#
+        "#,
     )
     .bind(mr_id)
     .bind(instance_id)
@@ -234,26 +236,24 @@ new file mode 100644
     .unwrap();
 
     // Retrieve and verify diff
-    let diff: (String, i32, i32) = sqlx::query_as(
-        "SELECT content, additions, deletions FROM diffs WHERE mr_id = ?"
-    )
-    .bind(mr_id)
-    .fetch_one(&pool)
-    .await
-    .expect("Failed to retrieve diff");
+    let diff: (String, i32, i32) =
+        sqlx::query_as("SELECT content, additions, deletions FROM diffs WHERE mr_id = ?")
+            .bind(mr_id)
+            .fetch_one(&pool)
+            .await
+            .expect("Failed to retrieve diff");
 
     assert!(diff.0.contains("Button"));
     assert_eq!(diff.1, 10);
     assert_eq!(diff.2, 0);
 
     // Verify diff files
-    let files: Vec<(String, String, i32)> = sqlx::query_as(
-        "SELECT new_path, change_type, additions FROM diff_files WHERE mr_id = ?"
-    )
-    .bind(mr_id)
-    .fetch_all(&pool)
-    .await
-    .expect("Failed to retrieve diff files");
+    let files: Vec<(String, String, i32)> =
+        sqlx::query_as("SELECT new_path, change_type, additions FROM diff_files WHERE mr_id = ?")
+            .bind(mr_id)
+            .fetch_all(&pool)
+            .await
+            .expect("Failed to retrieve diff files");
 
     assert_eq!(files.len(), 1);
     assert_eq!(files[0].0, "src/Button.tsx");
@@ -267,7 +267,9 @@ new file mode 100644
 async fn test_comments() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().join("test.db");
-    let pool = ultra_gitlab_lib::db::initialize(&db_path).await.expect("Failed to initialize database");
+    let pool = ultra_gitlab_lib::db::initialize(&db_path)
+        .await
+        .expect("Failed to initialize database");
 
     // Create instance and MR
     let instance_id: i64 = sqlx::query_scalar(
@@ -289,7 +291,7 @@ async fn test_comments() {
             id, instance_id, iid, project_id, title, author_username,
             source_branch, target_branch, state, web_url, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        "#
+        "#,
     )
     .bind(mr_id)
     .bind(instance_id)
@@ -315,15 +317,23 @@ async fn test_comments() {
                 id, mr_id, discussion_id, author_username, body,
                 file_path, new_line, resolved, resolvable, system, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            "#
+            "#,
         )
         .bind(i + 1)
         .bind(mr_id)
         .bind(format!("disc-{}", i))
         .bind(format!("reviewer{}", i))
         .bind(format!("Comment #{}: This looks good!", i + 1))
-        .bind(if i % 2 == 0 { Some("src/Button.tsx") } else { None::<&str> })
-        .bind(if i % 2 == 0 { Some(10 + i * 5) } else { None::<i32> })
+        .bind(if i % 2 == 0 {
+            Some("src/Button.tsx")
+        } else {
+            None::<&str>
+        })
+        .bind(if i % 2 == 0 {
+            Some(10 + i * 5)
+        } else {
+            None::<i32>
+        })
         .bind(0) // not resolved
         .bind(1) // resolvable
         .bind(0) // not system
@@ -336,7 +346,7 @@ async fn test_comments() {
 
     // Retrieve all comments for MR
     let comments: Vec<(i64, String, String)> = sqlx::query_as(
-        "SELECT id, author_username, body FROM comments WHERE mr_id = ? ORDER BY id"
+        "SELECT id, author_username, body FROM comments WHERE mr_id = ? ORDER BY id",
     )
     .bind(mr_id)
     .fetch_all(&pool)
@@ -347,14 +357,13 @@ async fn test_comments() {
     assert!(comments[0].2.contains("Comment #1"));
 
     // Retrieve inline comments for specific file
-    let inline_comments: Vec<(i64, Option<i32>)> = sqlx::query_as(
-        "SELECT id, new_line FROM comments WHERE mr_id = ? AND file_path = ?"
-    )
-    .bind(mr_id)
-    .bind("src/Button.tsx")
-    .fetch_all(&pool)
-    .await
-    .expect("Failed to retrieve inline comments");
+    let inline_comments: Vec<(i64, Option<i32>)> =
+        sqlx::query_as("SELECT id, new_line FROM comments WHERE mr_id = ? AND file_path = ?")
+            .bind(mr_id)
+            .bind("src/Button.tsx")
+            .fetch_all(&pool)
+            .await
+            .expect("Failed to retrieve inline comments");
 
     assert_eq!(inline_comments.len(), 2); // Comments 0 and 2 are inline
 
@@ -366,7 +375,9 @@ async fn test_comments() {
 async fn test_approval() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().join("test.db");
-    let pool = ultra_gitlab_lib::db::initialize(&db_path).await.expect("Failed to initialize database");
+    let pool = ultra_gitlab_lib::db::initialize(&db_path)
+        .await
+        .expect("Failed to initialize database");
 
     // Create instance and MR
     let instance_id: i64 = sqlx::query_scalar(
@@ -389,7 +400,7 @@ async fn test_approval() {
             source_branch, target_branch, state, web_url, created_at, updated_at,
             approval_status, approvals_required, approvals_count
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        "#
+        "#,
     )
     .bind(mr_id)
     .bind(instance_id)
@@ -424,22 +435,19 @@ async fn test_approval() {
     assert_eq!(initial.2, 0);
 
     // Simulate approval (optimistic update)
-    sqlx::query(
-        "UPDATE merge_requests SET approvals_count = approvals_count + 1 WHERE id = ?"
-    )
-    .bind(mr_id)
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("UPDATE merge_requests SET approvals_count = approvals_count + 1 WHERE id = ?")
+        .bind(mr_id)
+        .execute(&pool)
+        .await
+        .unwrap();
 
     // Verify approval count increased
-    let after_one: (i32,) = sqlx::query_as(
-        "SELECT approvals_count FROM merge_requests WHERE id = ?"
-    )
-    .bind(mr_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let after_one: (i32,) =
+        sqlx::query_as("SELECT approvals_count FROM merge_requests WHERE id = ?")
+            .bind(mr_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(after_one.0, 1);
 
@@ -450,7 +458,7 @@ async fn test_approval() {
         SET approvals_count = approvals_count + 1,
             approval_status = 'approved'
         WHERE id = ?
-        "#
+        "#,
     )
     .bind(mr_id)
     .execute(&pool)
@@ -458,13 +466,12 @@ async fn test_approval() {
     .unwrap();
 
     // Verify fully approved
-    let approved: (String, i32) = sqlx::query_as(
-        "SELECT approval_status, approvals_count FROM merge_requests WHERE id = ?"
-    )
-    .bind(mr_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let approved: (String, i32) =
+        sqlx::query_as("SELECT approval_status, approvals_count FROM merge_requests WHERE id = ?")
+            .bind(mr_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(approved.0, "approved");
     assert_eq!(approved.1, 2);
@@ -474,20 +481,19 @@ async fn test_approval() {
         r#"
         INSERT INTO sync_queue (mr_id, action_type, payload, status)
         VALUES (?, 'approve', '{}', 'pending')
-        "#
+        "#,
     )
     .bind(mr_id)
     .execute(&pool)
     .await
     .unwrap();
 
-    let pending_actions: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM sync_queue WHERE mr_id = ? AND status = 'pending'"
-    )
-    .bind(mr_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let pending_actions: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM sync_queue WHERE mr_id = ? AND status = 'pending'")
+            .bind(mr_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(pending_actions.0, 1);
 
@@ -499,7 +505,9 @@ async fn test_approval() {
 async fn test_mr_filtering_for_navigation() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().join("test.db");
-    let pool = ultra_gitlab_lib::db::initialize(&db_path).await.expect("Failed to initialize database");
+    let pool = ultra_gitlab_lib::db::initialize(&db_path)
+        .await
+        .expect("Failed to initialize database");
 
     // Create instance
     let instance_id: i64 = sqlx::query_scalar(
@@ -523,7 +531,7 @@ async fn test_mr_filtering_for_navigation() {
                 id, instance_id, iid, project_id, title, author_username,
                 source_branch, target_branch, state, web_url, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            "#
+            "#,
         )
         .bind(i as i64 + 1)
         .bind(instance_id)
@@ -543,42 +551,38 @@ async fn test_mr_filtering_for_navigation() {
     }
 
     // Filter by opened state (for keyboard navigation)
-    let opened: Vec<(i64,)> = sqlx::query_as(
-        "SELECT id FROM merge_requests WHERE state = 'opened' ORDER BY id"
-    )
-    .fetch_all(&pool)
-    .await
-    .unwrap();
+    let opened: Vec<(i64,)> =
+        sqlx::query_as("SELECT id FROM merge_requests WHERE state = 'opened' ORDER BY id")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(opened.len(), 3); // MRs 1, 4, 5 are opened
 
     // Filter by merged state
-    let merged: Vec<(i64,)> = sqlx::query_as(
-        "SELECT id FROM merge_requests WHERE state = 'merged'"
-    )
-    .fetch_all(&pool)
-    .await
-    .unwrap();
+    let merged: Vec<(i64,)> =
+        sqlx::query_as("SELECT id FROM merge_requests WHERE state = 'merged'")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(merged.len(), 1); // MR 2 is merged
 
     // Filter by closed state
-    let closed: Vec<(i64,)> = sqlx::query_as(
-        "SELECT id FROM merge_requests WHERE state = 'closed'"
-    )
-    .fetch_all(&pool)
-    .await
-    .unwrap();
+    let closed: Vec<(i64,)> =
+        sqlx::query_as("SELECT id FROM merge_requests WHERE state = 'closed'")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(closed.len(), 1); // MR 3 is closed
 
     // Search by title
-    let search_results: Vec<(i64,)> = sqlx::query_as(
-        "SELECT id FROM merge_requests WHERE title LIKE '%#3%'"
-    )
-    .fetch_all(&pool)
-    .await
-    .unwrap();
+    let search_results: Vec<(i64,)> =
+        sqlx::query_as("SELECT id FROM merge_requests WHERE title LIKE '%#3%'")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(search_results.len(), 1);
     assert_eq!(search_results[0].0, 3);

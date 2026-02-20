@@ -82,7 +82,11 @@ impl DiscardReason {
 /// Returns Some(DiscardReason) if the action should be discarded, None if it should be retried.
 fn check_stale_mr_error(error: &AppError) -> Option<DiscardReason> {
     match error {
-        AppError::GitLabApi { status_code: Some(status), message, .. } => {
+        AppError::GitLabApi {
+            status_code: Some(status),
+            message,
+            ..
+        } => {
             match *status {
                 // 404 Not Found - MR was deleted
                 404 => Some(DiscardReason::MrNotFound),
@@ -101,7 +105,10 @@ fn check_stale_mr_error(error: &AppError) -> Option<DiscardReason> {
                 // 400 Bad Request for inline comments can indicate position is invalid
                 400 => {
                     let msg_lower = message.to_lowercase();
-                    if msg_lower.contains("position") || msg_lower.contains("line") || msg_lower.contains("outdated") {
+                    if msg_lower.contains("position")
+                        || msg_lower.contains("line")
+                        || msg_lower.contains("outdated")
+                    {
                         Some(DiscardReason::PositionInvalid)
                     } else {
                         None
@@ -175,7 +182,10 @@ pub async fn process_action(
                 return ProcessResult {
                     action: action.clone(),
                     success: false,
-                    error: Some(format!("Action succeeded but failed to mark as synced: {}", e)),
+                    error: Some(format!(
+                        "Action succeeded but failed to mark as synced: {}",
+                        e
+                    )),
                     duration_ms,
                     discarded: false,
                 };
@@ -201,7 +211,8 @@ pub async fn process_action(
                 );
 
                 // Mark as discarded instead of failed
-                if let Err(mark_err) = sync_queue::mark_discarded(pool, action.id, reason_msg).await {
+                if let Err(mark_err) = sync_queue::mark_discarded(pool, action.id, reason_msg).await
+                {
                     return ProcessResult {
                         action: action.clone(),
                         success: false,
@@ -469,7 +480,8 @@ mod tests {
 
     #[test]
     fn test_check_stale_mr_error_404_not_found() {
-        let error = AppError::gitlab_api_full("Resource not found", 404, "/api/v4/merge_requests/1");
+        let error =
+            AppError::gitlab_api_full("Resource not found", 404, "/api/v4/merge_requests/1");
         let result = check_stale_mr_error(&error);
         assert!(result.is_some());
         assert!(matches!(result.unwrap(), DiscardReason::MrNotFound));
@@ -477,7 +489,11 @@ mod tests {
 
     #[test]
     fn test_check_stale_mr_error_405_method_not_allowed() {
-        let error = AppError::gitlab_api_full("Method not allowed", 405, "/api/v4/merge_requests/1/approve");
+        let error = AppError::gitlab_api_full(
+            "Method not allowed",
+            405,
+            "/api/v4/merge_requests/1/approve",
+        );
         let result = check_stale_mr_error(&error);
         assert!(result.is_some());
         assert!(matches!(result.unwrap(), DiscardReason::MrNotActionable));
@@ -485,7 +501,11 @@ mod tests {
 
     #[test]
     fn test_check_stale_mr_error_403_merged() {
-        let error = AppError::gitlab_api_full("Cannot approve: MR is already merged", 403, "/api/v4/merge_requests/1/approve");
+        let error = AppError::gitlab_api_full(
+            "Cannot approve: MR is already merged",
+            403,
+            "/api/v4/merge_requests/1/approve",
+        );
         let result = check_stale_mr_error(&error);
         assert!(result.is_some());
         assert!(matches!(result.unwrap(), DiscardReason::MrNotActionable));
@@ -493,7 +513,11 @@ mod tests {
 
     #[test]
     fn test_check_stale_mr_error_403_closed() {
-        let error = AppError::gitlab_api_full("Cannot approve: MR is closed", 403, "/api/v4/merge_requests/1/approve");
+        let error = AppError::gitlab_api_full(
+            "Cannot approve: MR is closed",
+            403,
+            "/api/v4/merge_requests/1/approve",
+        );
         let result = check_stale_mr_error(&error);
         assert!(result.is_some());
         assert!(matches!(result.unwrap(), DiscardReason::MrNotActionable));
@@ -509,7 +533,11 @@ mod tests {
 
     #[test]
     fn test_check_stale_mr_error_400_position_invalid() {
-        let error = AppError::gitlab_api_full("Position is outdated", 400, "/api/v4/merge_requests/1/discussions");
+        let error = AppError::gitlab_api_full(
+            "Position is outdated",
+            400,
+            "/api/v4/merge_requests/1/discussions",
+        );
         let result = check_stale_mr_error(&error);
         assert!(result.is_some());
         assert!(matches!(result.unwrap(), DiscardReason::PositionInvalid));
@@ -517,7 +545,11 @@ mod tests {
 
     #[test]
     fn test_check_stale_mr_error_400_line_deleted() {
-        let error = AppError::gitlab_api_full("Line no longer exists", 400, "/api/v4/merge_requests/1/discussions");
+        let error = AppError::gitlab_api_full(
+            "Line no longer exists",
+            400,
+            "/api/v4/merge_requests/1/discussions",
+        );
         let result = check_stale_mr_error(&error);
         assert!(result.is_some());
         assert!(matches!(result.unwrap(), DiscardReason::PositionInvalid));
@@ -542,7 +574,8 @@ mod tests {
     #[test]
     fn test_check_stale_mr_error_500() {
         // Server errors should be retried
-        let error = AppError::gitlab_api_full("Internal server error", 500, "/api/v4/merge_requests/1");
+        let error =
+            AppError::gitlab_api_full("Internal server error", 500, "/api/v4/merge_requests/1");
         let result = check_stale_mr_error(&error);
         assert!(result.is_none());
     }

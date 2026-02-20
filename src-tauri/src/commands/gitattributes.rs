@@ -48,7 +48,9 @@ pub async fn get_gitattributes(
                 // Spawn background refresh — don't block the response
                 let bg_pool = pool.inner().clone();
                 tokio::spawn(async move {
-                    if let Err(e) = refresh_gitattributes_inner(&bg_pool, instance_id, project_id).await {
+                    if let Err(e) =
+                        refresh_gitattributes_inner(&bg_pool, instance_id, project_id).await
+                    {
                         eprintln!("[gitattributes] Background refresh failed for instance={} project={}: {}", instance_id, project_id, e);
                     }
                 });
@@ -165,13 +167,12 @@ async fn create_gitlab_client_from_pool(
     .fetch_optional(pool)
     .await?;
 
-    let instance = instance.ok_or_else(|| {
-        AppError::not_found_with_id("GitLabInstance", instance_id.to_string())
-    })?;
+    let instance = instance
+        .ok_or_else(|| AppError::not_found_with_id("GitLabInstance", instance_id.to_string()))?;
 
-    let token = instance.token.ok_or_else(|| {
-        AppError::authentication("No token configured for GitLab instance")
-    })?;
+    let token = instance
+        .token
+        .ok_or_else(|| AppError::authentication("No token configured for GitLab instance"))?;
 
     GitLabClient::new(GitLabClientConfig {
         base_url: instance.url,

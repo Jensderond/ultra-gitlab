@@ -65,7 +65,9 @@ fn generate_file_diff_content(file_path: &str, lines: i32) -> String {
     } else if is_rs {
         content.push_str(" pub fn process_data(items: &[Item]) -> HashMap<String, Value> {\n");
         content.push_str("-    let mut result = HashMap::new();\n");
-        content.push_str("+    let mut result: HashMap<String, Value> = HashMap::with_capacity(items.len());\n");
+        content.push_str(
+            "+    let mut result: HashMap<String, Value> = HashMap::with_capacity(items.len());\n",
+        );
         content.push_str("     for item in items {\n");
         content.push_str("-        result.insert(item.id.clone(), item.value.clone());\n");
         content.push_str("+        result.insert(item.id.clone(), process_item(item)?);\n");
@@ -121,11 +123,16 @@ async fn test_memory_with_100_cached_mrs() {
     let db_path = dir.path().join("test.db");
 
     // Initialize the database using the same method as the main app
-    let pool = ultra_gitlab_lib::db::initialize(&db_path).await.expect("Failed to initialize database");
+    let pool = ultra_gitlab_lib::db::initialize(&db_path)
+        .await
+        .expect("Failed to initialize database");
 
     // Record initial memory
     let initial_memory = get_process_memory();
-    println!("Initial memory: {} MB", initial_memory as f64 / (1024.0 * 1024.0));
+    println!(
+        "Initial memory: {} MB",
+        initial_memory as f64 / (1024.0 * 1024.0)
+    );
 
     // Insert test GitLab instance
     let instance_id: i64 = sqlx::query_scalar(
@@ -134,7 +141,7 @@ async fn test_memory_with_100_cached_mrs() {
         VALUES ('https://test.gitlab.com', 'Test Instance')
         ON CONFLICT (url) DO UPDATE SET name = 'Test Instance'
         RETURNING id
-        "#
+        "#,
     )
     .fetch_one(&pool)
     .await
@@ -262,15 +269,27 @@ async fn test_memory_with_100_cached_mrs() {
                     id, mr_id, discussion_id, author_username, body,
                     file_path, new_line, resolved, resolvable, system, created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                "#
+                "#,
             )
             .bind(comment_id)
             .bind(mr_id)
             .bind(&discussion_id)
             .bind(format!("reviewer{}", (comment_idx % 3) + 1))
-            .bind(format!("This is comment #{} on MR #{}. It provides feedback on the code changes.", comment_idx + 1, i + 1))
-            .bind(if is_inline { Some(get_test_file_path(comment_idx % files_per_mr)) } else { None::<String> })
-            .bind(if is_inline { Some(10 + comment_idx * 5) } else { None::<i32> })
+            .bind(format!(
+                "This is comment #{} on MR #{}. It provides feedback on the code changes.",
+                comment_idx + 1,
+                i + 1
+            ))
+            .bind(if is_inline {
+                Some(get_test_file_path(comment_idx % files_per_mr))
+            } else {
+                None::<String>
+            })
+            .bind(if is_inline {
+                Some(10 + comment_idx * 5)
+            } else {
+                None::<i32>
+            })
             .bind(if comment_idx % 4 == 0 { 1 } else { 0 })
             .bind(1)
             .bind(0)
@@ -286,7 +305,7 @@ async fn test_memory_with_100_cached_mrs() {
 
     // Get database size
     let row: (i64,) = sqlx::query_as(
-        "SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()"
+        "SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()",
     )
     .fetch_one(&pool)
     .await
@@ -294,26 +313,22 @@ async fn test_memory_with_100_cached_mrs() {
     let db_size_bytes = row.0;
 
     // Load all data into memory to simulate the app having it cached
-    let mrs: Vec<(i64, String, String)> = sqlx::query_as(
-        "SELECT id, title, description FROM merge_requests"
-    )
-    .fetch_all(&pool)
-    .await
-    .expect("Failed to load MRs");
+    let mrs: Vec<(i64, String, String)> =
+        sqlx::query_as("SELECT id, title, description FROM merge_requests")
+            .fetch_all(&pool)
+            .await
+            .expect("Failed to load MRs");
 
-    let diff_files: Vec<(i64, String, String)> = sqlx::query_as(
-        "SELECT id, new_path, diff_content FROM diff_files"
-    )
-    .fetch_all(&pool)
-    .await
-    .expect("Failed to load diff files");
+    let diff_files: Vec<(i64, String, String)> =
+        sqlx::query_as("SELECT id, new_path, diff_content FROM diff_files")
+            .fetch_all(&pool)
+            .await
+            .expect("Failed to load diff files");
 
-    let comments: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT id, body FROM comments"
-    )
-    .fetch_all(&pool)
-    .await
-    .expect("Failed to load comments");
+    let comments: Vec<(i64, String)> = sqlx::query_as("SELECT id, body FROM comments")
+        .fetch_all(&pool)
+        .await
+        .expect("Failed to load comments");
 
     // Record final memory after loading all data
     let final_memory = get_process_memory();
@@ -324,12 +339,27 @@ async fn test_memory_with_100_cached_mrs() {
     println!("MRs generated: {}", mr_count);
     println!("Diff files generated: {}", total_diff_files);
     println!("Comments generated: {}", total_comments);
-    println!("Database size: {:.2} MB", db_size_bytes as f64 / (1024.0 * 1024.0));
+    println!(
+        "Database size: {:.2} MB",
+        db_size_bytes as f64 / (1024.0 * 1024.0)
+    );
     println!("");
-    println!("Initial memory: {:.2} MB", initial_memory as f64 / (1024.0 * 1024.0));
-    println!("Final memory: {:.2} MB", final_memory as f64 / (1024.0 * 1024.0));
-    println!("Memory increase: {:.2} MB", memory_increase as f64 / (1024.0 * 1024.0));
-    println!("Target limit: {:.2} MB", TARGET_MEMORY_BYTES as f64 / (1024.0 * 1024.0));
+    println!(
+        "Initial memory: {:.2} MB",
+        initial_memory as f64 / (1024.0 * 1024.0)
+    );
+    println!(
+        "Final memory: {:.2} MB",
+        final_memory as f64 / (1024.0 * 1024.0)
+    );
+    println!(
+        "Memory increase: {:.2} MB",
+        memory_increase as f64 / (1024.0 * 1024.0)
+    );
+    println!(
+        "Target limit: {:.2} MB",
+        TARGET_MEMORY_BYTES as f64 / (1024.0 * 1024.0)
+    );
     println!("");
 
     // Keep data in scope to prevent optimization
@@ -339,12 +369,14 @@ async fn test_memory_with_100_cached_mrs() {
 
     // Verify memory is under target
     if final_memory < TARGET_MEMORY_BYTES {
-        println!("✅ PASS: Memory usage ({:.2} MB) is under target ({:.2} MB)",
+        println!(
+            "✅ PASS: Memory usage ({:.2} MB) is under target ({:.2} MB)",
             final_memory as f64 / (1024.0 * 1024.0),
             TARGET_MEMORY_BYTES as f64 / (1024.0 * 1024.0)
         );
     } else {
-        println!("❌ FAIL: Memory usage ({:.2} MB) exceeds target ({:.2} MB)",
+        println!(
+            "❌ FAIL: Memory usage ({:.2} MB) exceeds target ({:.2} MB)",
             final_memory as f64 / (1024.0 * 1024.0),
             TARGET_MEMORY_BYTES as f64 / (1024.0 * 1024.0)
         );
