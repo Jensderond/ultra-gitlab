@@ -44,6 +44,9 @@ export function useFileContent(
   const [imageContent, setImageContent] = useState<ImageContent>(EMPTY_IMAGE);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Track which file the current content belongs to so we can detect the
+  // one-frame lag between selectedFile changing and useLayoutEffect updating isLoading.
+  const [contentFile, setContentFile] = useState<string | null>(null);
 
   const textCacheRef = useRef<Map<string, TextContent>>(new Map());
   const imageCacheRef = useRef<Map<string, ImageContent>>(new Map());
@@ -62,6 +65,7 @@ export function useFileContent(
       setImageContent(EMPTY_IMAGE);
       setIsLoading(false);
       setError(null);
+      setContentFile(null);
       return;
     }
 
@@ -73,6 +77,7 @@ export function useFileContent(
         setContent(EMPTY_TEXT);
         setIsLoading(false);
         setError(null);
+        setContentFile(selectedFile);
         return;
       }
     } else {
@@ -82,6 +87,7 @@ export function useFileContent(
         setImageContent(EMPTY_IMAGE);
         setIsLoading(false);
         setError(null);
+        setContentFile(selectedFile);
         return;
       }
     }
@@ -127,6 +133,7 @@ export function useFileContent(
           imageCacheRef.current.set(selectedFile!, result);
           setImageContent(result);
           setContent(EMPTY_TEXT);
+          setContentFile(selectedFile);
         } else {
           // Try SQLite cache first
           const sqliteCached = await getCachedFilePair(mrId, selectedFile!).catch(() => null);
@@ -161,6 +168,7 @@ export function useFileContent(
           textCacheRef.current.set(selectedFile!, result);
           setContent(result);
           setImageContent(EMPTY_IMAGE);
+          setContentFile(selectedFile);
           prefetchAdjacent(selectedFile!, mr!, diffRefs!, mrId);
         }
       } catch (err) {
@@ -233,5 +241,10 @@ export function useFileContent(
     }
   }
 
-  return { content, imageContent, isLoading, error, clearCache };
+  // Treat as loading if selectedFile changed but content hasn't caught up yet.
+  // This closes the one-frame gap between the render where selectedFile changes
+  // and the useLayoutEffect that sets isLoading=true.
+  const effectiveLoading = isLoading || (selectedFile !== null && selectedFile !== contentFile);
+
+  return { content, imageContent, isLoading: effectiveLoading, error, clearCache };
 }
