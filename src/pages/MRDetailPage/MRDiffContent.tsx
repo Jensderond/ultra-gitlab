@@ -1,7 +1,8 @@
-import type { RefObject } from 'react';
-import { MonacoDiffViewer, type MonacoDiffViewerRef, type LineComment } from '../../components/Monaco/MonacoDiffViewer';
-import { ImageDiffViewer } from '../../components/Monaco/ImageDiffViewer';
-import { isImageFile, getImageMimeType } from '../../components/Monaco/languageDetection';
+import { PierreDiffViewer } from '../../components/PierreDiffViewer';
+import type { LineComment, DiffLineClickInfo } from '../../components/PierreDiffViewer/PierreDiffViewer';
+import type { SelectedLineRange } from '../../components/PierreDiffViewer';
+import { ImageDiffViewer } from '../../components/ImageDiffViewer';
+import { isImageFile, getImageMimeType } from '../../utils/languageDetection';
 import type { DiffRefs, DiffFileSummary } from '../../types';
 
 interface MRDiffContentProps {
@@ -13,12 +14,11 @@ interface MRDiffContentProps {
   imageContent: { originalBase64: string; modifiedBase64: string };
   fileContentLoading: boolean;
   fileContentError: string | null;
-  collapseState: 'collapsed' | 'expanded' | 'partial';
   viewMode: 'unified' | 'split';
-  fileComments: LineComment[];
-  diffViewerRef: RefObject<MonacoDiffViewerRef | null>;
-  onCollapse: () => void;
-  onExpand: () => void;
+  mrIid: number;
+  comments?: LineComment[];
+  onLineClick?: (info: DiffLineClickInfo) => void;
+  onLineSelected?: (range: SelectedLineRange | null) => void;
   onRetry: () => void;
 }
 
@@ -31,12 +31,11 @@ export default function MRDiffContent({
   imageContent,
   fileContentLoading,
   fileContentError,
-  collapseState,
   viewMode,
-  fileComments,
-  diffViewerRef,
-  onCollapse,
-  onExpand,
+  mrIid,
+  comments,
+  onLineClick,
+  onLineSelected,
   onRetry,
 }: MRDiffContentProps) {
   if (!selectedFile) {
@@ -94,38 +93,19 @@ export default function MRDiffContent({
         />
       )}
 
-      <div
-        className="monaco-diff-wrapper"
-        style={{ display: isImageFile(selectedFile) ? 'none' : undefined }}
-      >
-        <div className="diff-toolbar">
-          <button
-            className="diff-toolbar-btn"
-            onClick={onCollapse}
-            disabled={collapseState === 'collapsed'}
-            title="Collapse unchanged regions"
-          >
-            Collapse unchanged
-          </button>
-          <button
-            className="diff-toolbar-btn"
-            onClick={onExpand}
-            disabled={collapseState === 'expanded'}
-            title="Expand all regions"
-          >
-            Expand all
-          </button>
-        </div>
-        <MonacoDiffViewer
-          ref={diffViewerRef}
-          originalContent={fileContent.original}
-          modifiedContent={fileContent.modified}
+      {!isImageFile(selectedFile) && !fileContentLoading && !fileContentError && diffRefs && (
+        <PierreDiffViewer
+          oldContent={fileContent.original}
+          newContent={fileContent.modified}
           filePath={selectedFile}
           viewMode={viewMode}
-          hideUnchanged={collapseState !== 'expanded'}
-          comments={fileComments}
+          mrIid={mrIid}
+          sha={diffRefs.headSha}
+          comments={comments}
+          onLineClick={onLineClick}
+          onLineSelected={onLineSelected}
         />
-      </div>
+      )}
     </main>
   );
 }

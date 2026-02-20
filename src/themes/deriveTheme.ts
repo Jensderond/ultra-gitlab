@@ -219,7 +219,7 @@ export function deriveTheme(bg: string, text: string, accent: string): ThemeDefi
   const extFuji       = textMuted;
   const extWinter     = bgTertiary;
 
-  // --- Monaco/syntax: use nearest preset ---
+  // --- Syntax token colors: use nearest preset ---
   const preset = isDark ? kanagawaWave : kanagawaLight;
 
   const theme: ThemeDefinition = {

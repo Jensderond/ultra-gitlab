@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '../../services/tauri';
 import type { Comment } from '../../types';
-import type { LineComment } from '../../components/Monaco/MonacoDiffViewer';
+import type { LineComment } from '../../components/PierreDiffViewer/PierreDiffViewer';
 
 export function useFileComments(mrId: number, selectedFile: string | null) {
   const [fileComments, setFileComments] = useState<LineComment[]>([]);

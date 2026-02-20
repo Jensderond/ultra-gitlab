@@ -2,14 +2,12 @@
  * Hook for lazy-loading Code tab data and file navigation.
  */
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getMergeRequestFiles, getDiffRefs, getGitattributesPatterns } from '../../services/gitlab';
 import { getCollapsePatterns } from '../../services/tauri';
 import { classifyFiles } from '../../utils/classifyFiles';
 import { useFileContent } from '../../hooks/useFileContent';
-import { isImageFile } from '../../components/Monaco/languageDetection';
 import type { MergeRequest, DiffFileSummary, DiffRefs } from '../../types';
-import type { MonacoDiffViewerRef } from '../../components/Monaco/MonacoDiffViewer';
 
 export interface CodeTabState {
   files: DiffFileSummary[];
@@ -23,7 +21,6 @@ export interface CodeTabState {
   fileContent: { original: string; modified: string };
   imageContent: { originalBase64: string | null; modifiedBase64: string | null };
   fileContentLoading: boolean;
-  diffViewerRef: React.RefObject<MonacoDiffViewerRef | null>;
   handleFileSelect: (filePath: string) => void;
   navigateFile: (direction: 1 | -1) => void;
   toggleHideGenerated: () => void;
@@ -34,7 +31,6 @@ export function useCodeTab(
   mr: MergeRequest | null,
   activeTab: string,
 ): CodeTabState {
-  const diffViewerRef = useRef<MonacoDiffViewerRef>(null);
   const [files, setFiles] = useState<DiffFileSummary[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileFocusIndex, setFileFocusIndex] = useState(0);
@@ -53,18 +49,6 @@ export function useCodeTab(
     imageContent,
     isLoading: fileContentLoading,
   } = useFileContent(mrId, mr, diffRefs, files, selectedFile, reviewableFiles);
-
-  // Track image→text transitions to re-layout Monaco
-  const wasImageRef = useRef(false);
-  useEffect(() => {
-    const isImage = selectedFile ? isImageFile(selectedFile) : false;
-    if (wasImageRef.current && !isImage && selectedFile) {
-      requestAnimationFrame(() => {
-        diffViewerRef.current?.layout();
-      });
-    }
-    wasImageRef.current = isImage;
-  }, [selectedFile]);
 
   // Lazy-load Code tab data on first activation
   useEffect(() => {
@@ -153,7 +137,6 @@ export function useCodeTab(
     fileContent,
     imageContent,
     fileContentLoading,
-    diffViewerRef,
     handleFileSelect,
     navigateFile,
     toggleHideGenerated,

@@ -1,4 +1,4 @@
-import { FileNavigation } from '../../components/DiffViewer';
+import { FileNavigation } from '../../components/FileNavigation';
 import type { DiffFileSummary } from '../../types';
 
 interface MRFilePanelProps {

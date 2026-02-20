@@ -1,16 +1,16 @@
 import { useEffect, useRef } from 'react';
 import { openExternalUrl } from '../../services/transport';
-import type { MonacoDiffViewerRef } from '../../components/Monaco/MonacoDiffViewer';
 import type { ApprovalButtonRef } from '../../components/Approval';
 import type { CommentOverlayRef } from '../../components/CommentOverlay';
+import type { SelectedLineRange } from '../../components/PierreDiffViewer';
 
 interface UseMRKeyboardOptions {
   selectedFile: string | null;
   isSmallScreen: boolean;
   webUrl?: string;
-  diffViewerRef: React.RefObject<MonacoDiffViewerRef | null>;
   approvalButtonRef: React.RefObject<ApprovalButtonRef | null>;
   commentOverlayRef: React.RefObject<CommentOverlayRef | null>;
+  lineSelectionRef: React.RefObject<SelectedLineRange | null>;
   onNavigateFile: (direction: 1 | -1) => void;
   onToggleViewMode: () => void;
   onMarkViewedAndNext: () => void;
@@ -23,9 +23,9 @@ export function useMRKeyboard({
   selectedFile,
   isSmallScreen,
   webUrl,
-  diffViewerRef,
   approvalButtonRef,
   commentOverlayRef,
+  lineSelectionRef,
   onNavigateFile,
   onToggleViewMode,
   onMarkViewedAndNext,
@@ -85,25 +85,38 @@ export function useMRKeyboard({
       case 'c':
         e.preventDefault();
         if (selectedFile) {
-          const pos = diffViewerRef.current?.getCursorPosition();
-          const sel = diffViewerRef.current?.getSelectedLines() ?? null;
-          if (pos) commentOverlayRef.current?.open(pos, sel);
+          const selC = lineSelectionRef.current;
+          if (selC) {
+            const isOriginal = selC.side === 'deletions';
+            const startLine = Math.min(selC.start, selC.end);
+            const endLine = Math.max(selC.start, selC.end);
+            commentOverlayRef.current?.open(
+              { line: startLine, isOriginal },
+              { startLine, endLine, isOriginal, text: '' },
+            );
+          } else {
+            commentOverlayRef.current?.open({ line: 1, isOriginal: false }, null);
+          }
         }
         break;
       case 's':
         e.preventDefault();
         if (selectedFile) {
-          const sel = diffViewerRef.current?.getSelectedLines();
-          const pos = diffViewerRef.current?.getCursorPosition();
-          if (pos && sel && !sel.isOriginal) {
-            const linesBelow = sel.endLine - sel.startLine;
-            const suggestionText = `\`\`\`suggestion:-0+${linesBelow}\n${sel.text}\n\`\`\`\n`;
-            const cursorPos = { line: sel.startLine, isOriginal: false };
-            commentOverlayRef.current?.open(cursorPos, sel, suggestionText);
-          } else if (pos) {
-            const lineText = sel?.text ?? '';
-            const suggestionText = `\`\`\`suggestion:-0+0\n${lineText}\n\`\`\`\n`;
-            commentOverlayRef.current?.open(pos, sel ?? null, suggestionText);
+          const selS = lineSelectionRef.current;
+          if (selS) {
+            const isOriginal = selS.side === 'deletions';
+            const startLine = Math.min(selS.start, selS.end);
+            const endLine = Math.max(selS.start, selS.end);
+            const linesBelow = endLine - startLine;
+            const suggestionText = `\`\`\`suggestion:-0+${linesBelow}\n\n\`\`\`\n`;
+            commentOverlayRef.current?.open(
+              { line: startLine, isOriginal },
+              { startLine, endLine, isOriginal, text: '' },
+              suggestionText,
+            );
+          } else {
+            const suggestionText = '```suggestion:-0+0\n\n```\n';
+            commentOverlayRef.current?.open({ line: 1, isOriginal: false }, null, suggestionText);
           }
         }
         break;

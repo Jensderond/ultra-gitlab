@@ -383,16 +383,35 @@ impl GitLabClient {
                 "GitLab token expired or revoked. Please re-authenticate.",
             ))
         } else {
-            let message = match status {
-                StatusCode::FORBIDDEN => "Access denied",
-                StatusCode::NOT_FOUND => "Resource not found",
-                StatusCode::TOO_MANY_REQUESTS => "Rate limit exceeded",
-                _ => "Request failed",
+            let status_code = status.as_u16();
+            let body = response.text().await.unwrap_or_default();
+            let body_message = serde_json::from_str::<serde_json::Value>(&body)
+                .ok()
+                .and_then(|v| {
+                    // GitLab returns errors as {"message": "..."} or {"error": "..."}
+                    v.get("message")
+                        .or_else(|| v.get("error"))
+                        .and_then(|m| {
+                            if let Some(s) = m.as_str() {
+                                Some(s.to_string())
+                            } else {
+                                // Sometimes "message" is an object like {"base":["msg"]}
+                                Some(m.to_string())
+                            }
+                        })
+                });
+
+            let message = match (status, &body_message) {
+                (StatusCode::FORBIDDEN, _) => "Access denied".to_string(),
+                (StatusCode::NOT_FOUND, _) => "Resource not found".to_string(),
+                (StatusCode::TOO_MANY_REQUESTS, _) => "Rate limit exceeded".to_string(),
+                (_, Some(msg)) => msg.clone(),
+                _ => format!("Request failed ({}): {}", status_code, body),
             };
 
             Err(AppError::gitlab_api_full(
-                message,
-                status.as_u16(),
+                &message,
+                status_code,
                 endpoint,
             ))
         }
@@ -800,6 +819,7 @@ impl GitLabClient {
             head_sha: &'a str,
             start_sha: &'a str,
             position_type: &'a str,
+            old_path: &'a str,
             new_path: &'a str,
             #[serde(skip_serializing_if = "Option::is_none")]
             old_line: Option<i64>,
@@ -820,6 +840,7 @@ impl GitLabClient {
                 head_sha,
                 start_sha,
                 position_type: "text",
+                old_path: file_path,
                 new_path: file_path,
                 old_line,
                 new_line,
