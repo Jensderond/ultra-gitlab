@@ -109,20 +109,24 @@ test.describe('Activity Drawer', () => {
     const drawer = page.getByTestId('activity-drawer');
     const handle = page.getByTestId('activity-drawer-drag-handle');
 
+    // Wait for open transition to complete before measuring
+    await expect(drawer).toHaveClass(/activity-drawer--open/);
+    await page.waitForTimeout(350);
+
     // Get initial height
     const initialHeight = await drawer.evaluate((el) => el.getBoundingClientRect().height);
 
-    // Drag the handle upward by 100px
+    // Drag the handle upward using the locator-based drag
     const handleBox = await handle.boundingBox();
     if (!handleBox) throw new Error('Handle not visible');
 
     const startX = handleBox.x + handleBox.width / 2;
     const startY = handleBox.y + handleBox.height / 2;
 
-    await page.mouse.move(startX, startY);
+    // Use explicit mousedown on the handle element to ensure React handler fires
+    await handle.hover();
     await page.mouse.down();
-    await page.waitForTimeout(100);
-    await page.mouse.move(startX, startY - 100, { steps: 10 });
+    await page.mouse.move(startX, startY - 150, { steps: 20 });
     await page.mouse.up();
 
     // Height should have increased
@@ -136,18 +140,15 @@ test.describe('Activity Drawer', () => {
 
     const drawer = page.getByTestId('activity-drawer');
     const handle = page.getByTestId('activity-drawer-drag-handle');
+    await expect(drawer).toHaveClass(/activity-drawer--open/);
+    await page.waitForTimeout(350);
+
     const viewportHeight = await page.evaluate(() => window.innerHeight);
 
     // Try dragging way down (below minimum)
-    const handleBox = await handle.boundingBox();
-    if (!handleBox) throw new Error('Handle not visible');
-
-    const startX = handleBox.x + handleBox.width / 2;
-    const startY = handleBox.y + handleBox.height / 2;
-
-    await page.mouse.move(startX, startY);
+    await handle.hover();
     await page.mouse.down();
-    await page.mouse.move(startX, viewportHeight - 60, { steps: 5 });
+    await page.mouse.move(400, viewportHeight - 60, { steps: 10 });
     await page.mouse.up();
 
     // Height should be at least ~20% of viewport
@@ -155,12 +156,9 @@ test.describe('Activity Drawer', () => {
     expect(minHeight).toBeGreaterThanOrEqual(viewportHeight * 0.19); // slight tolerance
 
     // Now try dragging way up (above maximum)
-    const handleBox2 = await handle.boundingBox();
-    if (!handleBox2) throw new Error('Handle not visible');
-
-    await page.mouse.move(handleBox2.x + handleBox2.width / 2, handleBox2.y + handleBox2.height / 2);
+    await handle.hover();
     await page.mouse.down();
-    await page.mouse.move(handleBox2.x + handleBox2.width / 2, 10, { steps: 5 });
+    await page.mouse.move(400, 10, { steps: 10 });
     await page.mouse.up();
 
     // Height should be at most ~80% of viewport
@@ -174,17 +172,15 @@ test.describe('Activity Drawer', () => {
 
     const drawer = page.getByTestId('activity-drawer');
     const handle = page.getByTestId('activity-drawer-drag-handle');
+    await expect(drawer).toHaveClass(/activity-drawer--open/);
+    await page.waitForTimeout(350);
 
     // Drag upward to change height
+    await handle.hover();
+    await page.mouse.down();
     const handleBox = await handle.boundingBox();
     if (!handleBox) throw new Error('Handle not visible');
-
-    const startX = handleBox.x + handleBox.width / 2;
-    const startY = handleBox.y + handleBox.height / 2;
-
-    await page.mouse.move(startX, startY);
-    await page.mouse.down();
-    await page.mouse.move(startX, startY - 80, { steps: 5 });
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y - 80, { steps: 10 });
     await page.mouse.up();
 
     const heightAfterDrag = await drawer.evaluate((el) => el.getBoundingClientRect().height);
