@@ -5,11 +5,14 @@
  * and resolved/unresolved visual distinction.
  */
 
+import { useMemo } from 'react';
 import type { Comment } from '../../types';
 import './ActivityFeed.css';
 
 interface ActivityFeedProps {
   threads: Comment[][];
+  systemEvents: Comment[];
+  showSystemEvents: boolean;
   loading: boolean;
 }
 
@@ -75,7 +78,22 @@ function ThreadCard({ thread }: { thread: Comment[] }) {
   );
 }
 
-export default function ActivityFeed({ threads, loading }: ActivityFeedProps) {
+type FeedItem =
+  | { kind: 'thread'; thread: Comment[]; timestamp: number }
+  | { kind: 'event'; event: Comment; timestamp: number };
+
+function SystemEventEntry({ event }: { event: Comment }) {
+  return (
+    <div className="activity-system-event" data-testid="activity-system-event">
+      <span className="activity-system-event__author">{event.authorUsername}</span>
+      {' '}
+      <span className="activity-system-event__body">{event.body}</span>
+      <span className="activity-system-event__time">{formatRelativeTime(event.createdAt)}</span>
+    </div>
+  );
+}
+
+export default function ActivityFeed({ threads, systemEvents, showSystemEvents, loading }: ActivityFeedProps) {
   if (loading) {
     return (
       <div className="activity-feed__loading" data-testid="activity-feed-loading">
@@ -85,7 +103,9 @@ export default function ActivityFeed({ threads, loading }: ActivityFeedProps) {
     );
   }
 
-  if (threads.length === 0) {
+  const hasContent = threads.length > 0 || (showSystemEvents && systemEvents.length > 0);
+
+  if (!hasContent) {
     return (
       <div className="activity-feed__empty" data-testid="activity-feed-empty">
         No comments yet
@@ -93,11 +113,38 @@ export default function ActivityFeed({ threads, loading }: ActivityFeedProps) {
     );
   }
 
+  const feedItems = useMemo((): FeedItem[] => {
+    const items: FeedItem[] = threads.map((thread) => ({
+      kind: 'thread' as const,
+      thread,
+      timestamp: thread[0]?.createdAt ?? 0,
+    }));
+
+    if (showSystemEvents) {
+      for (const event of systemEvents) {
+        items.push({ kind: 'event' as const, event, timestamp: event.createdAt });
+      }
+    }
+
+    // Sort: unresolved threads first, then chronologically
+    return items.sort((a, b) => {
+      const aIsUnresolvedThread = a.kind === 'thread' && !a.thread.some(c => c.resolved);
+      const bIsUnresolvedThread = b.kind === 'thread' && !b.thread.some(c => c.resolved);
+      if (aIsUnresolvedThread && !bIsUnresolvedThread) return -1;
+      if (!aIsUnresolvedThread && bIsUnresolvedThread) return 1;
+      return a.timestamp - b.timestamp;
+    });
+  }, [threads, systemEvents, showSystemEvents]);
+
   return (
     <div className="activity-feed" data-testid="activity-feed">
-      {threads.map((thread) => (
-        <ThreadCard key={thread[0].id} thread={thread} />
-      ))}
+      {feedItems.map((item) =>
+        item.kind === 'thread' ? (
+          <ThreadCard key={`thread-${item.thread[0].id}`} thread={item.thread} />
+        ) : (
+          <SystemEventEntry key={`event-${item.event.id}`} event={item.event} />
+        )
+      )}
     </div>
   );
 }

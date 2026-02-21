@@ -74,6 +74,27 @@
   letter-spacing: 0.03em;
 }
 
+.activity-drawer__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.activity-drawer__toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.activity-drawer__toggle-checkbox {
+  accent-color: var(--accent-color);
+  cursor: pointer;
+}
+
 .activity-drawer__close {
   display: flex;
   align-items: center;

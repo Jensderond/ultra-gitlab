@@ -24,6 +24,10 @@
 - ActivityDrawer z-index must be below footer/header (z-index: 10) to avoid pointer interception. Use z-index: 9.
 - Fixed overlays that sit at bottom: 0 will cover the footer — offset with `bottom: 49px` (footer height).
 - MRDetailPage footer now has `display: flex; justify-content: space-between` to accommodate the activity toggle button.
+- ActivityDrawer height controlled via inline style `height: Xvh` (useState). Default 40vh, min 20vh, max 80vh. Drag handle at top edge.
+- ActivityFeed component at `src/components/ActivityDrawer/ActivityFeed.tsx` — takes `threads` and `loading` props, renders ThreadCard per thread.
+- Seed data for MR 101 now includes: 4 unresolved threads, 1 resolved thread, 2 system events, 1 reply, 1 pending sync comment, 1 standalone comment.
+- ActivityDrawer receives content via `children` prop — MRDetailPage passes `<ActivityFeed>` as children.
 
 ---
 
@@ -59,4 +63,83 @@
   - Playwright fails with "subtree intercepts pointer events" when an overlay covers the click target — fix layout z-stacking, don't use `{ force: true }`
   - Footer was not flex before — added `display: flex; justify-content: space-between` to accommodate toggle button alongside keyboard hints
   - Component barrel exports follow `export { default as ComponentName }` pattern
+---
+
+## 2026-02-21 - US-003
+- Added drag-to-resize handle to `ActivityDrawer` component
+  - Visual grip indicator (4px rounded bar) at the top edge of the drawer
+  - Mouse drag on handle resizes drawer height, clamped between 20vh and 80vh
+  - Default height 40vh, persists within session (useState)
+  - `ns-resize` cursor on hover, body cursor override during drag
+- Updated `ActivityDrawer.css` with drag handle and grip styles
+- Added 5 new Playwright tests: handle visibility, grip indicator, drag resize, min/max clamping, session persistence
+- Files changed: `src/components/ActivityDrawer/ActivityDrawer.tsx` (modified), `src/components/ActivityDrawer/ActivityDrawer.css` (modified), `e2e/activity-drawer.spec.ts` (modified)
+- **Learnings for future iterations:**
+  - When computing height in `vh` from mouse position, divide by `window.innerHeight` (not `availableHeight`) since vh is a percentage of the full viewport
+  - Footer height is 49px — subtract from mouse-to-bottom calculation for accurate drawer sizing
+  - Use `document.body.style.userSelect = 'none'` during drag to prevent text selection
+  - Playwright mouse drag: use `page.mouse.move(x, y, { steps: 5 })` for reliable drag simulation
+  - Height set via inline style overrides CSS `height` — removed hardcoded `40vh` from CSS
+---
+
+## 2026-02-21 - US-004
+- Wired `useActivityData(mrId)` into `MRDetailPage/index.tsx` for `unresolvedCount`
+- Added Cmd+D keyboard shortcut via `useEffect` with `keydown` listener checking `e.metaKey && e.key === 'd'`
+- Shortcut skips when `e.target` tagName is INPUT or TEXTAREA
+- Added unresolved badge (`<span className="activity-badge">`) to activity toggle button, hidden when count is 0
+- Added `.activity-badge` CSS styles in `MRDetailPage.css` (pill badge using `var(--accent-color)`)
+- Added 4 new Playwright tests: Cmd+D toggle, Cmd+D skip in input, badge shows count, badge hidden when 0
+- Files changed: `src/pages/MRDetailPage/index.tsx` (modified), `src/pages/MRDetailPage.css` (modified), `e2e/activity-drawer.spec.ts` (modified)
+- **Learnings for future iterations:**
+  - Cmd+D (meta key shortcuts) should be handled separately from `useMRKeyboard` which only handles single-key shortcuts
+  - The pre-existing drag resize test is flaky — sometimes returns exact same height due to race conditions
+  - Seed data for MR 101 has 4 unique discussionIds, all unresolved — `unresolvedCount` = 4
+  - For testing "badge hidden when 0", navigate to a non-existent MR (e.g., /mrs/999) which returns empty comments
+---
+
+## 2026-02-21 - US-005
+- Created `ActivityFeed` component at `src/components/ActivityDrawer/ActivityFeed.tsx`
+  - Renders discussion threads with root comment and replies
+  - Shows author username, relative timestamp, and comment body
+  - Inline threads display file path and line number above the thread
+  - Resolved threads visually dimmed (opacity 0.5) with hover restore
+  - Threads ordered: unresolved first, then resolved, then by creation time
+  - Loading spinner while fetching, empty state when no comments
+- Created `ActivityFeed.css` with Kanagawa Wave theme styling
+- Updated `ActivityDrawer/index.ts` barrel export to include `ActivityFeed`
+- Integrated into `MRDetailPage/index.tsx`: passes `activityThreads` and `activityLoading` from `useActivityData` to `<ActivityFeed>` as children of `<ActivityDrawer>`
+- Enhanced seed data (`e2e/fixtures/seed-data.ts`) for MR 101:
+  - Added reply (id: 5005, alice replies to disc-001)
+  - Added resolved thread (id: 5006, disc-005, carol)
+  - Added 2 system events (id: 5007 approval, id: 5008 commits)
+  - Added pending sync standalone comment (id: 5009)
+- Added 9 new Playwright tests covering: feed rendering, author/body, timestamps, inline file info, resolved dimming, ordering, replies, empty state, loading
+- Files changed: `src/components/ActivityDrawer/ActivityFeed.tsx` (new), `src/components/ActivityDrawer/ActivityFeed.css` (new), `src/components/ActivityDrawer/index.ts` (modified), `src/pages/MRDetailPage/index.tsx` (modified), `e2e/fixtures/seed-data.ts` (modified), `e2e/activity-drawer.spec.ts` (modified)
+- **Learnings for future iterations:**
+  - ActivityDrawer receives children — compose content by passing components as children rather than props
+  - Seed data for MR 101 now has 6 non-system threads (4 unresolved + 1 standalone + 1 resolved) and 2 system events — unresolvedCount still 4 (standalone has no discussionId)
+  - `formatRelativeTime` helper converts Unix timestamps to "Xm ago" / "Xh ago" / "Xd ago" format
+  - Thread sorting: `useMemo` in `useActivityData` handles ordering (unresolved first, then chronological)
+  - System events toggle: `showSystemEvents` state lives in `MRDetailPage`, passed through `ActivityDrawer` and `ActivityFeed` as props.
+  - Feed interleaving: When system events visible, `FeedItem` union type + sort in `useMemo` handles chronological interleave with unresolved-first priority.
+---
+
+## 2026-02-21 - US-006
+- Added system events display with show/hide toggle to ActivityDrawer
+  - `SystemEventEntry` component in `ActivityFeed.tsx`: compact single-line entries with muted styling
+  - "Show activity" checkbox toggle in the drawer header (hidden by default)
+  - System events interleaved chronologically with comment threads when visible
+  - `FeedItem` union type enables mixed rendering of threads and events
+  - `useMemo` sort: unresolved threads first, then chronological interleave
+- Updated `ActivityDrawer.tsx`: added `showSystemEvents` and `onToggleSystemEvents` props, header now has actions area with toggle + close button
+- Updated `ActivityDrawer.css`: styles for header actions, toggle label/checkbox
+- Updated `ActivityFeed.css`: styles for system event entries (compact, muted, border-left indicator)
+- Updated `MRDetailPage/index.tsx`: added `showSystemEvents` state, passes `systemEvents` from `useActivityData` through to `ActivityFeed`
+- Added 7 new Playwright tests covering: hidden by default, toggle presence, reveal on toggle, author/body display, interleaving count, toggle off, muted styling
+- Files changed: `src/components/ActivityDrawer/ActivityFeed.tsx` (modified), `src/components/ActivityDrawer/ActivityFeed.css` (modified), `src/components/ActivityDrawer/ActivityDrawer.tsx` (modified), `src/components/ActivityDrawer/ActivityDrawer.css` (modified), `src/pages/MRDetailPage/index.tsx` (modified), `e2e/activity-drawer.spec.ts` (modified)
+- **Learnings for future iterations:**
+  - When adding new props to ActivityDrawer, all consumers (MRDetailPage) must be updated
+  - FeedItem union type pattern works well for mixed-type feed rendering with `kind` discriminator
+  - System events use `data-testid="activity-system-event"` — distinct from `activity-thread`
+  - Header actions grouped in `activity-drawer__header-actions` flex container to keep title on left
 ---

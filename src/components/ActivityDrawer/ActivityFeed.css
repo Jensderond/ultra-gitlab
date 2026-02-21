@@ -111,6 +111,35 @@
   word-wrap: break-word;
 }
 
+/* System events */
+.activity-system-event {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  border-left: 2px solid var(--border-color);
+  opacity: 0.7;
+}
+
+.activity-system-event__author {
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
+.activity-system-event__body {
+  color: var(--text-tertiary);
+}
+
+.activity-system-event__time {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
 /* Replies */
 .activity-thread__replies {
   margin-top: 8px;

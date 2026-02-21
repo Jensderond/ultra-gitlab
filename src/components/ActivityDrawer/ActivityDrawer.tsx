@@ -12,6 +12,8 @@ import './ActivityDrawer.css';
 interface ActivityDrawerProps {
   isOpen: boolean;
   onToggle: () => void;
+  showSystemEvents: boolean;
+  onToggleSystemEvents: () => void;
   children?: React.ReactNode;
 }
 
@@ -19,7 +21,7 @@ const DEFAULT_HEIGHT_VH = 40;
 const MIN_HEIGHT_VH = 20;
 const MAX_HEIGHT_VH = 80;
 
-export default function ActivityDrawer({ isOpen, onToggle, children }: ActivityDrawerProps) {
+export default function ActivityDrawer({ isOpen, onToggle, showSystemEvents, onToggleSystemEvents, children }: ActivityDrawerProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
   const [heightVh, setHeightVh] = useState(DEFAULT_HEIGHT_VH);
   const isDraggingRef = useRef(false);
@@ -75,14 +77,25 @@ export default function ActivityDrawer({ isOpen, onToggle, children }: ActivityD
       </div>
       <div className="activity-drawer__header">
         <span className="activity-drawer__title">Activity</span>
-        <button
-          className="activity-drawer__close"
-          onClick={onToggle}
-          aria-label="Close activity drawer"
-          data-testid="activity-drawer-close"
-        >
-          &times;
-        </button>
+        <div className="activity-drawer__header-actions">
+          <label className="activity-drawer__toggle-label" data-testid="activity-show-events-toggle">
+            <input
+              type="checkbox"
+              checked={showSystemEvents}
+              onChange={onToggleSystemEvents}
+              className="activity-drawer__toggle-checkbox"
+            />
+            Show activity
+          </label>
+          <button
+            className="activity-drawer__close"
+            onClick={onToggle}
+            aria-label="Close activity drawer"
+            data-testid="activity-drawer-close"
+          >
+            &times;
+          </button>
+        </div>
       </div>
       <div className="activity-drawer__content" data-testid="activity-drawer-content">
         {children}

@@ -60,7 +60,7 @@
         "Playwright E2E test(s) pass for this story"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Implement with mousedown/mousemove/mouseup event handlers on the drag handle. Calculate height from viewport height minus mouse Y position. Clamp between min/max. Store height in state."
     },
     {
@@ -77,7 +77,7 @@
         "Playwright E2E test(s) pass for this story"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Wire useActivityData hook into MRDetailPage to get unresolvedCount. Add keydown listener for Cmd+D (metaKey + 'd'). Check activeElement tagName to skip when in input/textarea. Follow existing keyboard shortcut patterns in the codebase (check useMRKeyboard.ts)."
     },
     {
@@ -96,7 +96,7 @@
         "Playwright E2E test(s) pass for this story"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Use threads from useActivityData. Each thread is Comment[][] — first item is root, rest are replies. Show comment.authorUsername, relative time from comment.createdAt (Unix timestamp), comment.body. For inline: comment.filePath and comment.newLine or comment.oldLine. Follow CommentsTab.tsx patterns for rendering."
     },
     {
@@ -113,7 +113,7 @@
         "Playwright E2E test(s) pass for this story"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "System comments have system: true in the Comment type. They contain GitLab-generated messages like 'approved this merge request', 'merged'. Use systemEvents from useActivityData. Store showActivity toggle in useState."
     },
     {

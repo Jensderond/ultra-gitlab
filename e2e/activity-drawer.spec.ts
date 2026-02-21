@@ -353,6 +353,91 @@ test.describe('Activity Drawer', () => {
     await expect(emptyState).toHaveText('No comments yet');
   });
 
+  // ---- US-006: System Events ----
+
+  test('system events are hidden by default', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+
+    // System events should not be visible by default
+    const events = page.getByTestId('activity-system-event');
+    await expect(events).toHaveCount(0);
+  });
+
+  test('show activity toggle is present in drawer header', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+
+    const showEventsToggle = page.getByTestId('activity-show-events-toggle');
+    await expect(showEventsToggle).toBeVisible();
+    await expect(showEventsToggle).toContainText('Show activity');
+  });
+
+  test('toggling show activity reveals system events', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+
+    // Enable system events
+    const checkbox = page.getByTestId('activity-show-events-toggle').locator('input[type="checkbox"]');
+    await checkbox.check();
+
+    // Seed data has 2 system events for MR 101
+    const events = page.getByTestId('activity-system-event');
+    await expect(events).toHaveCount(2);
+  });
+
+  test('system events show author and body', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+
+    const checkbox = page.getByTestId('activity-show-events-toggle').locator('input[type="checkbox"]');
+    await checkbox.check();
+
+    const events = page.getByTestId('activity-system-event');
+    // First system event (chronologically): bob "approved this merge request"
+    await expect(events.first()).toContainText('bob');
+    await expect(events.first()).toContainText('approved this merge request');
+  });
+
+  test('system events are interleaved chronologically with threads', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+
+    const checkbox = page.getByTestId('activity-show-events-toggle').locator('input[type="checkbox"]');
+    await checkbox.check();
+
+    // With system events visible, total items = 6 threads + 2 events = 8
+    const feed = page.getByTestId('activity-feed');
+    const items = feed.locator('[data-testid="activity-thread"], [data-testid="activity-system-event"]');
+    await expect(items).toHaveCount(8);
+  });
+
+  test('toggling show activity off hides system events again', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+
+    const checkbox = page.getByTestId('activity-show-events-toggle').locator('input[type="checkbox"]');
+    // Show
+    await checkbox.check();
+    await expect(page.getByTestId('activity-system-event')).toHaveCount(2);
+
+    // Hide
+    await checkbox.uncheck();
+    await expect(page.getByTestId('activity-system-event')).toHaveCount(0);
+  });
+
+  test('system events have muted compact styling', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+
+    const checkbox = page.getByTestId('activity-show-events-toggle').locator('input[type="checkbox"]');
+    await checkbox.check();
+
+    const event = page.getByTestId('activity-system-event').first();
+    const opacity = await event.evaluate((el) => getComputedStyle(el).opacity);
+    expect(parseFloat(opacity)).toBeLessThan(1);
+  });
+
   test('loading spinner shown while fetching', async ({ page }) => {
     // We can check that the loading state renders by intercepting the comments API
     // and delaying it. But since mock resolves instantly, we verify the component exists.

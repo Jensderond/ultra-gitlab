@@ -40,7 +40,8 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   const previousFileRef = useRef<string | null>(null);
 
   const [activityOpen, setActivityOpen] = useState(false);
-  const { threads: activityThreads, unresolvedCount, loading: activityLoading } = useActivityData(mrId);
+  const [showSystemEvents, setShowSystemEvents] = useState(false);
+  const { threads: activityThreads, systemEvents: activitySystemEvents, unresolvedCount, loading: activityLoading } = useActivityData(mrId);
   const [showCopyToast, copyToClipboard] = useCopyToast();
   const isSmallScreen = useSmallScreen();
   const [view, dispatch] = useViewReducer();
@@ -267,8 +268,15 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
       <ActivityDrawer
         isOpen={activityOpen}
         onToggle={() => setActivityOpen((o) => !o)}
+        showSystemEvents={showSystemEvents}
+        onToggleSystemEvents={() => setShowSystemEvents((s) => !s)}
       >
-        <ActivityFeed threads={activityThreads} loading={activityLoading} />
+        <ActivityFeed
+          threads={activityThreads}
+          systemEvents={activitySystemEvents}
+          showSystemEvents={showSystemEvents}
+          loading={activityLoading}
+        />
       </ActivityDrawer>
 
       {showCopyToast && (
