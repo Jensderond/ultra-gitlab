@@ -1,169 +1,188 @@
 {
   "project": "Ultra GitLab",
-  "branchName": "ralph/pierre-diffs",
-  "description": "Replace Monaco editor diff viewer with @pierre/diffs/react and @pierre/diffs/worker for lighter, purpose-built MR diff rendering",
+  "branchName": "ralph/mr-activity-panel",
+  "description": "Add a bottom drawer activity panel to MRDetailPage showing all MR comments, discussion threads, and system events with full interaction support",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Merge Playwright E2E testing infrastructure",
-      "description": "As a developer, I need the Playwright testing infrastructure available on this branch so we can verify diff rendering with E2E tests.",
+      "title": "Create useActivityData hook for loading and grouping MR comments",
+      "description": "As a developer, I need a hook that fetches all comments for an MR and groups them into discussion threads and system events, so the activity drawer has structured data to render.",
       "acceptanceCriteria": [
-        "Merge branch claude/add-playwright-testing-Q6qK6 into the current branch",
-        "Resolve any merge conflicts cleanly",
-        "playwright.config.ts exists at project root",
-        "e2e/ directory exists with fixtures and spec files",
-        "bun install completes without errors",
-        "Existing Playwright tests pass: bunx playwright test",
+        "Create src/hooks/useActivityData.ts hook that takes mrId (number) as parameter",
+        "Calls get_comments(mrId) via the existing tauri service to fetch all comments",
+        "Groups non-system comments by discussionId into threads (Comment[][]), standalone comments as single-item arrays",
+        "Separates system comments (system: true) into a separate systemEvents array",
+        "Sorts threads: unresolved first, then by creation time (oldest first)",
+        "Computes unresolvedCount: number of threads with a discussionId that are not resolved",
+        "Exposes addComment, replyToComment, resolveDiscussion, deleteComment mutation callbacks using existing tauri services",
+        "Mutations update local state optimistically (add to array, remove from array, toggle resolved)",
+        "Exposes loading and error states",
+        "Re-exports from src/hooks/index.ts (create if needed) or export directly",
         "Typecheck passes (bunx tsc --noEmit)"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "The Playwright branch is claude/add-playwright-testing-Q6qK6. It adds playwright.config.ts, e2e/ directory with fixtures (seed-data, seed.sql, tauri-mock, test-base) and specs (mr-detail, mr-list, my-mrs, navigation), plus a GitHub Actions workflow."
+      "notes": "Follow the pattern from useMyMRData.ts (src/pages/MyMRDetailPage/useMyMRData.ts) for thread grouping logic. Use existing service functions from src/services/tauri.ts: getComments, addComment, replyToComment, resolveDiscussion, deleteComment. Comment type from src/types/index.ts."
     },
     {
       "id": "US-002",
-      "title": "Install @pierre/diffs and set up WorkerPoolContextProvider",
-      "description": "As a developer, I need to install the Pierre Diffs package and configure the Web Worker pool so that syntax highlighting runs off the main thread.",
+      "title": "Create ActivityDrawer shell with open/close toggle and overlay positioning",
+      "description": "As a reviewer, I want to open/close an activity panel from the diff view so I can check discussions without navigating away.",
       "acceptanceCriteria": [
-        "Run `bun i @pierre/diffs` to install the package",
-        "@pierre/diffs appears in package.json dependencies",
-        "Add WorkerPoolContextProvider wrapping the app's diff-viewing subtree (in App.tsx or MRDetailPage)",
-        "Worker factory uses Vite pattern: () => new Worker(new URL('@pierre/diffs/worker/worker.js', import.meta.url), { type: 'module' })",
-        "Use Pierre's default pool size (no poolSize override needed)",
-        "Typecheck passes (bunx tsc --noEmit)"
+        "Create src/components/ActivityDrawer/ActivityDrawer.tsx component",
+        "Create src/components/ActivityDrawer/ActivityDrawer.css for styles",
+        "Create src/components/ActivityDrawer/index.ts barrel export",
+        "Drawer renders as a bottom overlay panel (position: fixed or absolute at bottom, z-index above diff content)",
+        "Drawer has open/closed state controlled via an isOpen prop and onToggle callback",
+        "Drawer slides up with CSS transition animation when opening",
+        "Default height ~40% of viewport, diff content stays full height underneath (overlay, not shrink)",
+        "Drawer has a header bar with title 'Activity' and a close button",
+        "Drawer content area is scrollable",
+        "Follow Kanagawa Wave theme: glassmorphism panel, muted background, existing color tokens from the codebase",
+        "Typecheck passes (bunx tsc --noEmit)",
+        "Playwright E2E test(s) pass for this story"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Pierre docs: https://diffs.com/docs. The worker entry point is @pierre/diffs/worker/worker.js. WorkerPoolContextProvider is imported from @pierre/diffs/react. ESM-only package — Vite handles this natively."
+      "notes": "Look at MRDetailPage.css and MyMRDetailPage.css for existing Kanagawa Wave theme patterns (glassmorphism, gradients, color variables). The drawer should overlay, NOT shrink the diff content. Add a toggle button in MRDetailPage footer or header area. Create e2e/activity-drawer.spec.ts for Playwright tests — follow patterns from e2e/mr-detail.spec.ts."
     },
     {
       "id": "US-003",
-      "title": "Create PierreDiffViewer component with MultiFileDiff",
-      "description": "As a user, I want to see file diffs rendered with syntax highlighting so I can review merge request changes.",
+      "title": "Add drag-to-resize handle on ActivityDrawer",
+      "description": "As a reviewer, I want to resize the activity drawer by dragging its top edge so I can adjust how much screen space it uses.",
       "acceptanceCriteria": [
-        "Create src/components/PierreDiffViewer/PierreDiffViewer.tsx",
-        "Create src/components/PierreDiffViewer/index.ts barrel export",
-        "Uses <MultiFileDiff> from @pierre/diffs/react with oldFile and newFile props",
-        "Props: oldContent (string | null), newContent (string | null), filePath (string), viewMode ('split' | 'unified'), mrIid and sha for cacheKey",
-        "FileContents.name set to filePath for language auto-detection by Pierre",
-        "FileContents.cacheKey set to `${mrIid}:${filePath}:${sha}` for worker cache hits",
-        "options.diffStyle maps viewMode prop to 'split' or 'unified'",
-        "options.lineDiffType set to 'word' for inline word-level change highlighting",
-        "options.expandUnchanged set to true",
-        "options.theme set to { dark: 'pierre-dark', light: 'pierre-light' }",
-        "options.themeType set to 'system' so Pierre follows OS light/dark preference automatically",
-        "Handles new files (oldContent is null — pass empty string) and deleted files (newContent is null — pass empty string) gracefully",
-        "Typecheck passes"
+        "Drag handle at the top edge of the drawer (visible as a small bar or grip indicator)",
+        "Mouse drag on the handle resizes the drawer height",
+        "Minimum height ~20% of viewport, maximum ~80%",
+        "Cursor changes to ns-resize when hovering over the drag handle",
+        "Drawer height persists within the session (useState, not across app restarts)",
+        "Typecheck passes (bunx tsc --noEmit)",
+        "Playwright E2E test(s) pass for this story"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Pierre docs: https://diffs.com/docs. MultiFileDiff takes { oldFile: FileContents, newFile: FileContents } where FileContents is { name: string, contents: string, cacheKey?: string }. For new files, oldFile.contents should be empty string. For deleted files, newFile.contents should be empty string. Pierre uses Shadow DOM — app CSS won't leak in."
+      "passes": false,
+      "notes": "Implement with mousedown/mousemove/mouseup event handlers on the drag handle. Calculate height from viewport height minus mouse Y position. Clamp between min/max. Store height in state."
     },
     {
       "id": "US-004",
-      "title": "Wire PierreDiffViewer into MRDiffContent and remove old refs",
-      "description": "As a developer, I need to update MRDiffContent to render PierreDiffViewer instead of MonacoDiffViewer and clean up all MonacoDiffViewerRef usage from parent components.",
+      "title": "Add Cmd+D keyboard shortcut and toggle button with unresolved badge",
+      "description": "As a reviewer, I want to toggle the activity drawer with Cmd+D and see the unresolved thread count on the toggle button.",
       "acceptanceCriteria": [
-        "MRDiffContent.tsx imports PierreDiffViewer instead of MonacoDiffViewer",
-        "PierreDiffViewer receives oldContent from fileContent.original and newContent from fileContent.modified",
-        "PierreDiffViewer receives filePath from selectedFile, viewMode from current view state",
-        "ImageDiffViewer still renders for image files (unchanged)",
-        "MRDetailPage no longer creates or passes diffViewerRef",
-        "Remove any 'next change' / 'previous change' buttons or keyboard shortcut handlers that call diffViewerRef methods",
-        "Remove view state persistence logic (saveViewState/restoreViewState, viewStatesRef map) from MRDetailPage",
-        "No remaining references to MonacoDiffViewerRef type anywhere in the codebase",
-        "Typecheck passes"
+        "Cmd+D keyboard shortcut toggles the drawer open/closed in MRDetailPage",
+        "Shortcut does not fire when focus is in a text input or textarea",
+        "Toggle button in the MRDetailPage footer area opens/closes the drawer",
+        "Toggle button shows unresolved thread count as a badge (e.g., '3' or '(3)')",
+        "Badge hidden when count is 0",
+        "Typecheck passes (bunx tsc --noEmit)",
+        "Playwright E2E test(s) pass for this story"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "MRDiffContent is at src/pages/MRDetailPage/MRDiffContent.tsx. MRDetailPage is at src/pages/MRDetailPage/index.tsx. The viewStatesRef is a Map<string, IDiffEditorViewState> used to save/restore scroll position per file — drop it entirely, Pierre components mount/unmount per file switch."
+      "passes": false,
+      "notes": "Wire useActivityData hook into MRDetailPage to get unresolvedCount. Add keydown listener for Cmd+D (metaKey + 'd'). Check activeElement tagName to skip when in input/textarea. Follow existing keyboard shortcut patterns in the codebase (check useMRKeyboard.ts)."
     },
     {
       "id": "US-005",
-      "title": "Migrate inline comments to Pierre annotations",
-      "description": "As a user, I want to see inline MR comments displayed directly in the diff so I can follow review discussions in context.",
+      "title": "Render discussion threads in activity feed",
+      "description": "As a reviewer, I want to see all discussion threads in the activity drawer so I can follow the review conversation.",
       "acceptanceCriteria": [
-        "Map existing LineComment[] data to Pierre's DiffLineAnnotation<T>[] format",
-        "Each annotation has correct side ('deletions' for old side, 'additions' for new side) and lineNumber",
-        "Pass lineAnnotations prop to PierreDiffViewer → MultiFileDiff",
-        "Implement renderAnnotation prop that returns a React node showing comment thread (author, timestamp, body)",
-        "Comments appear inline below the annotated line in the diff",
-        "Typecheck passes"
+        "Activity feed renders inside ActivityDrawer scrollable content area",
+        "Each discussion thread shows: root comment author, relative timestamp, body, and all replies",
+        "Inline threads show file path and line number above the thread",
+        "Resolved threads are visually distinguished (muted/dimmed styling)",
+        "Threads ordered chronologically with unresolved threads first",
+        "Empty state message when no comments exist",
+        "Loading spinner while fetching comments",
+        "Typecheck passes (bunx tsc --noEmit)",
+        "Playwright E2E test(s) pass for this story"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Pierre's DiffLineAnnotation type: { side: 'deletions' | 'additions', lineNumber: number, metadata: T }. The renderAnnotation callback receives the annotation and returns a ReactNode. Check existing useFileComments hook and LineComment type in src/types/index.ts for the current data shape."
+      "passes": false,
+      "notes": "Use threads from useActivityData. Each thread is Comment[][] — first item is root, rest are replies. Show comment.authorUsername, relative time from comment.createdAt (Unix timestamp), comment.body. For inline: comment.filePath and comment.newLine or comment.oldLine. Follow CommentsTab.tsx patterns for rendering."
     },
     {
       "id": "US-006",
-      "title": "Wire up line number click for adding comments",
-      "description": "As a user, I want to click a line number in the diff to start adding a new comment on that line.",
+      "title": "Add system events display with show/hide toggle",
+      "description": "As a reviewer, I want to optionally see system events (approvals, merges) in the activity feed.",
       "acceptanceCriteria": [
-        "Configure onLineNumberClick in PierreDiffViewer options",
-        "Clicking a line number triggers the existing add-comment flow (opens comment input at that line)",
-        "Line number, side (old/new mapped to deletions/additions), and file path passed to comment creation handler",
-        "Typecheck passes"
+        "System events rendered as compact, single-line entries with muted styling",
+        "System events hidden by default",
+        "'Show activity' toggle checkbox or switch in the drawer header",
+        "Toggle enables/disables system event visibility globally within the session",
+        "System events interleaved chronologically with comment threads when visible",
+        "Typecheck passes (bunx tsc --noEmit)",
+        "Playwright E2E test(s) pass for this story"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "onLineNumberClick receives { lineNumber, side, ... } from Pierre. Map Pierre's 'deletions'/'additions' sides to the existing comment system's old/new line concept. Check existing addComment handler in MRDetailPage."
+      "passes": false,
+      "notes": "System comments have system: true in the Comment type. They contain GitLab-generated messages like 'approved this merge request', 'merged'. Use systemEvents from useActivityData. Store showActivity toggle in useState."
     },
     {
       "id": "US-007",
-      "title": "Enable line selection in PierreDiffViewer",
-      "description": "As a user, I want to select line ranges in the diff so I can reference specific code in comments or copy selections.",
+      "title": "Add general comment input to activity drawer",
+      "description": "As a reviewer, I want to post a general comment from the activity panel so I can leave overall feedback.",
       "acceptanceCriteria": [
-        "Set enableLineSelection: true in Pierre options",
-        "Wire onLineSelected callback to update component state with the selected SelectedLineRange",
-        "Selected lines are visually highlighted in the diff (Pierre handles this automatically)",
-        "Selected range information available for use by comment creation or copy actions",
-        "Typecheck passes"
+        "Text input area at the bottom of the activity drawer (fixed, not scrolling with content)",
+        "Submit with Cmd+Enter or a send button",
+        "Comment appears immediately in the feed after submission (optimistic update)",
+        "Input clears after successful submission",
+        "Pending sync badge shown on newly added comment",
+        "Typecheck passes (bunx tsc --noEmit)",
+        "Playwright E2E test(s) pass for this story"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "Pierre's SelectedLineRange: { start: number, side?: 'deletions' | 'additions', end: number, endSide?: 'deletions' | 'additions' }. The selectedLines prop can be used for programmatic control."
+      "passes": false,
+      "notes": "Use the addComment mutation from useActivityData which calls the existing add_comment Tauri command with just mrId and body (no filePath/line). Optimistic update: insert with negative ID and syncStatus 'pending'. Follow CommentOverlay.tsx patterns for the textarea and Cmd+Enter handling."
     },
     {
       "id": "US-008",
-      "title": "Remove Monaco dependencies and component files",
-      "description": "As a developer, I want to remove all Monaco-related code and the old custom DiffViewer components to reduce bundle size and eliminate dead code.",
+      "title": "Add reply to thread functionality",
+      "description": "As a reviewer, I want to reply to an existing discussion thread from the activity panel.",
       "acceptanceCriteria": [
-        "Run `bun remove monaco-editor @monaco-editor/react vite-plugin-monaco-editor`",
-        "Delete entire src/components/Monaco/ directory (MonacoDiffViewer.tsx, MonacoProvider.tsx, languageDetection.ts, monaco.css, index.ts) — BUT keep ImageDiffViewer and move it first",
-        "Delete entire src/components/DiffViewer/ directory (DiffViewer.tsx, DiffContent.tsx, DiffHunk.tsx, DiffLine.tsx, DiffHeader.tsx, useDiffData.ts, useDiffComments.ts, useDiffKeyboard.ts)",
-        "Remove monacoAdapter.ts from src/themes/ or remove Monaco-specific parts",
-        "Remove vite-plugin-monaco-editor from vite.config.ts plugin array if referenced",
-        "Remove MonacoProvider from any component tree (likely in App.tsx or a layout)",
-        "Remove all unused Monaco imports and type references across the codebase",
-        "No remaining references to 'monaco-editor' or '@monaco-editor' in any .ts/.tsx file",
-        "ImageDiffViewer is preserved and still works for image file diffs (move to src/components/ImageDiffViewer/ before deleting Monaco directory)",
+        "Each thread has a 'Reply' button that expands an inline text input below the thread",
+        "Reply submitted with Cmd+Enter or send button",
+        "Reply appears immediately in the thread (optimistic update)",
+        "Only one reply input open at a time (opening a new one closes the previous)",
+        "Reply input auto-focuses when opened",
         "Typecheck passes (bunx tsc --noEmit)",
-        "Rust backend still compiles (cargo check in src-tauri/)"
+        "Playwright E2E test(s) pass for this story"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "IMPORTANT: ImageDiffViewer (src/components/Monaco/ImageDiffViewer.tsx) is independent of Monaco — it's a pure React component for image comparison. It must NOT be deleted. Move it to src/components/ImageDiffViewer/ before deleting the Monaco directory. Update MRDiffContent.tsx import path accordingly."
+      "passes": false,
+      "notes": "Use replyToComment mutation from useActivityData which calls reply_to_comment Tauri command with mrId, discussionId, parentId, and body. Track replyingToDiscussionId in state to manage which thread has the reply input open."
     },
     {
       "id": "US-009",
-      "title": "Add Playwright E2E tests for Pierre diff rendering",
-      "description": "As a developer, I want Playwright tests that verify diff files render correctly with no console errors, so we can catch regressions in the diff viewer.",
+      "title": "Add resolve/unresolve and delete comment actions",
+      "description": "As a reviewer, I want to resolve discussions and delete my own comments from the activity panel.",
       "acceptanceCriteria": [
-        "Create e2e/pierre-diff.spec.ts with tests for the diff viewer",
-        "Test: Navigate to an MR detail page, select a file, verify the Pierre diff component renders (shadow DOM host element visible)",
-        "Test: Verify diff content is visible — at least one line of code text is rendered inside the diff",
-        "Test: Verify no console errors are emitted during diff rendering (capture console messages, assert zero 'error' level entries)",
-        "Test: Verify no console warnings related to Pierre/Shiki/worker (filter for relevant warning patterns)",
-        "Test: Switch between split and unified view modes, verify the diff re-renders without errors",
-        "Test: Select a different file from the file list, verify the new diff renders without errors",
-        "Test: Verify new files (additions only) and deleted files (deletions only) render without errors",
-        "All new tests pass: bunx playwright test e2e/pierre-diff.spec.ts",
-        "Existing Playwright tests still pass: bunx playwright test",
-        "Typecheck passes"
+        "Resolve/Unresolve button on each discussion thread (threads with a discussionId, not standalone comments)",
+        "Toggling resolution updates all comments in the thread immediately (optimistic)",
+        "Resolved threads visually collapse or dim after toggling",
+        "Delete button (trash icon) shown only on comments authored by the current user",
+        "Confirmation prompt before deletion",
+        "Comment removed from feed immediately after confirmation (optimistic)",
+        "Typecheck passes (bunx tsc --noEmit)",
+        "Playwright E2E test(s) pass for this story"
       ],
       "priority": 9,
-      "passes": true,
-      "notes": "Pierre renders inside Shadow DOM, so use page.locator('pierce/...') or evaluate into shadowRoot to assert on diff content. Use page.on('console', ...) to capture console messages and filter by level. The existing e2e/fixtures/tauri-mock.ts and test-base.ts provide the test harness — follow the patterns in existing spec files (e2e/mr-detail.spec.ts) for navigating to MR detail pages."
+      "passes": false,
+      "notes": "Use resolveDiscussion and deleteComment mutations from useActivityData. Current user available from useActivityData or fetched separately (check how MRDetailPage gets currentUser). For delete confirmation, use window.confirm() or a simple modal. Check comment.authorUsername === currentUser to show delete button."
+    },
+    {
+      "id": "US-010",
+      "title": "Add sync status indicators to comments",
+      "description": "As a reviewer, I want to see which comments are pending sync or failed so I know what GitLab has received.",
+      "acceptanceCriteria": [
+        "Pending comments show a subtle pending indicator (e.g., clock icon or 'Pending' text, muted)",
+        "Failed syncs show a warning indicator (e.g., warning icon or 'Failed' text, red/orange)",
+        "Synced comments show no special indicator (clean, default state)",
+        "Indicators based on comment.syncStatus field ('pending', 'failed', 'synced', null)",
+        "Typecheck passes (bunx tsc --noEmit)",
+        "Playwright E2E test(s) pass for this story"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "The Comment type has syncStatus: SyncStatus | null where SyncStatus = 'synced' | 'pending' | 'failed' | 'discarded'. Show indicator for 'pending' and 'failed' only. Follow existing sync badge patterns — check how CommentThread.tsx in src/components/CommentPanel/ handles this."
     }
   ]
 }

@@ -4,163 +4,59 @@
 - Use `pub(crate)` visibility for helper functions shared between command modules (e.g., `load_settings`, `save_settings`, `settings_cache`).
 - `#[serde(rename_all = "camelCase")]` on all DTOs sent to frontend.
 - `AppError` has convenience constructors like `invalid_input_field()`, `not_found_with_id()`, etc.
-- Companion server service: `services::companion_server` has `start_companion_server()`, `stop_companion_server()`, `is_companion_server_running()`.
-- Frontend dist path: In dev mode, `CARGO_MANIFEST_DIR/../dist`; in prod, Tauri resource dir. Both checked via `index.html` existence.
-- Transport layer: `src/services/transport.ts` detects Tauri vs browser via `window.__TAURI_INTERNALS__`. `tauri.ts` uses `transportInvoke` instead of direct `@tauri-apps/api` invoke. `isTauri` exported from `services/index.ts`.
+- Transport layer: `src/services/transport.ts` detects Tauri vs browser via `window.__TAURI_INTERNALS__`. `tauri.ts` uses `transportInvoke` instead of direct `@tauri-apps/api` invoke.
 - All `@tauri-apps/` imports should be dynamic — any new feature using Tauri APIs must follow this pattern.
-- `tauriListen()` and `openExternalUrl()` in `transport.ts` handle Tauri vs browser seamlessly.
 - Package manager: bun (not npm/yarn). Typecheck: `bunx tsc --noEmit`.
-- Pierre diffs: Worker pool controls theme/tokenizeMaxLineLength — don't set these on individual components. Vite worker uses `?worker&url` import suffix.
-- Pierre diffs: `lineDiffType`, `diffStyle`, `expandUnchanged`, `themeType` are per-component options (set on `<MultiFileDiff options={...}>`).
-- Pierre diffs: `FileDiffOptions` type is NOT re-exported from `@pierre/diffs/react` — use `as const` on literal option values or import from `@pierre/diffs` directly.
-- Pierre diffs: `FileContents` type: `{ name: string, contents: string, cacheKey?: string, lang?: SupportedLanguages }`. Name is used for language auto-detection.
-- GitLab API supports URL-encoded project paths instead of numeric project IDs: `/projects/group%2Fsubgroup%2Fproject/...`
-- Route ordering in react-router: static routes (e.g., `/mrs/loading`) must be defined before dynamic routes (e.g., `/mrs/:id`).
-- Two diff viewer consumers: `MRDetailPage/MRDiffContent.tsx` (reviewing others' MRs) and `MyMRDetailPage/CodeTab.tsx` (viewing own MRs). Both must be updated when changing the diff viewer component.
-- `ImageDiffViewer` lives at `src/components/ImageDiffViewer/` (moved from Monaco dir in US-008).
-- `FileNavigation` lives at `src/components/FileNavigation/` (moved from DiffViewer dir in US-008).
-- `languageDetection.ts` (isImageFile, getImageMimeType, getLanguageFromPath) lives at `src/utils/languageDetection.ts`.
-- CommentOverlay uses a plain `<textarea>` for comment input (Monaco editor removed in US-008).
-- Pierre annotations: `DiffLineAnnotation<T>` imported from `@pierre/diffs` (not `@pierre/diffs/react`). `renderAnnotation` callback receives the annotation and returns ReactNode.
-- `LineComment` type moved from `Monaco/MonacoDiffViewer` to `PierreDiffViewer/PierreDiffViewer.tsx`; `CursorPosition`/`LineSelection` moved to `CommentOverlay.tsx`.
-- Pierre renders `<diffs-container>` custom element with Shadow DOM — scope Playwright selectors to avoid matching Pierre-rendered text in file headers.
-- Playwright: use `.mr-detail-sidebar` to scope file list selectors; use `{ exact: true }` for `getByText()` to avoid matching substring file names (e.g., `theme.css` vs `OldTheme.css`).
+- Pierre diffs: Worker pool controls theme/tokenizeMaxLineLength. Vite worker uses `?worker&url` import suffix.
+- Pierre renders `<diffs-container>` custom element with Shadow DOM — scope Playwright selectors accordingly.
+- Playwright: use `.mr-detail-sidebar` to scope file list selectors; use `{ exact: true }` for `getByText()`.
+- Two diff viewer consumers: `MRDetailPage/MRDiffContent.tsx` and `MyMRDetailPage/CodeTab.tsx`.
+- Playwright tests use mock data from `e2e/fixtures/seed-data.ts` and `e2e/fixtures/tauri-mock.ts` — no real Tauri backend needed.
+- Test base fixture at `e2e/fixtures/test-base.ts` provides the standard test setup.
+- Follow patterns in existing specs (e.g., `e2e/mr-detail.spec.ts`) for navigating to pages.
+- Comment types in `src/types/index.ts`: Comment, AddCommentRequest, ReplyToCommentRequest, ResolveDiscussionRequest, DeleteCommentRequest.
+- Service wrappers in `src/services/tauri.ts`: getComments, addComment, replyToComment, resolveDiscussion, deleteComment.
+- High-level API in `src/services/gitlab.ts`: listComments, addGeneralComment, addInlineComment, deleteComment.
+- Thread grouping pattern in `src/pages/MyMRDetailPage/useMyMRData.ts`: groups by discussionId, sorts unresolved first.
+- Existing unused CommentPanel components in `src/components/CommentPanel/` — available for reference but not recommended for reuse.
+- MRDetailPage uses Kanagawa Wave theme with glassmorphism, gradients, and wave animations.
+- MRDetailPage footer shows keyboard shortcuts hint — toggle button should be added here.
+- ActivityDrawer z-index must be below footer/header (z-index: 10) to avoid pointer interception. Use z-index: 9.
+- Fixed overlays that sit at bottom: 0 will cover the footer — offset with `bottom: 49px` (footer height).
+- MRDetailPage footer now has `display: flex; justify-content: space-between` to accommodate the activity toggle button.
 
 ---
 
-## 2026-02-20 - US-001
-- Merged branch `claude/add-playwright-testing-Q6qK6` into `ralph/pierre-diffs`
-- Merge completed cleanly (auto-merged bun.lock and package.json)
-- Files added: playwright.config.ts, e2e/ directory (fixtures: seed-data, seed.sql, tauri-mock, test-base; specs: mr-detail, mr-list, my-mrs, navigation), .github/workflows/playwright.yml
-- All 28 Playwright tests pass, typecheck passes, bun install clean
+## 2026-02-21 - US-001
+- Implemented `useActivityData` hook at `src/hooks/useActivityData.ts`
+- Fetches comments via `getComments(mrId)` and current user via `getGitLabInstances()`
+- Groups non-system comments by `discussionId` into `Comment[][]` threads
+- Separates system comments into `systemEvents` array sorted by creation time
+- Sorts threads: unresolved first, then by oldest first
+- Computes `unresolvedCount` for threads with a `discussionId` that aren't resolved
+- Exposes `addComment`, `replyToComment`, `resolveDiscussion`, `deleteComment` with optimistic updates
+- On mutation failure, rolls back optimistic state
+- Files changed: `src/hooks/useActivityData.ts` (new)
 - **Learnings for future iterations:**
-  - Playwright tests use mock data from `e2e/fixtures/seed-data.ts` and `e2e/fixtures/tauri-mock.ts` — no real Tauri backend needed
-  - Test base fixture at `e2e/fixtures/test-base.ts` provides the standard test setup
-  - Follow patterns in existing specs (e.g., `e2e/mr-detail.spec.ts`) for navigating to pages
+  - No barrel `index.ts` in `src/hooks/` — hooks are imported directly by path
+  - Thread grouping logic follows same pattern as `useMyMRData.ts` — reuses `discussionId ?? standalone-${id}` key pattern
+  - Current user obtained from `getGitLabInstances()[0].authenticatedUsername`
+  - Optimistic IDs use `-Date.now()` to avoid collision with real IDs
 ---
 
-## 2026-02-20 - US-002
-- Installed `@pierre/diffs@^1.0.11` via `bun i @pierre/diffs`
-- Replaced `MonacoProvider` with `WorkerPoolContextProvider` in `App.tsx`
-- Worker factory uses Vite `?worker&url` import pattern: `import WorkerUrl from '@pierre/diffs/worker/worker.js?worker&url'`
-- WorkerPoolContextProvider configured with `{ dark: 'pierre-dark', light: 'pierre-light' }` theme
-- Default pool size (8 workers) used — no override needed
-- Files changed: `src/App.tsx`, `package.json`, `bun.lock`
+## 2026-02-21 - US-002
+- Created `ActivityDrawer` component at `src/components/ActivityDrawer/`
+  - `ActivityDrawer.tsx`: bottom overlay panel with open/close state, header with title and close button, scrollable content area
+  - `ActivityDrawer.css`: Kanagawa Wave glassmorphism theme, slide-up CSS transition, custom scrollbar
+  - `index.ts`: barrel export
+- Integrated into `MRDetailPage/index.tsx`: added `activityOpen` state, ActivityDrawer component, and toggle button in footer
+- Added `activity-toggle-btn` styles to `MRDetailPage.css`, made footer flex with space-between
+- Created `e2e/activity-drawer.spec.ts` with 7 tests covering: hidden by default, toggle open/close, close button, title, scrollable content, overlay (no shrink), CSS transition
+- Files changed: `src/components/ActivityDrawer/ActivityDrawer.tsx` (new), `src/components/ActivityDrawer/ActivityDrawer.css` (new), `src/components/ActivityDrawer/index.ts` (new), `src/pages/MRDetailPage/index.tsx` (modified), `src/pages/MRDetailPage.css` (modified), `e2e/activity-drawer.spec.ts` (new)
 - **Learnings for future iterations:**
-  - Vite worker factory for Pierre uses `?worker&url` suffix import, not `new URL()` pattern
-  - `WorkerPoolContextProvider` controls theme, lineDiffType, and tokenizeMaxLineLength — these options on individual components are ignored when using the worker pool
-  - `MonacoProvider` still exists in `src/components/Monaco/` — will need removal in US-008
-  - Pierre renders into Shadow DOM — app CSS won't leak in
----
-
-## 2026-02-20 - US-003
-- Created `src/components/PierreDiffViewer/PierreDiffViewer.tsx` with `<MultiFileDiff>` from `@pierre/diffs/react`
-- Created `src/components/PierreDiffViewer/index.ts` barrel export
-- Props: oldContent (string|null), newContent (string|null), filePath, viewMode, mrIid, sha
-- FileContents.name = filePath for language auto-detection, cacheKey = `${mrIid}:${filePath}:${sha}`
-- Options: diffStyle=viewMode, lineDiffType='word', expandUnchanged=true, themeType='system'
-- Null content handled via `?? ''` (empty string for new/deleted files)
-- Files changed: `src/components/PierreDiffViewer/PierreDiffViewer.tsx`, `src/components/PierreDiffViewer/index.ts`
-- **Learnings for future iterations:**
-  - `FileDiffOptions` type is NOT re-exported from `@pierre/diffs/react` — use `as const` on string literal values or import from the root `@pierre/diffs`
-  - Theme colors (dark/light) are controlled by WorkerPoolContextProvider (pool-level), while `themeType` ('system'/'dark'/'light') is per-component
-  - `lineDiffType` and `diffStyle` are per-component options, NOT pool-level despite what progress.txt previously said
----
-
-## 2026-02-20 - US-004
-- Replaced MonacoDiffViewer with PierreDiffViewer in MRDiffContent.tsx and MyMRDetailPage/CodeTab.tsx
-- Removed diffViewerRef, viewStatesRef, pendingViewStateRef from MRDetailPage (Pierre handles its own state)
-- Removed wasImageRef Monaco layout hack (not needed with Pierre)
-- Removed collapse/expand toolbar from MRDiffContent (Pierre uses expandUnchanged option)
-- Simplified useMRKeyboard: removed diffViewerRef dependency; 'c' and 's' key handlers now open comment overlay without cursor position (will be re-wired in US-006)
-- Removed MonacoDiffViewerRef from MyMRDetailPage/useCodeTab.ts and CodeTab.tsx
-- Added mrIid prop to MRDiffContent and CodeTab for Pierre cache key
-- Files changed: MRDiffContent.tsx, MRDetailPage/index.tsx, useMRKeyboard.ts, MyMRDetailPage/CodeTab.tsx, MyMRDetailPage/index.tsx, MyMRDetailPage/useCodeTab.ts
-- **Learnings for future iterations:**
-  - MyMRDetailPage has a separate `CodeTab.tsx` component that also used MonacoDiffViewer — don't forget it when replacing Monaco
-  - `useCodeTab.ts` is the MyMRDetailPage equivalent of MRDetailPage's hooks — it exposed diffViewerRef too
-  - The 'c' (comment) and 's' (suggest) keyboard shortcuts relied on Monaco's getCursorPosition/getSelectedLines — these will need Pierre equivalents in US-006/US-007
-  - Pierre components mount/unmount per file switch, so no view state save/restore is needed
----
-
-## 2026-02-20 - US-005
-- Migrated inline comments to Pierre's `DiffLineAnnotation<T>` annotation system
-- Defined `LineComment` interface in `PierreDiffViewer/PierreDiffViewer.tsx` (moved from Monaco)
-- Added `comments` prop to PierreDiffViewer, maps to `DiffLineAnnotation<LineComment>[]` via `toAnnotations()`
-- Implemented `renderAnnotation` callback rendering author, timestamp, resolved status, and body inline below the annotated line
-- Wired `fileComments` from `useFileComments` → MRDetailPage → MRDiffContent → PierreDiffViewer
-- Moved `CursorPosition` and `LineSelection` types from Monaco to `CommentOverlay.tsx` (where they're used)
-- Updated `useFileComments.ts` import to use PierreDiffViewer's `LineComment` instead of Monaco's
-- Files changed: PierreDiffViewer.tsx, PierreDiffViewer/index.ts, MRDiffContent.tsx, MRDetailPage/index.tsx, useFileComments.ts, CommentOverlay.tsx
-- **Learnings for future iterations:**
-  - `DiffLineAnnotation<T>` must be imported from `@pierre/diffs` (the root), not from `@pierre/diffs/react`
-  - `renderAnnotation` receives a single `DiffLineAnnotation<T>` (not an array) — Pierre calls it once per annotation
-  - Pierre annotations render inside Shadow DOM so inline styles are needed (CSS variables can bridge to host)
-  - `isOldLine` maps to `side: 'deletions'`, `!isOldLine` maps to `side: 'additions'`
----
-
-## 2026-02-20 - US-006
-- Wired up Pierre's `onLineNumberClick` to open the CommentOverlay for adding comments
-- Added `DiffLineClickInfo` type and `onLineClick` prop to PierreDiffViewer
-- Pierre's `onLineNumberClick` callback receives `{ lineNumber, annotationSide: 'deletions' | 'additions', lineType, event }` for diff mode
-- Mapped `annotationSide: 'deletions'` → `isOriginal: true` (old side) and `'additions'` → `isOriginal: false` (new side)
-- Threaded callback through MRDiffContent → MRDetailPage → CommentOverlay.open()
-- Files changed: PierreDiffViewer.tsx, PierreDiffViewer/index.ts, MRDiffContent.tsx, MRDetailPage/index.tsx
-- **Learnings for future iterations:**
-  - Pierre's `onLineNumberClick` in diff mode gives `annotationSide` (not `side`) — it's typed as `EventClickProps<"diff">` with `DiffLineEventBaseProps`
-  - The callback also has `lineType` ('change-deletion', 'change-addition', 'context', 'context-expanded') which could be useful for restricting comment placement
-  - CommentOverlay.open() takes `CursorPosition { line, isOriginal }` and optional `LineSelection | null` — passing null for selection when clicking a single line
-  - MyMRDetailPage CodeTab doesn't have a CommentOverlay, so `onLineClick` is not wired there (author view, no commenting)
----
-
-## 2026-02-20 - US-007
-- Enabled line selection in PierreDiffViewer with `enableLineSelection: true` in Pierre options
-- Added `onLineSelected` callback prop to PierreDiffViewer for parent components to receive selection changes
-- Internal state tracks `selectedLines` via `useState` and passes it to `<MultiFileDiff selectedLines={...}>` for programmatic control
-- Pierre handles visual highlighting of selected lines automatically via `data-selected-line` DOM attributes
-- Re-exported `SelectedLineRange` type from `@pierre/diffs` via the barrel export for consumer use
-- Files changed: `PierreDiffViewer.tsx`, `PierreDiffViewer/index.ts`
-- **Learnings for future iterations:**
-  - `SelectedLineRange` is exported from `@pierre/diffs` root (not from `@pierre/diffs/react`)
-  - `enableLineSelection` and `onLineSelected` are part of `LineSelectionOptions`, which `FileDiffOptions` extends — they go in the `options` object
-  - `selectedLines` prop on `<MultiFileDiff>` is for programmatic control (setting selection from outside)
-  - `onLineSelected` fires with `null` when selection is cleared (e.g., clicking elsewhere)
-  - Pierre's `LineSelectionManager` handles click, shift-click, and drag selection automatically
----
-
-## 2026-02-20 - US-008
-- Removed all Monaco dependencies: `monaco-editor`, `@monaco-editor/react`, `vite-plugin-monaco-editor`
-- Moved `ImageDiffViewer` from `src/components/Monaco/` to `src/components/ImageDiffViewer/`
-- Moved `FileNavigation` from `src/components/DiffViewer/` to `src/components/FileNavigation/`
-- Moved `languageDetection.ts` from `src/components/Monaco/` to `src/utils/languageDetection.ts`
-- Replaced Monaco Editor in `CommentOverlay.tsx` with plain `<textarea>` (preserves Cmd+Enter submit, Esc close)
-- Deleted entire `src/components/Monaco/` directory (MonacoDiffViewer, MonacoProvider, languageDetection, monaco.css, index)
-- Deleted entire `src/components/DiffViewer/` directory (DiffViewer, DiffContent, DiffHunk, DiffLine, DiffHeader, FileNavigation, useDiffData, useDiffComments, useDiffKeyboard, diffViewerReducer)
-- Deleted `src/themes/monacoAdapter.ts`
-- Cleaned `vite.config.ts`: removed `vite-plugin-monaco-editor` import, plugin config, and `removeUnusedMonacoWorkers` plugin
-- Updated all import paths in consuming files: MRDiffContent, CodeTab, MRFilePanel, useFileContent
-- Added textarea CSS in MRDetailPage.css for the comment editor
-- Zero references to `monaco-editor` or `@monaco-editor` remain in any .ts/.tsx file
-- Files changed: CommentOverlay.tsx, MRDiffContent.tsx, CodeTab.tsx, MRFilePanel.tsx, useFileContent.ts, vite.config.ts, deriveTheme.ts, MRDetailPage.css, package.json, bun.lock + new files in ImageDiffViewer/, FileNavigation/, utils/
-- **Learnings for future iterations:**
-  - `monacoTokenColors` and `monacoEditorColors` fields still exist in the ThemeDefinition type — they're naming artifacts, not package dependencies. Renaming would touch every theme preset file.
-  - CommentOverlay's textarea uses Cmd+Enter for submit via `onKeyDown` handler (previously Monaco's `addCommand` API). Esc closes the overlay.
-  - `languageDetection.ts` has generic utility functions (`isImageFile`, `getImageMimeType`, `getLanguageFromPath`) that are useful beyond any specific editor library.
-  - When deleting a component directory, always check for non-obvious dependents — `FileNavigation` was still used by MRFilePanel and CodeTab even though the rest of DiffViewer was dead code.
----
-
-## 2026-02-20 - US-009
-- Created `e2e/pierre-diff.spec.ts` with 8 tests covering all acceptance criteria
-- Tests: shadow DOM rendering, diff content visibility, no console errors, no Pierre/Shiki/worker warnings, split/unified view switching, file switching, new file rendering, deleted file rendering
-- Added deleted file (`OldTheme.css`) to seed data for deleted file test coverage
-- Enhanced `get_cached_file_pair` mock to return file-type-specific content (TSX/CSS/generic)
-- Fixed existing `mr-detail.spec.ts` test that broke due to Pierre diff header matching `getByText` — scoped selectors to `.mr-detail-sidebar`
-- All 36 Playwright tests pass (28 existing + 8 new)
-- Files changed: `e2e/pierre-diff.spec.ts` (new), `e2e/fixtures/seed-data.ts`, `e2e/fixtures/tauri-mock.ts`, `e2e/mr-detail.spec.ts`
-- **Learnings for future iterations:**
-  - Pierre renders `<diffs-container>` custom element with Shadow DOM — use `page.locator('diffs-container')` to find the host, and `.evaluate()` into `el.shadowRoot` to inspect content
-  - `getByText()` in Playwright matches across the entire page including Pierre diff headers rendered inside Shadow DOM — always scope selectors (e.g., `.mr-detail-sidebar`) when testing file list items to avoid strict mode violations
-  - When adding seed data files, check if existing tests use loose `getByText()` matchers that could break with new data — use `{ exact: true }` for ambiguous text matches
-  - Pierre's Shadow DOM means `page.locator('pierce/...')` syntax works but `.evaluate()` on the host element is more reliable for content assertions
-  - The `'v'` keyboard shortcut toggles between split and unified view modes in MRDetailPage
+  - Drawer z-index must be < 10 (footer/header z-index) to avoid intercepting pointer events on footer buttons
+  - Use `bottom: 49px` to position drawer above the footer (14px padding * 2 + ~21px text height)
+  - Playwright fails with "subtree intercepts pointer events" when an overlay covers the click target — fix layout z-stacking, don't use `{ force: true }`
+  - Footer was not flex before — added `display: flex; justify-content: space-between` to accommodate toggle button alongside keyboard hints
+  - Component barrel exports follow `export { default as ComponentName }` pattern
 ---

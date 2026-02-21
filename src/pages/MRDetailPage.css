@@ -582,6 +582,9 @@
 
 /* Footer */
 .mr-detail-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 14px 24px;
   background: linear-gradient(180deg,
     var(--overlay-glass-light) 0%,
@@ -993,6 +996,32 @@
   .copy-toast {
     bottom: 72px;
   }
+}
+
+/* Activity toggle button */
+.activity-toggle-btn {
+  padding: 6px 14px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: var(--overlay-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.activity-toggle-btn:hover {
+  color: var(--text-secondary);
+  background: var(--overlay-surface-hover);
+  border-color: var(--text-fuji);
+}
+
+.activity-toggle-btn:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--wave-glow);
 }
 
 /* Annotation delete button — show on hover */

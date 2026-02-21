@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { ApprovalButtonRef } from '../../components/Approval';
 import { CommentOverlay, type CommentOverlayRef } from '../../components/CommentOverlay';
+import { ActivityDrawer } from '../../components/ActivityDrawer';
 import type { DiffLineClickInfo } from '../../components/PierreDiffViewer';
 import type { SelectedLineRange } from '../../components/PierreDiffViewer';
 import { useFileContent } from '../../hooks/useFileContent';
@@ -37,6 +38,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   const lineSelectionRef = useRef<SelectedLineRange | null>(null);
   const previousFileRef = useRef<string | null>(null);
 
+  const [activityOpen, setActivityOpen] = useState(false);
   const [showCopyToast, copyToClipboard] = useCopyToast();
   const isSmallScreen = useSmallScreen();
   const [view, dispatch] = useViewReducer();
@@ -246,6 +248,11 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         onCommentAdded={addComment}
       />
 
+      <ActivityDrawer
+        isOpen={activityOpen}
+        onToggle={() => setActivityOpen((o) => !o)}
+      />
+
       {showCopyToast && (
         <div className="copy-toast">Link copied</div>
       )}
@@ -257,6 +264,14 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           <span className="shortcut-underline">y</span>ank link &middot;{' '}
           <kbd>?</kbd> help
         </span>
+        <button
+          className="activity-toggle-btn"
+          onClick={() => setActivityOpen((o) => !o)}
+          data-testid="activity-toggle"
+          title="Toggle activity drawer"
+        >
+          Activity
+        </button>
       </footer>
     </div>
   );

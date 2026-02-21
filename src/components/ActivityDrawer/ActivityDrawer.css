@@ -1,0 +1,100 @@
+/* Activity Drawer - Kanagawa Wave Theme */
+/* Bottom overlay panel for MR activity feed */
+
+.activity-drawer {
+  position: fixed;
+  /* Sit above the footer (footer ~49px tall with 14px padding + 1px border) */
+  bottom: 49px;
+  left: 0;
+  right: 0;
+  height: 40vh;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(165deg,
+    var(--bg-tertiary) 0%,
+    var(--bg-secondary) 100%);
+  border-top: 1px solid var(--border-color);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow:
+    0 -4px 24px rgba(0, 0, 0, 0.3),
+    0 0 40px var(--wave-glow);
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  outline: none;
+}
+
+.activity-drawer--open {
+  transform: translateY(0);
+}
+
+/* Header bar */
+.activity-drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: linear-gradient(180deg,
+    var(--overlay-glass) 0%,
+    var(--overlay-glass-light) 100%);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.activity-drawer__title {
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.03em;
+}
+
+.activity-drawer__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-tertiary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.activity-drawer__close:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--border-color);
+}
+
+/* Scrollable content area */
+.activity-drawer__content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 20px;
+}
+
+/* Custom scrollbar matching Kanagawa theme */
+.activity-drawer__content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.activity-drawer__content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.activity-drawer__content::-webkit-scrollbar-thumb {
+  background: var(--wave-glow);
+  border-radius: 4px;
+}
+
+.activity-drawer__content::-webkit-scrollbar-thumb:hover {
+  background: var(--wave-glow-strong);
+}
