@@ -15,13 +15,14 @@ interface ActivityDrawerProps {
   showSystemEvents: boolean;
   onToggleSystemEvents: () => void;
   children?: React.ReactNode;
+  footer?: React.ReactNode;
 }
 
 const DEFAULT_HEIGHT_VH = 40;
 const MIN_HEIGHT_VH = 20;
 const MAX_HEIGHT_VH = 80;
 
-export default function ActivityDrawer({ isOpen, onToggle, showSystemEvents, onToggleSystemEvents, children }: ActivityDrawerProps) {
+export default function ActivityDrawer({ isOpen, onToggle, showSystemEvents, onToggleSystemEvents, children, footer }: ActivityDrawerProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
   const [heightVh, setHeightVh] = useState(DEFAULT_HEIGHT_VH);
   const isDraggingRef = useRef(false);
@@ -100,6 +101,7 @@ export default function ActivityDrawer({ isOpen, onToggle, showSystemEvents, onT
       <div className="activity-drawer__content" data-testid="activity-drawer-content">
         {children}
       </div>
+      {footer}
     </div>
   );
 }

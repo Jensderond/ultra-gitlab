@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { ApprovalButtonRef } from '../../components/Approval';
 import { CommentOverlay, type CommentOverlayRef } from '../../components/CommentOverlay';
-import { ActivityDrawer, ActivityFeed } from '../../components/ActivityDrawer';
+import { ActivityDrawer, ActivityFeed, CommentInput } from '../../components/ActivityDrawer';
 import { useActivityData } from '../../hooks/useActivityData';
 import type { DiffLineClickInfo } from '../../components/PierreDiffViewer';
 import type { SelectedLineRange } from '../../components/PierreDiffViewer';
@@ -41,7 +41,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
 
   const [activityOpen, setActivityOpen] = useState(false);
   const [showSystemEvents, setShowSystemEvents] = useState(false);
-  const { threads: activityThreads, systemEvents: activitySystemEvents, unresolvedCount, loading: activityLoading } = useActivityData(mrId);
+  const { threads: activityThreads, systemEvents: activitySystemEvents, unresolvedCount, loading: activityLoading, addComment: activityAddComment } = useActivityData(mrId);
   const [showCopyToast, copyToClipboard] = useCopyToast();
   const isSmallScreen = useSmallScreen();
   const [view, dispatch] = useViewReducer();
@@ -270,6 +270,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         onToggle={() => setActivityOpen((o) => !o)}
         showSystemEvents={showSystemEvents}
         onToggleSystemEvents={() => setShowSystemEvents((s) => !s)}
+        footer={<CommentInput onSubmit={activityAddComment} />}
       >
         <ActivityFeed
           threads={activityThreads}

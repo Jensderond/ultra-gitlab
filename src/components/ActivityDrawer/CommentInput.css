@@ -1,0 +1,64 @@
+/* Comment Input - fixed at bottom of activity drawer */
+
+.comment-input {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-color);
+  background: linear-gradient(180deg,
+    var(--overlay-glass-light) 0%,
+    var(--overlay-glass) 100%);
+  flex-shrink: 0;
+}
+
+.comment-input__textarea {
+  flex: 1;
+  min-height: 36px;
+  max-height: 120px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.comment-input__textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.comment-input__textarea:focus {
+  border-color: var(--accent-color);
+}
+
+.comment-input__textarea:disabled {
+  opacity: 0.5;
+}
+
+.comment-input__send {
+  padding: 8px 14px;
+  background: var(--accent-color);
+  border: none;
+  border-radius: 6px;
+  color: var(--bg-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+  white-space: nowrap;
+}
+
+.comment-input__send:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.comment-input__send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
