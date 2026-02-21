@@ -104,6 +104,24 @@
   color: var(--text-tertiary);
 }
 
+/* Sync status badge */
+.activity-sync-badge {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.activity-sync-badge--pending {
+  background: rgba(255, 200, 50, 0.12);
+  color: #e0af68;
+}
+
+.activity-sync-badge--failed {
+  background: rgba(255, 80, 80, 0.12);
+  color: #f7768e;
+}
+
 .activity-comment__body {
   font-size: 13px;
   line-height: 1.5;

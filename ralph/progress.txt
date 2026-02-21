@@ -30,6 +30,8 @@
 - ActivityDrawer receives content via `children` prop — MRDetailPage passes `<ActivityFeed>` as children. Fixed-bottom content (CommentInput) goes in `footer` prop.
 - ActivityDrawer CSS: `left: 56px` to offset for sidebar (56px wide, z-index: 100). Without this, sidebar intercepts pointer events on drawer content.
 - When tracking "which thread is active" by state, never use `discussionId` (can be null for standalone comments causing `null === null` matches). Use the root comment `id` instead.
+- Resolving/unresolving threads causes `useMemo` re-sort in `useActivityData` — resolved threads move to end. Playwright tests should not assert position of the same locator after resolve; check count instead.
+- `currentUser` available from `useActivityData.currentUser` — avoid duplicate fetch in consumers.
 
 ---
 
@@ -179,4 +181,42 @@
   - ActivityDrawer was positioned at `left: 0` which let the sidebar (56px, z-index: 100) intercept pointer events on drawer content. Fixed to `left: 56px`.
   - ReplyInput follows same Cmd+Enter pattern as CommentInput but also supports Escape to cancel
   - `reply_to_comment` mock returns a fixed response — optimistic update gets replaced by mock response
+---
+
+## 2026-02-21 - US-009
+- Added resolve/unresolve button to ThreadCard component for threads with `discussionId`
+  - Resolve button toggles between "Resolve" and "Unresolve" text based on current state
+  - Calls `resolveDiscussion` from `useActivityData` which does optimistic update on all comments in the discussion
+- Added delete button (trash icon) to CommentEntry, shown only on comments authored by the current user
+  - Uses `window.confirm()` for deletion confirmation
+  - Calls `deleteComment` from `useActivityData` which removes optimistically and rolls back on failure
+- Created thread actions row (`activity-thread__actions`) containing resolve and reply buttons
+- Wired `currentUser`, `onResolve`, and `onDelete` props through ActivityFeed → ThreadCard → CommentEntry chain
+- Added CSS: resolve button, delete button (appears on hover), thread actions flex row
+- Added 7 new Playwright tests: resolve button presence, resolve toggle, unresolve toggle, delete button author filtering, delete with confirmation, delete dismissal, badge count update after resolve
+- Files changed: `src/components/ActivityDrawer/ActivityFeed.tsx` (modified), `src/components/ActivityDrawer/ActivityFeed.css` (modified), `src/pages/MRDetailPage/index.tsx` (modified), `e2e/activity-drawer.spec.ts` (modified)
+- **Learnings for future iterations:**
+  - When resolving a thread, `useMemo` in `useActivityData` re-sorts threads (unresolved first, resolved last), so resolved threads move to the end of the feed — Playwright tests must account for positional changes
+  - Delete button uses opacity transition (0 → 0.5 on hover parent, 1 on self hover) for progressive disclosure
+  - `currentUser` is already available from `useActivityData` — no need for separate fetch in MRDetailPage for activity features
+  - The `resolve_discussion` Tauri mock returns `undefined` — the optimistic update handles the state change entirely client-side
+---
+
+## 2026-02-21 - US-010
+- Added `SyncBadge` component to `CommentEntry` in `ActivityFeed.tsx`
+  - Shows "⏳ Pending" for `syncStatus: 'pending'` and "⚠️ Failed" for `syncStatus: 'failed'`
+  - No indicator for `synced` or `null` status (clean default state)
+  - Uses `data-testid="activity-sync-badge"` for testing
+- Added CSS styles in `ActivityFeed.css`: `.activity-sync-badge` with `--pending` and `--failed` modifier classes
+  - Pending: warm amber color (#e0af68) with subtle background
+  - Failed: red/pink color (#f7768e) with subtle background
+- Added failed sync comment (id: 5010) to seed data alongside existing pending comment (5009)
+- Updated existing test counts to account for new seed data comment (7 threads, 4 delete buttons, 9 interleaved items)
+- Added 5 new Playwright tests: pending badge presence, pending text, failed text, synced no-badge, new comment pending badge
+- Files changed: `src/components/ActivityDrawer/ActivityFeed.tsx` (modified), `src/components/ActivityDrawer/ActivityFeed.css` (modified), `e2e/fixtures/seed-data.ts` (modified), `e2e/activity-drawer.spec.ts` (modified)
+- **Learnings for future iterations:**
+  - Follow the `SyncBadge` pattern from `CommentPanel/InlineComment.tsx` and `CommentPanel/CommentThread.tsx` — filter out `null` and `'synced'` early, only render for `'pending'` and `'failed'`
+  - Adding new seed data comments affects thread/comment counts in many existing tests — check all count assertions
+  - The drag resize test (US-003) is known-flaky due to race conditions — not related to sync status changes
+  - Kanagawa Wave colors for status: amber `#e0af68` for warnings/pending, pink `#f7768e` for errors/failed
 ---

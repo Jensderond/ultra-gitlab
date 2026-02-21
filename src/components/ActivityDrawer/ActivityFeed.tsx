@@ -6,7 +6,7 @@
  */
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import type { Comment } from '../../types';
+import type { Comment, SyncStatus } from '../../types';
 import './ActivityFeed.css';
 
 interface ActivityFeedProps {
@@ -37,6 +37,20 @@ function formatRelativeTime(unixTimestamp: number): string {
   return `${days}d ago`;
 }
 
+function SyncBadge({ status }: { status: SyncStatus | null }) {
+  if (!status || status === 'synced') return null;
+
+  return (
+    <span
+      className={`activity-sync-badge activity-sync-badge--${status}`}
+      data-testid="activity-sync-badge"
+    >
+      {status === 'pending' && '⏳ Pending'}
+      {status === 'failed' && '⚠️ Failed'}
+    </span>
+  );
+}
+
 interface CommentEntryProps {
   comment: Comment;
   currentUser?: string | null;
@@ -58,6 +72,7 @@ function CommentEntry({ comment, currentUser, onDelete }: CommentEntryProps) {
       <div className="activity-comment__meta">
         <span className="activity-comment__author">{comment.authorUsername}</span>
         <span className="activity-comment__time">{formatRelativeTime(comment.createdAt)}</span>
+        <SyncBadge status={comment.syncStatus} />
         {isOwn && onDelete && (
           <button
             className="activity-comment__delete"

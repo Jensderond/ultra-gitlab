@@ -469,6 +469,24 @@ export const comments: Record<number, Comment[]> = {
       isLocal: true,
       syncStatus: 'pending',
     },
+    // Failed sync comment
+    {
+      id: 5010,
+      mrId: 101,
+      discussionId: null,
+      parentId: null,
+      authorUsername: 'testuser',
+      body: 'This comment failed to sync.',
+      filePath: null,
+      oldLine: null,
+      newLine: null,
+      resolved: false,
+      system: false,
+      createdAt: now - 200,
+      updatedAt: now - 200,
+      isLocal: true,
+      syncStatus: 'failed',
+    },
   ],
   201: [
     {

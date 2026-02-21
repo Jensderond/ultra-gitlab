@@ -256,9 +256,9 @@ test.describe('Activity Drawer', () => {
     const feed = page.getByTestId('activity-feed');
     await expect(feed).toBeVisible();
 
-    // MR 101 seed data has 6 threads (disc-001..005 + standalone 5009)
+    // MR 101 seed data has 7 threads (disc-001..005 + standalone 5009 + standalone 5010)
     const threads = page.getByTestId('activity-thread');
-    await expect(threads).toHaveCount(6);
+    await expect(threads).toHaveCount(7);
   });
 
   test('thread shows author username and body', async ({ page }) => {
@@ -406,10 +406,10 @@ test.describe('Activity Drawer', () => {
     const checkbox = page.getByTestId('activity-show-events-toggle').locator('input[type="checkbox"]');
     await checkbox.check();
 
-    // With system events visible, total items = 6 threads + 2 events = 8
+    // With system events visible, total items = 7 threads + 2 events = 9
     const feed = page.getByTestId('activity-feed');
     const items = feed.locator('[data-testid="activity-thread"], [data-testid="activity-system-event"]');
-    await expect(items).toHaveCount(8);
+    await expect(items).toHaveCount(9);
   });
 
   test('toggling show activity off hides system events again', async ({ page }) => {
@@ -740,10 +740,10 @@ test.describe('Activity Drawer', () => {
     await expect(page.getByTestId('activity-feed')).toBeVisible();
 
     // Current user is 'testuser' (from seed instances)
-    // testuser authored: 5003 (disc-003), 5004 (disc-004), 5009 (standalone)
+    // testuser authored: 5003 (disc-003), 5004 (disc-004), 5009 (standalone pending), 5010 (standalone failed)
     const deleteButtons = page.getByTestId('activity-delete-btn');
     const count = await deleteButtons.count();
-    expect(count).toBe(3);
+    expect(count).toBe(4);
   });
 
   test('delete button removes comment after confirmation', async ({ page }) => {
@@ -799,5 +799,75 @@ test.describe('Activity Drawer', () => {
 
     // Badge should now show 3
     await expect(badge).toHaveText('3');
+  });
+
+  // ========================================================================
+  // US-010: Sync status indicators
+  // ========================================================================
+
+  test('pending sync badge shown on pending comments', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+    await expect(page.getByTestId('activity-feed')).toBeVisible();
+
+    // Seed data has id:5009 with syncStatus 'pending'
+    const badges = page.getByTestId('activity-sync-badge');
+    const count = await badges.count();
+    // 5009 (pending) + 5010 (failed) = 2 badges
+    expect(count).toBe(2);
+  });
+
+  test('pending badge displays clock icon and "Pending" text', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+    await expect(page.getByTestId('activity-feed')).toBeVisible();
+
+    // Find the pending badge (5009 has syncStatus 'pending')
+    const pendingBadge = page.locator('.activity-sync-badge--pending');
+    await expect(pendingBadge).toBeVisible();
+    await expect(pendingBadge).toContainText('Pending');
+  });
+
+  test('failed badge displays warning icon and "Failed" text', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+    await expect(page.getByTestId('activity-feed')).toBeVisible();
+
+    // Seed data has id:5010 with syncStatus 'failed'
+    const failedBadge = page.locator('.activity-sync-badge--failed');
+    await expect(failedBadge).toBeVisible();
+    await expect(failedBadge).toContainText('Failed');
+  });
+
+  test('synced comments show no sync badge', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+    await expect(page.getByTestId('activity-feed')).toBeVisible();
+
+    // Most comments have syncStatus null (synced) — verify they don't have badges
+    // Total comments > badges shown (only pending/failed get badges)
+    const totalComments = await page.getByTestId('activity-comment').count();
+    const totalBadges = await page.getByTestId('activity-sync-badge').count();
+    expect(totalComments).toBeGreaterThan(totalBadges);
+    expect(totalBadges).toBe(2); // Only pending (5009) + failed (5010)
+  });
+
+  test('newly added comment shows pending sync badge', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+    await expect(page.getByTestId('activity-feed')).toBeVisible();
+
+    const badgesBefore = await page.getByTestId('activity-sync-badge').count();
+
+    // Add a new comment (optimistic update sets syncStatus: 'pending')
+    const textarea = page.getByTestId('activity-comment-textarea');
+    const sendBtn = page.getByTestId('activity-comment-send');
+    await textarea.fill('Test sync status');
+    await sendBtn.click();
+    await expect(textarea).toHaveValue('');
+
+    // A new pending badge should appear for the optimistic comment
+    const badgesAfter = await page.getByTestId('activity-sync-badge').count();
+    expect(badgesAfter).toBeGreaterThan(badgesBefore);
   });
 });

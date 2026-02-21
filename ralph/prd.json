@@ -165,7 +165,7 @@
         "Playwright E2E test(s) pass for this story"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Use resolveDiscussion and deleteComment mutations from useActivityData. Current user available from useActivityData or fetched separately (check how MRDetailPage gets currentUser). For delete confirmation, use window.confirm() or a simple modal. Check comment.authorUsername === currentUser to show delete button."
     },
     {
@@ -181,7 +181,7 @@
         "Playwright E2E test(s) pass for this story"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "The Comment type has syncStatus: SyncStatus | null where SyncStatus = 'synced' | 'pending' | 'failed' | 'discarded'. Show indicator for 'pending' and 'failed' only. Follow existing sync badge patterns — check how CommentThread.tsx in src/components/CommentPanel/ handles this."
     }
   ]
