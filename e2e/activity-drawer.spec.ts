@@ -680,4 +680,124 @@ test.describe('Activity Drawer', () => {
     const replyTextarea = page.getByTestId('activity-reply-textarea');
     await expect(replyTextarea).toBeFocused();
   });
+
+  // ========================================================================
+  // US-009: Resolve/unresolve and delete comment actions
+  // ========================================================================
+
+  test('resolve button shown on threads with discussionId', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+    await expect(page.getByTestId('activity-feed')).toBeVisible();
+
+    // Threads with a discussionId should have a Resolve button
+    const resolveButtons = page.getByTestId('activity-resolve-btn');
+    const count = await resolveButtons.count();
+    // 5 threads have discussionId (disc-001..005), standalone (5009) does not
+    expect(count).toBe(5);
+  });
+
+  test('clicking Resolve toggles thread to resolved state', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+    await expect(page.getByTestId('activity-feed')).toBeVisible();
+
+    // Initially 1 resolved thread (disc-005)
+    const resolvedBefore = await page.locator('.activity-thread--resolved').count();
+    expect(resolvedBefore).toBe(1);
+
+    // Click Resolve on the first unresolved thread
+    const firstThread = page.getByTestId('activity-thread').first();
+    const resolveBtn = firstThread.getByTestId('activity-resolve-btn');
+    await expect(resolveBtn).toHaveText('Resolve');
+    await resolveBtn.click();
+
+    // Should now have 2 resolved threads (thread re-sorts to end)
+    await expect(page.locator('.activity-thread--resolved')).toHaveCount(2);
+  });
+
+  test('clicking Unresolve toggles resolved thread back to unresolved', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+    await expect(page.getByTestId('activity-feed')).toBeVisible();
+
+    // The last thread (disc-005) is resolved — it has an Unresolve button
+    const threads = page.getByTestId('activity-thread');
+    const lastThread = threads.nth((await threads.count()) - 1);
+    await expect(lastThread).toHaveClass(/activity-thread--resolved/);
+
+    const unresolveBtn = lastThread.getByTestId('activity-resolve-btn');
+    await expect(unresolveBtn).toHaveText('Unresolve');
+    await unresolveBtn.click();
+
+    // Thread should no longer be resolved
+    await expect(lastThread).not.toHaveClass(/activity-thread--resolved/);
+  });
+
+  test('delete button shown only on comments authored by current user', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+    await expect(page.getByTestId('activity-feed')).toBeVisible();
+
+    // Current user is 'testuser' (from seed instances)
+    // testuser authored: 5003 (disc-003), 5004 (disc-004), 5009 (standalone)
+    const deleteButtons = page.getByTestId('activity-delete-btn');
+    const count = await deleteButtons.count();
+    expect(count).toBe(3);
+  });
+
+  test('delete button removes comment after confirmation', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+    await expect(page.getByTestId('activity-feed')).toBeVisible();
+
+    const commentsBefore = await page.getByTestId('activity-comment').count();
+
+    // Accept the confirmation dialog
+    page.on('dialog', (dialog) => dialog.accept());
+
+    // Click a delete button
+    const deleteBtn = page.getByTestId('activity-delete-btn').first();
+    await deleteBtn.click();
+
+    // One less comment after deletion
+    const commentsAfter = await page.getByTestId('activity-comment').count();
+    expect(commentsAfter).toBe(commentsBefore - 1);
+  });
+
+  test('delete confirmation dismissed keeps comment in feed', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+    await expect(page.getByTestId('activity-feed')).toBeVisible();
+
+    const commentsBefore = await page.getByTestId('activity-comment').count();
+
+    // Dismiss the confirmation dialog
+    page.on('dialog', (dialog) => dialog.dismiss());
+
+    const deleteBtn = page.getByTestId('activity-delete-btn').first();
+    await deleteBtn.click();
+
+    // Comment count should remain the same
+    const commentsAfter = await page.getByTestId('activity-comment').count();
+    expect(commentsAfter).toBe(commentsBefore);
+  });
+
+  test('resolving updates unresolved badge count', async ({ page }) => {
+    // Badge initially shows 4 unresolved
+    const badge = page.getByTestId('activity-badge');
+    await expect(badge).toHaveText('4');
+
+    // Open drawer and resolve a thread
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+    await expect(page.getByTestId('activity-feed')).toBeVisible();
+
+    const firstThread = page.getByTestId('activity-thread').first();
+    const resolveBtn = firstThread.getByTestId('activity-resolve-btn');
+    await resolveBtn.click();
+
+    // Badge should now show 3
+    await expect(badge).toHaveText('3');
+  });
 });

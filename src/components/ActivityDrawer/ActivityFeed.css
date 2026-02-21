@@ -151,6 +151,14 @@
   padding: 6px 0;
 }
 
+/* Thread actions row */
+.activity-thread__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
 /* Reply button */
 .activity-thread__reply-btn {
   background: none;
@@ -159,7 +167,6 @@
   font-size: 12px;
   cursor: pointer;
   padding: 4px 0;
-  margin-top: 4px;
   opacity: 0.7;
   transition: opacity 0.15s ease, color 0.15s ease;
 }
@@ -167,6 +174,48 @@
 .activity-thread__reply-btn:hover {
   opacity: 1;
   color: var(--accent-color);
+}
+
+/* Resolve button */
+.activity-thread__resolve-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 0;
+  opacity: 0.7;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.activity-thread__resolve-btn:hover {
+  opacity: 1;
+  color: var(--accent-color);
+}
+
+.activity-thread__resolve-btn--resolved {
+  color: var(--text-tertiary);
+}
+
+/* Delete button */
+.activity-comment__delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 2px;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  line-height: 1;
+}
+
+.activity-comment:hover .activity-comment__delete {
+  opacity: 0.5;
+}
+
+.activity-comment__delete:hover {
+  opacity: 1 !important;
 }
 
 /* Inline reply input */

@@ -14,7 +14,10 @@ interface ActivityFeedProps {
   systemEvents: Comment[];
   showSystemEvents: boolean;
   loading: boolean;
+  currentUser?: string | null;
   onReply?: (discussionId: string, parentId: number, body: string) => Promise<void>;
+  onResolve?: (discussionId: string, resolved: boolean) => Promise<void>;
+  onDelete?: (commentId: number) => Promise<void>;
 }
 
 function formatRelativeTime(unixTimestamp: number): string {
@@ -34,12 +37,37 @@ function formatRelativeTime(unixTimestamp: number): string {
   return `${days}d ago`;
 }
 
-function CommentEntry({ comment }: { comment: Comment }) {
+interface CommentEntryProps {
+  comment: Comment;
+  currentUser?: string | null;
+  onDelete?: (commentId: number) => Promise<void>;
+}
+
+function CommentEntry({ comment, currentUser, onDelete }: CommentEntryProps) {
+  const isOwn = currentUser && comment.authorUsername === currentUser;
+
+  const handleDelete = useCallback(() => {
+    if (!onDelete) return;
+    if (window.confirm('Delete this comment?')) {
+      onDelete(comment.id);
+    }
+  }, [onDelete, comment.id]);
+
   return (
     <div className="activity-comment" data-testid="activity-comment">
       <div className="activity-comment__meta">
         <span className="activity-comment__author">{comment.authorUsername}</span>
         <span className="activity-comment__time">{formatRelativeTime(comment.createdAt)}</span>
+        {isOwn && onDelete && (
+          <button
+            className="activity-comment__delete"
+            onClick={handleDelete}
+            title="Delete comment"
+            data-testid="activity-delete-btn"
+          >
+            🗑
+          </button>
+        )}
       </div>
       <div className="activity-comment__body">{comment.body}</div>
     </div>
@@ -119,12 +147,15 @@ function ReplyInput({ onSubmit, onCancel }: { onSubmit: (body: string) => Promis
 interface ThreadCardProps {
   thread: Comment[];
   isReplying: boolean;
+  currentUser?: string | null;
   onStartReply: () => void;
   onCancelReply: () => void;
   onSubmitReply?: (discussionId: string, parentId: number, body: string) => Promise<void>;
+  onResolve?: (discussionId: string, resolved: boolean) => Promise<void>;
+  onDelete?: (commentId: number) => Promise<void>;
 }
 
-function ThreadCard({ thread, isReplying, onStartReply, onCancelReply, onSubmitReply }: ThreadCardProps) {
+function ThreadCard({ thread, isReplying, currentUser, onStartReply, onCancelReply, onSubmitReply, onResolve, onDelete }: ThreadCardProps) {
   const root = thread[0];
   const replies = thread.slice(1);
   const isResolved = root.resolved;
@@ -139,6 +170,12 @@ function ThreadCard({ thread, isReplying, onStartReply, onCancelReply, onSubmitR
     },
     [onSubmitReply, root.discussionId, root.id],
   );
+
+  const handleResolve = useCallback(() => {
+    if (onResolve && root.discussionId) {
+      onResolve(root.discussionId, !isResolved);
+    }
+  }, [onResolve, root.discussionId, isResolved]);
 
   return (
     <div
@@ -155,23 +192,34 @@ function ThreadCard({ thread, isReplying, onStartReply, onCancelReply, onSubmitR
           )}
         </div>
       )}
-      <CommentEntry comment={root} />
+      <CommentEntry comment={root} currentUser={currentUser} onDelete={onDelete} />
       {replies.length > 0 && (
         <div className="activity-thread__replies" data-testid="activity-thread-replies">
           {replies.map((reply) => (
-            <CommentEntry key={reply.id} comment={reply} />
+            <CommentEntry key={reply.id} comment={reply} currentUser={currentUser} onDelete={onDelete} />
           ))}
         </div>
       )}
-      {hasDiscussion && !isReplying && (
-        <button
-          className="activity-thread__reply-btn"
-          onClick={onStartReply}
-          data-testid="activity-reply-btn"
-        >
-          Reply
-        </button>
-      )}
+      <div className="activity-thread__actions">
+        {hasDiscussion && onResolve && (
+          <button
+            className={`activity-thread__resolve-btn ${isResolved ? 'activity-thread__resolve-btn--resolved' : ''}`}
+            onClick={handleResolve}
+            data-testid="activity-resolve-btn"
+          >
+            {isResolved ? 'Unresolve' : 'Resolve'}
+          </button>
+        )}
+        {hasDiscussion && !isReplying && (
+          <button
+            className="activity-thread__reply-btn"
+            onClick={onStartReply}
+            data-testid="activity-reply-btn"
+          >
+            Reply
+          </button>
+        )}
+      </div>
       {isReplying && (
         <ReplyInput onSubmit={handleReplySubmit} onCancel={onCancelReply} />
       )}
@@ -194,7 +242,7 @@ function SystemEventEntry({ event }: { event: Comment }) {
   );
 }
 
-export default function ActivityFeed({ threads, systemEvents, showSystemEvents, loading, onReply }: ActivityFeedProps) {
+export default function ActivityFeed({ threads, systemEvents, showSystemEvents, loading, currentUser, onReply, onResolve, onDelete }: ActivityFeedProps) {
   const [replyingToThreadRootId, setReplyingToThreadRootId] = useState<number | null>(null);
 
   if (loading) {
@@ -247,9 +295,12 @@ export default function ActivityFeed({ threads, systemEvents, showSystemEvents, 
             key={`thread-${item.thread[0].id}`}
             thread={item.thread}
             isReplying={replyingToThreadRootId === item.thread[0].id}
+            currentUser={currentUser}
             onStartReply={() => setReplyingToThreadRootId(item.thread[0].id)}
             onCancelReply={() => setReplyingToThreadRootId(null)}
             onSubmitReply={onReply}
+            onResolve={onResolve}
+            onDelete={onDelete}
           />
         ) : (
           <SystemEventEntry key={`event-${item.event.id}`} event={item.event} />
