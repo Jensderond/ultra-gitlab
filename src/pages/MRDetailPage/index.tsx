@@ -41,6 +41,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
 
   const [activityOpen, setActivityOpen] = useState(false);
   const [showSystemEvents, setShowSystemEvents] = useState(false);
+  const [activityHeightVh, setActivityHeightVh] = useState(40);
   const { threads: activityThreads, systemEvents: activitySystemEvents, unresolvedCount, currentUser: activityCurrentUser, loading: activityLoading, addComment: activityAddComment, replyToComment: activityReplyToComment, resolveDiscussion: activityResolveDiscussion, deleteComment: activityDeleteComment } = useActivityData(mrId);
   const [showCopyToast, copyToClipboard] = useCopyToast();
   const isSmallScreen = useSmallScreen();
@@ -255,6 +256,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           onRetry={() => view.selectedFile && handleFileSelect(view.selectedFile)}
           currentUser={currentUser ?? undefined}
           onDeleteComment={handleDeleteComment}
+          bottomPadding={activityOpen ? activityHeightVh : undefined}
         />
       </div>
 
@@ -270,6 +272,8 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         onToggle={() => setActivityOpen((o) => !o)}
         showSystemEvents={showSystemEvents}
         onToggleSystemEvents={() => setShowSystemEvents((s) => !s)}
+        heightVh={activityHeightVh}
+        onHeightChange={setActivityHeightVh}
         footer={<CommentInput onSubmit={activityAddComment} />}
       >
         <ActivityFeed

@@ -6,7 +6,7 @@
  * Supports drag-to-resize via a handle at the top edge.
  */
 
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import './ActivityDrawer.css';
 
 interface ActivityDrawerProps {
@@ -14,17 +14,17 @@ interface ActivityDrawerProps {
   onToggle: () => void;
   showSystemEvents: boolean;
   onToggleSystemEvents: () => void;
+  heightVh: number;
+  onHeightChange: (vh: number) => void;
   children?: React.ReactNode;
   footer?: React.ReactNode;
 }
 
-const DEFAULT_HEIGHT_VH = 40;
 const MIN_HEIGHT_VH = 20;
 const MAX_HEIGHT_VH = 80;
 
-export default function ActivityDrawer({ isOpen, onToggle, showSystemEvents, onToggleSystemEvents, children, footer }: ActivityDrawerProps) {
+export default function ActivityDrawer({ isOpen, onToggle, showSystemEvents, onToggleSystemEvents, heightVh, onHeightChange, children, footer }: ActivityDrawerProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
-  const [heightVh, setHeightVh] = useState(DEFAULT_HEIGHT_VH);
   const isDraggingRef = useRef(false);
 
   // Focus trap: when drawer opens, focus the drawer for accessibility
@@ -46,7 +46,7 @@ export default function ActivityDrawer({ isOpen, onToggle, showSystemEvents, onT
       // Convert pixel distance (from mouse to footer) into vh units
       const newHeightVh = ((window.innerHeight - moveEvent.clientY - footerHeight) / window.innerHeight) * 100;
       const clamped = Math.max(MIN_HEIGHT_VH, Math.min(MAX_HEIGHT_VH, newHeightVh));
-      setHeightVh(clamped);
+      onHeightChange(clamped);
     };
 
     const onMouseUp = () => {
@@ -59,7 +59,7 @@ export default function ActivityDrawer({ isOpen, onToggle, showSystemEvents, onT
 
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
-  }, []);
+  }, [onHeightChange]);
 
   return (
     <div

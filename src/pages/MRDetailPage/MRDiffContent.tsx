@@ -22,6 +22,7 @@ interface MRDiffContentProps {
   onRetry: () => void;
   currentUser?: string;
   onDeleteComment?: (commentId: number) => void;
+  bottomPadding?: number;
 }
 
 export default function MRDiffContent({
@@ -41,6 +42,7 @@ export default function MRDiffContent({
   onRetry,
   currentUser,
   onDeleteComment,
+  bottomPadding,
 }: MRDiffContentProps) {
   if (!selectedFile) {
     if (files.length > 0 && reviewableFiles.length === 0) {
@@ -63,8 +65,10 @@ export default function MRDiffContent({
     );
   }
 
+  const mainStyle = bottomPadding ? { paddingBottom: `${bottomPadding}vh` } : undefined;
+
   return (
-    <main className="mr-detail-main">
+    <main className="mr-detail-main" style={mainStyle}>
       {fileContentLoading && (
         <div className="file-loading-overlay">
           <div className="file-loading-spinner" />
