@@ -1,0 +1,123 @@
+/* Activity Feed - Thread rendering styles */
+
+.activity-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Loading state */
+.activity-feed__loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 24px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  justify-content: center;
+}
+
+.activity-feed__spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: activity-spin 0.8s linear infinite;
+}
+
+@keyframes activity-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Empty state */
+.activity-feed__empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* Thread card */
+.activity-thread {
+  background: var(--overlay-glass);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px 14px;
+  transition: opacity 0.2s ease;
+}
+
+.activity-thread--resolved {
+  opacity: 0.5;
+}
+
+.activity-thread--resolved:hover {
+  opacity: 0.75;
+}
+
+/* Inline file info */
+.activity-thread__file-info {
+  display: flex;
+  align-items: baseline;
+  gap: 0;
+  margin-bottom: 8px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-thread__file-path {
+  color: var(--accent-color);
+}
+
+.activity-thread__line-number {
+  color: var(--text-tertiary);
+}
+
+/* Individual comment */
+.activity-comment {
+  padding: 4px 0;
+}
+
+.activity-comment__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.activity-comment__author {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.activity-comment__time {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.activity-comment__body {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  word-wrap: break-word;
+}
+
+/* Replies */
+.activity-thread__replies {
+  margin-top: 8px;
+  padding-left: 14px;
+  border-left: 2px solid var(--border-color);
+}
+
+.activity-thread__replies .activity-comment {
+  padding: 6px 0;
+}

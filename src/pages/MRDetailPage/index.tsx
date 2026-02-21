@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { ApprovalButtonRef } from '../../components/Approval';
 import { CommentOverlay, type CommentOverlayRef } from '../../components/CommentOverlay';
-import { ActivityDrawer } from '../../components/ActivityDrawer';
+import { ActivityDrawer, ActivityFeed } from '../../components/ActivityDrawer';
 import { useActivityData } from '../../hooks/useActivityData';
 import type { DiffLineClickInfo } from '../../components/PierreDiffViewer';
 import type { SelectedLineRange } from '../../components/PierreDiffViewer';
@@ -40,7 +40,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   const previousFileRef = useRef<string | null>(null);
 
   const [activityOpen, setActivityOpen] = useState(false);
-  const { unresolvedCount } = useActivityData(mrId);
+  const { threads: activityThreads, unresolvedCount, loading: activityLoading } = useActivityData(mrId);
   const [showCopyToast, copyToClipboard] = useCopyToast();
   const isSmallScreen = useSmallScreen();
   const [view, dispatch] = useViewReducer();
@@ -267,7 +267,9 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
       <ActivityDrawer
         isOpen={activityOpen}
         onToggle={() => setActivityOpen((o) => !o)}
-      />
+      >
+        <ActivityFeed threads={activityThreads} loading={activityLoading} />
+      </ActivityDrawer>
 
       {showCopyToast && (
         <div className="copy-toast">Link copied</div>
