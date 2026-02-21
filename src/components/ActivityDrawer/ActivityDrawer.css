@@ -7,7 +7,7 @@
   bottom: 49px;
   left: 0;
   right: 0;
-  height: 40vh;
+  /* Height is set via inline style for drag-to-resize */
   z-index: 9;
   display: flex;
   flex-direction: column;
@@ -27,6 +27,30 @@
 
 .activity-drawer--open {
   transform: translateY(0);
+}
+
+/* Drag handle at top edge */
+.activity-drawer__drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 12px;
+  cursor: ns-resize;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.activity-drawer__drag-grip {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--text-tertiary);
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
+}
+
+.activity-drawer__drag-handle:hover .activity-drawer__drag-grip {
+  opacity: 0.8;
 }
 
 /* Header bar */
