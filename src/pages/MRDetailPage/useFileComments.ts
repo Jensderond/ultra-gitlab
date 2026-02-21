@@ -43,5 +43,9 @@ export function useFileComments(mrId: number, selectedFile: string | null) {
     setFileComments((prev) => [...prev, comment]);
   }, []);
 
-  return { fileComments, addComment };
+  const removeComment = useCallback((commentId: number) => {
+    setFileComments((prev) => prev.filter((c) => c.id !== commentId));
+  }, []);
+
+  return { fileComments, addComment, removeComment };
 }

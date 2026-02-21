@@ -20,6 +20,8 @@ interface MRDiffContentProps {
   onLineClick?: (info: DiffLineClickInfo) => void;
   onLineSelected?: (range: SelectedLineRange | null) => void;
   onRetry: () => void;
+  currentUser?: string;
+  onDeleteComment?: (commentId: number) => void;
 }
 
 export default function MRDiffContent({
@@ -37,6 +39,8 @@ export default function MRDiffContent({
   onLineClick,
   onLineSelected,
   onRetry,
+  currentUser,
+  onDeleteComment,
 }: MRDiffContentProps) {
   if (!selectedFile) {
     if (files.length > 0 && reviewableFiles.length === 0) {
@@ -104,6 +108,8 @@ export default function MRDiffContent({
           comments={comments}
           onLineClick={onLineClick}
           onLineSelected={onLineSelected}
+          currentUser={currentUser}
+          onDeleteComment={onDeleteComment}
         />
       )}
     </main>

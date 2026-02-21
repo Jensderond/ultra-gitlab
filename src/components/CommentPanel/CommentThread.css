@@ -95,6 +95,23 @@
   text-decoration: underline;
 }
 
+.comment-delete {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.comment-item:hover .comment-delete {
+  opacity: 1;
+}
+
+.comment-delete:hover {
+  color: var(--color-danger, #e45);
+  text-decoration: none;
+}
+
 .thread-reply {
   padding: 12px;
   border-top: 1px solid var(--border-color);

@@ -35,6 +35,7 @@ export interface SeedInstance {
   name: string | null;
   createdAt: number;
   sessionCookie: string | null;
+  authenticatedUsername: string | null;
   hasToken: boolean;
 }
 
@@ -45,6 +46,7 @@ export const instances: SeedInstance[] = [
     name: 'Example GitLab',
     createdAt: 1700000000,
     sessionCookie: null,
+    authenticatedUsername: 'testuser',
     hasToken: true,
   },
 ];
@@ -336,7 +338,77 @@ export const comments: Record<number, Comment[]> = {
       body: 'Could we add a system preference detection here?',
       filePath: 'src/components/ThemeToggle.tsx',
       oldLine: null,
-      newLine: 15,
+      newLine: 5,
+      resolved: false,
+      system: false,
+      createdAt: now - 3600,
+      updatedAt: now - 3600,
+      isLocal: false,
+      syncStatus: null,
+    },
+    {
+      id: 5003,
+      mrId: 101,
+      discussionId: 'disc-003',
+      parentId: null,
+      authorUsername: 'testuser',
+      body: 'I think we should also consider accessibility for the theme toggle.',
+      filePath: null,
+      oldLine: null,
+      newLine: null,
+      resolved: false,
+      system: false,
+      createdAt: now - 1800,
+      updatedAt: now - 1800,
+      isLocal: false,
+      syncStatus: null,
+    },
+    {
+      id: 5004,
+      mrId: 101,
+      discussionId: 'disc-004',
+      parentId: null,
+      authorUsername: 'testuser',
+      body: 'We should memoize this callback to avoid re-renders.',
+      filePath: 'src/components/ThemeToggle.tsx',
+      oldLine: null,
+      newLine: 6,
+      resolved: false,
+      system: false,
+      createdAt: now - 900,
+      updatedAt: now - 900,
+      isLocal: false,
+      syncStatus: null,
+    },
+  ],
+  201: [
+    {
+      id: 6001,
+      mrId: 201,
+      discussionId: 'disc-201-001',
+      parentId: null,
+      authorUsername: 'alice',
+      body: 'Great work on the notification preferences!',
+      filePath: null,
+      oldLine: null,
+      newLine: null,
+      resolved: false,
+      system: false,
+      createdAt: now - 5400,
+      updatedAt: now - 5400,
+      isLocal: false,
+      syncStatus: null,
+    },
+    {
+      id: 6002,
+      mrId: 201,
+      discussionId: 'disc-201-002',
+      parentId: null,
+      authorUsername: 'testuser',
+      body: 'Added a note about the notification API changes.',
+      filePath: null,
+      oldLine: null,
+      newLine: null,
       resolved: false,
       system: false,
       createdAt: now - 3600,
@@ -355,6 +427,10 @@ export const reviewers: Record<number, MrReviewer[]> = {
   101: [
     { mrId: 101, username: 'bob', status: 'approved', cachedAt: now },
     { mrId: 101, username: 'carol', status: 'pending', cachedAt: now },
+  ],
+  201: [
+    { mrId: 201, username: 'alice', status: 'approved', cachedAt: now },
+    { mrId: 201, username: 'bob', status: 'approved', cachedAt: now },
   ],
 };
 

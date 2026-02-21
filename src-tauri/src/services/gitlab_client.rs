@@ -891,6 +891,35 @@ impl GitLabClient {
         self.handle_response(response, &endpoint).await
     }
 
+    /// Delete a note (comment) from a merge request.
+    ///
+    /// GitLab API: DELETE /projects/:id/merge_requests/:iid/notes/:note_id
+    /// Returns 204 No Content on success.
+    pub async fn delete_note(
+        &self,
+        project_id: i64,
+        mr_iid: i64,
+        note_id: i64,
+    ) -> Result<(), AppError> {
+        let endpoint = format!(
+            "/projects/{}/merge_requests/{}/notes/{}",
+            project_id, mr_iid, note_id
+        );
+        let url = self.api_url(&endpoint);
+
+        let response = self.client.delete(&url).send().await?;
+
+        if response.status().is_success() {
+            Ok(())
+        } else {
+            Err(AppError::gitlab_api_full(
+                "Failed to delete note",
+                response.status().as_u16(),
+                &endpoint,
+            ))
+        }
+    }
+
     /// Resolve or unresolve a discussion.
     pub async fn resolve_discussion(
         &self,

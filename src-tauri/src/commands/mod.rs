@@ -34,7 +34,8 @@ pub use auth::{
 };
 pub use avatar::{get_avatar, get_avatars, refresh_avatars, update_session_cookie};
 pub use comments::{
-    add_comment, get_comments, get_file_comments, reply_to_comment, resolve_discussion,
+    add_comment, delete_comment, get_comments, get_file_comments, reply_to_comment,
+    resolve_discussion,
 };
 pub use companion_server::{start_companion_server_cmd, stop_companion_server_cmd};
 pub use companion_settings::{

@@ -100,6 +100,23 @@
   text-decoration: underline;
 }
 
+.inline-comment-action.comment-delete {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.inline-comment-item:hover .inline-comment-action.comment-delete {
+  opacity: 1;
+}
+
+.inline-comment-action.comment-delete:hover {
+  color: var(--color-danger, #e45);
+  text-decoration: none;
+}
+
 .inline-comment-standalone {
   padding: 8px;
   background: var(--bg-secondary);

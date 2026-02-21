@@ -8,7 +8,7 @@ use crate::error::AppError;
 use crate::models::sync_action::ActionType;
 use crate::models::Comment;
 use crate::services::sync_engine::SyncHandle;
-use crate::services::sync_queue::{self, EnqueueInput, ReplyPayload, ResolvePayload};
+use crate::services::sync_queue::{self, DeleteCommentPayload, EnqueueInput, ReplyPayload, ResolvePayload};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -654,6 +654,80 @@ pub async fn get_file_comments(
     .await?;
 
     to_comment_responses(pool.inner(), comments).await
+}
+
+/// Input for delete_comment command.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteCommentInput {
+    /// Merge request ID (local database ID).
+    pub mr_id: i64,
+    /// Comment ID to delete.
+    pub comment_id: i64,
+}
+
+/// Delete a comment from a merge request.
+///
+/// For local-only comments (negative ID): deletes from DB directly and removes any pending sync action.
+/// For synced comments (positive ID): deletes from local DB optimistically and enqueues a DeleteComment action.
+///
+/// # Arguments
+/// * `input` - Delete details (mr_id, comment_id)
+#[tauri::command]
+pub async fn delete_comment(
+    pool: State<'_, DbPool>,
+    sync_handle: State<'_, SyncHandle>,
+    input: DeleteCommentInput,
+) -> Result<(), AppError> {
+    if input.comment_id < 0 {
+        // Local-only comment: delete from DB and remove pending sync action
+        sqlx::query("DELETE FROM comments WHERE id = ? AND mr_id = ?")
+            .bind(input.comment_id)
+            .bind(input.mr_id)
+            .execute(pool.inner())
+            .await?;
+
+        // Remove any pending sync queue entry referencing this local comment
+        sqlx::query("DELETE FROM sync_queue WHERE local_reference_id = ? AND status = 'pending'")
+            .bind(input.comment_id)
+            .execute(pool.inner())
+            .await?;
+    } else {
+        // Synced comment: look up MR info for the API call
+        let mr_info = get_mr_info(pool.inner(), input.mr_id).await?;
+
+        // Delete from local DB optimistically
+        sqlx::query("DELETE FROM comments WHERE id = ? AND mr_id = ?")
+            .bind(input.comment_id)
+            .bind(input.mr_id)
+            .execute(pool.inner())
+            .await?;
+
+        // Enqueue DeleteComment action for GitLab API
+        let payload = serde_json::to_string(&DeleteCommentPayload {
+            project_id: mr_info.project_id,
+            mr_iid: mr_info.iid,
+            note_id: input.comment_id,
+        })?;
+
+        sync_queue::enqueue_action(
+            pool.inner(),
+            EnqueueInput {
+                mr_id: input.mr_id,
+                action_type: ActionType::DeleteComment,
+                payload,
+                local_reference_id: None,
+            },
+        )
+        .await?;
+
+        // Fire-and-forget: flush comment actions immediately
+        if let Err(e) = sync_handle.flush_comments().await {
+            eprintln!("[comment] Failed to send flush signal: {}", e);
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

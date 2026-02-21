@@ -994,3 +994,11 @@
     bottom: 72px;
   }
 }
+
+/* Annotation delete button — show on hover */
+.pierre-annotation-comment:hover .annotation-delete-btn {
+  opacity: 1 !important;
+}
+.pierre-annotation-comment .annotation-delete-btn:hover {
+  color: var(--color-danger, #e06c75) !important;
+}

@@ -23,6 +23,8 @@ interface InlineCommentProps {
   onReply?: (commentId: number, discussionId: string, body: string) => void;
   /** Called when resolving/unresolving */
   onResolve?: (discussionId: string, resolved: boolean) => void;
+  /** Called when deleting a comment */
+  onDelete?: (commentId: number) => void;
   /** Whether submitting */
   isSubmitting?: boolean;
 }
@@ -56,13 +58,32 @@ function SyncBadge({ status }: { status: SyncStatus | null }) {
 /**
  * Single comment display.
  */
-function CommentDisplay({ comment }: { comment: Comment }) {
+function CommentDisplay({
+  comment,
+  currentUser,
+  onDelete,
+}: {
+  comment: Comment;
+  currentUser?: string;
+  onDelete?: (commentId: number) => void;
+}) {
+  const canDelete = currentUser && comment.authorUsername === currentUser;
+
   return (
     <div className={`inline-comment-item ${comment.isLocal ? 'is-local' : ''}`}>
       <div className="inline-comment-header">
         <span className="inline-comment-author">{comment.authorUsername}</span>
         <span className="inline-comment-time">{formatTime(comment.createdAt)}</span>
         <SyncBadge status={comment.syncStatus} />
+        {canDelete && onDelete && (
+          <button
+            type="button"
+            className="inline-comment-action comment-delete"
+            onClick={() => onDelete(comment.id)}
+          >
+            Delete
+          </button>
+        )}
       </div>
       <div className="inline-comment-body">{comment.body}</div>
     </div>
@@ -75,10 +96,12 @@ function CommentDisplay({ comment }: { comment: Comment }) {
 export default function InlineComment({
   comments,
   isAddingComment = false,
+  currentUser,
   onSubmitComment,
   onCancelComment,
   onReply,
   onResolve,
+  onDelete,
   isSubmitting = false,
 }: InlineCommentProps) {
   // Group comments by discussion
@@ -114,11 +137,11 @@ export default function InlineComment({
             key={discussionId}
             className={`inline-comment-thread ${isResolved ? 'is-resolved' : ''}`}
           >
-            <CommentDisplay comment={rootComment} />
+            <CommentDisplay comment={rootComment} currentUser={currentUser} onDelete={onDelete} />
 
             {replies.map((reply) => (
               <div key={reply.id} className="inline-comment-reply">
-                <CommentDisplay comment={reply} />
+                <CommentDisplay comment={reply} currentUser={currentUser} onDelete={onDelete} />
               </div>
             ))}
 
@@ -154,7 +177,7 @@ export default function InlineComment({
       {/* Standalone comments (no discussion) */}
       {standaloneComments.map((comment) => (
         <div key={comment.id} className="inline-comment-standalone">
-          <CommentDisplay comment={comment} />
+          <CommentDisplay comment={comment} currentUser={currentUser} onDelete={onDelete} />
         </div>
       ))}
 

@@ -4,7 +4,7 @@
  * Displays a merge request with file navigation and Pierre diff viewer.
  */
 
-import { useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { ApprovalButtonRef } from '../../components/Approval';
 import { CommentOverlay, type CommentOverlayRef } from '../../components/CommentOverlay';
@@ -20,6 +20,7 @@ import { useMRKeyboard } from './useMRKeyboard';
 import MRHeader from './MRHeader';
 import MRDiffContent from './MRDiffContent';
 import MRFilePanel from './MRFilePanel';
+import { listInstances, deleteComment } from '../../services/gitlab';
 import '../MRDetailPage.css';
 
 interface MRDetailPageProps {
@@ -64,7 +65,19 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   // Wire up the stable ref so useMRData can call clearFileCache
   clearFileCacheRef.current = clearFileCache;
 
-  const { fileComments, addComment } = useFileComments(mrId, view.selectedFile);
+  const { fileComments, addComment, removeComment } = useFileComments(mrId, view.selectedFile);
+
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
+  useEffect(() => {
+    listInstances().then((instances) => {
+      setCurrentUser(instances[0]?.authenticatedUsername ?? null);
+    }).catch(() => {});
+  }, []);
+
+  const handleDeleteComment = useCallback((commentId: number) => {
+    removeComment(commentId);
+    deleteComment(mrId, commentId).catch(() => {});
+  }, [mrId, removeComment]);
 
   // Auto-select first reviewable file on initial load
   const appliedInitialRef = useRef(false);
@@ -221,6 +234,8 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           onLineClick={handleLineClick}
           onLineSelected={handleLineSelected}
           onRetry={() => view.selectedFile && handleFileSelect(view.selectedFile)}
+          currentUser={currentUser ?? undefined}
+          onDeleteComment={handleDeleteComment}
         />
       </div>
 

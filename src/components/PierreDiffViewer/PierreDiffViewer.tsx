@@ -1,7 +1,7 @@
 import { MultiFileDiff } from '@pierre/diffs/react';
 import type { FileContents } from '@pierre/diffs/react';
 import type { DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
-import { useMemo, useCallback, useState, type ReactNode } from 'react';
+import { useMemo, useCallback, useState, useRef, type ReactNode } from 'react';
 
 /** Comment data attached to a diff line annotation. */
 export interface LineComment {
@@ -44,6 +44,10 @@ export interface PierreDiffViewerProps {
   onLineClick?: (info: DiffLineClickInfo) => void;
   /** Called when the user selects a line range in the diff */
   onLineSelected?: (range: SelectedLineRange | null) => void;
+  /** Current user's username (for showing delete button on own comments) */
+  currentUser?: string;
+  /** Called when a comment delete button is clicked */
+  onDeleteComment?: (commentId: number) => void;
 }
 
 /** Map LineComment[] to Pierre DiffLineAnnotation<LineComment>[]. */
@@ -70,9 +74,26 @@ function formatDate(ts: number): string {
   return date.toLocaleDateString();
 }
 
+function TrashIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </svg>
+  );
+}
+
 /** Render a single annotation (comment thread) inline in the diff. */
-function renderAnnotation(annotation: DiffLineAnnotation<LineComment>): ReactNode {
+function renderAnnotationBase(
+  annotation: DiffLineAnnotation<LineComment>,
+  currentUser?: string,
+  onDeleteComment?: (commentId: number) => void,
+): ReactNode {
   const c = annotation.metadata;
+  const canDelete = currentUser && c.authorUsername === currentUser && onDeleteComment;
   return (
     <div className="pierre-annotation-comment" style={{
       padding: '8px 12px',
@@ -87,6 +108,28 @@ function renderAnnotation(annotation: DiffLineAnnotation<LineComment>): ReactNod
         <span style={{ color: 'var(--text-tertiary, #888)', fontSize: '12px' }}>{formatDate(c.createdAt)}</span>
         {c.resolved && (
           <span style={{ color: 'var(--color-success, #4caf50)', fontSize: '11px', fontWeight: 600 }}>Resolved</span>
+        )}
+        {canDelete && (
+          <button
+            className="annotation-delete-btn"
+            onClick={(e) => { e.stopPropagation(); onDeleteComment(c.id); }}
+            title="Delete comment"
+            style={{
+              marginLeft: 'auto',
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-tertiary, #888)',
+              cursor: 'pointer',
+              padding: '2px 4px',
+              fontSize: '12px',
+              lineHeight: 1,
+              borderRadius: '3px',
+              opacity: 0,
+              transition: 'opacity 0.15s, color 0.15s',
+            }}
+          >
+            <TrashIcon />
+          </button>
         )}
       </div>
       <div style={{ color: 'var(--text-secondary, #ccc)', whiteSpace: 'pre-wrap' }}>{c.body}</div>
@@ -108,6 +151,8 @@ export function PierreDiffViewer({
   comments,
   onLineClick,
   onLineSelected,
+  currentUser,
+  onDeleteComment,
 }: PierreDiffViewerProps) {
   const [selectedLines, setSelectedLines] = useState<SelectedLineRange | null>(null);
 
@@ -165,6 +210,18 @@ export function PierreDiffViewer({
   const lineAnnotations = useMemo(
     () => comments && comments.length > 0 ? toAnnotations(comments) : undefined,
     [comments]
+  );
+
+  // Stable refs so the render callback doesn't trigger re-renders
+  const currentUserRef = useRef(currentUser);
+  currentUserRef.current = currentUser;
+  const onDeleteRef = useRef(onDeleteComment);
+  onDeleteRef.current = onDeleteComment;
+
+  const renderAnnotation = useCallback(
+    (annotation: DiffLineAnnotation<LineComment>) =>
+      renderAnnotationBase(annotation, currentUserRef.current, onDeleteRef.current),
+    []
   );
 
   return (

@@ -41,6 +41,14 @@ pub struct ReplyPayload {
     pub body: String,
 }
 
+/// Payload for a delete comment action.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeleteCommentPayload {
+    pub project_id: i64,
+    pub mr_iid: i64,
+    pub note_id: i64,
+}
+
 /// Payload for resolve/unresolve actions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResolvePayload {

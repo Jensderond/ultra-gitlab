@@ -11,7 +11,7 @@ pub mod services;
 
 use commands::{
     add_comment, approve_mr, cancel_pipeline_job, check_merge_status, clear_test_data,
-    delete_gitlab_instance, discard_failed_action, generate_test_data, get_action_counts,
+    delete_comment, delete_gitlab_instance, discard_failed_action, generate_test_data, get_action_counts,
     get_approval_status, get_avatar, get_avatars, get_cache_stats, get_cached_file_pair,
     get_collapse_patterns, get_comments, get_companion_qr_svg, get_companion_settings,
     get_companion_status, get_diagnostics_report, get_diff_content, get_diff_file,
@@ -194,6 +194,7 @@ pub fn run() {
             add_comment,
             reply_to_comment,
             resolve_discussion,
+            delete_comment,
             approve_mr,
             unapprove_mr,
             get_approval_status,

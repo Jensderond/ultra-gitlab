@@ -13,6 +13,7 @@ export interface GitLabInstance {
   name: string | null;
   createdAt: number;
   sessionCookie: string | null;
+  authenticatedUsername: string | null;
 }
 
 export interface GitLabInstanceSetup {
@@ -222,6 +223,11 @@ export interface ResolveDiscussionRequest {
   mrId: number;
   discussionId: string;
   resolved: boolean;
+}
+
+export interface DeleteCommentRequest {
+  mrId: number;
+  commentId: number;
 }
 
 // ============================================================================

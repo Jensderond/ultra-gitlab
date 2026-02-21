@@ -2,26 +2,29 @@
  * Hook for loading MR data, reviewers, and comments.
  */
 
-import { useState, useEffect, useMemo } from 'react';
-import { getMergeRequest, getMrReviewers, getComments } from '../../services/tauri';
-import type { MergeRequest, MrReviewer, Comment } from '../../types';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { getMergeRequest, getMrReviewers, getComments, getGitLabInstances, deleteComment as tauriDeleteComment } from '../../services/tauri';
+import type { MergeRequest, MrReviewer, Comment, DeleteCommentRequest } from '../../types';
 
 export interface MyMRData {
   mr: MergeRequest | null;
   setMr: React.Dispatch<React.SetStateAction<MergeRequest | null>>;
   reviewers: MrReviewer[];
   comments: Comment[];
+  currentUser: string | null;
   loading: boolean;
   error: string | null;
   threads: Comment[][];
   unresolvedCount: number;
   approvedCount: number;
+  handleDeleteComment: (commentId: number) => Promise<void>;
 }
 
 export function useMyMRData(mrId: number): MyMRData {
   const [mr, setMr] = useState<MergeRequest | null>(null);
   const [reviewers, setReviewers] = useState<MrReviewer[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,14 +33,16 @@ export function useMyMRData(mrId: number): MyMRData {
       try {
         setLoading(true);
         setError(null);
-        const [mrData, reviewerData, commentData] = await Promise.all([
+        const [mrData, reviewerData, commentData, instances] = await Promise.all([
           getMergeRequest(mrId),
           getMrReviewers(mrId),
           getComments(mrId),
+          getGitLabInstances(),
         ]);
         setMr(mrData);
         setReviewers(reviewerData);
         setComments(commentData);
+        setCurrentUser(instances[0]?.authenticatedUsername ?? null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load MR');
       } finally {
@@ -45,6 +50,14 @@ export function useMyMRData(mrId: number): MyMRData {
       }
     }
     if (mrId) load();
+  }, [mrId]);
+
+  const handleDeleteComment = useCallback(async (commentId: number) => {
+    const request: DeleteCommentRequest = { mrId, commentId };
+    await tauriDeleteComment(request);
+    // Refresh comments after deletion
+    const updated = await getComments(mrId);
+    setComments(updated);
   }, [mrId]);
 
   const threads = useMemo(() => {
@@ -69,5 +82,5 @@ export function useMyMRData(mrId: number): MyMRData {
 
   const approvedCount = reviewers.filter(r => r.status === 'approved').length;
 
-  return { mr, reviewers, comments, loading, error, threads, unresolvedCount, approvedCount, setMr };
+  return { mr, reviewers, comments, currentUser, loading, error, threads, unresolvedCount, approvedCount, handleDeleteComment, setMr };
 }

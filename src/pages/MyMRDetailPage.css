@@ -488,6 +488,26 @@
   color: var(--text-tertiary);
 }
 
+.my-mr-comment-delete {
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.my-mr-comment:hover .my-mr-comment-delete {
+  opacity: 1;
+}
+
+.my-mr-comment-delete:hover {
+  color: var(--color-danger, #e45);
+}
+
 .my-mr-comment-body {
   font-size: 13px;
   line-height: 1.6;

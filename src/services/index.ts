@@ -31,6 +31,7 @@ export {
   addComment,
   replyToComment,
   resolveDiscussion,
+  deleteComment,
   approveMR,
   unapproveMR,
   mergeMR,

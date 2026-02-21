@@ -189,6 +189,17 @@ export async function mockTauriIPC(page: Page) {
         syncStatus: 'pending',
       }),
       resolve_discussion: () => undefined,
+      delete_comment: (args) => {
+        // Remove the comment from the in-memory data
+        const input = args.input as { mrId: number; commentId: number };
+        const mrComments = data.comments[input.mrId];
+        if (mrComments) {
+          data.comments[input.mrId] = mrComments.filter(
+            (c: { id: number }) => c.id !== input.commentId
+          );
+        }
+        return undefined;
+      },
 
       // -- Approvals --
       approve_mr: () => undefined,

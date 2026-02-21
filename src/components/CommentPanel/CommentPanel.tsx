@@ -4,9 +4,9 @@
  * Shows general comments and inline comments organized by discussion threads.
  */
 
-import { useReducer, useEffect, useCallback } from 'react';
+import { useReducer, useEffect, useCallback, useState } from 'react';
 import type { Comment } from '../../types';
-import { invoke } from '../../services/tauri';
+import { invoke, getGitLabInstances } from '../../services/tauri';
 import CommentThread from './CommentThread';
 import CommentInput from './CommentInput';
 import './CommentPanel.css';
@@ -90,8 +90,17 @@ export default function CommentPanel({
     submitting: false,
     replyingTo: null,
   });
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
 
   const { comments, loading, error, submitting, replyingTo } = state;
+
+  // Fetch the authenticated username from the GitLab instance
+  useEffect(() => {
+    getGitLabInstances().then((instances) => {
+      const username = instances[0]?.authenticatedUsername;
+      if (username) setCurrentUser(username);
+    }).catch(() => {});
+  }, []);
 
   // Fetch comments
   const fetchComments = useCallback(async () => {
@@ -140,6 +149,18 @@ export default function CommentPanel({
       dispatch({ type: 'SET_ERROR', error: e instanceof Error ? e.message : 'Failed to reply' });
     } finally {
       dispatch({ type: 'REPLY_END' });
+    }
+  };
+
+  // Delete a comment
+  const handleDelete = async (commentId: number) => {
+    try {
+      await invoke('delete_comment', {
+        input: { mrId, commentId },
+      });
+      await fetchComments();
+    } catch (e) {
+      dispatch({ type: 'SET_ERROR', error: e instanceof Error ? e.message : 'Failed to delete comment' });
     }
   };
 
@@ -198,6 +219,15 @@ export default function CommentPanel({
               <div key={comment.id} className="standalone-comment">
                 <div className="comment-header">
                   <span className="comment-author">{comment.authorUsername}</span>
+                  {currentUser && comment.authorUsername === currentUser && (
+                    <button
+                      type="button"
+                      className="btn-link comment-delete"
+                      onClick={() => handleDelete(comment.id)}
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
                 <div className="comment-body">{comment.body}</div>
               </div>
@@ -218,6 +248,8 @@ export default function CommentPanel({
               comments={threadComments}
               discussionId={discussionId}
               resolved={isResolved}
+              currentUser={currentUser ?? undefined}
+              onDelete={handleDelete}
               onReply={(body) => {
                 if (rootComment) {
                   handleReply(discussionId, rootComment.id, body);

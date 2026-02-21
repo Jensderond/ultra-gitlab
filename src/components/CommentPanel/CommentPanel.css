@@ -66,7 +66,30 @@
 }
 
 .standalone-comment .comment-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 8px;
+}
+
+.standalone-comment .comment-delete {
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.standalone-comment:hover .comment-delete {
+  opacity: 1;
+}
+
+.standalone-comment .comment-delete:hover {
+  color: var(--color-danger, #e45);
 }
 
 .standalone-comment .comment-author {

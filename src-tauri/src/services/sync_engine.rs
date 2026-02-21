@@ -195,6 +195,7 @@ impl SyncHandle {
             ActionType::Reply,
             ActionType::Resolve,
             ActionType::Unresolve,
+            ActionType::DeleteComment,
         ])
         .await
     }

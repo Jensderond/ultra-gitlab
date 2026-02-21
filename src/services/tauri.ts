@@ -23,6 +23,7 @@ import type {
   AddCommentRequest,
   ReplyToCommentRequest,
   ResolveDiscussionRequest,
+  DeleteCommentRequest,
   SyncStatusResponse,
   Settings,
   SettingsUpdate,
@@ -320,6 +321,13 @@ export async function replyToComment(request: ReplyToCommentRequest): Promise<Co
  */
 export async function resolveDiscussion(request: ResolveDiscussionRequest): Promise<void> {
   return invoke<void>('resolve_discussion', { input: request });
+}
+
+/**
+ * Delete a comment from a merge request.
+ */
+export async function deleteComment(request: DeleteCommentRequest): Promise<void> {
+  return invoke<void>('delete_comment', { input: request });
 }
 
 // ============================================================================

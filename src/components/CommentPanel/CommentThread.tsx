@@ -25,6 +25,8 @@ interface CommentThreadProps {
   onReply?: (body: string) => void;
   /** Called when resolving/unresolving */
   onResolve?: (resolved: boolean) => void;
+  /** Called when deleting a comment */
+  onDelete?: (commentId: number) => void;
   /** Whether a reply is being submitted */
   isReplying?: boolean;
 }
@@ -61,13 +63,32 @@ function SyncStatusBadge({ status }: { status: SyncStatus | null }) {
 /**
  * Single comment item.
  */
-function CommentItem({ comment }: { comment: Comment }) {
+function CommentItem({
+  comment,
+  currentUser,
+  onDelete,
+}: {
+  comment: Comment;
+  currentUser?: string;
+  onDelete?: (commentId: number) => void;
+}) {
+  const canDelete = currentUser && comment.authorUsername === currentUser;
+
   return (
     <div className={`comment-item ${comment.isLocal ? 'comment-local' : ''}`}>
       <div className="comment-header">
         <span className="comment-author">{comment.authorUsername}</span>
         <span className="comment-time">{formatRelativeTime(comment.createdAt)}</span>
         <SyncStatusBadge status={comment.syncStatus} />
+        {canDelete && onDelete && (
+          <button
+            type="button"
+            className="btn-link comment-delete"
+            onClick={() => onDelete(comment.id)}
+          >
+            Delete
+          </button>
+        )}
       </div>
       <div className="comment-body">{comment.body}</div>
     </div>
@@ -83,8 +104,10 @@ export default function CommentThread({
   resolved,
   canReply = true,
   canResolve = true,
+  currentUser,
   onReply,
   onResolve,
+  onDelete,
   isReplying = false,
 }: CommentThreadProps) {
   // Sort by creation time
@@ -99,12 +122,12 @@ export default function CommentThread({
   return (
     <div className={`comment-thread ${resolved ? 'thread-resolved' : ''}`}>
       <div className="thread-content">
-        <CommentItem comment={rootComment} />
+        <CommentItem comment={rootComment} currentUser={currentUser} onDelete={onDelete} />
 
         {replies.length > 0 && (
           <div className="thread-replies">
             {replies.map((reply) => (
-              <CommentItem key={reply.id} comment={reply} />
+              <CommentItem key={reply.id} comment={reply} currentUser={currentUser} onDelete={onDelete} />
             ))}
           </div>
         )}
