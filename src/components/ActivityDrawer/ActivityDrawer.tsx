@@ -71,6 +71,9 @@ export default function ActivityDrawer({ isOpen, onToggle, showSystemEvents, onT
     >
       <div
         className="activity-drawer__drag-handle"
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label="Resize activity panel"
         onMouseDown={handleDragStart}
         data-testid="activity-drawer-drag-handle"
       >

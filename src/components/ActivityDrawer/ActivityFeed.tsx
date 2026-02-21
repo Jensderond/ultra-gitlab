@@ -7,6 +7,8 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import type { Comment, SyncStatus } from '../../types';
+import { TrashIcon, PendingIcon, WarningIcon } from '../icons';
+import { formatRelativeTime } from '../../utils/formatRelativeTime';
 import './ActivityFeed.css';
 
 interface ActivityFeedProps {
@@ -20,23 +22,6 @@ interface ActivityFeedProps {
   onDelete?: (commentId: number) => Promise<void>;
 }
 
-function formatRelativeTime(unixTimestamp: number): string {
-  const now = Math.floor(Date.now() / 1000);
-  const diff = now - unixTimestamp;
-
-  if (diff < 60) return 'just now';
-  if (diff < 3600) {
-    const mins = Math.floor(diff / 60);
-    return `${mins}m ago`;
-  }
-  if (diff < 86400) {
-    const hours = Math.floor(diff / 3600);
-    return `${hours}h ago`;
-  }
-  const days = Math.floor(diff / 86400);
-  return `${days}d ago`;
-}
-
 function SyncBadge({ status }: { status: SyncStatus | null }) {
   if (!status || status === 'synced') return null;
 
@@ -45,8 +30,8 @@ function SyncBadge({ status }: { status: SyncStatus | null }) {
       className={`activity-sync-badge activity-sync-badge--${status}`}
       data-testid="activity-sync-badge"
     >
-      {status === 'pending' && '⏳ Pending'}
-      {status === 'failed' && '⚠️ Failed'}
+      {status === 'pending' && <><PendingIcon /> Pending</>}
+      {status === 'failed' && <><WarningIcon /> Failed</>}
     </span>
   );
 }
@@ -80,7 +65,7 @@ function CommentEntry({ comment, currentUser, onDelete }: CommentEntryProps) {
             title="Delete comment"
             data-testid="activity-delete-btn"
           >
-            🗑
+            <TrashIcon />
           </button>
         )}
       </div>
@@ -246,12 +231,21 @@ type FeedItem =
   | { kind: 'thread'; thread: Comment[]; timestamp: number }
   | { kind: 'event'; event: Comment; timestamp: number };
 
+function stripHtml(html: string): string {
+  // Replace block-level tags with spaces, then strip remaining tags
+  return html
+    .replace(/<\/?(li|ul|ol|p|br|div)\b[^>]*>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function SystemEventEntry({ event }: { event: Comment }) {
   return (
     <div className="activity-system-event" data-testid="activity-system-event">
       <span className="activity-system-event__author">{event.authorUsername}</span>
       {' '}
-      <span className="activity-system-event__body">{event.body}</span>
+      <span className="activity-system-event__body">{stripHtml(event.body)}</span>
       <span className="activity-system-event__time">{formatRelativeTime(event.createdAt)}</span>
     </div>
   );
@@ -259,25 +253,6 @@ function SystemEventEntry({ event }: { event: Comment }) {
 
 export default function ActivityFeed({ threads, systemEvents, showSystemEvents, loading, currentUser, onReply, onResolve, onDelete }: ActivityFeedProps) {
   const [replyingToThreadRootId, setReplyingToThreadRootId] = useState<number | null>(null);
-
-  if (loading) {
-    return (
-      <div className="activity-feed__loading" data-testid="activity-feed-loading">
-        <div className="activity-feed__spinner" />
-        Loading comments...
-      </div>
-    );
-  }
-
-  const hasContent = threads.length > 0 || (showSystemEvents && systemEvents.length > 0);
-
-  if (!hasContent) {
-    return (
-      <div className="activity-feed__empty" data-testid="activity-feed-empty">
-        No comments yet
-      </div>
-    );
-  }
 
   const feedItems = useMemo((): FeedItem[] => {
     const items: FeedItem[] = threads.map((thread) => ({
@@ -301,6 +276,23 @@ export default function ActivityFeed({ threads, systemEvents, showSystemEvents, 
       return a.timestamp - b.timestamp;
     });
   }, [threads, systemEvents, showSystemEvents]);
+
+  if (loading) {
+    return (
+      <div className="activity-feed__loading" data-testid="activity-feed-loading">
+        <div className="activity-feed__spinner" />
+        Loading comments...
+      </div>
+    );
+  }
+
+  if (feedItems.length === 0) {
+    return (
+      <div className="activity-feed__empty" data-testid="activity-feed-empty">
+        No comments yet
+      </div>
+    );
+  }
 
   return (
     <div className="activity-feed" data-testid="activity-feed">

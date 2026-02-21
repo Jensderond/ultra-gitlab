@@ -1439,11 +1439,6 @@ impl SyncEngine {
     ) -> Result<(), AppError> {
         for discussion in discussions {
             for note in &discussion.notes {
-                // Skip system notes
-                if note.system {
-                    continue;
-                }
-
                 let file_path = note
                     .position
                     .as_ref()

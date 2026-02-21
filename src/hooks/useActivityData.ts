@@ -1,19 +1,13 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  getComments,
-  getGitLabInstances,
-  addComment as tauriAddComment,
-  replyToComment as tauriReplyToComment,
-  resolveDiscussion as tauriResolveDiscussion,
-  deleteComment as tauriDeleteComment,
-} from '../services/tauri';
-import type {
-  Comment,
-  AddCommentRequest,
-  ReplyToCommentRequest,
-  ResolveDiscussionRequest,
-  DeleteCommentRequest,
-} from '../types';
+  listComments,
+  listInstances,
+  addGeneralComment,
+  replyToDiscussion,
+  setDiscussionResolved,
+  deleteComment as gitlabDeleteComment,
+} from '../services/gitlab';
+import type { Comment } from '../types';
 
 export interface ActivityData {
   threads: Comment[][];
@@ -40,8 +34,8 @@ export function useActivityData(mrId: number): ActivityData {
         setLoading(true);
         setError(null);
         const [commentData, instances] = await Promise.all([
-          getComments(mrId),
-          getGitLabInstances(),
+          listComments(mrId),
+          listInstances(),
         ]);
         setComments(commentData);
         setCurrentUser(instances[0]?.authenticatedUsername ?? null);
@@ -100,9 +94,8 @@ export function useActivityData(mrId: number): ActivityData {
       };
       setComments(prev => [...prev, optimistic]);
 
-      const request: AddCommentRequest = { mrId, body };
       try {
-        const created = await tauriAddComment(request);
+        const created = await addGeneralComment(mrId, body);
         setComments(prev => prev.map(c => (c.id === optimistic.id ? created : c)));
       } catch {
         setComments(prev => prev.filter(c => c.id !== optimistic.id));
@@ -132,9 +125,8 @@ export function useActivityData(mrId: number): ActivityData {
       };
       setComments(prev => [...prev, optimistic]);
 
-      const request: ReplyToCommentRequest = { mrId, discussionId, parentId, body };
       try {
-        const created = await tauriReplyToComment(request);
+        const created = await replyToDiscussion(mrId, discussionId, parentId, body);
         setComments(prev => prev.map(c => (c.id === optimistic.id ? created : c)));
       } catch {
         setComments(prev => prev.filter(c => c.id !== optimistic.id));
@@ -149,9 +141,8 @@ export function useActivityData(mrId: number): ActivityData {
         prev.map(c => (c.discussionId === discussionId ? { ...c, resolved } : c)),
       );
 
-      const request: ResolveDiscussionRequest = { mrId, discussionId, resolved };
       try {
-        await tauriResolveDiscussion(request);
+        await setDiscussionResolved(mrId, discussionId, resolved);
       } catch {
         setComments(prev =>
           prev.map(c => (c.discussionId === discussionId ? { ...c, resolved: !resolved } : c)),
@@ -166,9 +157,8 @@ export function useActivityData(mrId: number): ActivityData {
       const removed = comments.find(c => c.id === commentId);
       setComments(prev => prev.filter(c => c.id !== commentId));
 
-      const request: DeleteCommentRequest = { mrId, commentId };
       try {
-        await tauriDeleteComment(request);
+        await gitlabDeleteComment(mrId, commentId);
       } catch {
         if (removed) setComments(prev => [...prev, removed]);
       }
