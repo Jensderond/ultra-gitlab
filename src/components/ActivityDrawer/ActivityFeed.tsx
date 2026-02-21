@@ -5,7 +5,7 @@
  * and resolved/unresolved visual distinction.
  */
 
-import { useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import type { Comment } from '../../types';
 import './ActivityFeed.css';
 
@@ -14,6 +14,7 @@ interface ActivityFeedProps {
   systemEvents: Comment[];
   showSystemEvents: boolean;
   loading: boolean;
+  onReply?: (discussionId: string, parentId: number, body: string) => Promise<void>;
 }
 
 function formatRelativeTime(unixTimestamp: number): string {
@@ -45,11 +46,99 @@ function CommentEntry({ comment }: { comment: Comment }) {
   );
 }
 
-function ThreadCard({ thread }: { thread: Comment[] }) {
+function ReplyInput({ onSubmit, onCancel }: { onSubmit: (body: string) => Promise<void>; onCancel: () => void }) {
+  const [value, setValue] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
+
+  const handleSubmit = useCallback(async () => {
+    const body = value.trim();
+    if (!body || submitting) return;
+    setSubmitting(true);
+    try {
+      await onSubmit(body);
+      setValue('');
+      onCancel();
+    } finally {
+      setSubmitting(false);
+    }
+  }, [value, submitting, onSubmit, onCancel]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSubmit();
+      }
+      if (e.key === 'Escape') {
+        onCancel();
+      }
+    },
+    [handleSubmit, onCancel],
+  );
+
+  return (
+    <div className="activity-reply-input" data-testid="activity-reply-input">
+      <textarea
+        ref={textareaRef}
+        className="activity-reply-input__textarea"
+        placeholder="Write a reply..."
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        rows={2}
+        disabled={submitting}
+        data-testid="activity-reply-textarea"
+      />
+      <div className="activity-reply-input__actions">
+        <button
+          className="activity-reply-input__cancel"
+          onClick={onCancel}
+          disabled={submitting}
+        >
+          Cancel
+        </button>
+        <button
+          className="activity-reply-input__send"
+          onClick={handleSubmit}
+          disabled={!value.trim() || submitting}
+          title="Send (⌘Enter)"
+          data-testid="activity-reply-send"
+        >
+          Send
+        </button>
+      </div>
+    </div>
+  );
+}
+
+interface ThreadCardProps {
+  thread: Comment[];
+  isReplying: boolean;
+  onStartReply: () => void;
+  onCancelReply: () => void;
+  onSubmitReply?: (discussionId: string, parentId: number, body: string) => Promise<void>;
+}
+
+function ThreadCard({ thread, isReplying, onStartReply, onCancelReply, onSubmitReply }: ThreadCardProps) {
   const root = thread[0];
   const replies = thread.slice(1);
   const isResolved = root.resolved;
   const isInline = root.filePath !== null;
+  const hasDiscussion = root.discussionId !== null;
+
+  const handleReplySubmit = useCallback(
+    async (body: string) => {
+      if (onSubmitReply && root.discussionId) {
+        await onSubmitReply(root.discussionId, root.id, body);
+      }
+    },
+    [onSubmitReply, root.discussionId, root.id],
+  );
 
   return (
     <div
@@ -74,6 +163,18 @@ function ThreadCard({ thread }: { thread: Comment[] }) {
           ))}
         </div>
       )}
+      {hasDiscussion && !isReplying && (
+        <button
+          className="activity-thread__reply-btn"
+          onClick={onStartReply}
+          data-testid="activity-reply-btn"
+        >
+          Reply
+        </button>
+      )}
+      {isReplying && (
+        <ReplyInput onSubmit={handleReplySubmit} onCancel={onCancelReply} />
+      )}
     </div>
   );
 }
@@ -93,7 +194,9 @@ function SystemEventEntry({ event }: { event: Comment }) {
   );
 }
 
-export default function ActivityFeed({ threads, systemEvents, showSystemEvents, loading }: ActivityFeedProps) {
+export default function ActivityFeed({ threads, systemEvents, showSystemEvents, loading, onReply }: ActivityFeedProps) {
+  const [replyingToThreadRootId, setReplyingToThreadRootId] = useState<number | null>(null);
+
   if (loading) {
     return (
       <div className="activity-feed__loading" data-testid="activity-feed-loading">
@@ -140,7 +243,14 @@ export default function ActivityFeed({ threads, systemEvents, showSystemEvents, 
     <div className="activity-feed" data-testid="activity-feed">
       {feedItems.map((item) =>
         item.kind === 'thread' ? (
-          <ThreadCard key={`thread-${item.thread[0].id}`} thread={item.thread} />
+          <ThreadCard
+            key={`thread-${item.thread[0].id}`}
+            thread={item.thread}
+            isReplying={replyingToThreadRootId === item.thread[0].id}
+            onStartReply={() => setReplyingToThreadRootId(item.thread[0].id)}
+            onCancelReply={() => setReplyingToThreadRootId(null)}
+            onSubmitReply={onReply}
+          />
         ) : (
           <SystemEventEntry key={`event-${item.event.id}`} event={item.event} />
         )

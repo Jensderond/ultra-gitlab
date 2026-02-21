@@ -27,7 +27,9 @@
 - ActivityDrawer height controlled via inline style `height: Xvh` (useState). Default 40vh, min 20vh, max 80vh. Drag handle at top edge.
 - ActivityFeed component at `src/components/ActivityDrawer/ActivityFeed.tsx` — takes `threads` and `loading` props, renders ThreadCard per thread.
 - Seed data for MR 101 now includes: 4 unresolved threads, 1 resolved thread, 2 system events, 1 reply, 1 pending sync comment, 1 standalone comment.
-- ActivityDrawer receives content via `children` prop — MRDetailPage passes `<ActivityFeed>` as children.
+- ActivityDrawer receives content via `children` prop — MRDetailPage passes `<ActivityFeed>` as children. Fixed-bottom content (CommentInput) goes in `footer` prop.
+- ActivityDrawer CSS: `left: 56px` to offset for sidebar (56px wide, z-index: 100). Without this, sidebar intercepts pointer events on drawer content.
+- When tracking "which thread is active" by state, never use `discussionId` (can be null for standalone comments causing `null === null` matches). Use the root comment `id` instead.
 
 ---
 
@@ -142,4 +144,39 @@
   - FeedItem union type pattern works well for mixed-type feed rendering with `kind` discriminator
   - System events use `data-testid="activity-system-event"` — distinct from `activity-thread`
   - Header actions grouped in `activity-drawer__header-actions` flex container to keep title on left
+---
+
+## 2026-02-21 - US-007
+- Created `CommentInput` component at `src/components/ActivityDrawer/CommentInput.tsx`
+  - Textarea with placeholder "Add a comment...", send button, Cmd+Enter shortcut
+  - Disabled state during submission, auto-clears and refocuses after submit
+- Created `CommentInput.css` with Kanagawa Wave theme (glassmorphism border-top, accent send button)
+- Added `footer` prop to `ActivityDrawer` to render CommentInput below the scrollable content
+- Wired `activityAddComment` from `useActivityData` into `MRDetailPage` → `CommentInput`
+- Updated barrel export in `ActivityDrawer/index.ts`
+- Added 7 new Playwright tests: input visibility, send disabled/enabled, submit via button, submit via Cmd+Enter, fixed at bottom (not scrolling), pending sync
+- Files changed: `src/components/ActivityDrawer/CommentInput.tsx` (new), `src/components/ActivityDrawer/CommentInput.css` (new), `src/components/ActivityDrawer/index.ts` (modified), `src/components/ActivityDrawer/ActivityDrawer.tsx` (modified), `src/pages/MRDetailPage/index.tsx` (modified), `e2e/activity-drawer.spec.ts` (modified)
+- **Learnings for future iterations:**
+  - ActivityDrawer uses `footer` prop (not children) for fixed-at-bottom content — content area scrolls, footer stays pinned
+  - CommentInput submit pattern: `(e.metaKey || e.ctrlKey) && e.key === 'Enter'` for cross-platform Cmd+Enter
+  - Optimistic comments from `addComment` have negative IDs (`-Date.now()`) and `syncStatus: 'pending'`
+  - The tauri mock's `add_comment` returns a mock comment — optimistic update gets replaced by mock response
+---
+
+## 2026-02-21 - US-008
+- Added reply-to-thread functionality in the activity drawer
+  - `ReplyInput` component in `ActivityFeed.tsx`: inline textarea with auto-focus, Cmd+Enter submit, Cancel/Send buttons, Escape to close
+  - `ThreadCard` updated: Reply button shown on threads with `discussionId`, tracks which thread has reply input open via root comment ID
+  - Only one reply input open at a time — opening a new one closes the previous
+  - Reply submitted via `onReply` callback prop wired through from `useActivityData.replyToComment`
+  - Optimistic update: reply appears immediately in the thread
+- Fixed ActivityDrawer `left: 0` → `left: 56px` to offset for sidebar, preventing pointer event interception on drawer content
+- Added CSS for `.activity-thread__reply-btn` and `.activity-reply-input` with Kanagawa Wave theme
+- Added 7 new Playwright tests: reply button presence, open/close, only-one-at-a-time, submit via button, submit via Cmd+Enter, auto-focus
+- Files changed: `src/components/ActivityDrawer/ActivityFeed.tsx` (modified), `src/components/ActivityDrawer/ActivityFeed.css` (modified), `src/components/ActivityDrawer/ActivityDrawer.css` (modified), `src/pages/MRDetailPage/index.tsx` (modified), `e2e/activity-drawer.spec.ts` (modified)
+- **Learnings for future iterations:**
+  - Never track "active thread" by `discussionId` — standalone comments have `null` discussionId, causing `null === null` false matches. Use root comment `id` instead.
+  - ActivityDrawer was positioned at `left: 0` which let the sidebar (56px, z-index: 100) intercept pointer events on drawer content. Fixed to `left: 56px`.
+  - ReplyInput follows same Cmd+Enter pattern as CommentInput but also supports Escape to cancel
+  - `reply_to_comment` mock returns a fixed response — optimistic update gets replaced by mock response
 ---

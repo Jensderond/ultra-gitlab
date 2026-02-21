@@ -41,7 +41,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
 
   const [activityOpen, setActivityOpen] = useState(false);
   const [showSystemEvents, setShowSystemEvents] = useState(false);
-  const { threads: activityThreads, systemEvents: activitySystemEvents, unresolvedCount, loading: activityLoading, addComment: activityAddComment } = useActivityData(mrId);
+  const { threads: activityThreads, systemEvents: activitySystemEvents, unresolvedCount, loading: activityLoading, addComment: activityAddComment, replyToComment: activityReplyToComment } = useActivityData(mrId);
   const [showCopyToast, copyToClipboard] = useCopyToast();
   const isSmallScreen = useSmallScreen();
   const [view, dispatch] = useViewReducer();
@@ -277,6 +277,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           systemEvents={activitySystemEvents}
           showSystemEvents={showSystemEvents}
           loading={activityLoading}
+          onReply={activityReplyToComment}
         />
       </ActivityDrawer>
 

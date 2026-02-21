@@ -564,4 +564,120 @@ test.describe('Activity Drawer', () => {
     // The comment should appear in the feed - verify it was added
     await expect(textarea).toHaveValue('');
   });
+
+  // ========================================================================
+  // US-008: Reply to thread functionality
+  // ========================================================================
+
+  test('reply button shown on threads with discussionId', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+    await expect(page.getByTestId('activity-feed')).toBeVisible();
+
+    // Threads with a discussionId should have a Reply button
+    const replyButtons = page.getByTestId('activity-reply-btn');
+    const count = await replyButtons.count();
+    expect(count).toBeGreaterThan(0);
+  });
+
+  test('clicking Reply opens inline reply input', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+    await expect(page.getByTestId('activity-feed')).toBeVisible();
+
+    // Click the first Reply button
+    const firstReplyBtn = page.getByTestId('activity-reply-btn').first();
+    await firstReplyBtn.click();
+
+    // Reply input should appear
+    const replyInput = page.getByTestId('activity-reply-input');
+    await expect(replyInput).toBeVisible();
+
+    // Reply textarea should be auto-focused
+    const replyTextarea = page.getByTestId('activity-reply-textarea');
+    await expect(replyTextarea).toBeFocused();
+  });
+
+  test('only one reply input open at a time', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+    await expect(page.getByTestId('activity-feed')).toBeVisible();
+
+    const replyButtons = page.getByTestId('activity-reply-btn');
+    // Open first reply input
+    await replyButtons.first().click();
+    let replyInputs = page.getByTestId('activity-reply-input');
+    await expect(replyInputs).toHaveCount(1);
+
+    // Click a different Reply button — the first input should close
+    // After opening the first, there should be fewer reply buttons visible
+    // (the first thread's button is replaced by the input)
+    // Find another reply button and click it
+    const remainingButtons = page.getByTestId('activity-reply-btn');
+    if (await remainingButtons.count() > 0) {
+      await remainingButtons.first().click();
+      replyInputs = page.getByTestId('activity-reply-input');
+      await expect(replyInputs).toHaveCount(1);
+    }
+  });
+
+  test('reply submitted via send button appears in thread', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+    await expect(page.getByTestId('activity-feed')).toBeVisible();
+
+    // Count existing comments
+    const initialComments = await page.getByTestId('activity-comment').count();
+
+    // Open reply on first thread
+    const firstReplyBtn = page.getByTestId('activity-reply-btn').first();
+    await firstReplyBtn.click();
+
+    // Type and submit
+    const replyTextarea = page.getByTestId('activity-reply-textarea');
+    await replyTextarea.fill('My reply to this thread');
+    const sendBtn = page.getByTestId('activity-reply-send');
+    await sendBtn.click();
+
+    // Reply input should close after submission
+    await expect(page.getByTestId('activity-reply-input')).toHaveCount(0);
+
+    // A new comment should appear in the feed
+    const newComments = await page.getByTestId('activity-comment').count();
+    expect(newComments).toBeGreaterThan(initialComments);
+  });
+
+  test('reply submitted via Cmd+Enter', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+    await expect(page.getByTestId('activity-feed')).toBeVisible();
+
+    const initialComments = await page.getByTestId('activity-comment').count();
+
+    const firstReplyBtn = page.getByTestId('activity-reply-btn').first();
+    await firstReplyBtn.click();
+
+    const replyTextarea = page.getByTestId('activity-reply-textarea');
+    await replyTextarea.fill('Reply via keyboard');
+    await replyTextarea.press('Meta+Enter');
+
+    // Reply input should close
+    await expect(page.getByTestId('activity-reply-input')).toHaveCount(0);
+
+    // New comment should appear
+    const newComments = await page.getByTestId('activity-comment').count();
+    expect(newComments).toBeGreaterThan(initialComments);
+  });
+
+  test('reply input auto-focuses when opened', async ({ page }) => {
+    const toggle = page.getByTestId('activity-toggle');
+    await toggle.click();
+    await expect(page.getByTestId('activity-feed')).toBeVisible();
+
+    const firstReplyBtn = page.getByTestId('activity-reply-btn').first();
+    await firstReplyBtn.click();
+
+    const replyTextarea = page.getByTestId('activity-reply-textarea');
+    await expect(replyTextarea).toBeFocused();
+  });
 });

@@ -5,7 +5,7 @@
   position: fixed;
   /* Sit above the footer (footer ~49px tall with 14px padding + 1px border) */
   bottom: 49px;
-  left: 0;
+  left: 56px; /* offset for sidebar width */
   right: 0;
   /* Height is set via inline style for drag-to-resize */
   z-index: 9;

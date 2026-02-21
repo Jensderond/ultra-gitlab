@@ -130,7 +130,7 @@
         "Playwright E2E test(s) pass for this story"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Use the addComment mutation from useActivityData which calls the existing add_comment Tauri command with just mrId and body (no filePath/line). Optimistic update: insert with negative ID and syncStatus 'pending'. Follow CommentOverlay.tsx patterns for the textarea and Cmd+Enter handling."
     },
     {
@@ -147,7 +147,7 @@
         "Playwright E2E test(s) pass for this story"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Use replyToComment mutation from useActivityData which calls reply_to_comment Tauri command with mrId, discussionId, parentId, and body. Track replyingToDiscussionId in state to manage which thread has the reply input open."
     },
     {

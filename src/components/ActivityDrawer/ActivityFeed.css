@@ -150,3 +150,96 @@
 .activity-thread__replies .activity-comment {
   padding: 6px 0;
 }
+
+/* Reply button */
+.activity-thread__reply-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-top: 4px;
+  opacity: 0.7;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.activity-thread__reply-btn:hover {
+  opacity: 1;
+  color: var(--accent-color);
+}
+
+/* Inline reply input */
+.activity-reply-input {
+  margin-top: 8px;
+  padding-left: 14px;
+  border-left: 2px solid var(--accent-color);
+}
+
+.activity-reply-input__textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.4;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease;
+  box-sizing: border-box;
+}
+
+.activity-reply-input__textarea:focus {
+  border-color: var(--accent-color);
+}
+
+.activity-reply-input__textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.activity-reply-input__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.activity-reply-input__cancel {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-tertiary);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.activity-reply-input__cancel:hover {
+  color: var(--text-primary);
+}
+
+.activity-reply-input__send {
+  background: var(--accent-color);
+  border: none;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.activity-reply-input__send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.activity-reply-input__send:not(:disabled):hover {
+  opacity: 0.85;
+}
