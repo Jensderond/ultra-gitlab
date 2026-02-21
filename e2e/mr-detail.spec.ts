@@ -5,7 +5,7 @@ test.describe('MR Detail Page', () => {
     await page.goto('/mrs/101');
 
     // MR title
-    await expect(page.locator('.mr-title')).toHaveText('feat: Add dark mode toggle to settings');
+    await expect(page.locator('h1.mr-title')).toHaveText('feat: Add dark mode toggle to settings');
 
     // MR IID
     await expect(page.locator('.mr-iid')).toHaveText('!42');
@@ -58,7 +58,7 @@ test.describe('MR Detail Page', () => {
     // Navigate to detail
     await page.getByText('feat: Add dark mode toggle to settings').click();
     await expect(page).toHaveURL(/\/mrs\/101/);
-    await expect(page.locator('.mr-title')).toHaveText('feat: Add dark mode toggle to settings');
+    await expect(page.locator('h1.mr-title')).toHaveText('feat: Add dark mode toggle to settings');
 
     // Navigate back
     const backButton = page.locator('a[href="/mrs"], button[title="Back to MRs"]').first();

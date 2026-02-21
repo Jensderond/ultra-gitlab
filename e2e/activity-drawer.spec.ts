@@ -121,7 +121,8 @@ test.describe('Activity Drawer', () => {
 
     await page.mouse.move(startX, startY);
     await page.mouse.down();
-    await page.mouse.move(startX, startY - 100, { steps: 5 });
+    await page.waitForTimeout(100);
+    await page.mouse.move(startX, startY - 100, { steps: 10 });
     await page.mouse.up();
 
     // Height should have increased
