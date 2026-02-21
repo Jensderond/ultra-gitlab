@@ -9,6 +9,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import type { ApprovalButtonRef } from '../../components/Approval';
 import { CommentOverlay, type CommentOverlayRef } from '../../components/CommentOverlay';
 import { ActivityDrawer } from '../../components/ActivityDrawer';
+import { useActivityData } from '../../hooks/useActivityData';
 import type { DiffLineClickInfo } from '../../components/PierreDiffViewer';
 import type { SelectedLineRange } from '../../components/PierreDiffViewer';
 import { useFileContent } from '../../hooks/useFileContent';
@@ -39,6 +40,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   const previousFileRef = useRef<string | null>(null);
 
   const [activityOpen, setActivityOpen] = useState(false);
+  const { unresolvedCount } = useActivityData(mrId);
   const [showCopyToast, copyToClipboard] = useCopyToast();
   const isSmallScreen = useSmallScreen();
   const [view, dispatch] = useViewReducer();
@@ -159,6 +161,20 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     lineSelectionRef.current = range;
   }, []);
 
+  // Cmd+D toggles activity drawer (skip when focus is in text input/textarea)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.metaKey && e.key === 'd') {
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        e.preventDefault();
+        setActivityOpen((o) => !o);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
   useMRKeyboard({
     selectedFile: view.selectedFile,
     isSmallScreen,
@@ -268,9 +284,14 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           className="activity-toggle-btn"
           onClick={() => setActivityOpen((o) => !o)}
           data-testid="activity-toggle"
-          title="Toggle activity drawer"
+          title="Toggle activity drawer (⌘D)"
         >
           Activity
+          {unresolvedCount > 0 && (
+            <span className="activity-badge" data-testid="activity-badge">
+              {unresolvedCount}
+            </span>
+          )}
         </button>
       </footer>
     </div>

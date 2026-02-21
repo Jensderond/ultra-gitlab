@@ -198,4 +198,52 @@ test.describe('Activity Drawer', () => {
     const heightAfterReopen = await drawer.evaluate((el) => el.getBoundingClientRect().height);
     expect(Math.abs(heightAfterReopen - heightAfterDrag)).toBeLessThan(2);
   });
+
+  test('Cmd+D keyboard shortcut toggles the drawer', async ({ page }) => {
+    const drawer = page.getByTestId('activity-drawer');
+
+    // Open with Cmd+D
+    await page.keyboard.press('Meta+d');
+    await expect(drawer).toHaveClass(/activity-drawer--open/);
+
+    // Close with Cmd+D
+    await page.keyboard.press('Meta+d');
+    await expect(drawer).not.toHaveClass(/activity-drawer--open/);
+  });
+
+  test('Cmd+D does not fire when focus is in a text input', async ({ page }) => {
+    const drawer = page.getByTestId('activity-drawer');
+
+    // Focus a text input (we create one dynamically to avoid depending on page state)
+    await page.evaluate(() => {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.id = 'test-input';
+      document.body.appendChild(input);
+      input.focus();
+    });
+
+    await page.keyboard.press('Meta+d');
+    // Drawer should remain closed
+    await expect(drawer).not.toHaveClass(/activity-drawer--open/);
+
+    // Cleanup
+    await page.evaluate(() => document.getElementById('test-input')?.remove());
+  });
+
+  test('toggle button shows unresolved thread count badge', async ({ page }) => {
+    // Seed data for MR 101 has 4 unresolved discussion threads
+    const badge = page.getByTestId('activity-badge');
+    await expect(badge).toBeVisible();
+    await expect(badge).toHaveText('4');
+  });
+
+  test('badge is hidden when unresolved count is 0', async ({ page }) => {
+    // Navigate to an MR with no comments (e.g., MR that doesn't exist in seed)
+    await page.goto('/mrs/999');
+    // Wait for page to settle
+    await page.waitForTimeout(500);
+    const badge = page.getByTestId('activity-badge');
+    await expect(badge).not.toBeAttached();
+  });
 });
