@@ -33,7 +33,11 @@ use commands::{
 };
 use services::companion_server;
 use services::sync_engine::{SyncConfig, SyncEngine};
-use tauri::{Manager, TitleBarStyle, WebviewUrl, WebviewWindowBuilder};
+use tauri::{
+    Manager, TitleBarStyle, WebviewUrl, WebviewWindowBuilder,
+    menu::{MenuBuilder, MenuItemBuilder},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+};
 use tauri_plugin_store::StoreExt;
 
 #[tauri::command]
@@ -170,6 +174,48 @@ pub fn run() {
                 }
             }
 
+            // System tray icon (macOS: hide-on-close, all platforms: quick access)
+            let show_item = MenuItemBuilder::with_id("show", "Show Ultra Gitlab").build(app)?;
+            let quit_item = MenuItemBuilder::with_id("quit", "Quit Ultra Gitlab").build(app)?;
+            let tray_menu = MenuBuilder::new(app)
+                .item(&show_item)
+                .item(&quit_item)
+                .build()?;
+
+            let tray_icon = TrayIconBuilder::new()
+                .icon(app.default_window_icon().cloned().expect("app icon not configured"))
+                .menu(&tray_menu)
+                .show_menu_on_left_click(false)
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        if let Some(window) = tray.app_handle().get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .on_menu_event(|app_handle, event| match event.id().as_ref() {
+                    "show" => {
+                        if let Some(window) = app_handle.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "quit" => {
+                        app_handle.exit(0);
+                    }
+                    _ => {}
+                })
+                .build(app)?;
+
+            // Prevent the tray icon handle from being dropped (which removes the icon)
+            app.manage(tray_icon);
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -268,6 +314,23 @@ pub fn run() {
             update_session_cookie,
             refresh_avatars,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .on_window_event(|window, event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "main" {
+                    let _ = window.hide();
+                    api.prevent_close();
+                }
+            }
+        })
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::Reopen { .. } = event {
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+        });
 }

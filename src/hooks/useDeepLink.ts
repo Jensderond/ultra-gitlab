@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useToast } from '../components/Toast';
 import { parseDeepLinkUrl } from '../utils/deepLinkParser';
 import { isTauri, resolveMrByWebUrl, listInstances } from '../services';
@@ -98,8 +99,13 @@ export default function useDeepLink() {
       }
 
       // Listen for subsequent deep-link URLs (warm start)
-      const unlisten = await deepLink.onOpenUrl((urls) => {
+      const unlisten = await deepLink.onOpenUrl(async (urls) => {
         if (!cancelled && urls.length > 0) {
+          // Surface the window if it was hidden (macOS hide-on-close)
+          const appWindow = getCurrentWindow();
+          await appWindow.show();
+          await appWindow.setFocus();
+
           handleDeepLinkUrl(urls[0]);
         }
       });
