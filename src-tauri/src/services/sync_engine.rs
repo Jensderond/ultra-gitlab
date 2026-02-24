@@ -18,8 +18,8 @@ use crate::services::gitlab_client::{
 };
 use crate::services::sync_events::{
     ActionSyncedPayload, AuthExpiredPayload, MrReadyPayload, MrUpdateType, MrUpdatedPayload,
-    SyncPhase, SyncProgressPayload, ACTION_SYNCED_EVENT, AUTH_EXPIRED_EVENT, MR_READY_EVENT,
-    MR_UPDATED_EVENT, SYNC_PROGRESS_EVENT,
+    MrsSyncedPayload, SyncPhase, SyncProgressPayload, ACTION_SYNCED_EVENT, AUTH_EXPIRED_EVENT,
+    MRS_SYNCED_EVENT, MR_READY_EVENT, MR_UPDATED_EVENT, SYNC_PROGRESS_EVENT,
 };
 use crate::services::sync_processor::{self, ProcessResult};
 use crate::services::sync_queue;
@@ -589,7 +589,9 @@ impl SyncEngine {
 
         // Validate token and ensure authenticated_username is persisted
         // (may be NULL for instances created before migration 0008)
+        let mut authenticated_username = String::new();
         if let Ok(user) = client.validate_token().await {
+            authenticated_username = user.username.clone();
             let _ = sqlx::query(
                 "UPDATE gitlab_instances SET authenticated_username = ? WHERE id = ? AND (authenticated_username IS NULL OR authenticated_username != ?)"
             )
@@ -661,6 +663,26 @@ impl SyncEngine {
 
         // Purge merged/closed MRs
         result.purged_count = self.purge_closed_mrs(instance.id, &mrs).await?;
+
+        // Emit mrs-synced event with the full MR list from DB
+        // This allows the frontend to update reactively without re-querying.
+        match crate::commands::mr::query_all_open_mrs(&self.pool, instance.id).await {
+            Ok(mr_items) => {
+                if let Err(e) = self.app_handle.emit(
+                    MRS_SYNCED_EVENT,
+                    MrsSyncedPayload {
+                        instance_id: instance.id,
+                        authenticated_username: authenticated_username.clone(),
+                        mrs: mr_items,
+                    },
+                ) {
+                    log::warn!("Failed to emit mrs-synced event: {}", e);
+                }
+            }
+            Err(e) => {
+                log::warn!("Failed to query MRs for mrs-synced event: {}", e);
+            }
+        }
 
         // Emit pushing_actions event
         self.emit_progress(SyncPhase::PushingActions, "Processing sync queue");

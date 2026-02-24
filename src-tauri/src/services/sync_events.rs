@@ -17,6 +17,11 @@ pub const MR_UPDATED_EVENT: &str = "mr-updated";
 /// Emitted when a local action is successfully synced to GitLab.
 pub const ACTION_SYNCED_EVENT: &str = "action-synced";
 
+/// Event: mrs-synced
+/// Emitted after all MRs for an instance have been synced, carrying the full MR list.
+/// Frontend can use this to update the MR list without re-querying the backend.
+pub const MRS_SYNCED_EVENT: &str = "mrs-synced";
+
 /// Event: auth-expired
 /// Emitted when authentication fails due to an expired or revoked token.
 pub const AUTH_EXPIRED_EVENT: &str = "auth-expired";
@@ -143,6 +148,23 @@ pub struct MrReadyPayload {
 
     /// URL to the MR in GitLab web UI.
     pub web_url: String,
+}
+
+/// Payload for mrs-synced events.
+///
+/// Carries the full list of MRs for an instance after sync completes,
+/// allowing the frontend to update reactively without re-querying.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MrsSyncedPayload {
+    /// The GitLab instance ID.
+    pub instance_id: i64,
+
+    /// The authenticated username for this instance (for filtering authored vs reviewing).
+    pub authenticated_username: String,
+
+    /// The complete list of opened MRs for this instance.
+    pub mrs: Vec<crate::commands::mr::MergeRequestListItem>,
 }
 
 /// Payload for auth-expired events.

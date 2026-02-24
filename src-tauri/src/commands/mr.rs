@@ -86,6 +86,40 @@ impl From<MergeRequest> for MergeRequestListItem {
     }
 }
 
+/// Query all opened MRs for an instance from the local SQLite cache.
+///
+/// This is a shared function used by both the `get_merge_requests` command
+/// and the sync engine (for emitting `mrs-synced` events).
+///
+/// Returns all opened MRs without filtering by author or search.
+pub async fn query_all_open_mrs(
+    pool: &DbPool,
+    instance_id: i64,
+) -> Result<Vec<MergeRequestListItem>, AppError> {
+    let mrs: Vec<MergeRequest> = sqlx::query_as(
+        r#"
+        SELECT
+            mr.id, mr.instance_id, mr.iid, mr.project_id,
+            COALESCE(p.name_with_namespace, mr.project_name) AS project_name,
+            mr.title, mr.description,
+            mr.author_username, mr.source_branch, mr.target_branch, mr.state,
+            mr.web_url, mr.created_at, mr.updated_at, mr.merged_at,
+            mr.approval_status, mr.approvals_required, mr.approvals_count,
+            mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved,
+            mr.head_pipeline_status
+        FROM merge_requests mr
+        LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
+        WHERE mr.instance_id = $1 AND mr.state = 'opened'
+        ORDER BY mr.updated_at DESC
+        "#,
+    )
+    .bind(instance_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(mrs.into_iter().map(MergeRequestListItem::from).collect())
+}
+
 /// Get cached merge requests from local storage.
 ///
 /// Returns instantly from the local SQLite cache.

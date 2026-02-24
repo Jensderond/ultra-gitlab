@@ -83,21 +83,25 @@ export default function MyMRsPage() {
     loadMRs();
   }, [loadMRs]);
 
-  // Re-fetch on mr-updated events
+  // Reactively update list from mrs-synced events (no re-fetch needed)
   useEffect(() => {
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     let unlisten: (() => void) | undefined;
 
-    tauriListen<{ mr_id: number }>('mr-updated', () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => loadMRs(), 500);
-    }).then((fn) => { unlisten = fn; });
+    tauriListen<{ instanceId: number; authenticatedUsername: string; mrs: MergeRequest[] }>(
+      'mrs-synced',
+      (event) => {
+        if (event.payload.instanceId !== selectedInstanceId) return;
 
-    return () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      unlisten?.();
-    };
-  }, [loadMRs]);
+        // Filter: only authored MRs (state=opened is already filtered by the backend event)
+        const authored = event.payload.mrs.filter(mr =>
+          mr.authorUsername === event.payload.authenticatedUsername
+        );
+        setMrs(authored);
+      }
+    ).then((fn) => { unlisten = fn; });
+
+    return () => { unlisten?.(); };
+  }, [selectedInstanceId]);
 
   // Handle Enter to open selected MR
   const handleSelectByIndex = useCallback(

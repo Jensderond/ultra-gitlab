@@ -186,28 +186,51 @@ export default function MRList({
     }
   }, [refreshTrigger, loadMRs]);
 
-  // Re-fetch on mr-updated events (debounced at 500ms to handle bursts)
+  // Reactively update list from mrs-synced events (no re-fetch needed)
+  const onMRsLoadedRef = useRef(onMRsLoaded);
+  onMRsLoadedRef.current = onMRsLoaded;
+
   useEffect(() => {
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     let unlisten: (() => void) | undefined;
 
-    tauriListen<{ mr_id: number; update_type: string; instance_id: number; iid: number }>(
-      'mr-updated',
-      () => {
-        if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-          loadMRs(true);
-        }, 500);
+    tauriListen<{ instanceId: number; authenticatedUsername: string; mrs: MergeRequest[] }>(
+      'mrs-synced',
+      (event) => {
+        // Ignore events for other instances
+        if (event.payload.instanceId !== instanceId) return;
+
+        // Filter: exclude user's own MRs and already-approved MRs
+        const filtered = event.payload.mrs.filter(mr =>
+          mr.authorUsername !== event.payload.authenticatedUsername &&
+          !mr.userHasApproved
+        );
+
+        // Detect newly added MRs
+        const detectedNewIds = new Set<number>();
+        if (previousMrIdsRef.current.size > 0) {
+          for (const mr of filtered) {
+            if (!previousMrIdsRef.current.has(mr.id)) {
+              detectedNewIds.add(mr.id);
+            }
+          }
+          if (detectedNewIds.size > 0) {
+            setTimeout(() => dispatch({ type: 'CLEAR_NEW_MRS' }), 5000);
+          }
+        }
+
+        previousMrIdsRef.current = new Set(filtered.map(mr => mr.id));
+        dispatch({ type: 'FETCH_SUCCESS', mrs: filtered, newMrIds: detectedNewIds, timestamp: Date.now() });
+        onMRsLoadedRef.current?.(filtered);
+        setTimeout(() => dispatch({ type: 'SYNC_IDLE' }), 2000);
       }
     ).then((fn) => {
       unlisten = fn;
     });
 
     return () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
       unlisten?.();
     };
-  }, [loadMRs]);
+  }, [instanceId]);
 
   // Update displayed sync time every 10 seconds
   const [, setTick] = useState(0);
