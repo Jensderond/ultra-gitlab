@@ -44,6 +44,9 @@ export function useMRKeyboard({
       return;
     }
 
+    // Let browser handle modified keys (Cmd+C copy, Cmd+V paste, etc.)
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
     switch (e.key) {
       case 'n':
       case 'j':
