@@ -90,7 +90,7 @@ export default function CollapsePatternsEditor() {
 
       <div className="collapse-patterns-list">
         {patterns.map((pattern, index) => (
-          <div key={`${index}-${pattern}`} className="collapse-pattern-row">
+          <div key={index} className="collapse-pattern-row">
             <input
               type="text"
               className="collapse-pattern-input"
