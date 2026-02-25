@@ -14,6 +14,24 @@
   padding: 28px 0 12px; /* clearance for macOS traffic lights */
 }
 
+.app-sidebar-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2px;
+  height: 20px;
+  background: linear-gradient(180deg,
+    var(--accent-color) 0%,
+    var(--accent-hover) 60%,
+    transparent 100%);
+  border-radius: 0 1px 1px 0;
+  box-shadow: 0 0 10px var(--wave-glow-strong);
+  opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
 .app-sidebar-top {
   display: flex;
   flex-direction: column;
@@ -168,6 +186,20 @@
   .app-sidebar-item svg {
     width: 26px;
     height: 26px;
+  }
+
+  .app-sidebar-indicator {
+    top: auto;
+    bottom: 12px;
+    left: 0;
+    width: 20px;
+    height: 2px;
+    background: linear-gradient(90deg,
+      var(--accent-color) 0%,
+      var(--accent-hover) 60%,
+      transparent 100%);
+    border-radius: 1px 1px 0 0;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
   }
 
   .app-sidebar-bell,

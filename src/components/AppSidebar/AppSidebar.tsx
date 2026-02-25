@@ -5,6 +5,7 @@
  */
 
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useRef, useState, useLayoutEffect, useEffect, useCallback } from 'react';
 import { isTauri } from '../../services/transport';
 import './AppSidebar.css';
 
@@ -82,6 +83,8 @@ const navItems: NavItem[] = [
 export function AppSidebar({ updateAvailable, hasApprovedMRs, hasActiveToasts, companionEnabled, companionDeviceCount = 0 }: AppSidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const sidebarRef = useRef<HTMLElement>(null);
+  const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({ opacity: 0 });
 
   const isActive = (item: NavItem) => {
     return location.pathname === item.path || location.pathname.startsWith(item.matchPrefix + '/');
@@ -90,13 +93,55 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs, hasActiveToasts, c
   const visibleItems = isTauri ? navItems : navItems.filter(item => item.path !== '/settings' && item.path !== '/pipelines');
   const topItems = visibleItems.filter(item => !item.bottom);
   const bottomItems = visibleItems.filter(item => item.bottom);
+  const activePath = visibleItems.find(item => isActive(item))?.path ?? null;
+
+  const updateIndicator = useCallback(() => {
+    const sidebar = sidebarRef.current;
+    if (!activePath || !sidebar) {
+      setIndicatorStyle({ opacity: 0 });
+      return;
+    }
+    const button = sidebar.querySelector(`[data-path="${CSS.escape(activePath)}"]`) as HTMLElement;
+    if (!button) {
+      setIndicatorStyle({ opacity: 0 });
+      return;
+    }
+    const sidebarRect = sidebar.getBoundingClientRect();
+    const buttonRect = button.getBoundingClientRect();
+    const isMobile = window.matchMedia('(max-width: 767px)').matches;
+
+    if (isMobile) {
+      const xOffset = buttonRect.left - sidebarRect.left + (buttonRect.width - 20) / 2;
+      setIndicatorStyle({
+        transform: `translateX(${xOffset}px)`,
+        opacity: 1,
+      });
+    } else {
+      const yOffset = buttonRect.top - sidebarRect.top + (buttonRect.height - 20) / 2;
+      setIndicatorStyle({
+        transform: `translateY(${yOffset}px)`,
+        opacity: 1,
+      });
+    }
+  }, [activePath]);
+
+  useLayoutEffect(() => {
+    updateIndicator();
+  }, [updateIndicator]);
+
+  useEffect(() => {
+    window.addEventListener('resize', updateIndicator);
+    return () => window.removeEventListener('resize', updateIndicator);
+  }, [updateIndicator]);
 
   return (
-    <nav className="app-sidebar">
+    <nav className="app-sidebar" ref={sidebarRef}>
+      <div className="app-sidebar-indicator" style={indicatorStyle} />
       <div className="app-sidebar-top">
         {topItems.map(item => (
           <button
             key={item.path}
+            data-path={item.path}
             className={`app-sidebar-item ${isActive(item) ? 'active' : ''}`}
             onClick={() => navigate(item.path)}
             title={item.label}
@@ -127,6 +172,7 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs, hasActiveToasts, c
         {bottomItems.map(item => (
           <button
             key={item.path}
+            data-path={item.path}
             className={`app-sidebar-item ${isActive(item) ? 'active' : ''}`}
             onClick={() => navigate(item.path)}
             title={item.label}
