@@ -57,6 +57,73 @@
   letter-spacing: 0.02em;
 }
 
+/* Search / Filter */
+
+.file-nav-search {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  gap: 8px;
+}
+
+.file-nav-search-field {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.file-nav-search-input {
+  width: 100%;
+  background: var(--overlay-surface);
+  border: 1px solid var(--overlay-divider);
+  border-radius: 5px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-family: 'Noto Sans JP', sans-serif;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.file-nav-search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.file-nav-search-input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px var(--wave-glow);
+}
+
+.file-nav-search-input:focus + .file-nav-search-kbd {
+  display: none;
+}
+
+.file-nav-search-kbd {
+  position: absolute;
+  right: 6px;
+  font-size: 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: var(--overlay-divider);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  padding: 1px 5px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.file-nav-search-count {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
 .file-nav-list {
   flex: 1;
   overflow-y: auto;

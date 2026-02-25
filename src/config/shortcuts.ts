@@ -229,6 +229,13 @@ export const defaultShortcuts: ShortcutDefinition[] = [
     context: 'diff-viewer',
   },
   {
+    id: 'filter-files',
+    description: 'Filter files by name',
+    defaultKey: '\\',
+    category: 'diff',
+    context: 'diff-viewer',
+  },
+  {
     id: 'add-suggestion',
     description: 'Add suggestion at line',
     defaultKey: 's',

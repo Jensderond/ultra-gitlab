@@ -4,6 +4,7 @@
  * Displays a list of changed files with change indicators.
  */
 
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import type { DiffFileSummary, ChangeType } from '../../types';
 import './FileNavigation.css';
 
@@ -72,10 +73,49 @@ export default function FileNavigation({
   hideGenerated,
   onToggleHideGenerated,
 }: FileNavigationProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   const generatedCount = generatedPaths?.size ?? 0;
-  const visibleFiles = hideGenerated
-    ? files.filter((f) => !generatedPaths?.has(f.newPath))
-    : files;
+
+  const visibleFiles = useMemo(() => {
+    let result = hideGenerated
+      ? files.filter((f) => !generatedPaths?.has(f.newPath))
+      : files;
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter((f) => f.newPath.toLowerCase().includes(query));
+    }
+
+    return result;
+  }, [files, hideGenerated, generatedPaths, searchQuery]);
+
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setSearchQuery('');
+      searchInputRef.current?.blur();
+    }
+  }, []);
+
+  // Global `\` shortcut to focus the search input
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.metaKey || e.ctrlKey || e.altKey
+      ) {
+        return;
+      }
+      if (e.key === '\\') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   return (
     <div className="file-navigation">
@@ -89,6 +129,25 @@ export default function FileNavigation({
           >
             {hideGenerated ? `+${generatedCount} hidden` : `${generatedCount} generated`}
           </button>
+        )}
+      </div>
+      <div className="file-nav-search">
+        <div className="file-nav-search-field">
+          <input
+            ref={searchInputRef}
+            type="text"
+            className="file-nav-search-input"
+            placeholder="Filter files…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
+          />
+          {!searchQuery && <kbd className="file-nav-search-kbd">\</kbd>}
+        </div>
+        {searchQuery && (
+          <span className="file-nav-search-count">
+            {visibleFiles.length} / {files.length}
+          </span>
         )}
       </div>
       <div className="file-nav-list">
