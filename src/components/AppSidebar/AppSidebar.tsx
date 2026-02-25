@@ -5,7 +5,7 @@
  */
 
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useRef, useState, useLayoutEffect, useEffect, useCallback } from 'react';
+import { useRef, useLayoutEffect, useEffect, useCallback } from 'react';
 import { isTauri } from '../../services/transport';
 import './AppSidebar.css';
 
@@ -80,11 +80,16 @@ const navItems: NavItem[] = [
   { path: '/settings', matchPrefix: '/settings', label: 'Settings', icon: <GearIcon />, bottom: true },
 ];
 
+const isBottomPath = (path: string) => navItems.some(item => item.path === path && item.bottom);
+
 export function AppSidebar({ updateAvailable, hasApprovedMRs, hasActiveToasts, companionEnabled, companionDeviceCount = 0 }: AppSidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const sidebarRef = useRef<HTMLElement>(null);
-  const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({ opacity: 0 });
+  const indicatorRef = useRef<HTMLDivElement>(null);
+  const prevActivePathRef = useRef<string | null>(null);
+  const currentTransformRef = useRef('translateY(0px)');
+  const animationTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const isActive = (item: NavItem) => {
     return location.pathname === item.path || location.pathname.startsWith(item.matchPrefix + '/');
@@ -97,32 +102,68 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs, hasActiveToasts, c
 
   const updateIndicator = useCallback(() => {
     const sidebar = sidebarRef.current;
+    const indicator = indicatorRef.current;
+    if (!indicator) return;
+
+    if (animationTimeoutRef.current) {
+      clearTimeout(animationTimeoutRef.current);
+      animationTimeoutRef.current = undefined;
+    }
+
     if (!activePath || !sidebar) {
-      setIndicatorStyle({ opacity: 0 });
+      indicator.style.opacity = '0';
+      prevActivePathRef.current = activePath;
       return;
     }
+
     const button = sidebar.querySelector(`[data-path="${CSS.escape(activePath)}"]`) as HTMLElement;
     if (!button) {
-      setIndicatorStyle({ opacity: 0 });
+      indicator.style.opacity = '0';
+      prevActivePathRef.current = activePath;
       return;
     }
+
     const sidebarRect = sidebar.getBoundingClientRect();
     const buttonRect = button.getBoundingClientRect();
     const isMobile = window.matchMedia('(max-width: 767px)').matches;
+    const prevPath = prevActivePathRef.current;
+    const isCrossSection = prevPath !== null && activePath !== prevPath
+      && isBottomPath(prevPath) !== isBottomPath(activePath);
 
-    if (isMobile) {
+    if (isCrossSection && !isMobile) {
+      const yOffset = buttonRect.top - sidebarRect.top + (buttonRect.height - 20) / 2;
+
+      // Phase 1: Slide left from current position
+      indicator.style.transition = 'transform 0.15s ease-in, opacity 0.15s ease-in';
+      indicator.style.transform = `${currentTransformRef.current} translateX(-16px)`;
+      indicator.style.opacity = '0';
+
+      // Phase 2: After exit, reposition at new Y (still off-screen left), then slide in
+      animationTimeoutRef.current = setTimeout(() => {
+        indicator.style.transition = 'none';
+        indicator.style.transform = `translateY(${yOffset}px) translateX(-16px)`;
+        indicator.offsetHeight; // force reflow
+
+        // Phase 3: Slide in from left at new position
+        indicator.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
+        indicator.style.transform = `translateY(${yOffset}px)`;
+        indicator.style.opacity = '1';
+        currentTransformRef.current = `translateY(${yOffset}px)`;
+      }, 150);
+    } else if (isMobile) {
       const xOffset = buttonRect.left - sidebarRect.left + (buttonRect.width - 20) / 2;
-      setIndicatorStyle({
-        transform: `translateX(${xOffset}px)`,
-        opacity: 1,
-      });
+      indicator.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease';
+      indicator.style.transform = `translateX(${xOffset}px)`;
+      indicator.style.opacity = '1';
     } else {
       const yOffset = buttonRect.top - sidebarRect.top + (buttonRect.height - 20) / 2;
-      setIndicatorStyle({
-        transform: `translateY(${yOffset}px)`,
-        opacity: 1,
-      });
+      indicator.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease';
+      indicator.style.transform = `translateY(${yOffset}px)`;
+      indicator.style.opacity = '1';
+      currentTransformRef.current = `translateY(${yOffset}px)`;
     }
+
+    prevActivePathRef.current = activePath;
   }, [activePath]);
 
   useLayoutEffect(() => {
@@ -131,12 +172,17 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs, hasActiveToasts, c
 
   useEffect(() => {
     window.addEventListener('resize', updateIndicator);
-    return () => window.removeEventListener('resize', updateIndicator);
+    return () => {
+      window.removeEventListener('resize', updateIndicator);
+      if (animationTimeoutRef.current) {
+        clearTimeout(animationTimeoutRef.current);
+      }
+    };
   }, [updateIndicator]);
 
   return (
     <nav className="app-sidebar" ref={sidebarRef}>
-      <div className="app-sidebar-indicator" style={indicatorStyle} />
+      <div className="app-sidebar-indicator" ref={indicatorRef} />
       <div className="app-sidebar-top">
         {topItems.map(item => (
           <button
