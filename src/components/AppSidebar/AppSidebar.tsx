@@ -133,21 +133,20 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs, hasActiveToasts, c
     if (isCrossSection && !isMobile) {
       const yOffset = buttonRect.top - sidebarRect.top + (buttonRect.height - 20) / 2;
 
-      // Phase 1: Slide left from current position
-      indicator.style.transition = 'transform 0.15s ease-in, opacity 0.15s ease-in';
-      indicator.style.transform = `${currentTransformRef.current} translateX(-16px)`;
-      indicator.style.opacity = '0';
+      // Phase 1: Collapse horizontally into the left edge
+      indicator.style.transformOrigin = 'left center';
+      indicator.style.transition = 'transform 0.15s ease-in';
+      indicator.style.transform = `${currentTransformRef.current} scaleX(0)`;
 
-      // Phase 2: After exit, reposition at new Y (still off-screen left), then slide in
+      // Phase 2: After collapse, snap to new Y (still collapsed)
       animationTimeoutRef.current = setTimeout(() => {
         indicator.style.transition = 'none';
-        indicator.style.transform = `translateY(${yOffset}px) translateX(-16px)`;
+        indicator.style.transform = `translateY(${yOffset}px) scaleX(0)`;
         indicator.offsetHeight; // force reflow
 
-        // Phase 3: Slide in from left at new position
-        indicator.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
+        // Phase 3: Expand at new position
+        indicator.style.transition = 'transform 0.2s ease-out';
         indicator.style.transform = `translateY(${yOffset}px)`;
-        indicator.style.opacity = '1';
         currentTransformRef.current = `translateY(${yOffset}px)`;
       }, 150);
     } else if (isMobile) {
@@ -172,13 +171,17 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs, hasActiveToasts, c
 
   useEffect(() => {
     window.addEventListener('resize', updateIndicator);
+    return () => window.removeEventListener('resize', updateIndicator);
+  }, [updateIndicator]);
+
+  // Clear animation timeout on unmount only
+  useEffect(() => {
     return () => {
-      window.removeEventListener('resize', updateIndicator);
       if (animationTimeoutRef.current) {
         clearTimeout(animationTimeoutRef.current);
       }
     };
-  }, [updateIndicator]);
+  }, []);
 
   return (
     <nav className="app-sidebar" ref={sidebarRef}>
