@@ -49,7 +49,7 @@ for (const file of files) {
 
 // Update Cargo.lock to reflect the new version
 console.log("\nUpdating lock files...");
-const cargo = Bun.spawnSync(["cargo", "check", "--manifest-path", "src-tauri/Cargo.toml"], {
+const cargo = Bun.spawnSync(["cargo", "generate-lockfile", "--manifest-path", "src-tauri/Cargo.toml"], {
   stdout: "ignore",
   stderr: "pipe",
 });
