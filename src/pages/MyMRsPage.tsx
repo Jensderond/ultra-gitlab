@@ -85,11 +85,13 @@ export default function MyMRsPage() {
 
   // Reactively update list from mrs-synced events (no re-fetch needed)
   useEffect(() => {
+    let cancelled = false;
     let unlisten: (() => void) | undefined;
 
     tauriListen<{ instanceId: number; authenticatedUsername: string; mrs: MergeRequest[] }>(
       'mrs-synced',
       (event) => {
+        if (cancelled) return;
         if (event.payload.instanceId !== selectedInstanceId) return;
 
         // Filter: only authored MRs (state=opened is already filtered by the backend event)
@@ -98,9 +100,15 @@ export default function MyMRsPage() {
         );
         setMrs(authored);
       }
-    ).then((fn) => { unlisten = fn; });
+    ).then((fn) => {
+      if (cancelled) fn(); // already unmounted, immediately unlisten
+      else unlisten = fn;
+    });
 
-    return () => { unlisten?.(); };
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
   }, [selectedInstanceId]);
 
   // Handle Enter to open selected MR

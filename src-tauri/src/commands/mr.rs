@@ -26,7 +26,7 @@ pub struct MergeRequestFilter {
 /// Response item for get_merge_requests command.
 ///
 /// This is a simplified view of MergeRequest with parsed JSON fields.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MergeRequestListItem {
     pub id: i64,

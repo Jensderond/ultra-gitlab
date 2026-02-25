@@ -36,7 +36,11 @@ pub async fn create_pool(db_path: &Path) -> Result<DbPool, sqlx::Error> {
         // Enable foreign key constraints
         .foreign_keys(true)
         // Increase busy timeout to handle concurrent access
-        .busy_timeout(std::time::Duration::from_secs(30));
+        .busy_timeout(std::time::Duration::from_secs(30))
+        // Auto-checkpoint WAL every 1000 pages (~4MB) to prevent WAL bloat
+        .pragma("wal_autocheckpoint", "1000")
+        // Memory-map the first 64MB for faster reads and fewer I/O errors
+        .pragma("mmap_size", "67108864");
 
     let pool = SqlitePoolOptions::new()
         // Max connections: SQLite handles concurrency via WAL, so we keep this moderate

@@ -530,6 +530,11 @@ impl SyncEngine {
         )
         .await?;
 
+        // Checkpoint WAL after heavy writes to prevent WAL bloat and IOERR_SHORT_READ
+        let _ = sqlx::query("PRAGMA wal_checkpoint(TRUNCATE)")
+            .execute(&self.pool)
+            .await;
+
         Ok(result)
     }
 
@@ -589,9 +594,7 @@ impl SyncEngine {
 
         // Validate token and ensure authenticated_username is persisted
         // (may be NULL for instances created before migration 0008)
-        let mut authenticated_username = String::new();
-        if let Ok(user) = client.validate_token().await {
-            authenticated_username = user.username.clone();
+        let authenticated_username = if let Ok(user) = client.validate_token().await {
             let _ = sqlx::query(
                 "UPDATE gitlab_instances SET authenticated_username = ? WHERE id = ? AND (authenticated_username IS NULL OR authenticated_username != ?)"
             )
@@ -600,7 +603,11 @@ impl SyncEngine {
             .bind(&user.username)
             .execute(&self.pool)
             .await;
-        }
+            user.username.clone()
+        } else {
+            // Fall back to DB-cached username (stable as long as token hasn't changed)
+            instance.authenticated_username.clone().unwrap_or_default()
+        };
 
         // Emit fetching_mrs event
         self.emit_progress(
@@ -609,8 +616,12 @@ impl SyncEngine {
         );
 
         // Fetch MRs based on scope
+        let fetch_failed;
         let mrs = match self.fetch_mrs_for_instance(&client, &config).await {
-            Ok(mrs) => mrs,
+            Ok(mrs) => {
+                fetch_failed = false;
+                mrs
+            }
             Err(e) => {
                 // If auth expired, propagate the error with instance info
                 if e.is_authentication_expired() {
@@ -621,6 +632,7 @@ impl SyncEngine {
                     ));
                 }
                 result.errors.push(format!("Failed to fetch MRs: {}", e));
+                fetch_failed = true;
                 Vec::new()
             }
         };
@@ -658,29 +670,34 @@ impl SyncEngine {
         // Sync user avatars (non-fatal)
         self.sync_user_avatars(instance, &mrs).await;
 
-        // Emit purging event
-        self.emit_progress(SyncPhase::Purging, "Purging merged/closed MRs");
+        // Skip purge and event emission when fetch failed — we have no
+        // reliable MR list, so purging would wipe the cache and the event
+        // would push an empty/stale list to the frontend.
+        if !fetch_failed {
+            // Emit purging event
+            self.emit_progress(SyncPhase::Purging, "Purging merged/closed MRs");
 
-        // Purge merged/closed MRs
-        result.purged_count = self.purge_closed_mrs(instance.id, &mrs).await?;
+            // Purge merged/closed MRs
+            result.purged_count = self.purge_closed_mrs(instance.id, &mrs).await?;
 
-        // Emit mrs-synced event with the full MR list from DB
-        // This allows the frontend to update reactively without re-querying.
-        match crate::commands::mr::query_all_open_mrs(&self.pool, instance.id).await {
-            Ok(mr_items) => {
-                if let Err(e) = self.app_handle.emit(
-                    MRS_SYNCED_EVENT,
-                    MrsSyncedPayload {
-                        instance_id: instance.id,
-                        authenticated_username: authenticated_username.clone(),
-                        mrs: mr_items,
-                    },
-                ) {
-                    log::warn!("Failed to emit mrs-synced event: {}", e);
+            // Emit mrs-synced event with the full MR list from DB
+            // This allows the frontend to update reactively without re-querying.
+            match crate::commands::mr::query_all_open_mrs(&self.pool, instance.id).await {
+                Ok(mr_items) => {
+                    if let Err(e) = self.app_handle.emit(
+                        MRS_SYNCED_EVENT,
+                        MrsSyncedPayload {
+                            instance_id: instance.id,
+                            authenticated_username: authenticated_username.clone(),
+                            mrs: mr_items,
+                        },
+                    ) {
+                        log::warn!("Failed to emit mrs-synced event: {}", e);
+                    }
                 }
-            }
-            Err(e) => {
-                log::warn!("Failed to query MRs for mrs-synced event: {}", e);
+                Err(e) => {
+                    log::warn!("Failed to query MRs for mrs-synced event: {}", e);
+                }
             }
         }
 
@@ -1916,7 +1933,7 @@ impl SyncEngine {
     /// Get all GitLab instances from the database.
     async fn get_gitlab_instances(&self) -> Result<Vec<GitLabInstanceRow>, AppError> {
         let instances = sqlx::query_as::<_, GitLabInstanceRow>(
-            "SELECT id, url, name, token, session_cookie FROM gitlab_instances ORDER BY id",
+            "SELECT id, url, name, token, session_cookie, authenticated_username FROM gitlab_instances ORDER BY id",
         )
         .fetch_all(&self.pool)
         .await?;
@@ -2009,6 +2026,7 @@ struct GitLabInstanceRow {
     name: Option<String>,
     token: Option<String>,
     session_cookie: Option<String>,
+    authenticated_username: Option<String>,
 }
 
 /// Extract the project path with namespace from a GitLab MR web URL.

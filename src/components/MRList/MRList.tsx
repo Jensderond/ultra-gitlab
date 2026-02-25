@@ -191,11 +191,13 @@ export default function MRList({
   onMRsLoadedRef.current = onMRsLoaded;
 
   useEffect(() => {
+    let cancelled = false;
     let unlisten: (() => void) | undefined;
 
     tauriListen<{ instanceId: number; authenticatedUsername: string; mrs: MergeRequest[] }>(
       'mrs-synced',
       (event) => {
+        if (cancelled) return;
         // Ignore events for other instances
         if (event.payload.instanceId !== instanceId) return;
 
@@ -224,10 +226,12 @@ export default function MRList({
         setTimeout(() => dispatch({ type: 'SYNC_IDLE' }), 2000);
       }
     ).then((fn) => {
-      unlisten = fn;
+      if (cancelled) fn(); // already unmounted, immediately unlisten
+      else unlisten = fn;
     });
 
     return () => {
+      cancelled = true;
       unlisten?.();
     };
   }, [instanceId]);
