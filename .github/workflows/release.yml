@@ -1,18 +1,91 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g. 0.14.0)'
+        required: true
+        type: string
 
 jobs:
+  validate-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate version format
+        run: |
+          if ! echo "${{ inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Invalid version format '${{ inputs.version }}'. Expected format: X.Y.Z (e.g. 0.14.0)"
+            exit 1
+          fi
+
+  test:
+    needs: validate-version
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Typecheck
+        run: bunx tsc --noEmit
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        run: bun run test:e2e
+
+  bump-and-tag:
+    needs: test
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: release-rust
+
+      - name: Bump version
+        run: bun run scripts/bump-version.ts ${{ inputs.version }}
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
+          git commit -m "chore: bump version to ${{ inputs.version }}"
+          git tag "v${{ inputs.version }}"
+          git push origin HEAD:master --follow-tags
+
   changelog:
+    needs: bump-and-tag
     runs-on: ubuntu-latest
     outputs:
       content: ${{ steps.release_notes.outputs.content }}
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: v${{ inputs.version }}
           fetch-depth: 0
 
       - name: Generate release notes
@@ -25,14 +98,15 @@ jobs:
           OUTPUT: CHANGES.md
           GITHUB_REPO: ${{ github.repository }}
 
-  release:
-    needs: changelog
+  build:
+    needs: [bump-and-tag, changelog]
     permissions:
       contents: write
     runs-on: macos-latest
-
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: v${{ inputs.version }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -63,8 +137,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Ultra GitLab ${{ github.ref_name }}'
+          tagName: v${{ inputs.version }}
+          releaseName: 'Ultra GitLab v${{ inputs.version }}'
           releaseBody: ${{ needs.changelog.outputs.content }}
           releaseDraft: true
           prerelease: false
