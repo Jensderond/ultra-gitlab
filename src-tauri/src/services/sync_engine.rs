@@ -1482,6 +1482,23 @@ impl SyncEngine {
             }
         }
 
+        // Clean up local comments that have been synced and now exist as GitLab comments.
+        // Local comments have negative IDs and is_local=1; once the GitLab version is fetched,
+        // the local duplicate should be removed.
+        sqlx::query(
+            r#"
+            DELETE FROM comments
+            WHERE mr_id = ? AND is_local = 1 AND id < 0
+              AND id IN (
+                SELECT local_reference_id FROM sync_queue
+                WHERE status IN ('synced', 'discarded') AND local_reference_id IS NOT NULL
+              )
+            "#,
+        )
+        .bind(mr_id)
+        .execute(&self.pool)
+        .await?;
+
         Ok(())
     }
 

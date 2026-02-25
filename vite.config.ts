@@ -10,6 +10,11 @@ export default defineConfig(async () => ({
     react(),
   ],
 
+  // Use ES module format for workers so @pierre/diffs worker (which uses dynamic imports) can be bundled
+  worker: {
+    format: "es",
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors
