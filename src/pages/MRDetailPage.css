@@ -118,7 +118,7 @@
   margin: 0;
   flex: 1;
   min-width: 0;
-  font-family: 'Noto Sans JP', sans-serif;
+  font-family: inherit;
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.01em;

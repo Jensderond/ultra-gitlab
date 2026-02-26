@@ -17,6 +17,7 @@ pub mod comments;
 pub mod companion_server;
 pub mod companion_settings;
 pub mod diagnostics;
+pub mod fonts;
 pub mod gitattributes;
 pub mod mr;
 pub mod notification_settings;
@@ -42,6 +43,7 @@ pub use companion_settings::{
     get_companion_qr_svg, get_companion_settings, get_companion_status, regenerate_companion_pin,
     revoke_companion_device, update_companion_settings,
 };
+pub use fonts::list_system_fonts;
 pub use diagnostics::{
     clear_test_data, generate_test_data, get_cache_stats, get_diagnostics_report, get_memory_stats,
 };
@@ -62,8 +64,8 @@ pub use pipeline::{
 pub use reviewers::get_mr_reviewers;
 pub use settings::{
     get_collapse_patterns, get_settings, get_sync_settings, update_collapse_patterns,
-    update_custom_theme_colors, update_display_font, update_settings, update_sync_settings,
-    update_theme, update_ui_font,
+    update_custom_theme_colors, update_diffs_font, update_display_font, update_settings,
+    update_sync_settings, update_theme, update_ui_font,
 };
 pub use sync::{
     discard_failed_action, get_action_counts, get_sync_config, get_sync_status,

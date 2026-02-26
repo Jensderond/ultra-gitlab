@@ -31,6 +31,9 @@ const UI_FONT_KEY: &str = "ui_font";
 /// Key for display font in the store.
 const DISPLAY_FONT_KEY: &str = "display_font";
 
+/// Key for diffs font in the store.
+const DIFFS_FONT_KEY: &str = "diffs_font";
+
 /// Key for custom theme colors in the store.
 const CUSTOM_THEME_COLORS_KEY: &str = "custom_theme_colors";
 
@@ -45,6 +48,9 @@ const DEFAULT_UI_FONT: &str = "Noto Sans JP";
 
 /// Default display font (decorative heading font for page h1s).
 const DEFAULT_DISPLAY_FONT: &str = "Cormorant Garamond";
+
+/// Default diffs font (monospace font for code diffs).
+const DEFAULT_DIFFS_FONT: &str = "SF Mono";
 
 /// Default glob patterns for identifying generated/lock files.
 fn default_collapse_patterns() -> Vec<String> {
@@ -86,6 +92,8 @@ pub struct AppSettings {
     pub ui_font: String,
     /// Display font family name (decorative heading font for page h1s).
     pub display_font: String,
+    /// Diffs font family name (monospace font for code diffs).
+    pub diffs_font: String,
     /// Custom theme input colors (bg, text, accent hex strings). None if no custom theme saved.
     pub custom_theme_colors: Option<CustomThemeColors>,
     /// Companion server settings (mobile web access).
@@ -100,6 +108,7 @@ impl Default for AppSettings {
             theme: DEFAULT_THEME.to_string(),
             ui_font: DEFAULT_UI_FONT.to_string(),
             display_font: DEFAULT_DISPLAY_FONT.to_string(),
+            diffs_font: DEFAULT_DIFFS_FONT.to_string(),
             custom_theme_colors: None,
             companion_server: CompanionServerSettings::default(),
         }
@@ -157,6 +166,13 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         None => DEFAULT_DISPLAY_FONT.to_string(),
     };
 
+    // Try to load diffs font
+    let diffs_font = match store.get(DIFFS_FONT_KEY) {
+        Some(value) => serde_json::from_value(value.clone())
+            .unwrap_or_else(|_| DEFAULT_DIFFS_FONT.to_string()),
+        None => DEFAULT_DIFFS_FONT.to_string(),
+    };
+
     // Try to load custom theme colors
     let custom_theme_colors = match store.get(CUSTOM_THEME_COLORS_KEY) {
         Some(value) => serde_json::from_value(value.clone()).ok(),
@@ -175,6 +191,7 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         theme,
         ui_font,
         display_font,
+        diffs_font,
         custom_theme_colors,
         companion_server,
     })
@@ -205,6 +222,10 @@ pub(crate) async fn save_settings(app: &AppHandle, settings: &AppSettings) -> Re
     // Save display font
     let display_font_value = serde_json::to_value(&settings.display_font)?;
     store.set(DISPLAY_FONT_KEY, display_font_value);
+
+    // Save diffs font
+    let diffs_font_value = serde_json::to_value(&settings.diffs_font)?;
+    store.set(DIFFS_FONT_KEY, diffs_font_value);
 
     // Save custom theme colors
     let custom_theme_value = serde_json::to_value(&settings.custom_theme_colors)?;
@@ -364,6 +385,21 @@ pub async fn update_ui_font(app: AppHandle, font: String) -> Result<(), AppError
 pub async fn update_display_font(app: AppHandle, font: String) -> Result<(), AppError> {
     let mut settings = load_settings(&app).await?;
     settings.display_font = font;
+    save_settings(&app, &settings).await?;
+    *settings_cache().write().await = settings;
+    Ok(())
+}
+
+/// Update the diffs font.
+///
+/// Convenience method that updates just the diffs (code) font family name.
+///
+/// # Arguments
+/// * `font` - The font family name (e.g. "SF Mono", "JetBrains Mono", "System Default")
+#[tauri::command]
+pub async fn update_diffs_font(app: AppHandle, font: String) -> Result<(), AppError> {
+    let mut settings = load_settings(&app).await?;
+    settings.diffs_font = font;
     save_settings(&app, &settings).await?;
     *settings_cache().write().await = settings;
     Ok(())

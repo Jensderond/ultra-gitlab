@@ -449,6 +449,13 @@ export async function updateDisplayFont(font: string): Promise<void> {
   return invoke<void>('update_display_font', { font });
 }
 
+/**
+ * Persist the diffs font choice to the settings store.
+ */
+export async function updateDiffsFont(font: string): Promise<void> {
+  return invoke<void>('update_diffs_font', { font });
+}
+
 /** Custom theme color inputs. */
 export interface CustomThemeColors {
   bg: string;
@@ -615,6 +622,21 @@ export async function cancelPipeline(instanceId: number, projectId: number, pipe
  */
 export async function getJobTrace(instanceId: number, projectId: number, jobId: number): Promise<string> {
   return invoke<string>('get_job_trace', { instanceId, projectId, jobId });
+}
+
+// ============================================================================
+// System Font Commands
+// ============================================================================
+
+export interface SystemFont {
+  family: string;
+}
+
+/**
+ * List all system fonts installed on the OS.
+ */
+export async function listSystemFonts(): Promise<SystemFont[]> {
+  return invoke<SystemFont[]>('list_system_fonts');
 }
 
 // ============================================================================

@@ -64,6 +64,9 @@ base64 = "0.22"
 # Hashing (SHA-256 for file content dedup)
 sha2 = "0.10"
 
+# System font enumeration
+fontdb = "0.22"
+
 # Secure Credential Storage (OS keychain)
 keyring = "3"
 futures = "0.3.31"

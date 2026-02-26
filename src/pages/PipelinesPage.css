@@ -51,7 +51,7 @@
 }
 
 .pipelines-header h1 {
-  font-family: var(--font-display, 'Cormorant Garamond', serif);
+  font-family: var(--ui-font, 'Noto Sans JP', -apple-system, sans-serif);
   font-size: 26px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -87,6 +87,7 @@
 .pipelines-freshness {
   font-size: 12px;
   color: var(--text-tertiary);
+  font-family: var(--font-display, 'Cormorant Garamond', serif);;
 }
 
 /* ============================================================================
@@ -426,6 +427,7 @@
   text-overflow: ellipsis;
   display: flex;
   align-items: center;
+  font-family: var(--font-display, 'Cormorant Garamond', serif);
   gap: 6px;
   min-width: 0;
 }
@@ -487,6 +489,7 @@
 .pipeline-card-time {
   font-size: 11px;
   color: var(--text-tertiary);
+  font-family: var(--font-display, 'Cormorant Garamond', serif);
 }
 
 /* ============================================================================
@@ -498,7 +501,7 @@
   align-items: center;
   gap: 6px;
   padding: 2px 8px;
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--diffs-font-family, 'IBM Plex Mono', monospace);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.05em;

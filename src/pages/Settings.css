@@ -43,7 +43,7 @@
 
 .settings-header h1 {
   margin: 0;
-  font-family: var(--font-display, 'Cormorant Garamond', serif);
+  font-family: var(--ui-font, 'Noto Sans JP', -apple-system, sans-serif);
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -624,7 +624,7 @@ fieldset.setting-row {
 }
 
 .theme-swatch-text {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-display, 'Cormorant Garamond', serif);
   font-size: 22px;
   font-weight: 600;
   line-height: 1;
@@ -804,7 +804,7 @@ fieldset.setting-row {
 }
 
 /* ================================================
-   FONT SELECTOR
+   FONT SELECTOR (Combobox)
    ================================================ */
 
 .font-selector {
@@ -820,39 +820,147 @@ fieldset.setting-row {
   color: var(--text-secondary);
 }
 
-.font-options {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.font-option {
+/* Trigger wrap — input + chevron button */
+.font-combobox-trigger-wrap {
   display: flex;
   align-items: center;
-  padding: 10px 14px;
-  background: var(--overlay-hover);
-  border: 1px solid transparent;
+  background: var(--bg-dim);
+  border: 1px solid var(--border-color);
   border-radius: 7px;
-  color: var(--text-secondary);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.2s ease;
-  box-shadow: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.font-option:hover {
+.font-combobox-trigger-wrap:focus-within {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--wave-glow);
+}
+
+.font-combobox-input {
+  flex: 1;
+  padding: 9px 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  outline: none;
+  min-width: 0;
+}
+
+.font-combobox-input::placeholder {
+  color: var(--text-muted);
+}
+
+.font-combobox-trigger-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.font-combobox-trigger-btn:hover {
+  color: var(--text-secondary);
+}
+
+.font-combobox-icon {
+  display: flex;
+  align-items: center;
+}
+
+/* Popup positioner & popup */
+.font-combobox-positioner {
+  z-index: 1000;
+  width: var(--anchor-width);
+}
+
+.font-combobox-popup {
+  width: 100%;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.font-combobox-list {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.font-combobox-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.font-combobox-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.font-combobox-list::-webkit-scrollbar-thumb {
+  background: var(--wave-glow-strong);
+  border-radius: 3px;
+}
+
+/* Individual font item */
+.font-combobox-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.1s ease;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.font-combobox-item[data-highlighted] {
   background: var(--overlay-surface);
   color: var(--text-primary);
-  border-color: var(--text-fuji);
 }
 
-.font-option.active {
-  background: var(--wave-glow);
-  border-color: var(--accent-color);
+.font-combobox-item[data-selected] {
   color: var(--accent-color);
-  box-shadow: 0 0 0 2px var(--wave-glow);
+}
+
+.font-combobox-check {
+  color: var(--accent-color);
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.font-combobox-empty {
+  padding: 16px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Preview text below the combobox */
+.font-combobox-preview {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  padding: 6px 0;
+  line-height: 1.5;
+}
+
+/* Error state */
+.system-font-error {
+  font-size: 12px;
+  color: var(--error-color);
+  padding: 8px 12px;
+  background: var(--error-light);
+  border: 1px solid var(--error-bg);
+  border-radius: 6px;
 }
 
 /* ================================================

@@ -158,7 +158,7 @@
 
 .mr-title {
   margin: 0 0 8px 0;
-  font-family: 'Noto Sans JP', sans-serif;
+  font-family: var(--font-display, 'Cormorant Garamond', serif);
   font-size: 14px;
   font-weight: 500;
   letter-spacing: 0.005em;

@@ -13,7 +13,7 @@ import type { ThemeDefinition } from '../themes/types';
 import { kanagawaWave } from '../themes/kanagawa-wave';
 import { kanagawaLight } from '../themes/kanagawa-light';
 import { loved } from '../themes/loved';
-import { invoke, updateTheme as persistTheme, updateUiFont as persistUiFont, updateDisplayFont as persistDisplayFont, updateCustomThemeColors as persistCustomColors, type CustomThemeColors } from '../services/tauri';
+import { invoke, updateTheme as persistTheme, updateUiFont as persistUiFont, updateDisplayFont as persistDisplayFont, updateDiffsFont as persistDiffsFont, updateCustomThemeColors as persistCustomColors, type CustomThemeColors } from '../services/tauri';
 import { deriveTheme } from '../themes/deriveTheme';
 import type { Theme } from '../types';
 
@@ -46,6 +46,10 @@ export interface ThemeContextValue {
   displayFont: string;
   /** Switch display font and persist the choice. */
   setDisplayFont: (fontId: string) => void;
+  /** Current diffs font ID. */
+  diffsFont: string;
+  /** Switch diffs font and persist the choice. */
+  setDiffsFont: (fontId: string) => void;
   /** Saved custom theme colors (null if none saved). */
   customColors: CustomThemeColors | null;
   /** Apply a custom theme from 3 colors (live preview, does NOT persist). */
@@ -185,6 +189,16 @@ function themeToCssVars(t: ThemeDefinition): Record<string, string> {
   };
 }
 
+/**
+ * Resolve a font ID to a CSS font-family value.
+ * Preset fonts use their configured family stack; system fonts get quoted + fallback.
+ */
+function resolveFontFamily(fontId: string): string {
+  const preset = UI_FONTS.find(f => f.id === fontId);
+  if (preset) return preset.family;
+  return `'${fontId}', system-ui, sans-serif`;
+}
+
 interface ThemeProviderProps {
   children: ReactNode;
 }
@@ -210,27 +224,31 @@ interface ThemeState {
   theme: ThemeDefinition;
   uiFont: string;
   displayFont: string;
+  diffsFont: string;
   customColors: CustomThemeColors | null;
 }
 
 type ThemeAction =
-  | { type: 'INIT'; theme: ThemeDefinition; uiFont: string; displayFont: string; customColors: CustomThemeColors | null }
+  | { type: 'INIT'; theme: ThemeDefinition; uiFont: string; displayFont: string; diffsFont: string; customColors: CustomThemeColors | null }
   | { type: 'SET_THEME'; theme: ThemeDefinition }
   | { type: 'SET_UI_FONT'; uiFont: string }
   | { type: 'SET_DISPLAY_FONT'; displayFont: string }
+  | { type: 'SET_DIFFS_FONT'; diffsFont: string }
   | { type: 'SAVE_CUSTOM'; colors: CustomThemeColors; theme: ThemeDefinition }
   | { type: 'DELETE_CUSTOM' };
 
 function themeReducer(state: ThemeState, action: ThemeAction): ThemeState {
   switch (action.type) {
     case 'INIT':
-      return { theme: action.theme, uiFont: action.uiFont, displayFont: action.displayFont, customColors: action.customColors };
+      return { theme: action.theme, uiFont: action.uiFont, displayFont: action.displayFont, diffsFont: action.diffsFont, customColors: action.customColors };
     case 'SET_THEME':
       return { ...state, theme: action.theme };
     case 'SET_UI_FONT':
       return { ...state, uiFont: action.uiFont };
     case 'SET_DISPLAY_FONT':
       return { ...state, displayFont: action.displayFont };
+    case 'SET_DIFFS_FONT':
+      return { ...state, diffsFont: action.diffsFont };
     case 'SAVE_CUSTOM':
       return { ...state, customColors: action.colors, theme: action.theme };
     case 'DELETE_CUSTOM':
@@ -243,19 +261,21 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     theme: kanagawaWave,
     uiFont: 'Noto Sans JP',
     displayFont: 'Cormorant Garamond',
+    diffsFont: 'SF Mono',
     customColors: null,
   });
 
-  const { theme, uiFont, displayFont, customColors } = state;
+  const { theme, uiFont, displayFont, diffsFont, customColors } = state;
 
   // Load persisted theme, font, and custom colors on mount
   useEffect(() => {
-    invoke<{ theme?: string; uiFont?: string; displayFont?: string; customThemeColors?: CustomThemeColors | null }>('get_settings')
+    invoke<{ theme?: string; uiFont?: string; displayFont?: string; diffsFont?: string; customThemeColors?: CustomThemeColors | null }>('get_settings')
       .then((settings) => {
         const id = settings.theme || 'kanagawa-wave';
         const savedColors = settings.customThemeColors ?? null;
         const font = settings.uiFont || 'Noto Sans JP';
         const dFont = settings.displayFont || 'Cormorant Garamond';
+        const diffFont = settings.diffsFont || 'SF Mono';
 
         let resolvedTheme: ThemeDefinition = kanagawaWave;
         if (id === 'custom' && savedColors) {
@@ -265,13 +285,15 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
           if (def) resolvedTheme = def;
         }
 
-        dispatch({ type: 'INIT', theme: resolvedTheme, uiFont: font, displayFont: dFont, customColors: savedColors });
+        dispatch({ type: 'INIT', theme: resolvedTheme, uiFont: font, displayFont: dFont, diffsFont: diffFont, customColors: savedColors });
 
-        // Eager-load the saved fonts
+        // Eager-load Google fonts for presets (system fonts need no loading)
         const fontDef = UI_FONTS.find(f => f.id === font);
-        if (fontDef) loadGoogleFont(fontDef.googleFont);
+        if (fontDef?.googleFont) loadGoogleFont(fontDef.googleFont);
         const displayFontDef = UI_FONTS.find(f => f.id === dFont);
-        if (displayFontDef) loadGoogleFont(displayFontDef.googleFont);
+        if (displayFontDef?.googleFont) loadGoogleFont(displayFontDef.googleFont);
+        const diffsFontDef = UI_FONTS.find(f => f.id === diffFont);
+        if (diffsFontDef?.googleFont) loadGoogleFont(diffsFontDef.googleFont);
       })
       .catch(() => {
         // Fall back to defaults (already set)
@@ -309,6 +331,13 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     persistDisplayFont(fontId).catch(console.error);
   }, []);
 
+  const setDiffsFont = useCallback((fontId: string) => {
+    dispatch({ type: 'SET_DIFFS_FONT', diffsFont: fontId });
+    const fontDef = UI_FONTS.find(f => f.id === fontId);
+    if (fontDef) loadGoogleFont(fontDef.googleFont);
+    persistDiffsFont(fontId).catch(console.error);
+  }, []);
+
   const previewCustomTheme = useCallback((colors: CustomThemeColors) => {
     dispatch({ type: 'SET_THEME', theme: deriveTheme(colors.bg, colors.text, colors.accent) });
   }, []);
@@ -335,24 +364,23 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     root.style.colorScheme = theme.type;
   }, [theme]);
 
-  // Apply font-family to :root whenever uiFont changes
+  // Apply --ui-font to :root whenever uiFont changes (used on page title h1s)
   useEffect(() => {
-    const fontDef = UI_FONTS.find(f => f.id === uiFont);
-    if (fontDef) {
-      document.documentElement.style.setProperty('font-family', fontDef.family);
-    }
+    document.documentElement.style.setProperty('--ui-font', resolveFontFamily(uiFont));
   }, [uiFont]);
 
   // Apply --font-display to :root whenever displayFont changes
   useEffect(() => {
-    const fontDef = UI_FONTS.find(f => f.id === displayFont);
-    if (fontDef) {
-      document.documentElement.style.setProperty('--font-display', fontDef.family);
-    }
+    document.documentElement.style.setProperty('--font-display', resolveFontFamily(displayFont));
   }, [displayFont]);
 
+  // Apply --diffs-font-family to :root whenever diffsFont changes
+  useEffect(() => {
+    document.documentElement.style.setProperty('--diffs-font-family', resolveFontFamily(diffsFont));
+  }, [diffsFont]);
+
   return (
-    <ThemeContext value={{ theme, setTheme, setThemeById, uiFont, setUiFont, displayFont, setDisplayFont, customColors, previewCustomTheme, saveCustomTheme, deleteCustomTheme }}>
+    <ThemeContext value={{ theme, setTheme, setThemeById, uiFont, setUiFont, displayFont, setDisplayFont, diffsFont, setDiffsFont, customColors, previewCustomTheme, saveCustomTheme, deleteCustomTheme }}>
       {children}
     </ThemeContext>
   );

@@ -107,6 +107,7 @@
   right: 6px;
   font-size: 10px;
   font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--diffs-font-family, 'IBM Plex Mono', monospace);
   font-weight: 500;
   color: var(--text-tertiary);
   background: var(--overlay-divider);
@@ -256,6 +257,7 @@
   font-weight: 500;
   color: var(--text-primary);
   white-space: nowrap;
+  font-family: var(--font-display, 'Cormorant Garamond', serif);
   overflow: hidden;
   text-overflow: ellipsis;
   transition: color 0.2s ease;

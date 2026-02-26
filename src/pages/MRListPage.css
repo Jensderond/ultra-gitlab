@@ -99,7 +99,7 @@
 
 .mr-list-page-header h1 {
   margin: 0;
-  font-family: var(--font-display, 'Cormorant Garamond', serif);
+  font-family: var(--ui-font, 'Noto Sans JP', -apple-system, sans-serif);
   font-size: 26px;
   font-weight: 800;
   letter-spacing: 0.04em;

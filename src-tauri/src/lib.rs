@@ -17,7 +17,7 @@ use commands::{
     get_companion_status, get_diagnostics_report, get_diff_content, get_diff_file,
     get_diff_file_metadata, get_diff_files, get_diff_hunks, get_diff_refs, get_file_comments,
     get_file_content, get_file_content_base64, get_gitattributes, get_gitlab_instances,
-    get_job_trace, get_memory_stats, get_merge_request_detail, get_merge_requests,
+    get_job_trace, get_memory_stats, get_merge_request_detail, get_merge_requests, list_system_fonts,
     get_mr_reviewers, get_notification_settings, get_pipeline_jobs, get_pipeline_statuses,
     get_project_pipelines, get_settings, get_sync_config, get_sync_settings, get_sync_status,
     get_token_info, list_my_merge_requests, list_pipeline_projects, merge_mr, play_pipeline_job,
@@ -27,7 +27,8 @@ use commands::{
     retry_pipeline_job, revoke_companion_device, search_projects, send_native_notification,
     setup_gitlab_instance, start_companion_server_cmd, stop_companion_server_cmd,
     toggle_pin_pipeline_project, trigger_sync, unapprove_mr, update_collapse_patterns,
-    update_companion_settings, update_custom_theme_colors, update_display_font,
+    update_companion_settings, update_custom_theme_colors, update_diffs_font,
+    update_display_font,
     update_instance_token, update_notification_settings, update_session_cookie, update_settings,
     update_sync_config, update_sync_settings, update_theme, update_ui_font, visit_pipeline_project,
 };
@@ -296,9 +297,11 @@ pub fn run() {
             cancel_pipeline_job,
             cancel_pipeline,
             // Theme & Font
+            list_system_fonts,
             update_theme,
             update_ui_font,
             update_display_font,
+            update_diffs_font,
             update_custom_theme_colors,
             // Companion server
             get_companion_settings,
