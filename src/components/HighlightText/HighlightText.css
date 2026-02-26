@@ -1,0 +1,6 @@
+.highlight-text-match {
+  background: color-mix(in srgb, var(--accent-color) 25%, transparent);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}

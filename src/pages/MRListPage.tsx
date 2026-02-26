@@ -10,6 +10,8 @@ import { MRList } from '../components/MRList';
 import { listInstances, type GitLabInstanceWithStatus } from '../services/gitlab';
 import type { MergeRequest } from '../types';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
+import { useListSearch } from '../hooks/useListSearch';
+import SearchBar from '../components/SearchBar/SearchBar';
 import './MRListPage.css';
 
 /**
@@ -24,9 +26,23 @@ export default function MRListPage() {
   const [loading, setLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const mrsRef = useRef<MergeRequest[]>([]);
+  const [filteredCounts, setFilteredCounts] = useState({ filtered: 0, total: 0 });
 
   // Keep ref in sync with state for keyboard handler
   mrsRef.current = mrs;
+
+  // Search/filter state (items=[] because MRList filters internally)
+  const {
+    query,
+    isSearchOpen,
+    setQuery,
+    closeSearch,
+  } = useListSearch({ items: [] as MergeRequest[], getSearchableText: () => [] });
+
+  // Track filtered counts from MRList
+  const handleFilteredCountChange = useCallback((counts: { filtered: number; total: number }) => {
+    setFilteredCounts(counts);
+  }, []);
 
   // Load instances on mount
   useEffect(() => {
@@ -65,12 +81,22 @@ export default function MRListPage() {
     [navigate]
   );
 
+  // Use filtered count for keyboard nav when search is active
+  const navItemCount = isSearchOpen && query ? filteredCounts.filtered : mrs.length;
+
   // Keyboard navigation hook
   const { focusIndex, setFocusIndex } = useKeyboardNav({
-    itemCount: mrs.length,
+    itemCount: navItemCount,
     onSelect: handleSelectByIndex,
-    enabled: !loading && mrs.length > 0,
+    enabled: !loading && navItemCount > 0,
   });
+
+  // Reset focus to first item when query changes
+  useEffect(() => {
+    if (isSearchOpen) {
+      setFocusIndex(0);
+    }
+  }, [query, isSearchOpen, setFocusIndex]);
 
   // Reset focus to first item when returning from MR detail with Escape
   useEffect(() => {
@@ -145,6 +171,15 @@ export default function MRListPage() {
       </header>
 
       <main className="mr-list-page-content">
+        {isSearchOpen && (
+          <SearchBar
+            query={query}
+            onQueryChange={setQuery}
+            onClose={closeSearch}
+            filteredCount={filteredCounts.filtered}
+            totalCount={filteredCounts.total}
+          />
+        )}
         {selectedInstanceId != null ? (
           <MRList
             instanceId={selectedInstanceId}
@@ -153,6 +188,8 @@ export default function MRListPage() {
             onFocusChange={setFocusIndex}
             onMRsLoaded={handleMRsLoaded}
             refreshTrigger={refreshTrigger}
+            filterQuery={isSearchOpen ? query : undefined}
+            onFilteredCountChange={handleFilteredCountChange}
           />
         ) : null}
       </main>
@@ -161,6 +198,7 @@ export default function MRListPage() {
         <span className="keyboard-hint">
           <kbd>j</kbd>/<kbd>k</kbd> navigate &middot;{' '}
           <kbd>Enter</kbd> open &middot;{' '}
+          <kbd>⌘F</kbd> search &middot;{' '}
           <kbd>?</kbd> help
         </span>
       </footer>

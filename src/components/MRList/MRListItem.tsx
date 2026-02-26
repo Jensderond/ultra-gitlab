@@ -7,6 +7,7 @@
 import { forwardRef } from 'react';
 import type { MergeRequest, ApprovalStatus } from '../../types';
 import UserAvatar from '../UserAvatar/UserAvatar';
+import HighlightText from '../HighlightText/HighlightText';
 import './MRListItem.css';
 
 interface MRListItemProps {
@@ -18,6 +19,8 @@ interface MRListItemProps {
   isNew?: boolean;
   /** Click handler */
   onClick?: () => void;
+  /** Optional search query to highlight matching text */
+  highlightQuery?: string;
 }
 
 /**
@@ -53,7 +56,7 @@ function getApprovalClass(status: ApprovalStatus | null): string {
  * Single merge request list item.
  */
 const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
-  function MRListItem({ mr, selected, isNew, onClick }, ref) {
+  function MRListItem({ mr, selected, isNew, onClick, highlightQuery }, ref) {
     const classNames = ['mr-list-item'];
     if (selected) classNames.push('selected');
     if (isNew) classNames.push('is-new');
@@ -74,17 +77,21 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
       <div className="mr-item-header">
         <span className="mr-iid">!{mr.iid}</span>
         {mr.projectName && (
-          <span className="mr-project">{mr.projectName.replace(/^Customers\s*\/\s*/, '')}</span>
+          <span className="mr-project">
+            {highlightQuery ? <HighlightText text={mr.projectName.replace(/^Customers\s*\/\s*/, '')} query={highlightQuery} /> : mr.projectName.replace(/^Customers\s*\/\s*/, '')}
+          </span>
         )}
         <span className="mr-time">{formatRelativeTime(mr.updatedAt)}</span>
       </div>
 
-      <h4 className="mr-title">{mr.title}</h4>
+      <h4 className="mr-title">
+        {highlightQuery ? <HighlightText text={mr.title} query={highlightQuery} /> : mr.title}
+      </h4>
 
       <div className="mr-item-meta">
         <span className="mr-author">
           <UserAvatar instanceId={mr.instanceId} username={mr.authorUsername} size={20} className="mr-author-avatar" />
-          {mr.authorUsername}
+          {highlightQuery ? <HighlightText text={mr.authorUsername} query={highlightQuery} /> : mr.authorUsername}
         </span>
         <span className="mr-branches">
           {mr.sourceBranch} → {mr.targetBranch}

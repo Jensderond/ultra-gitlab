@@ -4,7 +4,7 @@
  * Displays a list of merge requests with filtering and selection.
  */
 
-import { useState, useReducer, useEffect, useCallback, useRef } from 'react';
+import { useState, useReducer, useEffect, useCallback, useRef, useMemo } from 'react';
 import { tauriListen } from '../../services/transport';
 import { listMergeRequests } from '../../services/gitlab';
 import type { MergeRequest } from '../../types';
@@ -37,6 +37,10 @@ interface MRListProps {
   onMRsLoaded?: (mrs: MergeRequest[]) => void;
   /** Increment to trigger a manual refresh from parent */
   refreshTrigger?: number;
+  /** Optional search query to filter MRs by title, author, project name */
+  filterQuery?: string;
+  /** Callback when filtered/total counts change */
+  onFilteredCountChange?: (counts: { filtered: number; total: number }) => void;
 }
 
 interface MRListState {
@@ -96,6 +100,8 @@ export default function MRList({
   onFocusChange,
   onMRsLoaded,
   refreshTrigger = 0,
+  filterQuery,
+  onFilteredCountChange,
 }: MRListProps) {
   const [state, dispatch] = useReducer(mrListReducer, {
     mrs: [],
@@ -107,6 +113,24 @@ export default function MRList({
   });
 
   const { mrs, loading, error, lastSyncedAt, newMrIds, syncStatus } = state;
+
+  // Filter MRs by search query
+  const filteredMrs = useMemo(() => {
+    if (!filterQuery?.trim()) return mrs;
+    const q = filterQuery.toLowerCase();
+    return mrs.filter((mr) => {
+      const title = mr.title?.toLowerCase() ?? '';
+      const author = mr.authorUsername?.toLowerCase() ?? '';
+      const project = mr.projectName?.toLowerCase() ?? '';
+      return title.includes(q) || author.includes(q) || project.includes(q);
+    });
+  }, [mrs, filterQuery]);
+
+  // Report filtered counts to parent
+  useEffect(() => {
+    onFilteredCountChange?.({ filtered: filteredMrs.length, total: mrs.length });
+  }, [filteredMrs.length, mrs.length, onFilteredCountChange]);
+
   const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const previousMrIdsRef = useRef<Set<number>>(new Set());
 
@@ -254,8 +278,12 @@ export default function MRList({
               Sync with GitLab to fetch merge requests
             </span>
           </div>
+        ) : filteredMrs.length === 0 ? (
+          <div className="mr-list-empty">
+            <p>No merge requests match your search</p>
+          </div>
         ) : (
-          mrs.map((mr, index) => (
+          filteredMrs.map((mr, index) => (
             <MRListItem
               key={mr.id}
               ref={(el) => {
@@ -266,6 +294,7 @@ export default function MRList({
               selected={mr.id === selectedMrId || index === focusIndex}
               isNew={newMrIds.has(mr.id)}
               onClick={() => handleSelect(mr, index)}
+              highlightQuery={filterQuery}
             />
           ))
         )}

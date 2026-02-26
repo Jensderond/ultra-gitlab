@@ -11,6 +11,8 @@ import { listInstances, type GitLabInstanceWithStatus } from '../services/gitlab
 import { listMyMergeRequests } from '../services/tauri';
 import MRListItem from '../components/MRList/MRListItem';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
+import { useListSearch } from '../hooks/useListSearch';
+import SearchBar from '../components/SearchBar/SearchBar';
 import type { MergeRequest } from '../types';
 import './MRListPage.css';
 import './MyMRsPage.css';
@@ -47,7 +49,21 @@ export default function MyMRsPage() {
   const [loading, setLoading] = useState(true);
   const mrsRef = useRef<MergeRequest[]>([]);
 
-  mrsRef.current = mrs;
+  // Search/filter state — filters mrs at the page level
+  const {
+    query,
+    isSearchOpen,
+    setQuery,
+    closeSearch,
+    filteredItems,
+    filteredCount,
+    totalCount,
+  } = useListSearch({
+    items: mrs,
+    getSearchableText: (mr: MergeRequest) => [mr.title, mr.authorUsername, mr.projectName],
+  });
+
+  mrsRef.current = filteredItems;
 
   // Load instances
   useEffect(() => {
@@ -109,10 +125,17 @@ export default function MyMRsPage() {
   );
 
   const { focusIndex, setFocusIndex } = useKeyboardNav({
-    itemCount: mrs.length,
+    itemCount: filteredItems.length,
     onSelect: handleSelectByIndex,
-    enabled: !loading && mrs.length > 0,
+    enabled: !loading && filteredItems.length > 0,
   });
+
+  // Reset focus to first item when query changes
+  useEffect(() => {
+    if (isSearchOpen) {
+      setFocusIndex(0);
+    }
+  }, [query, isSearchOpen, setFocusIndex]);
 
   const handleSelectMR = useCallback(
     (mr: MergeRequest, index: number) => {
@@ -176,6 +199,15 @@ export default function MyMRsPage() {
       </header>
 
       <main className="mr-list-page-content">
+        {isSearchOpen && (
+          <SearchBar
+            query={query}
+            onQueryChange={setQuery}
+            onClose={closeSearch}
+            filteredCount={filteredCount}
+            totalCount={totalCount}
+          />
+        )}
         {loading ? (
           <div className="mr-list-loading">Loading your merge requests...</div>
         ) : mrs.length === 0 ? (
@@ -183,10 +215,14 @@ export default function MyMRsPage() {
             <h2>No Authored MRs</h2>
             <p>You don't have any open merge requests at the moment.</p>
           </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="mr-list-page-empty">
+            <p>No merge requests match your search</p>
+          </div>
         ) : (
           <div className="mr-list">
             <div className="mr-list-content">
-              {mrs.map((mr, index) => (
+              {filteredItems.map((mr, index) => (
                 <div
                   key={mr.id}
                   className={['my-mr-item-wrapper', isDraft(mr) && 'is-draft', isFullyApproved(mr) && 'is-approved'].filter(Boolean).join(' ')}
@@ -195,6 +231,7 @@ export default function MyMRsPage() {
                     mr={mr}
                     selected={index === focusIndex}
                     onClick={() => handleSelectMR(mr, index)}
+                    highlightQuery={isSearchOpen ? query : undefined}
                   />
                   {(mr.approvalsRequired ?? 0) > 0 && (
                     <span className="my-mr-approval-badge">
@@ -215,6 +252,7 @@ export default function MyMRsPage() {
         <span className="keyboard-hint">
           <kbd>j</kbd>/<kbd>k</kbd> navigate &middot;{' '}
           <kbd>Enter</kbd> open &middot;{' '}
+          <kbd>⌘F</kbd> search &middot;{' '}
           <kbd>?</kbd> help
         </span>
       </footer>

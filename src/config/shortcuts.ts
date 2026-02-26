@@ -140,6 +140,13 @@ export const defaultShortcuts: ShortcutDefinition[] = [
     category: 'list',
     context: 'mr-list',
   },
+  {
+    id: 'search-filter',
+    description: 'Search / Filter',
+    defaultKey: 'Cmd+F',
+    category: 'list',
+    context: 'mr-list',
+  },
 
   // Diff viewer shortcuts
   {
