@@ -527,7 +527,7 @@
 
 /* Footer */
 .my-mr-detail-footer {
-  padding: 14px 24px;
+  padding: 10px 24px;
   background: linear-gradient(180deg,
     var(--overlay-glass-light) 0%,
     var(--overlay-glass) 100%);

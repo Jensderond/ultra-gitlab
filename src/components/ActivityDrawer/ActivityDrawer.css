@@ -4,7 +4,7 @@
 .activity-drawer {
   position: fixed;
   /* Sit above the footer (footer ~49px tall with 14px padding + 1px border) */
-  bottom: 49px;
+  bottom: 50px;
   left: 56px; /* offset for sidebar width */
   right: 0;
   /* Height is set via inline style for drag-to-resize */
@@ -58,7 +58,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 20px;
+  padding: 10px 14px;
   background: linear-gradient(180deg,
     var(--overlay-glass) 0%,
     var(--overlay-glass-light) 100%);

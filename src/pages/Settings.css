@@ -498,6 +498,7 @@ fieldset.setting-row {
   border: none;
   margin: 0;
   padding: 0;
+  padding-top: 8px;
 }
 
 .setting-row select {
