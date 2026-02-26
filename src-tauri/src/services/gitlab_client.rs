@@ -595,6 +595,14 @@ impl GitLabClient {
         self.handle_response(response, &endpoint).await
     }
 
+    /// Cancel a running or pending pipeline.
+    pub async fn cancel_pipeline(&self, project_id: i64, pipeline_id: i64) -> Result<GitLabPipeline, AppError> {
+        let endpoint = format!("/projects/{}/pipelines/{}/cancel", project_id, pipeline_id);
+        let url = self.api_url(&endpoint);
+        let response = self.client.post(&url).send().await?;
+        self.handle_response(response, &endpoint).await
+    }
+
     /// List merge requests.
     pub async fn list_merge_requests(
         &self,

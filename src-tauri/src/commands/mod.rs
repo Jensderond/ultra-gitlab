@@ -55,7 +55,7 @@ pub use mr::{
 pub use notification_settings::{get_notification_settings, update_notification_settings};
 pub use notifications::send_native_notification;
 pub use pipeline::{
-    cancel_pipeline_job, get_job_trace, get_pipeline_jobs, get_pipeline_statuses,
+    cancel_pipeline, cancel_pipeline_job, get_job_trace, get_pipeline_jobs, get_pipeline_statuses,
     get_project_pipelines, list_pipeline_projects, play_pipeline_job, remove_pipeline_project,
     retry_pipeline_job, search_projects, toggle_pin_pipeline_project, visit_pipeline_project,
 };

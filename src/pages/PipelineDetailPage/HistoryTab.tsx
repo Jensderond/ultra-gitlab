@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { PipelineStatus } from '../../types';
+import { CancelIcon } from './icons';
 import { formatDuration, formatRelativeTime } from './utils';
 
 interface HistoryTabProps {
@@ -8,6 +9,8 @@ interface HistoryTabProps {
   historyLoaded: boolean;
   currentPipelineId: number;
   onOpenPipeline: (pipeline: PipelineStatus) => void;
+  onCancelPipeline: (pipelineId: number) => void;
+  pipelineActionLoading: Set<number>;
 }
 
 export default function HistoryTab({
@@ -16,6 +19,8 @@ export default function HistoryTab({
   historyLoaded,
   currentPipelineId,
   onOpenPipeline,
+  onCancelPipeline,
+  pipelineActionLoading,
 }: HistoryTabProps) {
   const historyListRef = useRef<HTMLDivElement>(null);
 
@@ -92,6 +97,20 @@ export default function HistoryTab({
               </div>
             </div>
             <span className="pipeline-history-sha">{p.sha}</span>
+            {(p.status === 'running' || p.status === 'pending') && (
+              <button
+                className="pipeline-job-action-btn pipeline-job-action-btn--cancel"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCancelPipeline(p.id);
+                }}
+                disabled={pipelineActionLoading.has(p.id)}
+                title="Cancel this pipeline"
+              >
+                {pipelineActionLoading.has(p.id) ? <span className="pipeline-job-spinner" /> : <CancelIcon />}
+                <span>Cancel</span>
+              </button>
+            )}
           </button>
         ))}
       </div>

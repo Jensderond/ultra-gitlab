@@ -6,6 +6,7 @@ import {
   playPipelineJob,
   retryPipelineJob,
   cancelPipelineJob,
+  cancelPipeline,
 } from '../../services/tauri';
 import type { PipelineJob } from '../../types';
 import type { PipelineDetailAction, PipelineDetailState } from './pipelineDetailReducer';
@@ -144,6 +145,37 @@ export function usePipelineData({
     [instanceId, projectId, loadJobs, dispatch]
   );
 
+  const reloadHistory = useCallback(async () => {
+    if (!instanceId || !projectId) return;
+    dispatch({ type: 'HISTORY_LOADING' });
+    try {
+      const list = await getProjectPipelines(instanceId, projectId, 20);
+      dispatch({ type: 'HISTORY_LOADED', pipelines: list });
+    } catch (err) {
+      console.error('Failed to reload pipeline history:', err);
+      dispatch({ type: 'HISTORY_LOADED', pipelines: [] });
+    }
+  }, [instanceId, projectId, dispatch]);
+
+  const handleCancelPipeline = useCallback(
+    async (cancelPipelineId: number) => {
+      dispatch({ type: 'PIPELINE_ACTION_START', pipelineId: cancelPipelineId });
+      try {
+        const updated = await cancelPipeline(instanceId, projectId, cancelPipelineId);
+        dispatch({ type: 'UPDATE_PIPELINE', pipeline: updated });
+      } catch (err) {
+        console.error('Failed to cancel pipeline:', err);
+      } finally {
+        dispatch({ type: 'PIPELINE_ACTION_END', pipelineId: cancelPipelineId });
+        setTimeout(() => {
+          reloadHistory();
+          loadJobs();
+        }, 1500);
+      }
+    },
+    [instanceId, projectId, reloadHistory, loadJobs, dispatch]
+  );
+
   const handleNavigateToJob = useCallback(
     (job: PipelineJob, navigate: (path: string) => void, params: { projectName: string; pipelineRef: string; pipelineWebUrl: string }) => {
       const searchParams = new URLSearchParams({
@@ -175,6 +207,7 @@ export function usePipelineData({
     handlePlayJob,
     handleRetryJob,
     handleCancelJob,
+    handleCancelPipeline,
     handleNavigateToJob,
   };
 }

@@ -604,6 +604,13 @@ export async function cancelPipelineJob(instanceId: number, projectId: number, j
 }
 
 /**
+ * Cancel a running or pending pipeline.
+ */
+export async function cancelPipeline(instanceId: number, projectId: number, pipelineId: number): Promise<PipelineStatus> {
+  return invoke<PipelineStatus>('cancel_pipeline', { instanceId, projectId, pipelineId });
+}
+
+/**
  * Get the raw log trace for a pipeline job.
  */
 export async function getJobTrace(instanceId: number, projectId: number, jobId: number): Promise<string> {

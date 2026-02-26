@@ -5,6 +5,7 @@ export interface PipelineDetailState {
   loading: boolean;
   error: string | null;
   actionLoading: Set<number>;
+  pipelineActionLoading: Set<number>;
   pipelineStatus: string | null;
   pipelines: PipelineStatus[];
   historyLoading: boolean;
@@ -19,6 +20,9 @@ export type PipelineDetailAction =
   | { type: 'ACTION_START'; jobId: number }
   | { type: 'ACTION_END'; jobId: number }
   | { type: 'UPDATE_JOB'; job: PipelineJob }
+  | { type: 'PIPELINE_ACTION_START'; pipelineId: number }
+  | { type: 'PIPELINE_ACTION_END'; pipelineId: number }
+  | { type: 'UPDATE_PIPELINE'; pipeline: PipelineStatus }
   | { type: 'HISTORY_LOADING' }
   | { type: 'HISTORY_LOADED'; pipelines: PipelineStatus[] }
   | { type: 'RESET' };
@@ -28,6 +32,7 @@ export const initialState: PipelineDetailState = {
   loading: true,
   error: null,
   actionLoading: new Set(),
+  pipelineActionLoading: new Set(),
   pipelineStatus: null,
   pipelines: [],
   historyLoading: false,
@@ -61,6 +66,23 @@ export function pipelineDetailReducer(
       return {
         ...state,
         jobs: state.jobs.map((j) => (j.id === action.job.id ? action.job : j)),
+      };
+    case 'PIPELINE_ACTION_START': {
+      const next = new Set(state.pipelineActionLoading);
+      next.add(action.pipelineId);
+      return { ...state, pipelineActionLoading: next };
+    }
+    case 'PIPELINE_ACTION_END': {
+      const next = new Set(state.pipelineActionLoading);
+      next.delete(action.pipelineId);
+      return { ...state, pipelineActionLoading: next };
+    }
+    case 'UPDATE_PIPELINE':
+      return {
+        ...state,
+        pipelines: state.pipelines.map((p) =>
+          p.id === action.pipeline.id ? action.pipeline : p
+        ),
       };
     case 'HISTORY_LOADING':
       return { ...state, historyLoading: true };

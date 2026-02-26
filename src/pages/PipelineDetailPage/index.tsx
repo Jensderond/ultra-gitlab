@@ -42,6 +42,7 @@ export default function PipelineDetailPage() {
     handlePlayJob,
     handleRetryJob,
     handleCancelJob,
+    handleCancelPipeline,
     handleNavigateToJob,
   } = usePipelineData({
     instanceId,
@@ -158,6 +159,8 @@ export default function PipelineDetailPage() {
           historyLoaded={state.historyLoaded}
           currentPipelineId={plid}
           onOpenPipeline={handleOpenPipeline}
+          onCancelPipeline={handleCancelPipeline}
+          pipelineActionLoading={state.pipelineActionLoading}
         />
       )}
     </div>

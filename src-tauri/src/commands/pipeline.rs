@@ -400,6 +400,33 @@ pub async fn cancel_pipeline_job(
     })
 }
 
+/// Cancel a running or pending pipeline.
+#[tauri::command]
+pub async fn cancel_pipeline(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+    pipeline_id: i64,
+) -> Result<PipelineStatus, AppError> {
+    let client = create_gitlab_client(&pool, instance_id).await?;
+    let p = client.cancel_pipeline(project_id, pipeline_id).await?;
+    Ok(PipelineStatus {
+        id: p.id,
+        project_id: p.project_id,
+        status: p.status,
+        ref_name: p.ref_name,
+        sha: if p.sha.len() > 8 {
+            p.sha[..8].to_string()
+        } else {
+            p.sha
+        },
+        web_url: p.web_url,
+        created_at: p.created_at,
+        updated_at: p.updated_at,
+        duration: p.duration,
+    })
+}
+
 /// Fetch the raw log trace for a specific job.
 #[tauri::command]
 pub async fn get_job_trace(

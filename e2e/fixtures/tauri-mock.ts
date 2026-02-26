@@ -264,6 +264,7 @@ export async function mockTauriIPC(page: Page) {
       play_pipeline_job: () => data.pipelineJobs[0],
       retry_pipeline_job: () => data.pipelineJobs[0],
       cancel_pipeline_job: () => data.pipelineJobs[0],
+      cancel_pipeline: () => ({ ...data.pipelineStatuses[0], status: 'canceled' }),
 
       // -- Notifications --
       get_notification_settings: () => data.notificationSettings,
