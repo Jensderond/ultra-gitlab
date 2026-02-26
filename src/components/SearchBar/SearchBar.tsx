@@ -7,6 +7,9 @@ interface SearchBarProps {
   onClose: () => void;
   filteredCount: number;
   totalCount: number;
+  onArrowDown?: () => void;
+  onArrowUp?: () => void;
+  onSubmit?: () => void;
 }
 
 export default function SearchBar({
@@ -15,6 +18,9 @@ export default function SearchBar({
   onClose,
   filteredCount,
   totalCount,
+  onArrowDown,
+  onArrowUp,
+  onSubmit,
 }: SearchBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -50,6 +56,18 @@ export default function SearchBar({
         autoCapitalize="off"
         value={query}
         onChange={(e) => onQueryChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            onArrowDown?.();
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            onArrowUp?.();
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            onSubmit?.();
+          }
+        }}
       />
       {query && (
         <span className="search-bar-count">

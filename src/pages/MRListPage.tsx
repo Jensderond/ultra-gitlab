@@ -4,7 +4,7 @@
  * Main page for viewing the list of merge requests.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MRList } from '../components/MRList';
 import { listInstances, type GitLabInstanceWithStatus } from '../services/gitlab';
@@ -70,10 +70,26 @@ export default function MRListPage() {
     setMrs(loadedMrs);
   }, []);
 
+  // Compute filtered MRs in parent for correct selection during search
+  const filteredMrs = useMemo(() => {
+    if (!isSearchOpen || !query?.trim()) return mrs;
+    const q = query.toLowerCase();
+    return mrs.filter((mr) => {
+      const title = mr.title?.toLowerCase() ?? '';
+      const author = mr.authorUsername?.toLowerCase() ?? '';
+      const project = mr.projectName?.toLowerCase() ?? '';
+      return title.includes(q) || author.includes(q) || project.includes(q);
+    });
+  }, [mrs, query, isSearchOpen]);
+
+  const filteredMrsRef = useRef(filteredMrs);
+  filteredMrsRef.current = filteredMrs;
+
   // Handle Enter to open selected MR
   const handleSelectByIndex = useCallback(
     (index: number) => {
-      const mr = mrsRef.current[index];
+      const list = filteredMrsRef.current;
+      const mr = list[index];
       if (mr) {
         navigate(`/mrs/${mr.id}`);
       }
@@ -82,10 +98,10 @@ export default function MRListPage() {
   );
 
   // Use filtered count for keyboard nav when search is active
-  const navItemCount = isSearchOpen && query ? filteredCounts.filtered : mrs.length;
+  const navItemCount = isSearchOpen && query ? filteredMrs.length : mrs.length;
 
   // Keyboard navigation hook
-  const { focusIndex, setFocusIndex } = useKeyboardNav({
+  const { focusIndex, setFocusIndex, moveNext, movePrev, selectFocused } = useKeyboardNav({
     itemCount: navItemCount,
     onSelect: handleSelectByIndex,
     enabled: !loading && navItemCount > 0,
@@ -178,6 +194,9 @@ export default function MRListPage() {
             onClose={closeSearch}
             filteredCount={filteredCounts.filtered}
             totalCount={filteredCounts.total}
+            onArrowDown={moveNext}
+            onArrowUp={movePrev}
+            onSubmit={selectFocused}
           />
         )}
         {selectedInstanceId != null ? (
@@ -196,10 +215,20 @@ export default function MRListPage() {
 
       <footer className="mr-list-page-footer">
         <span className="keyboard-hint">
-          <kbd>j</kbd>/<kbd>k</kbd> navigate &middot;{' '}
-          <kbd>Enter</kbd> open &middot;{' '}
-          <kbd>⌘F</kbd> search &middot;{' '}
-          <kbd>?</kbd> help
+          {isSearchOpen ? (
+            <>
+              <kbd>&uarr;</kbd>/<kbd>&darr;</kbd> navigate &middot;{' '}
+              <kbd>Enter</kbd> open &middot;{' '}
+              <kbd>Esc</kbd> close search
+            </>
+          ) : (
+            <>
+              <kbd>j</kbd>/<kbd>k</kbd> navigate &middot;{' '}
+              <kbd>Enter</kbd> open &middot;{' '}
+              <kbd>⌘F</kbd> search &middot;{' '}
+              <kbd>?</kbd> help
+            </>
+          )}
         </span>
       </footer>
     </div>
