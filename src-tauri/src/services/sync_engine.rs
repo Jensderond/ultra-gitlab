@@ -314,12 +314,17 @@ impl SyncEngine {
             // Run initial sync immediately
             eprintln!("[sync] Running initial background sync...");
             match engine.run_sync().await {
-                Ok(r) => eprintln!(
-                    "[sync] Initial sync complete: {} MRs, {} purged, {} errors",
-                    r.mr_count,
-                    r.purged_count,
-                    r.errors.len()
-                ),
+                Ok(r) => {
+                    eprintln!(
+                        "[sync] Initial sync complete: {} MRs, {} purged, {} errors",
+                        r.mr_count,
+                        r.purged_count,
+                        r.errors.len()
+                    );
+                    for err in &r.errors {
+                        eprintln!("[sync] Error: {}", err);
+                    }
+                }
                 Err(e) => eprintln!("[sync] Initial sync error: {}", e),
             }
 
@@ -786,18 +791,26 @@ impl SyncEngine {
         let start = Instant::now();
 
         // Check if MR already exists (to determine created vs updated)
-        let existing: Option<(i64,)> = sqlx::query_as("SELECT id FROM merge_requests WHERE id = ?")
-            .bind(mr.id)
-            .fetch_optional(&self.pool)
-            .await?;
+        let existing: Option<(i64,)> = sqlx::query_as(
+            "SELECT id FROM merge_requests WHERE instance_id = ? AND project_id = ? AND iid = ?",
+        )
+        .bind(instance_id)
+        .bind(mr.project_id)
+        .bind(mr.iid)
+        .fetch_optional(&self.pool)
+        .await?;
         let is_new = existing.is_none();
 
-        // Upsert MR metadata
-        self.upsert_mr(instance_id, mr).await?;
+        // Upsert MR metadata and get the canonical DB row id
+        // (may differ from mr.id if the row already existed with a different PK)
+        let local_mr_id = self.upsert_mr(instance_id, mr).await.map_err(|e| {
+            eprintln!("[sync] MR !{}: upsert_mr failed: {}", mr.iid, e);
+            e
+        })?;
 
         // Emit created or updated event
         self.emit_mr_updated(
-            mr.id,
+            local_mr_id,
             instance_id,
             mr.iid,
             if is_new {
@@ -835,12 +848,12 @@ impl SyncEngine {
                 .bind(approvals_count)
                 .bind(approvals.approvals_required)
                 .bind(user_has_approved)
-                .bind(mr.id)
+                .bind(local_mr_id)
                 .execute(&self.pool)
                 .await?;
 
                 // Upsert per-reviewer status
-                self.upsert_reviewers(mr.id, mr, &approvals).await;
+                self.upsert_reviewers(local_mr_id, mr, &approvals).await;
             }
             Err(e) => {
                 // Non-critical - log and continue
@@ -858,18 +871,22 @@ impl SyncEngine {
         match client.get_merge_request_diff(mr.project_id, mr.iid).await {
             Ok(diff) => {
                 // Get previously cached SHAs before upserting (for skip-unchanged logic)
-                let prev_shas = crate::db::file_cache::get_cached_diff_shas(&self.pool, mr.id)
-                    .await
-                    .unwrap_or(None);
+                let prev_shas =
+                    crate::db::file_cache::get_cached_diff_shas(&self.pool, local_mr_id)
+                        .await
+                        .unwrap_or(None);
 
-                self.upsert_diff(mr.id, &diff).await?;
+                self.upsert_diff(local_mr_id, &diff).await.map_err(|e| {
+                    eprintln!("[sync] MR !{}: upsert_diff failed: {}", mr.iid, e);
+                    e
+                })?;
 
                 // Emit diff_updated event
-                self.emit_mr_updated(mr.id, instance_id, mr.iid, MrUpdateType::DiffUpdated);
+                self.emit_mr_updated(local_mr_id, instance_id, mr.iid, MrUpdateType::DiffUpdated);
 
                 // Pre-cache full file content for instant viewing
                 self.cache_file_contents(
-                    mr.id,
+                    local_mr_id,
                     mr.project_id,
                     instance_id,
                     client,
@@ -882,7 +899,7 @@ impl SyncEngine {
                 self.log_sync_operation(
                     "fetch_diff",
                     "error",
-                    Some(mr.id),
+                    Some(local_mr_id),
                     Some(e.to_string()),
                     None,
                 )
@@ -899,16 +916,26 @@ impl SyncEngine {
         // Fetch and store comments
         match client.list_discussions(mr.project_id, mr.iid).await {
             Ok(discussions) => {
-                self.upsert_discussions(mr.id, &discussions).await?;
+                self.upsert_discussions(local_mr_id, &discussions)
+                    .await
+                    .map_err(|e| {
+                        eprintln!("[sync] MR !{}: upsert_discussions failed: {}", mr.iid, e);
+                        e
+                    })?;
 
                 // Emit comments_updated event
-                self.emit_mr_updated(mr.id, instance_id, mr.iid, MrUpdateType::CommentsUpdated);
+                self.emit_mr_updated(
+                    local_mr_id,
+                    instance_id,
+                    mr.iid,
+                    MrUpdateType::CommentsUpdated,
+                );
             }
             Err(e) => {
                 self.log_sync_operation(
                     "fetch_comments",
                     "error",
-                    Some(mr.id),
+                    Some(local_mr_id),
                     Some(e.to_string()),
                     None,
                 )
@@ -920,7 +947,7 @@ impl SyncEngine {
         self.log_sync_operation(
             "sync_mr",
             "success",
-            Some(mr.id),
+            Some(local_mr_id),
             None,
             Some(start.elapsed().as_millis() as i64),
         )
@@ -1067,7 +1094,8 @@ impl SyncEngine {
     }
 
     /// Upsert MR metadata into the database.
-    async fn upsert_mr(&self, instance_id: i64, mr: &GitLabMergeRequest) -> Result<(), AppError> {
+    /// Returns the canonical DB row id (which may differ from mr.id if the row already existed).
+    async fn upsert_mr(&self, instance_id: i64, mr: &GitLabMergeRequest) -> Result<i64, AppError> {
         let created_at = parse_iso_timestamp(&mr.created_at);
         let updated_at = parse_iso_timestamp(&mr.updated_at);
         let merged_at = mr.merged_at.as_ref().map(|s| parse_iso_timestamp(s));
@@ -1091,7 +1119,7 @@ impl SyncEngine {
                 created_at, updated_at, merged_at, labels, reviewers, cached_at,
                 project_name, head_pipeline_status
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
+            ON CONFLICT(instance_id, project_id, iid) DO UPDATE SET
                 title = excluded.title,
                 description = excluded.description,
                 state = excluded.state,
@@ -1126,7 +1154,17 @@ impl SyncEngine {
         .execute(&self.pool)
         .await?;
 
-        Ok(())
+        // Read back the canonical DB row id (may differ from mr.id if row already existed)
+        let (db_id,): (i64,) = sqlx::query_as(
+            "SELECT id FROM merge_requests WHERE instance_id = ? AND project_id = ? AND iid = ?",
+        )
+        .bind(instance_id)
+        .bind(mr.project_id)
+        .bind(mr.iid)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(db_id)
     }
 
     /// Upsert diff data into the database.

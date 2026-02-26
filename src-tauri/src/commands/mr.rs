@@ -1091,7 +1091,7 @@ pub async fn fetch_mr_by_web_url(
             created_at, updated_at, merged_at, labels, reviewers, cached_at,
             project_name, head_pipeline_status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
+        ON CONFLICT(instance_id, project_id, iid) DO UPDATE SET
             title = excluded.title,
             description = excluded.description,
             state = excluded.state,
@@ -1126,8 +1126,18 @@ pub async fn fetch_mr_by_web_url(
     .execute(pool.inner())
     .await?;
 
+    // Read back the canonical DB row id (may differ from gitlab_mr.id if row already existed)
+    let (db_id,): (i64,) = sqlx::query_as(
+        "SELECT id FROM merge_requests WHERE instance_id = ? AND project_id = ? AND iid = ?",
+    )
+    .bind(instance_id)
+    .bind(gitlab_mr.project_id)
+    .bind(gitlab_mr.iid)
+    .fetch_one(pool.inner())
+    .await?;
+
     Ok(ResolvedMr {
-        local_id: gitlab_mr.id,
+        local_id: db_id,
         state: gitlab_mr.state,
     })
 }

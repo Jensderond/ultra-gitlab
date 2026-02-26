@@ -99,7 +99,7 @@ export default function useDeepLink() {
       }
 
       // Listen for subsequent deep-link URLs (warm start)
-      const unlisten = await deepLink.onOpenUrl(async (urls) => {
+      const unlistenDeepLink = await deepLink.onOpenUrl(async (urls) => {
         if (!cancelled && urls.length > 0) {
           // Surface the window if it was hidden (macOS hide-on-close)
           const appWindow = getCurrentWindow();
@@ -110,7 +110,28 @@ export default function useDeepLink() {
         }
       });
 
-      return unlisten;
+      // When the window regains focus (e.g. after being hidden via CMD+W),
+      // check for pending deep-link URLs that may have arrived while hidden.
+      // The onOpenUrl listener doesn't reliably fire when the webview is hidden
+      // on macOS, so this acts as a fallback.
+      const appWindow = getCurrentWindow();
+      const unlistenFocus = await appWindow.onFocusChanged(async ({ payload: focused }) => {
+        if (!cancelled && focused) {
+          try {
+            const urls = await deepLink.getCurrent();
+            if (urls && urls.length > 0) {
+              handleDeepLinkUrl(urls[0]);
+            }
+          } catch {
+            // getCurrent may fail if no pending URL
+          }
+        }
+      });
+
+      return () => {
+        unlistenDeepLink();
+        unlistenFocus();
+      };
     }
 
     let unlisten: (() => void) | undefined;

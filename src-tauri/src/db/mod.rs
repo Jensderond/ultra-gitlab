@@ -114,6 +114,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0014_avatar_cache",
         include_str!("migrations/0014_avatar_cache.sql"),
     ),
+    (
+        "0015_fix_mr_unique_constraint",
+        include_str!("migrations/0015_fix_mr_unique_constraint.sql"),
+    ),
 ];
 
 /// Run all pending database migrations.
