@@ -332,6 +332,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     for (const [prop, value] of Object.entries(vars)) {
       root.style.setProperty(prop, value);
     }
+    root.style.colorScheme = theme.type;
   }, [theme]);
 
   // Apply font-family to :root whenever uiFont changes

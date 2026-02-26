@@ -75,6 +75,11 @@ export default function FileNavigation({
 }: FileNavigationProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const focusedRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    focusedRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [focusIndex]);
 
   const generatedCount = generatedPaths?.size ?? 0;
 
@@ -162,6 +167,7 @@ export default function FileNavigation({
           return (
             <div
               key={file.newPath}
+              ref={isFocused ? focusedRef : undefined}
               className={`file-nav-item ${isSelected ? 'selected' : ''} ${isFocused ? 'focused' : ''} ${isViewed ? 'viewed' : ''} ${isGenerated ? 'generated' : ''}`}
               onClick={() => onSelect(file.newPath)}
               role="button"
