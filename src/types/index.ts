@@ -20,6 +20,7 @@ export interface GitLabInstanceSetup {
   url: string;
   token: string;
   name?: string;
+  sessionCookie?: string;
 }
 
 export interface GitLabInstanceResponse {

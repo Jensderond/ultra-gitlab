@@ -43,7 +43,7 @@ TEST CREDENTIALS can be fetched from credentials.md (not in git)
 
 ## Active Technologies
 - TypeScript 5.8+ (frontend), Rust stable (backend via Tauri 2) + React 19, Tauri 2, tree-sitter (syntax highlighting), SQLite (local storage) (001-local-mr-review)
-- SQLite via Tauri for MR cache, system keychain for credentials (001-local-mr-review)
+- SQLite via Tauri for MR cache and credentials (001-local-mr-review)
 
 ## Recent Changes
 - 001-local-mr-review: Added TypeScript 5.8+ (frontend), Rust stable (backend via Tauri 2) + React 19, Tauri 2, tree-sitter (syntax highlighting), SQLite (local storage)

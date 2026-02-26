@@ -18,7 +18,7 @@ DELETE FROM mr_reviewers WHERE mr_id >= 100 AND mr_id < 1000;
 DELETE FROM merge_requests WHERE id >= 100 AND id < 1000;
 DELETE FROM gitlab_instances WHERE id = 99;
 
--- Seed GitLab instance (token must be added separately via keychain)
+-- Seed GitLab instance
 INSERT OR REPLACE INTO gitlab_instances (id, url, name, token, created_at, authenticated_username)
 VALUES (99, 'https://gitlab.example.com', 'Test Instance', '', strftime('%s', 'now'), 'testuser');
 

@@ -19,13 +19,14 @@ interface SetupState {
   url: string;
   token: string;
   name: string;
+  sessionCookie: string;
   loading: boolean;
   error: string | null;
   success: string | null;
 }
 
 type SetupAction =
-  | { type: 'SET_FIELD'; field: 'url' | 'token' | 'name'; value: string }
+  | { type: 'SET_FIELD'; field: 'url' | 'token' | 'name' | 'sessionCookie'; value: string }
   | { type: 'SUBMIT_START' }
   | { type: 'SUBMIT_SUCCESS'; message: string }
   | { type: 'SUBMIT_ERROR'; error: string }
@@ -54,12 +55,13 @@ export default function InstanceSetup({ onComplete, onCancel }: InstanceSetupPro
     url: '',
     token: '',
     name: '',
+    sessionCookie: '',
     loading: false,
     error: null,
     success: null,
   });
 
-  const { url, token, name, loading, error, success } = state;
+  const { url, token, name, sessionCookie, loading, error, success } = state;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -80,6 +82,7 @@ export default function InstanceSetup({ onComplete, onCancel }: InstanceSetupPro
         url: url.trim(),
         token: token.trim(),
         name: name.trim() || undefined,
+        sessionCookie: sessionCookie.trim() || undefined,
       });
 
       dispatch({ type: 'SUBMIT_SUCCESS', message: `Successfully connected as ${result.username}` });
@@ -144,6 +147,23 @@ export default function InstanceSetup({ onComplete, onCancel }: InstanceSetupPro
           />
           <span className="form-help">
             A friendly name to identify this instance
+          </span>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="instance-session-cookie">Session Cookie (optional)</label>
+          <input
+            id="instance-session-cookie"
+            type="password"
+            placeholder="paste cookie value here"
+            value={sessionCookie}
+            onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'sessionCookie', value: e.target.value })}
+            disabled={loading}
+          />
+          <span className="form-help">
+            Used to download user avatars from private GitLab instances.
+            Copy the <code>_gitlab_session</code> cookie value from your browser
+            while logged in to GitLab (DevTools → Application → Cookies).
           </span>
         </div>
 

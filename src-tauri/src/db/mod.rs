@@ -134,7 +134,8 @@ async fn run_migrations(pool: &pool::DbPool) -> Result<(), DbError> {
     .execute(&mut *conn)
     .await?;
 
-    // Run each migration if not already applied
+    // Run each migration if not already applied, wrapped in a transaction
+    // so that partial failures don't leave the DB in an unrecoverable state.
     for (name, sql) in MIGRATIONS {
         let applied: Option<(i64,)> = sqlx::query_as("SELECT id FROM _migrations WHERE name = ?")
             .bind(*name)
@@ -142,16 +143,38 @@ async fn run_migrations(pool: &pool::DbPool) -> Result<(), DbError> {
             .await?;
 
         if applied.is_none() {
-            // Parse and run SQL statements
-            for statement in parse_sql_statements(sql) {
-                sqlx::query(&statement).execute(&mut *conn).await?;
-            }
+            // SQLite supports transactional DDL, so wrapping in BEGIN/COMMIT
+            // ensures all statements succeed atomically. On failure, the entire
+            // migration is rolled back and can be retried on next startup.
+            sqlx::query("BEGIN").execute(&mut *conn).await?;
 
-            // Record the migration
-            sqlx::query("INSERT INTO _migrations (name) VALUES (?)")
-                .bind(*name)
-                .execute(&mut *conn)
-                .await?;
+            let result: Result<(), sqlx::Error> = async {
+                for statement in parse_sql_statements(sql) {
+                    sqlx::query(&statement).execute(&mut *conn).await?;
+                }
+
+                // Record the migration inside the same transaction
+                sqlx::query("INSERT INTO _migrations (name) VALUES (?)")
+                    .bind(*name)
+                    .execute(&mut *conn)
+                    .await?;
+
+                Ok(())
+            }
+            .await;
+
+            match result {
+                Ok(()) => {
+                    sqlx::query("COMMIT").execute(&mut *conn).await?;
+                }
+                Err(e) => {
+                    let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+                    return Err(DbError::Migration(format!(
+                        "Migration '{}' failed: {}",
+                        name, e
+                    )));
+                }
+            }
         }
     }
 

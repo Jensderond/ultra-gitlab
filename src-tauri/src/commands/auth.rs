@@ -1,7 +1,7 @@
 //! Authentication commands for GitLab instance management.
 //!
 //! These commands handle setting up, retrieving, and deleting GitLab instances
-//! with their credentials stored securely in the OS keychain.
+//! with their credentials stored in the local SQLite database.
 
 use crate::db::pool::DbPool;
 use crate::error::AppError;
@@ -32,19 +32,20 @@ pub struct SetupInstanceInput {
 
     /// Optional display name.
     pub name: Option<String>,
+
+    /// Optional session cookie for avatar downloads.
+    pub session_cookie: Option<String>,
 }
 
 /// Set up a new GitLab instance.
 ///
 /// This command:
 /// 1. Validates the token by calling GitLab API
-/// 2. Stores the token securely in the OS keychain
-/// 3. Creates the instance record in the database
+/// 2. Creates the instance record in the database with credentials
 ///
 /// # Errors
 /// - Authentication error if token is invalid
 /// - Database error if instance already exists or insert fails
-/// - Credential storage error if keychain access fails
 #[tauri::command]
 pub async fn setup_gitlab_instance(
     pool: State<'_, DbPool>,
@@ -62,13 +63,16 @@ pub async fn setup_gitlab_instance(
 
     let user = client.validate_token().await?;
 
+    // Trim empty session cookie to None
+    let session_cookie = input.session_cookie.filter(|s| !s.trim().is_empty());
+
     let now = chrono::Utc::now().timestamp();
     let result = sqlx::query_as::<_, GitLabInstance>(
         r#"
-        INSERT INTO gitlab_instances (url, name, token, created_at, authenticated_username)
-        VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (url) DO UPDATE SET name = $2, token = $3, authenticated_username = $5
-        RETURNING id, url, name, token, created_at, authenticated_username
+        INSERT INTO gitlab_instances (url, name, token, created_at, authenticated_username, session_cookie)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (url) DO UPDATE SET name = $2, token = $3, authenticated_username = $5, session_cookie = COALESCE($6, gitlab_instances.session_cookie)
+        RETURNING id, url, name, token, created_at, authenticated_username, session_cookie
         "#,
     )
     .bind(&url)
@@ -76,6 +80,7 @@ pub async fn setup_gitlab_instance(
     .bind(&input.token)
     .bind(now)
     .bind(&user.username)
+    .bind(&session_cookie)
     .fetch_one(pool.inner())
     .await?;
 
@@ -226,9 +231,7 @@ pub async fn update_instance_token(
 
 /// Delete a GitLab instance.
 ///
-/// This command:
-/// 1. Deletes the token from the OS keychain
-/// 2. Removes the instance from the database (cascades to MRs, diffs, etc.)
+/// Removes the instance from the database (cascades to MRs, diffs, etc.)
 ///
 /// # Arguments
 /// * `instance_id` - The database ID of the instance to delete
@@ -250,7 +253,6 @@ pub async fn delete_gitlab_instance(
 mod tests {
     // Integration tests for auth commands would require:
     // - A test database
-    // - Mock keychain or test keychain access
     // - Mock GitLab API server
     //
     // These are best implemented as separate integration tests.
