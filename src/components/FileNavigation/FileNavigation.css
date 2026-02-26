@@ -168,8 +168,11 @@
   background: linear-gradient(90deg,
     var(--wave-glow) 0%,
     transparent 100%);
-  border-left: 3px solid var(--accent-color);
-  padding-left: 11px;
+}
+
+@keyframes accent-line-grow {
+  0% { width: 2px; }
+  100% { width: 4px; }
 }
 
 .file-nav-item.selected::before {
@@ -178,11 +181,13 @@
   left: 0;
   top: 0;
   bottom: 0;
-  width: 3px;
+  width: 4px;
   background: linear-gradient(180deg,
     var(--accent-color) 0%,
     var(--accent-hover) 100%);
   box-shadow: 0 0 10px var(--wave-glow-strong);
+  border-radius: 0 2px 2px 0;
+  animation: accent-line-grow 0.2s ease 0.1s both;
 }
 
 .file-nav-item.focused {
