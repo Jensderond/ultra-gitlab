@@ -321,7 +321,7 @@ export default function AppearanceSection() {
       )}
 
       <FontCombobox
-        label="UI Font"
+        label="Page Title Font"
         labelId="font-selector-label"
         fonts={allFonts}
         value={uiFont}
