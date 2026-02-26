@@ -51,6 +51,11 @@ export default function PipelineDetailPage() {
     dispatch,
   });
 
+  // Switch to jobs tab when navigating to a different pipeline (e.g. from history)
+  useEffect(() => {
+    setActiveTab('jobs');
+  }, [plid]);
+
   // Lazy-load history when switching to history tab
   useEffect(() => {
     if (activeTab === 'history') {
