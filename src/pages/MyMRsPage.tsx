@@ -124,7 +124,7 @@ export default function MyMRsPage() {
     [navigate]
   );
 
-  const { focusIndex, setFocusIndex } = useKeyboardNav({
+  const { focusIndex, setFocusIndex, moveNext, movePrev, selectFocused } = useKeyboardNav({
     itemCount: filteredItems.length,
     onSelect: handleSelectByIndex,
     enabled: !loading && filteredItems.length > 0,
@@ -206,6 +206,9 @@ export default function MyMRsPage() {
             onClose={closeSearch}
             filteredCount={filteredCount}
             totalCount={totalCount}
+            onArrowDown={moveNext}
+            onArrowUp={movePrev}
+            onSubmit={selectFocused}
           />
         )}
         {loading ? (
@@ -250,10 +253,20 @@ export default function MyMRsPage() {
 
       <footer className="mr-list-page-footer">
         <span className="keyboard-hint">
-          <kbd>j</kbd>/<kbd>k</kbd> navigate &middot;{' '}
-          <kbd>Enter</kbd> open &middot;{' '}
-          <kbd>⌘F</kbd> search &middot;{' '}
-          <kbd>?</kbd> help
+          {isSearchOpen ? (
+            <>
+              <kbd>&uarr;</kbd>/<kbd>&darr;</kbd> navigate &middot;{' '}
+              <kbd>Enter</kbd> open &middot;{' '}
+              <kbd>Esc</kbd> close search
+            </>
+          ) : (
+            <>
+              <kbd>j</kbd>/<kbd>k</kbd> navigate &middot;{' '}
+              <kbd>Enter</kbd> open &middot;{' '}
+              <kbd>⌘F</kbd> search &middot;{' '}
+              <kbd>?</kbd> help
+            </>
+          )}
         </span>
       </footer>
     </div>
