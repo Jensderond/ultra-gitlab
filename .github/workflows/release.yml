@@ -157,6 +157,6 @@ jobs:
           tagName: v${{ inputs.version }}
           releaseName: 'Ultra GitLab v${{ inputs.version }}'
           releaseBody: ${{ needs.changelog.outputs.content }}
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: --target aarch64-apple-darwin
