@@ -77,25 +77,38 @@ export default function usePipelinesData() {
   const loadProjects = useCallback(async () => {
     if (!state.selectedInstanceId) return;
     const requestedInstanceId = state.selectedInstanceId;
-    try {
-      dispatch({ type: 'SET_LOADING', loading: true });
-      const projectList = await listPipelineProjects(requestedInstanceId);
-      if (selectedInstanceIdRef.current !== requestedInstanceId) return;
-      const projectIds = projectList.map((p) => p.projectId);
+    dispatch({ type: 'SET_LOADING', loading: true });
 
-      if (projectIds.length > 0) {
-        dispatch({ type: 'SET_STATUSES_LOADING', loading: true });
-        const statusList = await getPipelineStatuses(requestedInstanceId, projectIds);
-        if (selectedInstanceIdRef.current !== requestedInstanceId) return;
-        const statusMap = new Map(statusList.map((s) => [s.projectId, s]));
-        emitPipelineChanges(statusMap);
-        dispatch({ type: 'PROJECTS_LOADED', projects: projectList, statuses: statusMap });
-      } else {
-        dispatch({ type: 'PROJECTS_LOADED', projects: projectList, statuses: new Map() });
-      }
+    // Fetch projects first — always dispatch them on success regardless of status fetch outcome
+    let projectList: PipelineProject[];
+    try {
+      projectList = await listPipelineProjects(requestedInstanceId);
     } catch (error) {
       console.error('Failed to load pipeline projects:', error);
       dispatch({ type: 'SET_LOADING', loading: false });
+      return;
+    }
+
+    if (selectedInstanceIdRef.current !== requestedInstanceId) return;
+    const projectIds = projectList.map((p) => p.projectId);
+    dispatch({ type: 'SET_PROJECTS', projects: projectList });
+    dispatch({ type: 'SET_LOADING', loading: false });
+
+    if (projectIds.length === 0) return;
+
+    // Fetch statuses separately — failure shows empty statuses but projects still visible
+    dispatch({ type: 'SET_STATUSES_LOADING', loading: true });
+    try {
+      const statusList = await getPipelineStatuses(requestedInstanceId, projectIds);
+      if (selectedInstanceIdRef.current !== requestedInstanceId) return;
+      const statusMap = new Map(statusList.map((s) => [s.projectId, s]));
+      emitPipelineChanges(statusMap);
+      dispatch({ type: 'SET_STATUSES', statuses: statusMap });
+    } catch (error) {
+      console.error('Failed to load pipeline statuses:', error);
+      dispatch({ type: 'SET_STATUSES', statuses: new Map() });
+    } finally {
+      dispatch({ type: 'SET_STATUSES_LOADING', loading: false });
     }
   }, [state.selectedInstanceId, emitPipelineChanges]);
 

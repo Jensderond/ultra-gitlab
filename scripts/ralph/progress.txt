@@ -120,3 +120,13 @@ Started: Sat Feb 28 14:18:43 CET 2026
 - Files changed: `src/pages/PipelineDetailPage/usePipelineData.ts`, `src/pages/JobLogPage.tsx`
 - **Note:** Browser verification skipped — dev-browser skill not available in this context
 ---
+
+## 2026-02-28 - US-015
+- Split `loadProjects` in `usePipelinesData.ts` into two independent try/catch blocks
+- Projects are always dispatched via `SET_PROJECTS` + `SET_LOADING: false` once `listPipelineProjects` succeeds
+- Statuses fetched separately; on failure, dispatch `SET_STATUSES` with empty Map + `SET_STATUSES_LOADING: false`
+- Files changed: `src/pages/PipelinesPage/usePipelinesData.ts`
+- **Learnings for future iterations:**
+  - `PipelineProject[]` type can be imported from `../../types` for explicit typing
+  - `PROJECTS_LOADED` action was replaced with separate `SET_PROJECTS`/`SET_LOADING`/`SET_STATUSES`/`SET_STATUSES_LOADING` actions for finer control
+---
