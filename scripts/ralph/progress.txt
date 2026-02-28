@@ -88,3 +88,13 @@ Started: Sat Feb 28 14:18:43 CET 2026
 - Replaced `-Date.now()` with `nextOptimisticId()` in both `addComment` and `replyToComment`
 - Files changed: `src/hooks/useActivityData.ts`
 ---
+
+## 2026-02-28 - US-011
+- Refactored `deleteComment` in `useActivityData.ts` to find and capture removed item inside `setComments` updater
+- On failure, restores the comment at its original index using `splice(atIndex, 0, toRestore)`
+- Removed `comments` from `useCallback` deps (only `[mrId]` now needed)
+- Files changed: `src/hooks/useActivityData.ts`
+- **Learnings for future iterations:**
+  - To capture item+index inside a functional updater: assign to outer-scope `let` variables inside `setComments(prev => ...)`
+  - `splice(index, 0, item)` inserts at position (vs `push`/concat which appends)
+---

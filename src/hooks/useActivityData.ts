@@ -162,16 +162,31 @@ export function useActivityData(mrId: number): ActivityData {
 
   const deleteComment = useCallback(
     async (commentId: number) => {
-      const removed = comments.find(c => c.id === commentId);
-      setComments(prev => prev.filter(c => c.id !== commentId));
+      let removedIndex = -1;
+      let removedComment: Comment | undefined;
+      setComments(prev => {
+        const idx = prev.findIndex(c => c.id === commentId);
+        if (idx === -1) return prev;
+        removedIndex = idx;
+        removedComment = prev[idx];
+        return prev.filter(c => c.id !== commentId);
+      });
 
       try {
         await gitlabDeleteComment(mrId, commentId);
       } catch {
-        if (removed) setComments(prev => [...prev, removed]);
+        if (removedComment !== undefined) {
+          const toRestore = removedComment;
+          const atIndex = removedIndex;
+          setComments(prev => {
+            const next = [...prev];
+            next.splice(atIndex, 0, toRestore);
+            return next;
+          });
+        }
       }
     },
-    [mrId, comments],
+    [mrId],
   );
 
   return {
