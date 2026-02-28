@@ -9,6 +9,10 @@ import { isTauri, resolveMrByWebUrl, listInstances } from '../services';
 // even if the hook effect re-runs (React strict mode, HMR, etc.)
 let coldStartHandled = false;
 
+// Module-level set to track URLs that have already been handled,
+// so window focus events don't re-navigate to the same deep link.
+const handledUrls = new Set<string>();
+
 /**
  * Hook that listens for ultra-gitlab:// deep-link URLs and navigates accordingly.
  *
@@ -120,7 +124,10 @@ export default function useDeepLink() {
           try {
             const urls = await deepLink.getCurrent();
             if (urls && urls.length > 0) {
-              handleDeepLinkUrl(urls[0]);
+              const url = urls[0];
+              if (handledUrls.has(url)) return;
+              await handleDeepLinkUrl(url);
+              handledUrls.add(url);
             }
           } catch {
             // getCurrent may fail if no pending URL

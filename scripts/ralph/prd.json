@@ -1,19 +1,18 @@
 {
   "project": "Ultra GitLab",
-  "branchName": "ralph/pipeline-logs",
-  "description": "Pipeline Job Log Viewer - View and stream job logs with ANSI color rendering and follow mode on a dedicated full-page view",
+  "branchName": "ralph/frontend-bug-fixes",
+  "description": "Frontend Bug Fixes - Fix race conditions, stale state, missing rollbacks, and infinite spinners found during Q1 2026 bug hunt",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Add Rust command and GitLab client method to fetch job trace",
-      "description": "As a developer, I need a backend command that fetches the raw log output for a job from GitLab's API so the frontend can display it.",
+      "title": "Fix deep-link URL re-processed on every window focus",
+      "description": "As a user launched via a deep link, I want window focus changes to not re-navigate me, so that I can freely browse settings or other MRs after the initial link is handled.",
       "acceptanceCriteria": [
-        "Add `get_job_trace` method to GitLabClient in src-tauri/src/services/gitlab_client.rs that calls GET /projects/:id/jobs/:job_id/trace and returns the raw text body as String",
-        "Handle 404 responses gracefully by returning an empty string",
-        "Add `get_job_trace` Tauri command in src-tauri/src/commands/pipeline.rs taking instance_id, project_id, job_id and returning String",
-        "Re-export the command in src-tauri/src/commands/mod.rs",
-        "Register the command in src-tauri/src/lib.rs generate_handler!",
-        "cargo check passes"
+        "In src/hooks/useDeepLink.ts, add a module-level Set<string> (e.g. const handledUrls = new Set<string>()) to track processed URLs",
+        "In the focus handler inside setup(), before calling handleDeepLinkUrl(url), check if the URL is already in handledUrls — if so, skip it",
+        "After handleDeepLinkUrl(url) completes successfully (no exception), add the URL to handledUrls",
+        "The coldStartHandled check and explicit cold-start path remain unchanged",
+        "Typecheck passes (bunx tsc --noEmit)"
       ],
       "priority": 1,
       "passes": true,
@@ -21,88 +20,200 @@
     },
     {
       "id": "US-002",
-      "title": "Add frontend service wrapper for get_job_trace",
-      "description": "As a developer, I need the frontend service layer updated so the new command is accessible from React.",
+      "title": "Fix inline comment delete with no rollback on API failure",
+      "description": "As a user, I want a failed comment delete to restore the comment in the UI, so that I don't lose visibility into a comment that still exists on GitLab.",
       "acceptanceCriteria": [
-        "Add getJobTrace(instanceId: number, projectId: number, jobId: number): Promise<string> function in src/services/tauri.ts wrapping invoke('get_job_trace', ...)",
-        "Re-export getJobTrace from src/services/index.ts",
-        "bunx tsc --noEmit passes"
+        "In src/pages/MRDetailPage/index.tsx, in handleDeleteComment, capture the comment before removal: const toRestore = fileComments.find(c => c.id === commentId)",
+        "Call removeComment(commentId) optimistically as before",
+        "Chain a .catch() on deleteComment(mrId, commentId) that calls restoreComment(toRestore) (or equivalent state restore) when toRestore is defined",
+        "The rollback pattern matches useActivityData.ts (restore via setFileComments or equivalent state setter)",
+        "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Create JobLogPage with route and navigation from PipelineDetailPage",
-      "description": "As a user, I want to click a job on the PipelineDetailPage and navigate to a full-page log view so I can focus on reading the output.",
+      "title": "Fix currentUser resolved from instances[0] instead of MR's instance",
+      "description": "As a user with multiple GitLab instances, I want comment delete controls to reflect my identity on the correct instance, so that I can delete my own comments on non-primary instances.",
       "acceptanceCriteria": [
-        "New route /pipelines/:projectId/:pipelineId/jobs/:jobId registered in App.tsx",
-        "New page component src/pages/JobLogPage.tsx with corresponding src/pages/JobLogPage.css",
-        "Clicking a job row on PipelineDetailPage navigates to the job log route, passing instanceId, job name, job status, stage, and duration as URL search params",
-        "Page header shows: job name, status badge (reuse status dot + label pattern from PipelineDetailPage), stage, and duration",
-        "BackButton component + Escape key returns to the PipelineDetailPage",
-        "On page load, fetches the job trace via getJobTrace and displays the raw text in a monospace pre element",
-        "Shows a loading spinner while the initial fetch is in progress",
-        "Shows an empty state message if the job has no log output",
-        "bunx tsc --noEmit passes",
-        "Verify in browser using dev-browser skill"
+        "In src/pages/MyMRDetailPage/useMyMRData.ts: after mrData is loaded, find the instance where instance.id === mrData.instanceId; use that instance's authenticatedUsername as currentUser (not instances[0].authenticatedUsername)",
+        "In src/hooks/useActivityData.ts: same fix — resolve currentUser from the instance matching mrData.instanceId",
+        "In src/pages/MRDetailPage/index.tsx: same fix — the effect that sets currentUser must match mr.instanceId against instances",
+        "If no matching instance is found, currentUser should be null (not instances[0])",
+        "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Add ANSI escape code rendering to log output",
-      "description": "As a user, I want to see the job's log output with terminal colors preserved so I can read it as easily as in a real terminal.",
+      "title": "Fix effectiveLoading stuck permanently when diffRefs is null",
+      "description": "As a user, I want a diff refs fetch failure to show an error message instead of an infinite loading overlay.",
       "acceptanceCriteria": [
-        "Install ansi-to-html npm package (bun add ansi-to-html) or implement a lightweight ANSI SGR parser",
-        "Parse ANSI escape codes in the log text and render as styled span elements with appropriate colors",
-        "Support standard 8-color, 16-color, and 256-color ANSI codes plus bold, dim, italic, underline attributes",
-        "Log container uses monospace font on a dark terminal-style background (#1e1e1e or similar from theme)",
-        "Strip any ANSI codes that cannot be rendered (e.g., cursor movement) so they don't appear as raw escape text",
-        "bunx tsc --noEmit passes",
-        "Verify in browser using dev-browser skill"
+        "In src/hooks/useFileContent.ts, find the effectiveLoading computation (currently: isLoading || (selectedFile !== null && selectedFile !== contentFile))",
+        "Gate the second clause so it only applies when mr and diffRefs are both non-null: isLoading || (selectedFile !== null && selectedFile !== contentFile && mr !== null && diffRefs !== null)",
+        "When diffRefs is null and selectedFile is set, effectiveLoading must resolve to false",
+        "The existing 'Diff information not available' UI path (if any) should now be reachable when diffRefs is null",
+        "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-005",
-      "title": "Stream logs for running jobs via polling",
-      "description": "As a user, I want to watch a running job's log update in real-time so I can monitor build progress live.",
+      "title": "Fix rebase setTimeout not cancelled on component unmount",
+      "description": "As a user, I want navigating away immediately after triggering a rebase to not corrupt the merge status display for a different MR.",
       "acceptanceCriteria": [
-        "When job status is running, pending, or created, poll the trace endpoint every 3 seconds",
-        "Append only new content by tracking the length of the previously fetched trace and extracting the new suffix",
-        "Show a pulsing 'Live' indicator badge in the page header when actively streaming (reuse pipelinePulse animation from PipelineDetailPage.css)",
-        "Pause polling when the window is not visible (use document visibilitychange event)",
-        "Resume polling when the window regains focus",
-        "Poll job status via getPipelineJobs every 10 seconds to detect when the job finishes, then stop log polling and remove the Live badge",
-        "bunx tsc --noEmit passes",
-        "Verify in browser using dev-browser skill"
+        "In src/pages/MyMRDetailPage/MergeSection.tsx, in handleRebase, store the setTimeout return value in a useRef (e.g. const rebaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null))",
+        "Assign the timer: rebaseTimerRef.current = setTimeout(() => fetchMergeStatus(), 3000)",
+        "Add a useEffect with an empty or appropriate dependency array whose cleanup calls clearTimeout(rebaseTimerRef.current) when the component unmounts",
+        "Typecheck passes"
       ],
       "priority": 5,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Add follow mode with auto-scroll",
-      "description": "As a user, I want the log to auto-scroll to the bottom as new lines appear so I don't have to manually scroll down during a running job.",
+      "title": "Fix MR list race condition on instance switch",
+      "description": "As a user switching between GitLab instances, I want the MR list to always show MRs from the selected instance, not from a previous slower request that resolved last.",
       "acceptanceCriteria": [
-        "Follow toggle button visible in a sticky toolbar at the top of the log area",
-        "Follow is enabled by default when the job is running/pending/created",
-        "When follow is ON, the log container auto-scrolls to the bottom on each new content update",
-        "When the user manually scrolls up (away from bottom), follow mode automatically disables",
-        "When the user scrolls back to the bottom, follow mode re-enables",
-        "Follow button visually indicates its current on/off state (e.g., highlighted when active)",
-        "bunx tsc --noEmit passes",
-        "Verify in browser using dev-browser skill"
+        "In src/components/MRList/MRList.tsx, in loadMRs (or equivalent fetch function), capture the instanceId at call time: const requestedInstanceId = instanceId",
+        "After the await resolves, check that the current instanceId still matches requestedInstanceId before dispatching FETCH_SUCCESS (or equivalent action)",
+        "If instanceId has changed (user switched instance), discard the response and do not update state",
+        "Typecheck passes"
       ],
       "priority": 6,
-      "passes": true,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Fix useFileComments race condition on file switch",
+      "description": "As a reviewer, I want switching between diff files to always show the correct file's inline comments, not comments from a previously selected file whose request resolved late.",
+      "acceptanceCriteria": [
+        "In src/pages/MRDetailPage/useFileComments.ts, in the loadComments useEffect, add: let cancelled = false; return () => { cancelled = true; }",
+        "After each await inside loadComments, check if (cancelled) return; before calling setFileComments or any state setter",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Fix usePipelinesData race condition on instance switch",
+      "description": "As a user switching between GitLab instances, I want the Pipelines dashboard to always show projects and statuses for the currently selected instance.",
+      "acceptanceCriteria": [
+        "In src/pages/PipelinesPage/usePipelinesData.ts, in loadProjects and refreshStatuses (or equivalent loaders), capture selectedInstanceId at call time: const requestedInstanceId = selectedInstanceId",
+        "After each await, check that selectedInstanceId still equals requestedInstanceId before dispatching results",
+        "If instance changed, discard the response",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Fix useCodeTab stale state on MR navigation and missing cancellation",
+      "description": "As a user, I want switching between MRs to show fresh Code tab content for the new MR, not stale files or diffs from a previously viewed MR.",
+      "acceptanceCriteria": [
+        "In src/pages/MyMRDetailPage/useCodeTab.ts, add a useEffect that watches mrId and resets files, selectedFile, generatedPaths, diffRefs, fileFocusIndex, and codeTabLoaded to their initial values when mrId changes",
+        "In the loadCodeData useEffect, add: let cancelled = false; return () => { cancelled = true; }",
+        "After each await inside loadCodeData, check if (cancelled) return; before calling any state setter",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Fix optimistic comment ID collision under rapid submission",
+      "description": "As a user, I want to submit multiple comments in quick succession without any being silently lost from the UI.",
+      "acceptanceCriteria": [
+        "In src/hooks/useActivityData.ts, replace -Date.now() optimistic IDs with a module-level monotonically decrementing counter: let _nextOptimisticId = -1; const nextOptimisticId = () => _nextOptimisticId--",
+        "Apply this to both the addComment and replyToComment optimistic entries",
+        "Two comments created in the same millisecond will now have distinct IDs (-1, -2, -3, ...)",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Fix deleteComment rollback position and unnecessary re-renders",
+      "description": "As a developer, I want the activity delete rollback to restore the comment at its original index and not trigger re-renders on every comment list change.",
+      "acceptanceCriteria": [
+        "In src/hooks/useActivityData.ts, in the deleteComment callback, on API failure find the original index of the removed comment inside the setComments(prev => ...) functional updater and splice it back at that index rather than appending with [...prev, removed]",
+        "Remove comments from the useCallback dependency array for deleteComment — instead, find the removed item inside the setComments updater using prev",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Fix mr-updated event handler missing cancellation guard",
+      "description": "As a user, I want rapidly navigating between MRs to not clear the new MR's file cache due to a stale event handler from the previous MR.",
+      "acceptanceCriteria": [
+        "In src/pages/MRDetailPage/useMRData.ts, in the useEffect that sets up the mr-updated Tauri event listener, add: let cancelled = false; return () => { cancelled = true; unlisten?.(); }",
+        "Inside the event handler's async callback, after each await, check if (cancelled) return; before calling setMr, setDiffRefs, setFiles, or clearFileCache",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Fix MRLoadingPage ignoring subsequent deep-link URLs",
+      "description": "As a user, I want a second deep-link navigation to a different MR to correctly load the new MR even if the loading page is already mounted.",
+      "acceptanceCriteria": [
+        "In src/pages/MRLoadingPage.tsx, replace the startedRef boolean with a lastProcessedUrl ref (useRef<string | null>(null))",
+        "The useEffect that triggers the fetch should run when webUrl changes; guard with if (webUrl === lastProcessedUrl.current) return; instead of if (startedRef.current) return;",
+        "Set lastProcessedUrl.current = webUrl at the start of each fetch to mark it as in-progress",
+        "A changed webUrl while a fetch is in progress should cancel the previous attempt (use a cancelled flag) and start a new fetch for the new URL",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Fix permanent spinner on invalid URL params in Pipeline and Job pages",
+      "description": "As a user, I want navigating to a pipeline or job page with missing params to show an error message with a back action, not an infinite loading spinner.",
+      "acceptanceCriteria": [
+        "In src/pages/PipelineDetailPage/usePipelineData.ts, in the loadJobs effect, when the early guard triggers (!instanceId || !projectId || !pipelineId), dispatch an explicit error or loading-end action before returning — the page must not stay in a loading: true state",
+        "In src/pages/JobLogPage.tsx, in the loadTrace effect, same fix: when (!instanceId || !pid || !jid), dispatch LOAD_ERROR or equivalent to clear the loading state and surface an error",
+        "The UI should show an actionable error state (message and/or back button) instead of perpetual 'Loading...'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Fix Pipelines page showing empty on partial backend failure",
+      "description": "As a user, I want a pipeline status fetch failure to still display the project list, not leave the dashboard completely empty.",
+      "acceptanceCriteria": [
+        "In src/pages/PipelinesPage/usePipelinesData.ts, in loadProjects, split project and status error handling: always dispatch the fetched projects to state once listPipelineProjects succeeds, regardless of whether getPipelineStatuses subsequently fails",
+        "On getPipelineStatuses failure, dispatch an empty or previous status map and clear statusesLoading (set to false)",
+        "Projects are never withheld from state due to a status fetch error",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
       "notes": ""
     }
   ]
