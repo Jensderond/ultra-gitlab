@@ -2,7 +2,7 @@
  * Merge section — merge status display, merge/rebase actions.
  */
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { mergeMR, checkMergeStatus, rebaseMR } from '../../services/tauri';
 import type { MergeRequest } from '../../types';
 import type { MergeState, MergeAction } from './mergeReducer';
@@ -17,6 +17,15 @@ interface MergeSectionProps {
 
 export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr }: MergeSectionProps) {
   const { merging, mergeError, mergeConfirm, mergeStatus, mergeStatusLoading, rebasing } = mergeState;
+  const rebaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (rebaseTimerRef.current !== null) {
+        clearTimeout(rebaseTimerRef.current);
+      }
+    };
+  }, []);
 
   const fetchMergeStatus = useCallback(async () => {
     if (mr.state !== 'opened') return;
@@ -55,7 +64,7 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr }: Mer
     mergeDispatch({ type: 'START_REBASE' });
     try {
       await rebaseMR(mrId);
-      setTimeout(() => fetchMergeStatus(), 3000);
+      rebaseTimerRef.current = setTimeout(() => fetchMergeStatus(), 3000);
       mergeDispatch({ type: 'REBASE_DONE' });
     } catch (err) {
       mergeDispatch({ type: 'REBASE_ERROR', error: err instanceof Error ? err.message : 'Rebase failed' });

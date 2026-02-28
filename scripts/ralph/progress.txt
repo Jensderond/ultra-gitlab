@@ -45,3 +45,10 @@ Started: Sat Feb 28 14:18:43 CET 2026
   - `useFileContent` has two loading mechanisms: `isLoading` (async fetch) and `effectiveLoading` (stale detection)
   - The stale detection clause must be gated on valid `mr`/`diffRefs` or it keeps loading forever on error paths
 ---
+
+## 2026-02-28 - US-005
+- Added `rebaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)` to `MergeSection`
+- Changed `setTimeout(...)` to `rebaseTimerRef.current = setTimeout(...)`
+- Added cleanup `useEffect` that calls `clearTimeout(rebaseTimerRef.current)` on unmount
+- Files changed: `src/pages/MyMRDetailPage/MergeSection.tsx`
+---
