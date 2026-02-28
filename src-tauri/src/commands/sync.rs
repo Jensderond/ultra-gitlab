@@ -131,7 +131,8 @@ pub async fn get_sync_status(
 /// Retry all failed sync actions.
 ///
 /// This resets failed actions to pending and immediately attempts
-/// to sync them again.
+/// to sync them again. Each action is retried using the correct
+/// GitLab instance credentials based on the MR it belongs to.
 ///
 /// # Returns
 /// Summary of retry results
@@ -140,35 +141,55 @@ pub async fn retry_failed_actions(
     app: AppHandle,
     pool: State<'_, DbPool>,
 ) -> Result<RetryActionsResponse, AppError> {
-    // Get the first GitLab instance to create a client
-    // In a real app, we'd need to retry actions per-instance
-    let instance = sqlx::query_as::<_, (i64, String, Option<String>)>(
-        "SELECT id, url, token FROM gitlab_instances ORDER BY id LIMIT 1",
+    // Query failed actions joined with their instance credentials
+    let action_instances = sqlx::query_as::<_, ActionWithInstance>(
+        r#"
+        SELECT sq.id AS action_id, sq.mr_id, sq.action_type, sq.payload, sq.local_reference_id,
+               sq.status, sq.retry_count, sq.last_error, sq.created_at, sq.synced_at,
+               gi.id AS instance_id, gi.url AS instance_url, gi.token AS instance_token
+        FROM sync_queue sq
+        JOIN merge_requests mr ON sq.mr_id = mr.id
+        JOIN gitlab_instances gi ON mr.instance_id = gi.id
+        WHERE sq.status = 'failed' AND sq.retry_count < ?
+        ORDER BY sq.created_at ASC
+        "#,
     )
-    .fetch_optional(pool.inner())
+    .bind(crate::models::sync_action::SyncAction::MAX_RETRIES)
+    .fetch_all(pool.inner())
     .await?;
 
-    let Some((instance_id, url, token)) = instance else {
+    // Also find orphaned actions whose instance was deleted
+    let orphaned_actions = sqlx::query_as::<_, (i64,)>(
+        r#"
+        SELECT sq.id
+        FROM sync_queue sq
+        LEFT JOIN merge_requests mr ON sq.mr_id = mr.id
+        LEFT JOIN gitlab_instances gi ON mr.instance_id = gi.id
+        WHERE sq.status = 'failed' AND sq.retry_count < ?
+          AND (mr.id IS NULL OR gi.id IS NULL)
+        "#,
+    )
+    .bind(crate::models::sync_action::SyncAction::MAX_RETRIES)
+    .fetch_all(pool.inner())
+    .await?;
+
+    // Mark orphaned actions as permanently failed
+    for (action_id,) in &orphaned_actions {
+        let _ = sync_queue::mark_discarded(
+            pool.inner(),
+            *action_id,
+            "Instance was deleted - cannot retry",
+        )
+        .await;
+    }
+
+    if action_instances.is_empty() {
         return Ok(RetryActionsResponse {
             retried_count: 0,
             success_count: 0,
             failed_count: 0,
         });
-    };
-
-    let token = token.ok_or_else(|| {
-        AppError::authentication_expired_for_instance(
-            "GitLab token missing. Please re-authenticate.",
-            instance_id,
-            &url,
-        )
-    })?;
-
-    let client = GitLabClient::new(GitLabClientConfig {
-        base_url: url.clone(),
-        token,
-        timeout_secs: 30,
-    })?;
+    }
 
     // Emit progress event
     let _ = app.emit(
@@ -177,57 +198,150 @@ pub async fn retry_failed_actions(
             phase: SyncPhase::PushingActions,
             message: "Retrying failed actions...".to_string(),
             processed: None,
-            total: None,
+            total: Some(action_instances.len() as i64),
             is_error: false,
         },
     );
 
-    // Retry failed actions
-    let results = match sync_processor::retry_failed_actions(&client, pool.inner()).await {
-        Ok(results) => results,
-        Err(e) => {
-            // Check if this is an authentication expired error
-            if e.is_authentication_expired() {
-                // Emit auth-expired event
-                let _ = app.emit(
-                    AUTH_EXPIRED_EVENT,
-                    AuthExpiredPayload {
-                        instance_id: e.get_expired_instance_id().unwrap_or(0),
-                        instance_url: e.get_expired_instance_url().unwrap_or(&url).to_string(),
-                        message:
-                            "Your GitLab token has expired or been revoked. Please re-authenticate."
-                                .to_string(),
-                    },
-                );
-            }
-            return Err(e);
-        }
-    };
-
-    let retried_count = results.len() as i64;
-    let success_count = results.iter().filter(|r| r.success).count() as i64;
-    let failed_count = retried_count - success_count;
-
-    // Emit action-synced events for each result
-    for result in &results {
-        let _ = app.emit(
-            ACTION_SYNCED_EVENT,
-            ActionSyncedPayload {
-                action_id: result.action.id,
-                action_type: result.action.action_type.clone(),
-                success: result.success,
-                error: result.error.clone(),
-                mr_id: result.action.mr_id,
-                local_reference_id: result.action.local_reference_id,
-            },
-        );
+    // Group actions by instance_id
+    let mut groups: std::collections::HashMap<i64, (String, Option<String>, Vec<crate::models::sync_action::SyncAction>)> =
+        std::collections::HashMap::new();
+    for ai in action_instances {
+        let entry = groups
+            .entry(ai.instance_id)
+            .or_insert_with(|| (ai.instance_url.clone(), ai.instance_token.clone(), Vec::new()));
+        entry.2.push(ai.into_sync_action());
     }
+
+    let mut all_results: Vec<sync_processor::ProcessResult> = Vec::new();
+
+    // Process each instance group with its own client
+    for (instance_id, (url, token, actions)) in &groups {
+        let Some(token) = token else {
+            // Token is missing - emit auth expired and mark actions as failed
+            let _ = app.emit(
+                AUTH_EXPIRED_EVENT,
+                AuthExpiredPayload {
+                    instance_id: *instance_id,
+                    instance_url: url.clone(),
+                    message: "GitLab token missing. Please re-authenticate.".to_string(),
+                },
+            );
+            for action in actions {
+                let _ = sync_queue::mark_failed(
+                    pool.inner(),
+                    action.id,
+                    &format!("Token missing for instance {}", instance_id),
+                )
+                .await;
+            }
+            continue;
+        };
+
+        let client = match GitLabClient::new(GitLabClientConfig {
+            base_url: url.clone(),
+            token: token.clone(),
+            timeout_secs: 30,
+        }) {
+            Ok(c) => c,
+            Err(e) => {
+                // If we can't create the client, mark all actions in this group as failed
+                for action in actions {
+                    let _ = sync_queue::mark_failed(
+                        pool.inner(),
+                        action.id,
+                        &format!("Failed to create client for instance {}: {}", instance_id, e),
+                    )
+                    .await;
+                }
+                continue;
+            }
+        };
+
+        for action in actions {
+            // Reset to pending first
+            if let Err(e) = sync_queue::retry_action(pool.inner(), action.id).await {
+                log::warn!("Failed to reset action {} for retry: {}", action.id, e);
+                continue;
+            }
+
+            let result = sync_processor::process_action(&client, pool.inner(), action).await;
+
+            // Check for auth expiry
+            if let Some(ref error) = result.error {
+                if error.contains("401") || error.contains("Unauthorized") {
+                    let _ = app.emit(
+                        AUTH_EXPIRED_EVENT,
+                        AuthExpiredPayload {
+                            instance_id: *instance_id,
+                            instance_url: url.clone(),
+                            message: "Your GitLab token has expired or been revoked. Please re-authenticate.".to_string(),
+                        },
+                    );
+                }
+            }
+
+            // Emit action-synced event
+            let _ = app.emit(
+                ACTION_SYNCED_EVENT,
+                ActionSyncedPayload {
+                    action_id: result.action.id,
+                    action_type: result.action.action_type.clone(),
+                    success: result.success,
+                    error: result.error.clone(),
+                    mr_id: result.action.mr_id,
+                    local_reference_id: result.action.local_reference_id,
+                },
+            );
+
+            all_results.push(result);
+        }
+    }
+
+    let retried_count = all_results.len() as i64;
+    let success_count = all_results.iter().filter(|r| r.success).count() as i64;
+    let failed_count = retried_count - success_count;
 
     Ok(RetryActionsResponse {
         retried_count,
         success_count,
         failed_count,
     })
+}
+
+/// Helper struct for querying failed actions with their instance info.
+#[derive(Debug, sqlx::FromRow)]
+struct ActionWithInstance {
+    action_id: i64,
+    mr_id: i64,
+    action_type: String,
+    payload: String,
+    local_reference_id: Option<i64>,
+    status: String,
+    retry_count: i64,
+    last_error: Option<String>,
+    created_at: i64,
+    synced_at: Option<i64>,
+    instance_id: i64,
+    instance_url: String,
+    instance_token: Option<String>,
+}
+
+impl ActionWithInstance {
+    fn into_sync_action(self) -> crate::models::sync_action::SyncAction {
+        crate::models::sync_action::SyncAction {
+            id: self.action_id,
+            mr_id: self.mr_id,
+            action_type: self.action_type,
+            payload: self.payload,
+            local_reference_id: self.local_reference_id,
+            status: self.status,
+            retry_count: self.retry_count,
+            last_error: self.last_error,
+            created_at: self.created_at,
+            synced_at: self.synced_at,
+        }
+    }
 }
 
 /// Discard a failed sync action.

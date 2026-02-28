@@ -1,132 +1,35 @@
 # Ralph Progress Log
-Started: Sat Feb 28 14:18:43 CET 2026
----
+Started: Sat Feb 28 13:44:49 CET 2026
 
 ## Codebase Patterns
-- Frontend hooks use module-level variables (e.g., `coldStartHandled`, `handledUrls`) for state that must survive across React effect re-runs (strict mode, HMR)
-- Race conditions in async handlers: use cancellation flags (`let cancelled = false`) in useEffect cleanup
-- Typecheck: `bunx tsc --noEmit`
+- `generate_local_id()` in `commands/comments.rs` uses a static AtomicI64 counter combined with millisecond timestamps for unique negative IDs
+- Rust tests live in `#[cfg(test)] mod tests` at the bottom of each file, run with `cargo test --lib module::path::tests`
+- Working directory for cargo commands must be project root (`/Users/jens/Sites/ultra-gitlab`), not `src-tauri/`
+- `gitlab_instances.token` is nullable (`TEXT` without `NOT NULL`) — always handle as `Option<String>`
+- `SyncProgressPayload.total` is `Option<i64>`, not `u32`
+- `sync_processor::process_action` can be called directly instead of through `retry_failed_actions` when you need per-instance client control
+---
 
 ## 2026-02-28 - US-001
-- Added module-level `const handledUrls = new Set<string>()` to `src/hooks/useDeepLink.ts`
-- In focus handler, check `handledUrls.has(url)` before processing; after `await handleDeepLinkUrl(url)`, call `handledUrls.add(url)`
-- Files changed: `src/hooks/useDeepLink.ts`
+- Replaced `generate_local_id()` which returned `-now()` (second precision) with millisecond timestamp * 65536 + atomic counter
+- Added `AtomicI64` static counter `LOCAL_ID_COUNTER` for sub-millisecond uniqueness
+- Added tests: tight-loop uniqueness (100 calls), cross-thread uniqueness (2 threads × 10 calls)
+- Files changed: `src-tauri/src/commands/comments.rs`
 - **Learnings for future iterations:**
-  - The existing `processingRef` guards concurrent calls within a single focus event, but `handledUrls` is needed to prevent the same URL being re-processed across multiple focus events
-  - Cold-start path intentionally left unchanged (uses `coldStartHandled` flag, not `handledUrls`)
+  - `cargo check` / `cargo test` must be run from the project root, not from `src-tauri/`
+  - Unused Arc import caused a warning — clean up imports before final check
 ---
 
 ## 2026-02-28 - US-002
-- Fixed `handleDeleteComment` in `src/pages/MRDetailPage/index.tsx` to capture the comment before optimistic removal
-- On API failure, restores via `addComment(toRestore)` (reuses existing `addComment` from `useFileComments`)
-- Files changed: `src/pages/MRDetailPage/index.tsx`
+- Rewrote `retry_failed_actions` in `commands/sync.rs` to query per-instance credentials
+- Replaced single-instance `ORDER BY id LIMIT 1` query with a JOIN across `sync_queue → merge_requests → gitlab_instances`
+- Added `ActionWithInstance` helper struct for the joined query result
+- Actions are grouped by `instance_id`, each group gets its own `GitLabClient`
+- Orphaned actions (deleted instance or MR) are detected via a LEFT JOIN query and marked as `discarded`
+- Missing tokens emit `AUTH_EXPIRED_EVENT` and mark group actions as failed
+- Files changed: `src-tauri/src/commands/sync.rs`
 - **Learnings for future iterations:**
-  - `useFileComments` exposes `addComment` which can be used as a restore mechanism (appends to state)
-  - Added `fileComments` and `addComment` to `handleDeleteComment` useCallback deps
----
-
-## 2026-02-28 - US-003
-- Fixed `currentUser` resolution in 3 files to use the instance matching `mrData.instanceId` instead of `instances[0]`
-- `src/pages/MyMRDetailPage/useMyMRData.ts`: find instance by `inst.id === mrData.instanceId` after MR data loads
-- `src/hooks/useActivityData.ts`: added `getMergeRequestById` import; now fetches MR alongside comments to get `instanceId`
-- `src/pages/MRDetailPage/index.tsx`: effect now depends on `mr` and finds matching instance by `mr.instanceId`
-- Files changed: `src/pages/MyMRDetailPage/useMyMRData.ts`, `src/hooks/useActivityData.ts`, `src/pages/MRDetailPage/index.tsx`
-- **Learnings for future iterations:**
-  - `MergeRequest` type has `instanceId: number` field
-  - `GitLabInstance` type has `id: number` and `authenticatedUsername: string | null`
-  - `getMergeRequestById` is available in `services/gitlab.ts` for fetching MR by local DB id
----
-
-## 2026-02-28 - US-004
-- Fixed `effectiveLoading` in `src/hooks/useFileContent.ts` line 247
-- Added `&& mr !== null && diffRefs !== null` guard to the stale-content detection clause
-- Files changed: `src/hooks/useFileContent.ts`
-- **Learnings for future iterations:**
-  - `useFileContent` has two loading mechanisms: `isLoading` (async fetch) and `effectiveLoading` (stale detection)
-  - The stale detection clause must be gated on valid `mr`/`diffRefs` or it keeps loading forever on error paths
----
-
-## 2026-02-28 - US-005
-- Added `rebaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)` to `MergeSection`
-- Changed `setTimeout(...)` to `rebaseTimerRef.current = setTimeout(...)`
-- Added cleanup `useEffect` that calls `clearTimeout(rebaseTimerRef.current)` on unmount
-- Files changed: `src/pages/MyMRDetailPage/MergeSection.tsx`
----
-
-## 2026-02-28 - US-006
-- Added `instanceIdRef = useRef(instanceId)` to `MRList.tsx` that's updated on every render
-- Captured `requestedInstanceId = instanceId` at start of `loadMRs`
-- After `await listMergeRequests(...)`, guard with `if (instanceIdRef.current !== requestedInstanceId) return;`
-- Files changed: `src/components/MRList/MRList.tsx`
-- **Learnings for future iterations:**
-  - Race condition pattern: use a ref that always tracks current prop value; capture at call start; compare after await
-  - MRList uses useCallback with `[instanceId, onMRsLoaded]` deps, so new callback is created when instance changes but old async ops may still be in flight
----
-
-## 2026-02-28 - US-007
-- Added `let cancelled = false` and `return () => { cancelled = true; }` to `loadComments` useEffect in `useFileComments.ts`
-- Added `if (cancelled) return;` after the await and before each state setter
-- Files changed: `src/pages/MRDetailPage/useFileComments.ts`
----
-
-## 2026-02-28 - US-008
-- Added `selectedInstanceIdRef` to `usePipelinesData.ts` tracking current selected instance
-- In `loadProjects`: captured `requestedInstanceId = state.selectedInstanceId`, checked `selectedInstanceIdRef.current !== requestedInstanceId` after each await
-- In `refreshStatuses`: same pattern
-- Files changed: `src/pages/PipelinesPage/usePipelinesData.ts`
----
-
-## 2026-02-28 - US-009
-- Added `useEffect` that resets files, selectedFile, generatedPaths, diffRefs, fileFocusIndex, codeTabLoaded when mrId changes
-- Added `let cancelled = false; return () => { cancelled = true; }` to `loadCodeData` useEffect
-- Added `if (cancelled) return;` after each Promise.all await
-- Files changed: `src/pages/MyMRDetailPage/useCodeTab.ts`
----
-
-## 2026-02-28 - US-010
-- Added module-level `let _nextOptimisticId = -1; const nextOptimisticId = () => _nextOptimisticId--` to `useActivityData.ts`
-- Replaced `-Date.now()` with `nextOptimisticId()` in both `addComment` and `replyToComment`
-- Files changed: `src/hooks/useActivityData.ts`
----
-
-## 2026-02-28 - US-011
-- Refactored `deleteComment` in `useActivityData.ts` to find and capture removed item inside `setComments` updater
-- On failure, restores the comment at its original index using `splice(atIndex, 0, toRestore)`
-- Removed `comments` from `useCallback` deps (only `[mrId]` now needed)
-- Files changed: `src/hooks/useActivityData.ts`
-- **Learnings for future iterations:**
-  - To capture item+index inside a functional updater: assign to outer-scope `let` variables inside `setComments(prev => ...)`
-  - `splice(index, 0, item)` inserts at position (vs `push`/concat which appends)
----
-
-## 2026-02-28 - US-012
-- Added `let cancelled = false` to the `mr-updated` useEffect in `useMRData.ts`
-- Added `if (cancelled) return;` after the Promise.all await and before state setters
-- Changed cleanup from `unlisten?.()` to `cancelled = true; unlisten?.();`
-- Files changed: `src/pages/MRDetailPage/useMRData.ts`
----
-
-## 2026-02-28 - US-013
-- Replaced `startedRef = useRef(false)` with `lastProcessedUrl = useRef<string | null>(null)` in `MRLoadingPage.tsx`
-- Guard: `if (!webUrl || webUrl === lastProcessedUrl.current) return;` allows re-fetch for new URLs
-- Set `lastProcessedUrl.current = webUrl` immediately to mark in-progress
-- Added `let cancelled = false` + `cancelled = true` in cleanup for previous in-flight requests
-- Files changed: `src/pages/MRLoadingPage.tsx`
----
-
-## 2026-02-28 - US-014
-- Fixed `loadJobs` in `usePipelineData.ts`: when guard `(!instanceId || !projectId || !pipelineId)` fires, dispatch `JOBS_ERROR` before returning
-- Fixed `loadTrace` in `JobLogPage.tsx`: when guard `(!instanceId || !pid || !jid)` fires, dispatch `LOAD_ERROR` + `LOAD_END` before returning
-- Files changed: `src/pages/PipelineDetailPage/usePipelineData.ts`, `src/pages/JobLogPage.tsx`
-- **Note:** Browser verification skipped — dev-browser skill not available in this context
----
-
-## 2026-02-28 - US-015
-- Split `loadProjects` in `usePipelinesData.ts` into two independent try/catch blocks
-- Projects are always dispatched via `SET_PROJECTS` + `SET_LOADING: false` once `listPipelineProjects` succeeds
-- Statuses fetched separately; on failure, dispatch `SET_STATUSES` with empty Map + `SET_STATUSES_LOADING: false`
-- Files changed: `src/pages/PipelinesPage/usePipelinesData.ts`
-- **Learnings for future iterations:**
-  - `PipelineProject[]` type can be imported from `../../types` for explicit typing
-  - `PROJECTS_LOADED` action was replaced with separate `SET_PROJECTS`/`SET_LOADING`/`SET_STATUSES`/`SET_STATUSES_LOADING` actions for finer control
+  - `gitlab_instances.token` is nullable — use `Option<String>` in query structs
+  - `SyncProgressPayload.total` expects `Option<i64>`, not `u32`
+  - `sync_processor::process_action` is the lower-level function that takes a single client + action — useful when you need per-instance control
 ---

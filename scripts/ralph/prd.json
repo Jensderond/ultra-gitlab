@@ -1,18 +1,18 @@
 {
   "project": "Ultra GitLab",
-  "branchName": "ralph/frontend-bug-fixes",
-  "description": "Frontend Bug Fixes - Fix race conditions, stale state, missing rollbacks, and infinite spinners found during Q1 2026 bug hunt",
+  "branchName": "ralph/critical-bug-fixes",
+  "description": "Critical Bug Fixes - Fix data loss, incorrect behavior, and security issues found during bug hunt",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Fix deep-link URL re-processed on every window focus",
-      "description": "As a user launched via a deep link, I want window focus changes to not re-navigate me, so that I can freely browse settings or other MRs after the initial link is handled.",
+      "title": "Fix generate_local_id collisions within same second",
+      "description": "As a user, I want to rapidly add comments and replies without losing any, so that my review workflow isn't interrupted by silent failures.",
       "acceptanceCriteria": [
-        "In src/hooks/useDeepLink.ts, add a module-level Set<string> (e.g. const handledUrls = new Set<string>()) to track processed URLs",
-        "In the focus handler inside setup(), before calling handleDeepLinkUrl(url), check if the URL is already in handledUrls — if so, skip it",
-        "After handleDeepLinkUrl(url) completes successfully (no exception), add the URL to handledUrls",
-        "The coldStartHandled check and explicit cold-start path remain unchanged",
-        "Typecheck passes (bunx tsc --noEmit)"
+        "Change generate_local_id() in src-tauri/src/commands/comments.rs to use millisecond-granularity timestamp combined with an atomic counter (AtomicI64) to guarantee uniqueness",
+        "The function must still return negative i64 values (existing negative IDs in DB must remain valid)",
+        "Add #[cfg(test)] mod tests in the same file with a test that calls generate_local_id() 100 times in a tight loop and asserts all values are unique (use a HashSet)",
+        "Add a test that calls generate_local_id() from 2 spawned threads (10 calls each) and asserts no duplicates across threads",
+        "cargo check passes"
       ],
       "priority": 1,
       "passes": true,
@@ -20,14 +20,15 @@
     },
     {
       "id": "US-002",
-      "title": "Fix inline comment delete with no rollback on API failure",
-      "description": "As a user, I want a failed comment delete to restore the comment in the UI, so that I don't lose visibility into a comment that still exists on GitLab.",
+      "title": "Fix retry_failed_actions using wrong instance credentials",
+      "description": "As a user with multiple GitLab instances, I want the Retry failed actions feature to use the correct credentials for each action, so that retries don't fail with 401/404 errors.",
       "acceptanceCriteria": [
-        "In src/pages/MRDetailPage/index.tsx, in handleDeleteComment, capture the comment before removal: const toRestore = fileComments.find(c => c.id === commentId)",
-        "Call removeComment(commentId) optimistically as before",
-        "Chain a .catch() on deleteComment(mrId, commentId) that calls restoreComment(toRestore) (or equivalent state restore) when toRestore is defined",
-        "The rollback pattern matches useActivityData.ts (restore via setFileComments or equivalent state setter)",
-        "Typecheck passes"
+        "In retry_failed_actions in src-tauri/src/commands/sync.rs, remove the ORDER BY id LIMIT 1 query that picks a single instance",
+        "Instead, query each failed action's instance by joining sync_queue.mr_id to merge_requests.instance_id to gitlab_instances (SELECT gi.id, gi.url, gi.token FROM sync_queue sq JOIN merge_requests mr ON sq.mr_id = mr.id JOIN gitlab_instances gi ON mr.instance_id = gi.id WHERE sq.status = 'failed')",
+        "Group actions by instance_id and create one GitLabClient per instance",
+        "Process each group's actions with its own client",
+        "If an action's instance is not found (deleted instance), mark the action as permanently failed instead of silently skipping",
+        "cargo check passes"
       ],
       "priority": 2,
       "passes": true,
@@ -35,185 +36,92 @@
     },
     {
       "id": "US-003",
-      "title": "Fix currentUser resolved from instances[0] instead of MR's instance",
-      "description": "As a user with multiple GitLab instances, I want comment delete controls to reflect my identity on the correct instance, so that I can delete my own comments on non-primary instances.",
+      "title": "Preserve GitLab error body in handle_response for 403 status",
+      "description": "As a user, I want stale sync actions to be automatically discarded based on GitLab's actual error message, so they don't retry forever.",
       "acceptanceCriteria": [
-        "In src/pages/MyMRDetailPage/useMyMRData.ts: after mrData is loaded, find the instance where instance.id === mrData.instanceId; use that instance's authenticatedUsername as currentUser (not instances[0].authenticatedUsername)",
-        "In src/hooks/useActivityData.ts: same fix — resolve currentUser from the instance matching mrData.instanceId",
-        "In src/pages/MRDetailPage/index.tsx: same fix — the effect that sets currentUser must match mr.instanceId against instances",
-        "If no matching instance is found, currentUser should be null (not instances[0])",
-        "Typecheck passes"
+        "In handle_response in src-tauri/src/services/gitlab_client.rs, change the 403 match arm from (StatusCode::FORBIDDEN, _) => \"Access denied\".to_string() to (StatusCode::FORBIDDEN, Some(msg)) => msg.clone() with fallback (StatusCode::FORBIDDEN, None) => \"Access denied\".to_string()",
+        "Add a unit test: construct a body_message of Some(\"Cannot approve: MR is already merged\".to_string()) and verify the resulting error message contains \"merged\" not \"Access denied\"",
+        "Add a unit test: construct body_message of None for 403 and verify fallback to \"Access denied\"",
+        "cargo check passes"
       ],
       "priority": 3,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Fix effectiveLoading stuck permanently when diffRefs is null",
-      "description": "As a user, I want a diff refs fetch failure to show an error message instead of an infinite loading overlay.",
+      "title": "Fix post_empty, resolve_discussion, and delete_note to read error response body",
+      "description": "As a user, I want all GitLab API error responses to preserve their actual error message, so that conflict detection works for approvals, resolves, and deletions.",
       "acceptanceCriteria": [
-        "In src/hooks/useFileContent.ts, find the effectiveLoading computation (currently: isLoading || (selectedFile !== null && selectedFile !== contentFile))",
-        "Gate the second clause so it only applies when mr and diffRefs are both non-null: isLoading || (selectedFile !== null && selectedFile !== contentFile && mr !== null && diffRefs !== null)",
-        "When diffRefs is null and selectedFile is set, effectiveLoading must resolve to false",
-        "The existing 'Diff information not available' UI path (if any) should now be reachable when diffRefs is null",
-        "Typecheck passes"
+        "Extract a shared async helper method error_from_response(&self, response: reqwest::Response, endpoint: &str) -> AppError in gitlab_client.rs that reads response.text(), attempts to parse as JSON to extract a message field, and returns AppError::gitlab_api_full with the parsed message (or a formatted fallback like 'Request failed (STATUS)')",
+        "Update post_empty to use error_from_response instead of returning generic 'Request failed'",
+        "Update resolve_discussion to use error_from_response instead of returning generic 'Failed to resolve discussion'",
+        "Update delete_note to use error_from_response instead of returning generic 'Failed to delete note'",
+        "cargo check passes"
       ],
       "priority": 4,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-005",
-      "title": "Fix rebase setTimeout not cancelled on component unmount",
-      "description": "As a user, I want navigating away immediately after triggering a rebase to not corrupt the merge status display for a different MR.",
+      "title": "Fix purge_closed_mrs comparing wrong ID types",
+      "description": "As a user, I want my open MRs to never be incorrectly purged during background sync, so that I don't lose cached diffs, comments, and file content.",
       "acceptanceCriteria": [
-        "In src/pages/MyMRDetailPage/MergeSection.tsx, in handleRebase, store the setTimeout return value in a useRef (e.g. const rebaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null))",
-        "Assign the timer: rebaseTimerRef.current = setTimeout(() => fetchMergeStatus(), 3000)",
-        "Add a useEffect with an empty or appropriate dependency array whose cleanup calls clearTimeout(rebaseTimerRef.current) when the component unmounts",
-        "Typecheck passes"
+        "In sync_instance in src-tauri/src/services/sync_engine.rs, collect the local_mr_id returned from each sync_mr call into a Vec<i64>",
+        "Pass this collected Vec to purge_closed_mrs instead of re-deriving IDs from the raw GitLab MR list",
+        "Update purge_closed_mrs signature to accept the local DB IDs directly instead of extracting mr.id from GitLabMergeRequest objects",
+        "The NOT IN clause in purge_closed_mrs must use these local DB IDs",
+        "cargo check passes"
       ],
       "priority": 5,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Fix MR list race condition on instance switch",
-      "description": "As a user switching between GitLab instances, I want the MR list to always show MRs from the selected instance, not from a previous slower request that resolved last.",
+      "title": "Recover actions stuck in syncing state after crash",
+      "description": "As a user, I want actions that were mid-flight when the app crashed to be automatically recovered on next launch, so that my comments and approvals aren't permanently lost.",
       "acceptanceCriteria": [
-        "In src/components/MRList/MRList.tsx, in loadMRs (or equivalent fetch function), capture the instanceId at call time: const requestedInstanceId = instanceId",
-        "After the await resolves, check that the current instanceId still matches requestedInstanceId before dispatching FETCH_SUCCESS (or equivalent action)",
-        "If instanceId has changed (user switched instance), discard the response and do not update state",
-        "Typecheck passes"
+        "Add a recover_stale_syncing_actions async function in src-tauri/src/services/sync_engine.rs (or sync_queue.rs) that runs UPDATE sync_queue SET status = 'pending' WHERE status = 'syncing'",
+        "Call this function during sync engine initialization, before the first sync cycle begins (in start_sync or the SyncEngine constructor/init method)",
+        "Log the number of recovered actions if any were found (e.g., eprintln or log::info)",
+        "Add a unit test: insert 3 actions (one pending, one syncing, one failed) into an in-memory DB, call the recovery function, verify only the syncing one is reset to pending",
+        "cargo check passes"
       ],
       "priority": 6,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-007",
-      "title": "Fix useFileComments race condition on file switch",
-      "description": "As a reviewer, I want switching between diff files to always show the correct file's inline comments, not comments from a previously selected file whose request resolved late.",
+      "title": "Secure companion QR code endpoint",
+      "description": "As a user, I want the companion server PIN to not be exposed to unauthenticated LAN devices, so that unauthorized devices can't bypass authentication.",
       "acceptanceCriteria": [
-        "In src/pages/MRDetailPage/useFileComments.ts, in the loadComments useEffect, add: let cancelled = false; return () => { cancelled = true; }",
-        "After each await inside loadComments, check if (cancelled) return; before calling setFileComments or any state setter",
-        "Typecheck passes"
+        "Remove or protect the GET /api/auth/qr endpoint in src-tauri/src/services/companion_auth.rs so that it no longer serves the PIN to unauthenticated requests",
+        "Add a new Tauri command get_companion_qr_code in the appropriate commands file that generates the QR code SVG string (move the QR generation logic from the HTTP handler to this command)",
+        "Register the new command in commands/mod.rs and lib.rs generate_handler!",
+        "The frontend companion pairing UI should call invoke('get_companion_qr_code') instead of fetching from the HTTP endpoint",
+        "cargo check passes"
       ],
       "priority": 7,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-008",
-      "title": "Fix usePipelinesData race condition on instance switch",
-      "description": "As a user switching between GitLab instances, I want the Pipelines dashboard to always show projects and statuses for the currently selected instance.",
+      "title": "Fix companion auth rate limit TOCTOU bypass",
+      "description": "As a user, I want the companion server rate limiting to actually enforce attempt limits, so that brute-force PIN attacks are prevented.",
       "acceptanceCriteria": [
-        "In src/pages/PipelinesPage/usePipelinesData.ts, in loadProjects and refreshStatuses (or equivalent loaders), capture selectedInstanceId at call time: const requestedInstanceId = selectedInstanceId",
-        "After each await, check that selectedInstanceId still equals requestedInstanceId before dispatching results",
-        "If instance changed, discard the response",
-        "Typecheck passes"
+        "Combine is_rate_limited and record_failed_attempt in src-tauri/src/services/companion_auth.rs into a single pub async fn check_and_record_attempt(ip: IpAddr) -> bool that acquires one write lock, checks the count, records the attempt, and returns true if rate limited",
+        "Update verify_pin_handler to call the new combined function instead of the separate is_rate_limited and record_failed_attempt",
+        "After pruning expired entries for an IP, remove the IP key from the HashMap if the vec is empty (fixes memory leak)",
+        "Add a unit test: call check_and_record_attempt MAX_ATTEMPTS times for the same IP, verify the last call returns true (rate limited)",
+        "Add a unit test: after the rate limit window expires, verify the IP entry is cleaned up from the HashMap",
+        "cargo check passes"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-009",
-      "title": "Fix useCodeTab stale state on MR navigation and missing cancellation",
-      "description": "As a user, I want switching between MRs to show fresh Code tab content for the new MR, not stale files or diffs from a previously viewed MR.",
-      "acceptanceCriteria": [
-        "In src/pages/MyMRDetailPage/useCodeTab.ts, add a useEffect that watches mrId and resets files, selectedFile, generatedPaths, diffRefs, fileFocusIndex, and codeTabLoaded to their initial values when mrId changes",
-        "In the loadCodeData useEffect, add: let cancelled = false; return () => { cancelled = true; }",
-        "After each await inside loadCodeData, check if (cancelled) return; before calling any state setter",
-        "Typecheck passes"
-      ],
-      "priority": 9,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-010",
-      "title": "Fix optimistic comment ID collision under rapid submission",
-      "description": "As a user, I want to submit multiple comments in quick succession without any being silently lost from the UI.",
-      "acceptanceCriteria": [
-        "In src/hooks/useActivityData.ts, replace -Date.now() optimistic IDs with a module-level monotonically decrementing counter: let _nextOptimisticId = -1; const nextOptimisticId = () => _nextOptimisticId--",
-        "Apply this to both the addComment and replyToComment optimistic entries",
-        "Two comments created in the same millisecond will now have distinct IDs (-1, -2, -3, ...)",
-        "Typecheck passes"
-      ],
-      "priority": 10,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-011",
-      "title": "Fix deleteComment rollback position and unnecessary re-renders",
-      "description": "As a developer, I want the activity delete rollback to restore the comment at its original index and not trigger re-renders on every comment list change.",
-      "acceptanceCriteria": [
-        "In src/hooks/useActivityData.ts, in the deleteComment callback, on API failure find the original index of the removed comment inside the setComments(prev => ...) functional updater and splice it back at that index rather than appending with [...prev, removed]",
-        "Remove comments from the useCallback dependency array for deleteComment — instead, find the removed item inside the setComments updater using prev",
-        "Typecheck passes"
-      ],
-      "priority": 11,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-012",
-      "title": "Fix mr-updated event handler missing cancellation guard",
-      "description": "As a user, I want rapidly navigating between MRs to not clear the new MR's file cache due to a stale event handler from the previous MR.",
-      "acceptanceCriteria": [
-        "In src/pages/MRDetailPage/useMRData.ts, in the useEffect that sets up the mr-updated Tauri event listener, add: let cancelled = false; return () => { cancelled = true; unlisten?.(); }",
-        "Inside the event handler's async callback, after each await, check if (cancelled) return; before calling setMr, setDiffRefs, setFiles, or clearFileCache",
-        "Typecheck passes"
-      ],
-      "priority": 12,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-013",
-      "title": "Fix MRLoadingPage ignoring subsequent deep-link URLs",
-      "description": "As a user, I want a second deep-link navigation to a different MR to correctly load the new MR even if the loading page is already mounted.",
-      "acceptanceCriteria": [
-        "In src/pages/MRLoadingPage.tsx, replace the startedRef boolean with a lastProcessedUrl ref (useRef<string | null>(null))",
-        "The useEffect that triggers the fetch should run when webUrl changes; guard with if (webUrl === lastProcessedUrl.current) return; instead of if (startedRef.current) return;",
-        "Set lastProcessedUrl.current = webUrl at the start of each fetch to mark it as in-progress",
-        "A changed webUrl while a fetch is in progress should cancel the previous attempt (use a cancelled flag) and start a new fetch for the new URL",
-        "Typecheck passes"
-      ],
-      "priority": 13,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-014",
-      "title": "Fix permanent spinner on invalid URL params in Pipeline and Job pages",
-      "description": "As a user, I want navigating to a pipeline or job page with missing params to show an error message with a back action, not an infinite loading spinner.",
-      "acceptanceCriteria": [
-        "In src/pages/PipelineDetailPage/usePipelineData.ts, in the loadJobs effect, when the early guard triggers (!instanceId || !projectId || !pipelineId), dispatch an explicit error or loading-end action before returning — the page must not stay in a loading: true state",
-        "In src/pages/JobLogPage.tsx, in the loadTrace effect, same fix: when (!instanceId || !pid || !jid), dispatch LOAD_ERROR or equivalent to clear the loading state and surface an error",
-        "The UI should show an actionable error state (message and/or back button) instead of perpetual 'Loading...'",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 14,
-      "passes": true,
-      "notes": "Browser verification skipped — dev-browser skill not available in this context"
-    },
-    {
-      "id": "US-015",
-      "title": "Fix Pipelines page showing empty on partial backend failure",
-      "description": "As a user, I want a pipeline status fetch failure to still display the project list, not leave the dashboard completely empty.",
-      "acceptanceCriteria": [
-        "In src/pages/PipelinesPage/usePipelinesData.ts, in loadProjects, split project and status error handling: always dispatch the fetched projects to state once listPipelineProjects succeeds, regardless of whether getPipelineStatuses subsequently fails",
-        "On getPipelineStatuses failure, dispatch an empty or previous status map and clear statusesLoading (set to false)",
-        "Projects are never withheld from state due to a status fetch error",
-        "Typecheck passes"
-      ],
-      "priority": 15,
-      "passes": true,
+      "passes": false,
       "notes": ""
     }
   ]
