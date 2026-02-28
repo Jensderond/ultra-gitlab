@@ -100,8 +100,28 @@ export default function FileNavigation({
     if (e.key === 'Escape') {
       setSearchQuery('');
       searchInputRef.current?.blur();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (visibleFiles.length > 0) {
+        const currentIdx = visibleFiles.findIndex((f) => f.newPath === selectedPath);
+        onSelect(visibleFiles[currentIdx >= 0 ? currentIdx : 0].newPath);
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (visibleFiles.length > 0) {
+        const currentIdx = visibleFiles.findIndex((f) => f.newPath === selectedPath);
+        const nextIdx = currentIdx < visibleFiles.length - 1 ? currentIdx + 1 : 0;
+        onSelect(visibleFiles[nextIdx].newPath);
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (visibleFiles.length > 0) {
+        const currentIdx = visibleFiles.findIndex((f) => f.newPath === selectedPath);
+        const prevIdx = currentIdx > 0 ? currentIdx - 1 : visibleFiles.length - 1;
+        onSelect(visibleFiles[prevIdx].newPath);
+      }
     }
-  }, []);
+  }, [visibleFiles, selectedPath, onSelect]);
 
   // Global `\` shortcut to focus the search input
   useEffect(() => {
@@ -143,6 +163,9 @@ export default function FileNavigation({
             type="text"
             className="file-nav-search-input"
             placeholder="Filter files…"
+            spellCheck={false}
+            autoCorrect="off"
+            autoCapitalize="off"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleSearchKeyDown}
