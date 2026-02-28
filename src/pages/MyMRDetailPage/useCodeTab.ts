@@ -39,6 +39,16 @@ export function useCodeTab(
   const [diffRefs, setDiffRefs] = useState<DiffRefs | null>(null);
   const [codeTabLoaded, setCodeTabLoaded] = useState(false);
 
+  // Reset all state when the MR changes to prevent stale content from showing
+  useEffect(() => {
+    setFiles([]);
+    setSelectedFile(null);
+    setFileFocusIndex(0);
+    setGeneratedPaths(new Set());
+    setDiffRefs(null);
+    setCodeTabLoaded(false);
+  }, [mrId]);
+
   const reviewableFiles = useMemo(
     () => files.filter((f) => !generatedPaths.has(f.newPath)),
     [files, generatedPaths]
@@ -54,6 +64,7 @@ export function useCodeTab(
   useEffect(() => {
     if (activeTab !== 'code' || codeTabLoaded || !mr) return;
     const currentMr = mr;
+    let cancelled = false;
 
     async function loadCodeData() {
       try {
@@ -62,6 +73,7 @@ export function useCodeTab(
           getDiffRefs(mrId).catch(() => null),
         ]);
 
+        if (cancelled) return;
         setDiffRefs(diffRefsData);
 
         const summaries: DiffFileSummary[] = filesData.map((f) => ({
@@ -78,6 +90,7 @@ export function useCodeTab(
           getCollapsePatterns().catch(() => []),
         ]);
 
+        if (cancelled) return;
         const { reviewable, generated } = classifyFiles(summaries, gitattributes, userPatterns);
         setGeneratedPaths(generated);
 
@@ -93,6 +106,7 @@ export function useCodeTab(
       }
     }
     loadCodeData();
+    return () => { cancelled = true; };
   }, [activeTab, codeTabLoaded, mr, mrId]);
 
   const handleFileSelect = useCallback((filePath: string) => {

@@ -75,3 +75,10 @@ Started: Sat Feb 28 14:18:43 CET 2026
 - In `refreshStatuses`: same pattern
 - Files changed: `src/pages/PipelinesPage/usePipelinesData.ts`
 ---
+
+## 2026-02-28 - US-009
+- Added `useEffect` that resets files, selectedFile, generatedPaths, diffRefs, fileFocusIndex, codeTabLoaded when mrId changes
+- Added `let cancelled = false; return () => { cancelled = true; }` to `loadCodeData` useEffect
+- Added `if (cancelled) return;` after each Promise.all await
+- Files changed: `src/pages/MyMRDetailPage/useCodeTab.ts`
+---
