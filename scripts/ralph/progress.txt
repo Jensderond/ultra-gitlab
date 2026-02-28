@@ -36,3 +36,12 @@ Started: Sat Feb 28 14:18:43 CET 2026
   - `GitLabInstance` type has `id: number` and `authenticatedUsername: string | null`
   - `getMergeRequestById` is available in `services/gitlab.ts` for fetching MR by local DB id
 ---
+
+## 2026-02-28 - US-004
+- Fixed `effectiveLoading` in `src/hooks/useFileContent.ts` line 247
+- Added `&& mr !== null && diffRefs !== null` guard to the stale-content detection clause
+- Files changed: `src/hooks/useFileContent.ts`
+- **Learnings for future iterations:**
+  - `useFileContent` has two loading mechanisms: `isLoading` (async fetch) and `effectiveLoading` (stale detection)
+  - The stale detection clause must be gated on valid `mr`/`diffRefs` or it keeps loading forever on error paths
+---

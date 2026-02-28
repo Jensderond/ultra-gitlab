@@ -244,7 +244,7 @@ export function useFileContent(
   // Treat as loading if selectedFile changed but content hasn't caught up yet.
   // This closes the one-frame gap between the render where selectedFile changes
   // and the useLayoutEffect that sets isLoading=true.
-  const effectiveLoading = isLoading || (selectedFile !== null && selectedFile !== contentFile);
+  const effectiveLoading = isLoading || (selectedFile !== null && selectedFile !== contentFile && mr !== null && diffRefs !== null);
 
   return { content, imageContent, isLoading: effectiveLoading, error, clearCache };
 }
