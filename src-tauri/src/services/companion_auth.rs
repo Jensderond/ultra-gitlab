@@ -277,72 +277,47 @@ pub async fn verify_pin_handler(
     }
 }
 
-/// Handler for GET /api/auth/qr.
-///
-/// Generates an SVG QR code encoding `http://{local_ip}:{port}/auth?pin={pin}`
-/// so users can scan it from their mobile device to auto-authenticate.
-/// This endpoint does not require authentication (pre-login).
-pub async fn qr_code_handler(
-    axum::extract::State(state): axum::extract::State<AuthState>,
-) -> Response {
-    // Load settings to get current PIN and port
-    let settings = match crate::commands::settings::load_settings(&state.app_handle).await {
-        Ok(s) => s,
-        Err(_) => {
-            let error = AuthError {
-                code: "INTERNAL_ERROR".to_string(),
-                message: "Failed to load settings".to_string(),
-            };
-            return (StatusCode::INTERNAL_SERVER_ERROR, Json(error)).into_response();
-        }
-    };
-
-    let pin = &settings.companion_server.pin;
-    let port = settings.companion_server.port;
-
-    // Detect local IP address
-    let local_ip = match local_ip_address::local_ip() {
-        Ok(ip) => ip.to_string(),
-        Err(_) => "127.0.0.1".to_string(),
-    };
-
-    let url = format!("http://{}:{}/auth?pin={}", local_ip, port, pin);
-
-    // Generate QR code as SVG
-    let qr = match qrcode::QrCode::new(url.as_bytes()) {
-        Ok(qr) => qr,
-        Err(_) => {
-            let error = AuthError {
-                code: "QR_ERROR".to_string(),
-                message: "Failed to generate QR code".to_string(),
-            };
-            return (StatusCode::INTERNAL_SERVER_ERROR, Json(error)).into_response();
-        }
-    };
-
-    let svg = qr
-        .render::<qrcode::render::svg::Color>()
-        .min_dimensions(200, 200)
-        .build();
-
-    (
-        StatusCode::OK,
-        [(header::CONTENT_TYPE, "image/svg+xml")],
-        svg,
-    )
-        .into_response()
-}
-
 /// Build the auth API router.
 ///
 /// These routes are NOT protected by the auth middleware since they
 /// are used before authentication is established.
+///
+/// Note: The QR code endpoint was removed from the HTTP server to prevent
+/// exposing the PIN to unauthenticated LAN devices. QR generation is now
+/// exclusively handled by the `get_companion_qr_svg` Tauri command.
 pub fn auth_routes(state: AuthState) -> axum::Router {
     axum::Router::new()
         .route(
             "/api/auth/verify-pin",
             axum::routing::post(verify_pin_handler),
         )
-        .route("/api/auth/qr", axum::routing::get(qr_code_handler))
         .with_state(state)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn qr_endpoint_not_exposed_via_http() {
+        // Security invariant: the PIN must never be served via an
+        // unauthenticated HTTP endpoint. QR generation is handled
+        // exclusively by the get_companion_qr_svg Tauri command.
+        //
+        // We verify by scanning the non-test source code for the
+        // route definition and handler function.
+        let source = include_str!("companion_auth.rs");
+        // Only check code above the #[cfg(test)] marker
+        let production_code = source
+            .split("#[cfg(test)]")
+            .next()
+            .expect("test module marker must exist");
+
+        assert!(
+            !production_code.contains("fn qr_code_handler"),
+            "qr_code_handler must not exist in production code"
+        );
+        assert!(
+            !production_code.contains("/api/auth/qr"),
+            "/api/auth/qr route must not exist in production code"
+        );
+    }
 }
