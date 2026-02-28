@@ -260,7 +260,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const [state, dispatch] = useReducer(themeReducer, {
     theme: kanagawaWave,
     uiFont: 'Noto Sans JP',
-    displayFont: 'Cormorant Garamond',
+    displayFont: 'Inter',
     diffsFont: 'SF Mono',
     customColors: null,
   });
