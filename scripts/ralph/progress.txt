@@ -52,3 +52,13 @@ Started: Sat Feb 28 14:18:43 CET 2026
 - Added cleanup `useEffect` that calls `clearTimeout(rebaseTimerRef.current)` on unmount
 - Files changed: `src/pages/MyMRDetailPage/MergeSection.tsx`
 ---
+
+## 2026-02-28 - US-006
+- Added `instanceIdRef = useRef(instanceId)` to `MRList.tsx` that's updated on every render
+- Captured `requestedInstanceId = instanceId` at start of `loadMRs`
+- After `await listMergeRequests(...)`, guard with `if (instanceIdRef.current !== requestedInstanceId) return;`
+- Files changed: `src/components/MRList/MRList.tsx`
+- **Learnings for future iterations:**
+  - Race condition pattern: use a ref that always tracks current prop value; capture at call start; compare after await
+  - MRList uses useCallback with `[instanceId, onMRsLoaded]` deps, so new callback is created when instance changes but old async ops may still be in flight
+---

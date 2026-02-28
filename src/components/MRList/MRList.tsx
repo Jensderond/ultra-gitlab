@@ -133,6 +133,8 @@ export default function MRList({
 
   const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const previousMrIdsRef = useRef<Set<number>>(new Set());
+  const instanceIdRef = useRef(instanceId);
+  instanceIdRef.current = instanceId;
 
   // Performance target: <200ms for list load (per spec)
   const PERF_TARGET_MS = 200;
@@ -148,11 +150,16 @@ export default function MRList({
   // Load merge requests
   const loadMRs = useCallback(async (isBackgroundRefresh = false) => {
     const startTime = performance.now();
+    const requestedInstanceId = instanceId;
 
     try {
       dispatch({ type: 'FETCH_START', isBackground: isBackgroundRefresh });
 
       const data = await listMergeRequests(instanceId, { state: 'opened' });
+
+      // Discard response if the user switched instances while the request was in flight
+      if (instanceIdRef.current !== requestedInstanceId) return;
+
       // Filter out MRs the user has already approved
       const filteredData = data.filter(mr => !mr.userHasApproved);
 
