@@ -98,3 +98,10 @@ Started: Sat Feb 28 14:18:43 CET 2026
   - To capture item+index inside a functional updater: assign to outer-scope `let` variables inside `setComments(prev => ...)`
   - `splice(index, 0, item)` inserts at position (vs `push`/concat which appends)
 ---
+
+## 2026-02-28 - US-012
+- Added `let cancelled = false` to the `mr-updated` useEffect in `useMRData.ts`
+- Added `if (cancelled) return;` after the Promise.all await and before state setters
+- Changed cleanup from `unlisten?.()` to `cancelled = true; unlisten?.();`
+- Files changed: `src/pages/MRDetailPage/useMRData.ts`
+---

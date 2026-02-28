@@ -95,6 +95,7 @@ export function useMRData(
   useEffect(() => {
     if (!mrId) return;
 
+    let cancelled = false;
     let unlisten: (() => void) | undefined;
     tauriListen<{ mr_id: number; update_type: string; instance_id: number; iid: number }>(
       'mr-updated',
@@ -108,6 +109,7 @@ export function useMRData(
             getDiffRefs(mrId).catch(() => null),
           ]);
 
+          if (cancelled) return;
           setMr(mrData);
           setDiffRefs(diffRefsData);
 
@@ -118,6 +120,7 @@ export function useMRData(
             additions: f.additions,
             deletions: f.deletions,
           }));
+          if (cancelled) return;
           setFiles(summaries);
           clearFileCache();
         } catch (err) {
@@ -129,6 +132,7 @@ export function useMRData(
     });
 
     return () => {
+      cancelled = true;
       unlisten?.();
     };
   }, [mrId, clearFileCache]);
