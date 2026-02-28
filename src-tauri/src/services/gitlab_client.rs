@@ -696,6 +696,35 @@ impl GitLabClient {
         self.get_all_pages(&endpoint, None::<&()>).await
     }
 
+    /// Read an error response body and return an appropriate AppError.
+    ///
+    /// Attempts to parse the response body as JSON to extract a `message` or `error` field.
+    /// Falls back to a generic "Request failed (STATUS)" message.
+    async fn error_from_response(
+        &self,
+        response: Response,
+        endpoint: &str,
+    ) -> AppError {
+        let status_code = response.status().as_u16();
+        let body = response.text().await.unwrap_or_default();
+        let message = serde_json::from_str::<serde_json::Value>(&body)
+            .ok()
+            .and_then(|v| {
+                v.get("message")
+                    .or_else(|| v.get("error"))
+                    .and_then(|m| {
+                        if let Some(s) = m.as_str() {
+                            Some(s.to_string())
+                        } else {
+                            Some(m.to_string())
+                        }
+                    })
+            })
+            .unwrap_or_else(|| format!("Request failed ({})", status_code));
+
+        AppError::gitlab_api_full(&message, status_code, endpoint)
+    }
+
     /// Send a POST request to an endpoint, expecting only a success status.
     async fn post_empty(&self, endpoint: &str) -> Result<(), AppError> {
         let url = self.api_url(endpoint);
@@ -704,11 +733,7 @@ impl GitLabClient {
         if response.status().is_success() {
             Ok(())
         } else {
-            Err(AppError::gitlab_api_full(
-                "Request failed",
-                response.status().as_u16(),
-                endpoint,
-            ))
+            Err(self.error_from_response(response, endpoint).await)
         }
     }
 
@@ -933,11 +958,7 @@ impl GitLabClient {
         if response.status().is_success() {
             Ok(())
         } else {
-            Err(AppError::gitlab_api_full(
-                "Failed to delete note",
-                response.status().as_u16(),
-                &endpoint,
-            ))
+            Err(self.error_from_response(response, &endpoint).await)
         }
     }
 
@@ -965,11 +986,7 @@ impl GitLabClient {
         if response.status().is_success() {
             Ok(())
         } else {
-            Err(AppError::gitlab_api_full(
-                "Failed to resolve discussion",
-                response.status().as_u16(),
-                &endpoint,
-            ))
+            Err(self.error_from_response(response, &endpoint).await)
         }
     }
 
