@@ -11,6 +11,7 @@ use crate::services::sync_engine::SyncHandle;
 use crate::services::sync_queue::{self, DeleteCommentPayload, EnqueueInput, ReplyPayload, ResolvePayload};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::State;
 
@@ -82,9 +83,23 @@ async fn to_comment_responses(
     Ok(responses)
 }
 
-/// Generate a negative ID for local comments (to avoid conflicts with GitLab IDs).
+/// Atomic counter to guarantee uniqueness even within the same millisecond.
+static LOCAL_ID_COUNTER: AtomicI64 = AtomicI64::new(0);
+
+/// Generate a unique negative ID for local comments (to avoid conflicts with GitLab IDs).
+///
+/// Uses millisecond-precision timestamp combined with an atomic counter to prevent
+/// collisions when multiple comments are created rapidly within the same millisecond.
 fn generate_local_id() -> i64 {
-    -now()
+    let millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0);
+    let seq = LOCAL_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
+    // Combine: shift millis left by 16 bits to leave room for the counter.
+    // This gives ~65k unique IDs per millisecond before any risk of overlap,
+    // and the result stays well within i64 range for decades.
+    -(millis * 65536 + (seq & 0xFFFF))
 }
 
 /// Get all comments for a merge request.
@@ -733,10 +748,49 @@ pub async fn delete_comment(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
 
     #[test]
     fn test_generate_local_id_is_negative() {
         let id = generate_local_id();
         assert!(id < 0, "Local ID should be negative");
+    }
+
+    #[test]
+    fn test_generate_local_id_unique_in_tight_loop() {
+        let mut ids = HashSet::new();
+        for _ in 0..100 {
+            let id = generate_local_id();
+            assert!(id < 0, "Local ID should be negative, got {}", id);
+            assert!(ids.insert(id), "Duplicate local ID detected: {}", id);
+        }
+        assert_eq!(ids.len(), 100);
+    }
+
+    #[test]
+    fn test_generate_local_id_unique_across_threads() {
+        use std::thread;
+
+        let mut handles = vec![];
+
+        for _ in 0..2 {
+            handles.push(thread::spawn(move || {
+                let mut local_ids = Vec::with_capacity(10);
+                for _ in 0..10 {
+                    local_ids.push(generate_local_id());
+                }
+                local_ids
+            }));
+        }
+
+        let mut all_ids = HashSet::new();
+        for handle in handles {
+            let thread_ids = handle.join().unwrap();
+            for id in thread_ids {
+                assert!(id < 0, "Local ID should be negative, got {}", id);
+                assert!(all_ids.insert(id), "Duplicate local ID across threads: {}", id);
+            }
+        }
+        assert_eq!(all_ids.len(), 20);
     }
 }
