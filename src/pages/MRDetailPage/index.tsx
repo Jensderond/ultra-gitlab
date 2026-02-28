@@ -75,10 +75,12 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
 
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   useEffect(() => {
+    if (!mr) return;
     listInstances().then((instances) => {
-      setCurrentUser(instances[0]?.authenticatedUsername ?? null);
+      const matchingInstance = instances.find((inst) => inst.id === mr.instanceId);
+      setCurrentUser(matchingInstance?.authenticatedUsername ?? null);
     }).catch(() => {});
-  }, []);
+  }, [mr]);
 
   const handleDeleteComment = useCallback((commentId: number) => {
     const toRestore = fileComments.find((c) => c.id === commentId);

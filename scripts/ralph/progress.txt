@@ -24,3 +24,15 @@ Started: Sat Feb 28 14:18:43 CET 2026
   - `useFileComments` exposes `addComment` which can be used as a restore mechanism (appends to state)
   - Added `fileComments` and `addComment` to `handleDeleteComment` useCallback deps
 ---
+
+## 2026-02-28 - US-003
+- Fixed `currentUser` resolution in 3 files to use the instance matching `mrData.instanceId` instead of `instances[0]`
+- `src/pages/MyMRDetailPage/useMyMRData.ts`: find instance by `inst.id === mrData.instanceId` after MR data loads
+- `src/hooks/useActivityData.ts`: added `getMergeRequestById` import; now fetches MR alongside comments to get `instanceId`
+- `src/pages/MRDetailPage/index.tsx`: effect now depends on `mr` and finds matching instance by `mr.instanceId`
+- Files changed: `src/pages/MyMRDetailPage/useMyMRData.ts`, `src/hooks/useActivityData.ts`, `src/pages/MRDetailPage/index.tsx`
+- **Learnings for future iterations:**
+  - `MergeRequest` type has `instanceId: number` field
+  - `GitLabInstance` type has `id: number` and `authenticatedUsername: string | null`
+  - `getMergeRequestById` is available in `services/gitlab.ts` for fetching MR by local DB id
+---

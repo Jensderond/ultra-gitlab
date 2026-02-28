@@ -42,7 +42,8 @@ export function useMyMRData(mrId: number): MyMRData {
         setMr(mrData);
         setReviewers(reviewerData);
         setComments(commentData);
-        setCurrentUser(instances[0]?.authenticatedUsername ?? null);
+        const matchingInstance = instances.find((inst) => inst.id === mrData.instanceId);
+        setCurrentUser(matchingInstance?.authenticatedUsername ?? null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load MR');
       } finally {

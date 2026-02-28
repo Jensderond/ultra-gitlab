@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   listComments,
   listInstances,
+  getMergeRequestById,
   addGeneralComment,
   replyToDiscussion,
   setDiscussionResolved,
@@ -33,12 +34,14 @@ export function useActivityData(mrId: number): ActivityData {
       try {
         setLoading(true);
         setError(null);
-        const [commentData, instances] = await Promise.all([
+        const [commentData, mrData, instances] = await Promise.all([
           listComments(mrId),
+          getMergeRequestById(mrId),
           listInstances(),
         ]);
         setComments(commentData);
-        setCurrentUser(instances[0]?.authenticatedUsername ?? null);
+        const matchingInstance = instances.find((inst) => inst.id === mrData.instanceId);
+        setCurrentUser(matchingInstance?.authenticatedUsername ?? null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load comments');
       } finally {
