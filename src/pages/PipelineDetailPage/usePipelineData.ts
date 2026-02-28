@@ -29,7 +29,10 @@ export function usePipelineData({
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const loadJobs = useCallback(async () => {
-    if (!instanceId || !projectId || !pipelineId) return;
+    if (!instanceId || !projectId || !pipelineId) {
+      dispatch({ type: 'JOBS_ERROR', error: 'Missing required parameters' });
+      return;
+    }
     try {
       const jobList = await getPipelineJobs(instanceId, projectId, pipelineId);
       dispatch({ type: 'JOBS_LOADED', jobs: jobList });

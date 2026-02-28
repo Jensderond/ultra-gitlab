@@ -232,7 +232,11 @@ export default function JobLogPage() {
 
   // Initial trace load
   const loadTrace = useCallback(async () => {
-    if (!instanceId || !pid || !jid) return;
+    if (!instanceId || !pid || !jid) {
+      dispatch({ type: 'LOAD_ERROR', error: 'Missing required parameters' });
+      dispatch({ type: 'LOAD_END' });
+      return;
+    }
     try {
       const result = await getJobTrace(instanceId, pid, jid);
       dispatch({ type: 'TRACE_LOADED', trace: result });

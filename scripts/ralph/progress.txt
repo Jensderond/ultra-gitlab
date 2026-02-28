@@ -113,3 +113,10 @@ Started: Sat Feb 28 14:18:43 CET 2026
 - Added `let cancelled = false` + `cancelled = true` in cleanup for previous in-flight requests
 - Files changed: `src/pages/MRLoadingPage.tsx`
 ---
+
+## 2026-02-28 - US-014
+- Fixed `loadJobs` in `usePipelineData.ts`: when guard `(!instanceId || !projectId || !pipelineId)` fires, dispatch `JOBS_ERROR` before returning
+- Fixed `loadTrace` in `JobLogPage.tsx`: when guard `(!instanceId || !pid || !jid)` fires, dispatch `LOAD_ERROR` + `LOAD_END` before returning
+- Files changed: `src/pages/PipelineDetailPage/usePipelineData.ts`, `src/pages/JobLogPage.tsx`
+- **Note:** Browser verification skipped — dev-browser skill not available in this context
+---
