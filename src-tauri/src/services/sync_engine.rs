@@ -635,10 +635,12 @@ impl SyncEngine {
         let mr_ids: Vec<i64> = mrs.iter().map(|mr| mr.id).collect();
         let pre_sync_ready = self.get_ready_states(&mr_ids).await;
 
-        // Process each MR
+        // Process each MR and collect local DB IDs for purge
+        let mut synced_local_mr_ids: Vec<i64> = Vec::new();
         for mr in &mrs {
             match self.sync_mr(instance.id, &client, mr).await {
-                Ok(_) => {
+                Ok(local_mr_id) => {
+                    synced_local_mr_ids.push(local_mr_id);
                     result.mr_count += 1;
                 }
                 Err(e) => {
@@ -665,7 +667,7 @@ impl SyncEngine {
         self.emit_progress(SyncPhase::Purging, "Purging merged/closed MRs");
 
         // Purge merged/closed MRs
-        result.purged_count = self.purge_closed_mrs(instance.id, &mrs).await?;
+        result.purged_count = self.purge_closed_mrs(instance.id, &synced_local_mr_ids).await?;
 
         // Emit pushing_actions event
         self.emit_progress(SyncPhase::PushingActions, "Processing sync queue");
@@ -787,7 +789,7 @@ impl SyncEngine {
         instance_id: i64,
         client: &GitLabClient,
         mr: &GitLabMergeRequest,
-    ) -> Result<(), AppError> {
+    ) -> Result<i64, AppError> {
         let start = Instant::now();
 
         // Check if MR already exists (to determine created vs updated)
@@ -953,7 +955,7 @@ impl SyncEngine {
         )
         .await?;
 
-        Ok(())
+        Ok(local_mr_id)
     }
 
     /// Fetch and cache project titles for any project IDs not already in the projects table.
@@ -1633,14 +1635,10 @@ impl SyncEngine {
     async fn purge_closed_mrs(
         &self,
         instance_id: i64,
-        current_mrs: &[GitLabMergeRequest],
+        synced_local_mr_ids: &[i64],
     ) -> Result<i64, AppError> {
-        // Get all open MR IDs from GitLab
-        let open_mr_ids: Vec<i64> = current_mrs
-            .iter()
-            .filter(|mr| mr.state == "opened")
-            .map(|mr| mr.id)
-            .collect();
+        // Use the local DB IDs of all successfully synced MRs
+        let open_mr_ids = synced_local_mr_ids;
 
         // Find MR IDs (and iids) that will be purged (to clean up file cache and emit events)
         let purge_rows: Vec<(i64, i64)> = if open_mr_ids.is_empty() {
@@ -1656,7 +1654,7 @@ impl SyncEngine {
                 placeholders.join(", ")
             );
             let mut q = sqlx::query_as(&query).bind(instance_id);
-            for id in &open_mr_ids {
+            for id in open_mr_ids {
                 q = q.bind(*id);
             }
             q.fetch_all(&self.pool).await?
@@ -1685,7 +1683,7 @@ impl SyncEngine {
                 placeholders.join(", ")
             );
             let mut query_builder = sqlx::query(&query).bind(instance_id);
-            for id in &open_mr_ids {
+            for id in open_mr_ids {
                 query_builder = query_builder.bind(*id);
             }
             query_builder.execute(&self.pool).await?
