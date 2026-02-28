@@ -21,6 +21,8 @@ export default function usePipelinesData() {
   projectsRef.current = state.projects;
   const firstLoadDoneRef = useRef(false);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const selectedInstanceIdRef = useRef(state.selectedInstanceId);
+  selectedInstanceIdRef.current = state.selectedInstanceId;
 
   /** Emit window events for pinned project status changes (skips first load). */
   const emitPipelineChanges = useCallback(
@@ -74,14 +76,17 @@ export default function usePipelinesData() {
   // Load projects and their pipeline statuses
   const loadProjects = useCallback(async () => {
     if (!state.selectedInstanceId) return;
+    const requestedInstanceId = state.selectedInstanceId;
     try {
       dispatch({ type: 'SET_LOADING', loading: true });
-      const projectList = await listPipelineProjects(state.selectedInstanceId);
+      const projectList = await listPipelineProjects(requestedInstanceId);
+      if (selectedInstanceIdRef.current !== requestedInstanceId) return;
       const projectIds = projectList.map((p) => p.projectId);
 
       if (projectIds.length > 0) {
         dispatch({ type: 'SET_STATUSES_LOADING', loading: true });
-        const statusList = await getPipelineStatuses(state.selectedInstanceId, projectIds);
+        const statusList = await getPipelineStatuses(requestedInstanceId, projectIds);
+        if (selectedInstanceIdRef.current !== requestedInstanceId) return;
         const statusMap = new Map(statusList.map((s) => [s.projectId, s]));
         emitPipelineChanges(statusMap);
         dispatch({ type: 'PROJECTS_LOADED', projects: projectList, statuses: statusMap });
@@ -99,9 +104,11 @@ export default function usePipelinesData() {
   // Refresh only pipeline statuses (used by polling)
   const refreshStatuses = useCallback(async () => {
     if (!state.selectedInstanceId || state.projects.length === 0) return;
+    const requestedInstanceId = state.selectedInstanceId;
     try {
       const projectIds = state.projects.map((p) => p.projectId);
-      const statusList = await getPipelineStatuses(state.selectedInstanceId, projectIds);
+      const statusList = await getPipelineStatuses(requestedInstanceId, projectIds);
+      if (selectedInstanceIdRef.current !== requestedInstanceId) return;
       const statusMap = new Map(statusList.map((s) => [s.projectId, s]));
       emitPipelineChanges(statusMap);
       dispatch({ type: 'SET_STATUSES', statuses: statusMap });

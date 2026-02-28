@@ -68,3 +68,10 @@ Started: Sat Feb 28 14:18:43 CET 2026
 - Added `if (cancelled) return;` after the await and before each state setter
 - Files changed: `src/pages/MRDetailPage/useFileComments.ts`
 ---
+
+## 2026-02-28 - US-008
+- Added `selectedInstanceIdRef` to `usePipelinesData.ts` tracking current selected instance
+- In `loadProjects`: captured `requestedInstanceId = state.selectedInstanceId`, checked `selectedInstanceIdRef.current !== requestedInstanceId` after each await
+- In `refreshStatuses`: same pattern
+- Files changed: `src/pages/PipelinesPage/usePipelinesData.ts`
+---
