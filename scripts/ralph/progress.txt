@@ -105,3 +105,11 @@ Started: Sat Feb 28 14:18:43 CET 2026
 - Changed cleanup from `unlisten?.()` to `cancelled = true; unlisten?.();`
 - Files changed: `src/pages/MRDetailPage/useMRData.ts`
 ---
+
+## 2026-02-28 - US-013
+- Replaced `startedRef = useRef(false)` with `lastProcessedUrl = useRef<string | null>(null)` in `MRLoadingPage.tsx`
+- Guard: `if (!webUrl || webUrl === lastProcessedUrl.current) return;` allows re-fetch for new URLs
+- Set `lastProcessedUrl.current = webUrl` immediately to mark in-progress
+- Added `let cancelled = false` + `cancelled = true` in cleanup for previous in-flight requests
+- Files changed: `src/pages/MRLoadingPage.tsx`
+---

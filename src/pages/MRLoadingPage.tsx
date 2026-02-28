@@ -19,7 +19,7 @@ export default function MRLoadingPage() {
   const [searchParams] = useSearchParams();
   const { addToast } = useToast();
   const [error, setError] = useState<string | null>(null);
-  const startedRef = useRef(false);
+  const lastProcessedUrl = useRef<string | null>(null);
 
   const webUrl = searchParams.get('url') || '';
 
@@ -29,13 +29,14 @@ export default function MRLoadingPage() {
     : null;
 
   useEffect(() => {
-    if (!webUrl || startedRef.current) return;
-    startedRef.current = true;
+    if (!webUrl || webUrl === lastProcessedUrl.current) return;
+    lastProcessedUrl.current = webUrl;
 
+    let cancelled = false;
     const controller = new AbortController();
     const timeout = setTimeout(() => {
       controller.abort();
-      setError('Request timed out after 30 seconds. The MR may not exist or the server is unreachable.');
+      if (!cancelled) setError('Request timed out after 30 seconds. The MR may not exist or the server is unreachable.');
     }, TIMEOUT_MS);
 
     async function fetchMR() {
@@ -43,7 +44,7 @@ export default function MRLoadingPage() {
         const result = await fetchMrByWebUrl(webUrl);
 
         clearTimeout(timeout);
-        if (controller.signal.aborted) return;
+        if (cancelled || controller.signal.aborted) return;
 
         if (result.state === 'merged' || result.state === 'closed') {
           addToast({
@@ -57,7 +58,7 @@ export default function MRLoadingPage() {
         }
       } catch (err) {
         clearTimeout(timeout);
-        if (controller.signal.aborted) return;
+        if (cancelled || controller.signal.aborted) return;
         setError(err instanceof Error ? err.message : 'Failed to fetch merge request');
       }
     }
@@ -65,6 +66,7 @@ export default function MRLoadingPage() {
     fetchMR();
 
     return () => {
+      cancelled = true;
       clearTimeout(timeout);
       controller.abort();
     };
