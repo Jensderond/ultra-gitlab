@@ -44,27 +44,44 @@ const MAX_ATTEMPTS: usize = 5;
 /// Rate limit window in seconds.
 const RATE_LIMIT_WINDOW_SECS: i64 = 60;
 
-/// Check whether `ip` is currently rate-limited.
-pub async fn is_rate_limited(ip: IpAddr) -> bool {
-    let store = store().read().await;
-    if let Some(attempts) = store.rate_limits.get(&ip) {
-        let cutoff = Utc::now().timestamp() - RATE_LIMIT_WINDOW_SECS;
-        let recent = attempts.iter().filter(|&&t| t > cutoff).count();
-        recent >= MAX_ATTEMPTS
-    } else {
-        false
-    }
-}
-
-/// Record a failed PIN attempt for `ip`.
-pub async fn record_failed_attempt(ip: IpAddr) {
+/// Atomically check rate limit and record a failed attempt.
+///
+/// Acquires a single write lock to avoid TOCTOU races between checking
+/// the rate limit and recording the attempt. Returns `true` if the IP
+/// is rate-limited (caller should reject the request).
+///
+/// If the IP is already at or above the limit, returns `true` without
+/// recording an additional attempt. Otherwise, records the attempt and
+/// returns whether the limit has now been reached.
+pub async fn check_and_record_attempt(ip: IpAddr) -> bool {
     let mut store = store().write().await;
     let now = Utc::now().timestamp();
-    let attempts = store.rate_limits.entry(ip).or_default();
-    attempts.push(now);
-    // Prune old entries to avoid unbounded growth.
     let cutoff = now - RATE_LIMIT_WINDOW_SECS;
+
+    // Get or create the attempts list for this IP.
+    let attempts = store.rate_limits.entry(ip).or_default();
+
+    // Prune expired entries.
     attempts.retain(|&t| t > cutoff);
+
+    // If all entries expired, remove the IP key to prevent memory leak.
+    if attempts.is_empty() {
+        store.rate_limits.remove(&ip);
+        // Not rate-limited. Record the new attempt under a fresh entry.
+        store.rate_limits.insert(ip, vec![now]);
+        return false;
+    }
+
+    // Already rate-limited — reject without recording another attempt.
+    if attempts.len() >= MAX_ATTEMPTS {
+        return true;
+    }
+
+    // Record the new failed attempt.
+    attempts.push(now);
+
+    // Return whether the limit has now been reached.
+    attempts.len() >= MAX_ATTEMPTS
 }
 
 /// Verify a PIN and, on success, create a session token for a new device.
@@ -217,15 +234,6 @@ pub async fn verify_pin_handler(
 ) -> Response {
     let ip = addr.ip();
 
-    // Check rate limit
-    if is_rate_limited(ip).await {
-        let error = AuthError {
-            code: "RATE_LIMITED".to_string(),
-            message: "Too many attempts, try again in 1 minute".to_string(),
-        };
-        return (StatusCode::TOO_MANY_REQUESTS, Json(error)).into_response();
-    }
-
     // Load settings to get current PIN
     let settings = match crate::commands::settings::load_settings(&state.app_handle).await {
         Ok(s) => s,
@@ -265,8 +273,15 @@ pub async fn verify_pin_handler(
             response
         }
         Err(()) => {
-            // Record failed attempt for rate limiting
-            record_failed_attempt(ip).await;
+            // Atomically check rate limit and record the failed attempt
+            // using a single write lock to prevent TOCTOU bypass.
+            if check_and_record_attempt(ip).await {
+                let error = AuthError {
+                    code: "RATE_LIMITED".to_string(),
+                    message: "Too many attempts, try again in 1 minute".to_string(),
+                };
+                return (StatusCode::TOO_MANY_REQUESTS, Json(error)).into_response();
+            }
 
             let error = AuthError {
                 code: "INVALID_PIN".to_string(),
@@ -296,6 +311,8 @@ pub fn auth_routes(state: AuthState) -> axum::Router {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn qr_endpoint_not_exposed_via_http() {
         // Security invariant: the PIN must never be served via an
@@ -319,5 +336,79 @@ mod tests {
             !production_code.contains("/api/auth/qr"),
             "/api/auth/qr route must not exist in production code"
         );
+    }
+
+    /// Clear rate limit state for a specific IP.
+    async fn clear_ip_rate_limit(ip: IpAddr) {
+        let mut s = store().write().await;
+        s.rate_limits.remove(&ip);
+    }
+
+    #[tokio::test]
+    async fn check_and_record_rate_limits_after_max_attempts() {
+        let ip: IpAddr = "10.0.0.1".parse().unwrap();
+        clear_ip_rate_limit(ip).await;
+
+        // First MAX_ATTEMPTS - 1 calls should not be rate-limited.
+        for i in 0..MAX_ATTEMPTS - 1 {
+            let limited = check_and_record_attempt(ip).await;
+            assert!(!limited, "attempt {} should not be rate-limited", i + 1);
+        }
+
+        // The MAX_ATTEMPTS-th call records and hits the limit.
+        let limited = check_and_record_attempt(ip).await;
+        assert!(limited, "attempt {} should be rate-limited", MAX_ATTEMPTS);
+
+        // Subsequent calls should also be rate-limited (already at limit).
+        let limited = check_and_record_attempt(ip).await;
+        assert!(limited, "attempt after limit should still be rate-limited");
+    }
+
+    #[tokio::test]
+    async fn rate_limit_cleans_up_expired_entries() {
+        let ip: IpAddr = "10.0.0.2".parse().unwrap();
+        clear_ip_rate_limit(ip).await;
+
+        // Manually insert expired attempts (older than the window).
+        {
+            let mut s = store().write().await;
+            let expired_time = Utc::now().timestamp() - RATE_LIMIT_WINDOW_SECS - 10;
+            let attempts = s.rate_limits.entry(ip).or_default();
+            for _ in 0..MAX_ATTEMPTS {
+                attempts.push(expired_time);
+            }
+        }
+
+        // The expired entries should be pruned — not rate-limited.
+        let limited = check_and_record_attempt(ip).await;
+        assert!(!limited, "expired entries should not cause rate limiting");
+
+        // The old expired key should have been removed and replaced
+        // with a fresh entry containing just the new attempt.
+        {
+            let s = store().read().await;
+            let attempts = s.rate_limits.get(&ip).expect("IP should have a fresh entry");
+            assert_eq!(attempts.len(), 1, "should have exactly 1 fresh attempt");
+        }
+
+        // Now verify full cleanup: insert expired entries without calling
+        // the function, then verify the cleanup happens on next call.
+        {
+            let mut s = store().write().await;
+            s.rate_limits.remove(&ip);
+            let expired_time = Utc::now().timestamp() - RATE_LIMIT_WINDOW_SECS - 10;
+            s.rate_limits.insert(ip, vec![expired_time; MAX_ATTEMPTS]);
+        }
+
+        // After this call, the expired entries are pruned, the stale key
+        // is removed, and a single fresh attempt is recorded.
+        let limited = check_and_record_attempt(ip).await;
+        assert!(!limited);
+
+        {
+            let s = store().read().await;
+            let attempts = s.rate_limits.get(&ip).unwrap();
+            assert_eq!(attempts.len(), 1, "stale entries should be pruned");
+        }
     }
 }
