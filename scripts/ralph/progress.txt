@@ -82,3 +82,9 @@ Started: Sat Feb 28 14:18:43 CET 2026
 - Added `if (cancelled) return;` after each Promise.all await
 - Files changed: `src/pages/MyMRDetailPage/useCodeTab.ts`
 ---
+
+## 2026-02-28 - US-010
+- Added module-level `let _nextOptimisticId = -1; const nextOptimisticId = () => _nextOptimisticId--` to `useActivityData.ts`
+- Replaced `-Date.now()` with `nextOptimisticId()` in both `addComment` and `replyToComment`
+- Files changed: `src/hooks/useActivityData.ts`
+---

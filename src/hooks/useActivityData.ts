@@ -10,6 +10,11 @@ import {
 } from '../services/gitlab';
 import type { Comment } from '../types';
 
+// Module-level monotonically decrementing counter for optimistic comment IDs.
+// Guarantees uniqueness even when multiple comments are created in the same millisecond.
+let _nextOptimisticId = -1;
+const nextOptimisticId = () => _nextOptimisticId--;
+
 export interface ActivityData {
   threads: Comment[][];
   systemEvents: Comment[];
@@ -79,7 +84,7 @@ export function useActivityData(mrId: number): ActivityData {
   const addComment = useCallback(
     async (body: string) => {
       const optimistic: Comment = {
-        id: -Date.now(),
+        id: nextOptimisticId(),
         mrId,
         discussionId: null,
         parentId: null,
@@ -110,7 +115,7 @@ export function useActivityData(mrId: number): ActivityData {
   const replyToComment = useCallback(
     async (discussionId: string, parentId: number, body: string) => {
       const optimistic: Comment = {
-        id: -Date.now(),
+        id: nextOptimisticId(),
         mrId,
         discussionId,
         parentId,
