@@ -95,7 +95,8 @@ export default function useDeepLink() {
         try {
           const urls = await deepLink.getCurrent();
           if (!cancelled && urls && urls.length > 0) {
-            handleDeepLinkUrl(urls[0]);
+            await handleDeepLinkUrl(urls[0]);
+            handledUrls.add(urls[0]);
           }
         } catch {
           // getCurrent may fail if no URL launched the app
@@ -110,7 +111,8 @@ export default function useDeepLink() {
           await appWindow.show();
           await appWindow.setFocus();
 
-          handleDeepLinkUrl(urls[0]);
+          await handleDeepLinkUrl(urls[0]);
+          handledUrls.add(urls[0]);
         }
       });
 

@@ -106,7 +106,9 @@ export default function usePipelinesData() {
       dispatch({ type: 'SET_STATUSES', statuses: statusMap });
     } catch (error) {
       console.error('Failed to load pipeline statuses:', error);
-      dispatch({ type: 'SET_STATUSES', statuses: new Map() });
+      if (selectedInstanceIdRef.current === requestedInstanceId) {
+        dispatch({ type: 'SET_STATUSES', statuses: new Map() });
+      }
     } finally {
       dispatch({ type: 'SET_STATUSES_LOADING', loading: false });
     }
