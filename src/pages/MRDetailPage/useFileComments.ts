@@ -7,6 +7,8 @@ export function useFileComments(mrId: number, selectedFile: string | null) {
   const [fileComments, setFileComments] = useState<LineComment[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadComments() {
       if (!mrId || !selectedFile) {
         setFileComments([]);
@@ -18,6 +20,8 @@ export function useFileComments(mrId: number, selectedFile: string | null) {
           mrId,
           filePath: selectedFile,
         });
+
+        if (cancelled) return;
 
         const lineComments: LineComment[] = comments
           .filter((c) => !c.system && (c.newLine !== null || c.oldLine !== null))
@@ -31,12 +35,15 @@ export function useFileComments(mrId: number, selectedFile: string | null) {
             resolved: c.resolved,
           }));
 
+        if (cancelled) return;
         setFileComments(lineComments);
       } catch {
+        if (cancelled) return;
         setFileComments([]);
       }
     }
     loadComments();
+    return () => { cancelled = true; };
   }, [mrId, selectedFile]);
 
   const addComment = useCallback((comment: LineComment) => {

@@ -62,3 +62,9 @@ Started: Sat Feb 28 14:18:43 CET 2026
   - Race condition pattern: use a ref that always tracks current prop value; capture at call start; compare after await
   - MRList uses useCallback with `[instanceId, onMRsLoaded]` deps, so new callback is created when instance changes but old async ops may still be in flight
 ---
+
+## 2026-02-28 - US-007
+- Added `let cancelled = false` and `return () => { cancelled = true; }` to `loadComments` useEffect in `useFileComments.ts`
+- Added `if (cancelled) return;` after the await and before each state setter
+- Files changed: `src/pages/MRDetailPage/useFileComments.ts`
+---
