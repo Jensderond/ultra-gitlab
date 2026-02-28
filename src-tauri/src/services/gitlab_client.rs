@@ -314,6 +314,24 @@ pub struct PersonalAccessTokenInfo {
     pub active: bool,
 }
 
+/// Resolve an error message from an HTTP response status and parsed body.
+/// Extracted from `handle_response` for testability.
+fn resolve_error_message(
+    status: StatusCode,
+    body_message: &Option<String>,
+    status_code: u16,
+    raw_body: &str,
+) -> String {
+    match (status, body_message) {
+        (StatusCode::FORBIDDEN, Some(msg)) => msg.clone(),
+        (StatusCode::FORBIDDEN, None) => "Access denied".to_string(),
+        (StatusCode::NOT_FOUND, _) => "Resource not found".to_string(),
+        (StatusCode::TOO_MANY_REQUESTS, _) => "Rate limit exceeded".to_string(),
+        (_, Some(msg)) => msg.clone(),
+        _ => format!("Request failed ({}): {}", status_code, raw_body),
+    }
+}
+
 impl GitLabClient {
     /// Create a new GitLab client.
     pub fn new(config: GitLabClientConfig) -> Result<Self, AppError> {
@@ -401,13 +419,8 @@ impl GitLabClient {
                         })
                 });
 
-            let message = match (status, &body_message) {
-                (StatusCode::FORBIDDEN, _) => "Access denied".to_string(),
-                (StatusCode::NOT_FOUND, _) => "Resource not found".to_string(),
-                (StatusCode::TOO_MANY_REQUESTS, _) => "Rate limit exceeded".to_string(),
-                (_, Some(msg)) => msg.clone(),
-                _ => format!("Request failed ({}): {}", status_code, body),
-            };
+            let message =
+                resolve_error_message(status, &body_message, status_code, &body);
 
             Err(AppError::gitlab_api_full(
                 &message,
@@ -1095,6 +1108,25 @@ mod tests {
         let base = config.base_url.trim_end_matches('/');
         let url = format!("{}/api/v4/user", base);
         assert_eq!(url, "https://gitlab.com/api/v4/user");
+    }
+
+    #[test]
+    fn test_403_with_body_message_preserves_message() {
+        let body_message = Some("Cannot approve: MR is already merged".to_string());
+        let message = resolve_error_message(StatusCode::FORBIDDEN, &body_message, 403, "");
+        assert!(
+            message.contains("merged"),
+            "Expected message to contain 'merged', got: {}",
+            message
+        );
+        assert_ne!(message, "Access denied");
+    }
+
+    #[test]
+    fn test_403_without_body_message_falls_back_to_access_denied() {
+        let body_message: Option<String> = None;
+        let message = resolve_error_message(StatusCode::FORBIDDEN, &body_message, 403, "");
+        assert_eq!(message, "Access denied");
     }
 
     #[test]
