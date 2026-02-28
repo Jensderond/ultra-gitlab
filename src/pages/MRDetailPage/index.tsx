@@ -81,9 +81,12 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   }, []);
 
   const handleDeleteComment = useCallback((commentId: number) => {
+    const toRestore = fileComments.find((c) => c.id === commentId);
     removeComment(commentId);
-    deleteComment(mrId, commentId).catch(() => {});
-  }, [mrId, removeComment]);
+    deleteComment(mrId, commentId).catch(() => {
+      if (toRestore) addComment(toRestore);
+    });
+  }, [mrId, fileComments, removeComment, addComment]);
 
   // Auto-select first reviewable file on initial load
   const appliedInitialRef = useRef(false);

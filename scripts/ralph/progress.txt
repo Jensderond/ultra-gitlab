@@ -15,3 +15,12 @@ Started: Sat Feb 28 14:18:43 CET 2026
   - The existing `processingRef` guards concurrent calls within a single focus event, but `handledUrls` is needed to prevent the same URL being re-processed across multiple focus events
   - Cold-start path intentionally left unchanged (uses `coldStartHandled` flag, not `handledUrls`)
 ---
+
+## 2026-02-28 - US-002
+- Fixed `handleDeleteComment` in `src/pages/MRDetailPage/index.tsx` to capture the comment before optimistic removal
+- On API failure, restores via `addComment(toRestore)` (reuses existing `addComment` from `useFileComments`)
+- Files changed: `src/pages/MRDetailPage/index.tsx`
+- **Learnings for future iterations:**
+  - `useFileComments` exposes `addComment` which can be used as a restore mechanism (appends to state)
+  - Added `fileComments` and `addComment` to `handleDeleteComment` useCallback deps
+---
