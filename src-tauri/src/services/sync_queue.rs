@@ -373,6 +373,27 @@ pub async fn get_action_counts(pool: &DbPool) -> Result<(i64, i64), AppError> {
     Ok((row.get("pending"), row.get("failed")))
 }
 
+/// Recover actions stuck in 'syncing' state after a crash.
+///
+/// On app startup, any actions left in 'syncing' state were mid-flight when
+/// the app crashed. Reset them to 'pending' so they will be retried.
+///
+/// # Returns
+/// Number of recovered actions
+pub async fn recover_stale_syncing_actions(pool: &DbPool) -> Result<u64, AppError> {
+    let result =
+        sqlx::query("UPDATE sync_queue SET status = 'pending' WHERE status = 'syncing'")
+            .execute(pool)
+            .await?;
+
+    let count = result.rows_affected();
+    if count > 0 {
+        log::info!("[sync] Recovered {} actions stuck in 'syncing' state", count);
+    }
+
+    Ok(count)
+}
+
 /// Delete all synced actions (cleanup).
 ///
 /// # Arguments
@@ -794,5 +815,89 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(resolves.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_recover_stale_syncing_actions() {
+        let pool = setup_test_db().await;
+
+        // Create 3 actions: one pending, one syncing, one failed
+        let pending_action = enqueue_action(
+            &pool,
+            EnqueueInput {
+                mr_id: 1,
+                action_type: ActionType::Approve,
+                payload: "{}".to_string(),
+                local_reference_id: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let syncing_action = enqueue_action(
+            &pool,
+            EnqueueInput {
+                mr_id: 1,
+                action_type: ActionType::Comment,
+                payload: "{}".to_string(),
+                local_reference_id: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let failed_action = enqueue_action(
+            &pool,
+            EnqueueInput {
+                mr_id: 1,
+                action_type: ActionType::Resolve,
+                payload: "{}".to_string(),
+                local_reference_id: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        // Set one to syncing, one to failed
+        mark_syncing(&pool, syncing_action.id).await.unwrap();
+        for _ in 0..SyncAction::MAX_RETRIES {
+            mark_failed(&pool, failed_action.id, "Error").await.unwrap();
+        }
+
+        // Verify initial states
+        let row = sqlx::query("SELECT status FROM sync_queue WHERE id = ?")
+            .bind(syncing_action.id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(row.get::<String, _>("status"), "syncing");
+
+        // Run recovery
+        let recovered = recover_stale_syncing_actions(&pool).await.unwrap();
+        assert_eq!(recovered, 1);
+
+        // Verify only the syncing action was reset to pending
+        let row = sqlx::query("SELECT status FROM sync_queue WHERE id = ?")
+            .bind(syncing_action.id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(row.get::<String, _>("status"), "pending");
+
+        // Pending action should still be pending
+        let row = sqlx::query("SELECT status FROM sync_queue WHERE id = ?")
+            .bind(pending_action.id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(row.get::<String, _>("status"), "pending");
+
+        // Failed action should still be failed
+        let row = sqlx::query("SELECT status FROM sync_queue WHERE id = ?")
+            .bind(failed_action.id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(row.get::<String, _>("status"), "failed");
     }
 }

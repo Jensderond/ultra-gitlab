@@ -8,6 +8,8 @@ Started: Sat Feb 28 13:44:49 CET 2026
 - `gitlab_instances.token` is nullable (`TEXT` without `NOT NULL`) — always handle as `Option<String>`
 - `SyncProgressPayload.total` is `Option<i64>`, not `u32`
 - `sync_processor::process_action` can be called directly instead of through `retry_failed_actions` when you need per-instance client control
+- `merge_requests.id` may differ from GitLab's `mr.id` — always use the value returned by `upsert_mr()` (the canonical DB row ID) when referencing local MRs
+- `sync_mr` returns `Result<i64, AppError>` where the i64 is the local DB MR ID
 ---
 
 ## 2026-02-28 - US-001
@@ -32,4 +34,53 @@ Started: Sat Feb 28 13:44:49 CET 2026
   - `gitlab_instances.token` is nullable — use `Option<String>` in query structs
   - `SyncProgressPayload.total` expects `Option<i64>`, not `u32`
   - `sync_processor::process_action` is the lower-level function that takes a single client + action — useful when you need per-instance control
+  - `resolve_error_message()` is a standalone testable function extracted from `handle_response` for error message resolution logic
+- `error_from_response()` is an async method on `GitLabClient` that reads response body, parses JSON for message/error fields, and returns `AppError::gitlab_api_full` — use it in any method that only checks `is_success()` and returns a generic error
+---
+
+## 2026-02-28 - US-003
+- Changed 403 match arm in `handle_response` from `(StatusCode::FORBIDDEN, _) => "Access denied"` to `(StatusCode::FORBIDDEN, Some(msg)) => msg.clone()` with `None` fallback
+- Extracted `resolve_error_message()` as a standalone function from `handle_response` for testability
+- Added 2 unit tests: 403 with body message preserves "merged", 403 without body falls back to "Access denied"
+- Files changed: `src-tauri/src/services/gitlab_client.rs`
+- **Learnings for future iterations:**
+  - `handle_response` is a private async method taking `reqwest::Response` — hard to test directly. Extract matching logic into a standalone function for unit testing.
+  - The `check_stale_mr_error` in `sync_processor.rs` already has tests expecting messages like "Cannot approve: MR is already merged" — this fix makes those messages actually flow through from GitLab.
+---
+
+## 2026-02-28 - US-004
+- Extracted `error_from_response` async method on `GitLabClient` that reads response body, parses JSON for `message`/`error` fields, returns `AppError::gitlab_api_full`
+- Updated `post_empty` to use `error_from_response` instead of generic "Request failed"
+- Updated `delete_note` to use `error_from_response` instead of generic "Failed to delete note"
+- Updated `resolve_discussion` to use `error_from_response` instead of generic "Failed to resolve discussion"
+- Files changed: `src-tauri/src/services/gitlab_client.rs`
+- **Learnings for future iterations:**
+  - The body-parsing logic (JSON extract message/error) was already in `handle_response` — `error_from_response` reuses the same pattern but as a standalone method for non-generic endpoints
+  - Several other methods (`merge_merge_request`, `rebase_merge_request`, `fetch_raw_file`, `get_job_trace`) have similar inline error handling but use custom status-specific messages, so they were intentionally left as-is
+---
+
+## 2026-02-28 - US-005
+- Fixed `purge_closed_mrs` which was comparing GitLab global IDs (`mr.id`) against local DB auto-increment IDs (`merge_requests.id`)
+- Changed `sync_mr` return type from `Result<(), AppError>` to `Result<i64, AppError>` to return the `local_mr_id`
+- Collected `local_mr_id` values in `sync_instance` loop into `synced_local_mr_ids: Vec<i64>`
+- Updated `purge_closed_mrs` signature to accept `&[i64]` (local DB IDs) instead of `&[GitLabMergeRequest]`
+- The `NOT IN` clause now correctly compares local DB IDs against local DB IDs
+- Files changed: `src-tauri/src/services/sync_engine.rs`
+- **Learnings for future iterations:**
+  - `merge_requests.id` is `INTEGER PRIMARY KEY` which initially gets set to `mr.id` (GitLab's global ID) on first insert, but on conflict (same instance_id, project_id, iid) the original row ID is preserved — so they can diverge
+  - `upsert_mr` already reads back the canonical DB ID via a SELECT after the INSERT ON CONFLICT — this is the safe ID to use everywhere
+  - When `open_mr_ids` is `&[i64]`, iterating with `for id in &open_mr_ids` fails (double reference) — use `for id in open_mr_ids` directly
+- `recover_stale_syncing_actions()` in `sync_queue.rs` resets 'syncing' → 'pending' on startup — call it before the first sync cycle
+---
+
+## 2026-02-28 - US-006
+- Added `recover_stale_syncing_actions` function to `sync_queue.rs` that resets stuck 'syncing' actions to 'pending'
+- Called recovery function in `start_background` in `sync_engine.rs` before the initial sync cycle
+- Logs the count of recovered actions via `log::info!`
+- Added unit test: inserts 3 actions (pending, syncing, failed), calls recovery, verifies only the syncing one is reset to pending
+- Files changed: `src-tauri/src/services/sync_queue.rs`, `src-tauri/src/services/sync_engine.rs`
+- **Learnings for future iterations:**
+  - `sync_queue.rs` is the right place for queue-level operations (recovery is a queue operation, not engine logic)
+  - `start_background` has a 3-second delay before first sync — recovery runs after the delay but before `run_sync()`
+  - The existing `setup_test_db()` in sync_queue tests creates a full DB with instance and MR — reuse it for any sync_queue tests
 ---

@@ -311,6 +311,11 @@ impl SyncEngine {
                 notified_mr_ready: HashSet::new(),
             };
 
+            // Recover any actions stuck in 'syncing' state from a previous crash
+            if let Err(e) = sync_queue::recover_stale_syncing_actions(&engine.pool).await {
+                eprintln!("[sync] Failed to recover stale syncing actions: {}", e);
+            }
+
             // Run initial sync immediately
             eprintln!("[sync] Running initial background sync...");
             match engine.run_sync().await {
