@@ -25,6 +25,23 @@ export default function MRListPage() {
   const [mrs, setMrs] = useState<MergeRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [showApproved, setShowApproved] = useState(false);
+
+  // Shift+H toggles approved MR visibility
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) return;
+      if (e.shiftKey && e.key === 'H') {
+        e.preventDefault();
+        setShowApproved(v => !v);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
   const mrsRef = useRef<MergeRequest[]>([]);
   const [filteredCounts, setFilteredCounts] = useState({ filtered: 0, total: 0 });
 
@@ -171,19 +188,37 @@ export default function MRListPage() {
             </svg>
           </button>
         </div>
-        {instances.length > 1 && (
-          <select
-            value={selectedInstanceId ?? ''}
-            onChange={(e) => setSelectedInstanceId(Number(e.target.value))}
-            className="instance-selector"
-          >
-            {instances.map((instance) => (
-              <option key={instance.id} value={instance.id}>
-                {instance.name || instance.url}
-              </option>
-            ))}
-          </select>
-        )}
+        <div className="header-actions">
+          {instances.length > 1 && (
+            <select
+              value={selectedInstanceId ?? ''}
+              onChange={(e) => setSelectedInstanceId(Number(e.target.value))}
+              className="instance-selector"
+            >
+              {instances.map((instance) => (
+                <option key={instance.id} value={instance.id}>
+                  {instance.name || instance.url}
+                </option>
+              ))}
+            </select>
+          )}
+          <div className="approved-toggle-wrapper">
+            <button
+              className={`approved-toggle-button${showApproved ? ' approved-toggle-button--active' : ''}`}
+              onClick={() => setShowApproved(v => !v)}
+              aria-label={showApproved ? 'Hide approved merge requests' : 'Show approved merge requests'}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 11l3 3L22 4" />
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+              </svg>
+              <span className="approved-toggle-popover">
+                <span className="approved-toggle-popover-shortcut"><kbd>Shift</kbd>+<kbd>H</kbd></span>
+                <span>{showApproved ? 'Hide approved' : 'Show approved'}</span>
+              </span>
+            </button>
+          </div>
+        </div>
       </header>
 
       <main className="mr-list-page-content">
@@ -209,6 +244,7 @@ export default function MRListPage() {
             refreshTrigger={refreshTrigger}
             filterQuery={isSearchOpen ? query : undefined}
             onFilteredCountChange={handleFilteredCountChange}
+            showApproved={showApproved}
           />
         ) : null}
       </main>

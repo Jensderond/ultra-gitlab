@@ -71,7 +71,7 @@
   justify-content: space-between;
   padding: 24px 32px 20px;
   position: relative;
-  z-index: 10;
+  z-index: 100;
   animation: headerReveal 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -173,6 +173,120 @@
   outline: none;
   border-color: var(--accent-color);
   box-shadow: 0 0 0 2px var(--wave-glow);
+}
+
+/* Header actions group — right side of header */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Wrapper provides positioning context for the popover */
+.approved-toggle-wrapper {
+  position: relative;
+}
+
+/* Approved toggle button — mirrors refresh-button style */
+.approved-toggle-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.approved-toggle-button:hover {
+  color: var(--accent-color);
+  border-color: var(--border-color);
+  background: var(--overlay-glass);
+}
+
+.approved-toggle-button:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px var(--wave-glow);
+}
+
+.approved-toggle-button--active {
+  color: var(--accent-color);
+  border-color: var(--wave-glow-strong);
+  background: var(--wave-glow);
+  box-shadow: 0 0 8px var(--wave-glow);
+}
+
+.approved-toggle-button--active:hover {
+  background: var(--wave-glow-strong);
+  box-shadow: 0 0 14px var(--wave-glow);
+}
+
+/* Hover popover — appears below the button */
+.approved-toggle-popover {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  white-space: nowrap;
+  padding: 7px 12px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  gap: 5px;
+  z-index: 100;
+  pointer-events: none;
+}
+
+/* Arrow pointing up */
+.approved-toggle-popover::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  right: 9px;
+  width: 8px;
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-left: 1px solid var(--border-color);
+  border-top: 1px solid var(--border-color);
+  transform: rotate(45deg);
+}
+
+.approved-toggle-button:hover .approved-toggle-popover {
+  display: flex;
+}
+
+.approved-toggle-popover-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+}
+
+.approved-toggle-popover kbd {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  background: var(--overlay-glass);
+  border: 1px solid var(--overlay-divider);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 1px 5px;
 }
 
 /* Instance selector — minimal, inline with header */

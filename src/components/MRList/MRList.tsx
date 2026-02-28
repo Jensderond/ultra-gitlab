@@ -41,10 +41,13 @@ interface MRListProps {
   filterQuery?: string;
   /** Callback when filtered/total counts change */
   onFilteredCountChange?: (counts: { filtered: number; total: number }) => void;
+  /** When true, show MRs the user has already approved (hidden by default) */
+  showApproved?: boolean;
 }
 
 interface MRListState {
   mrs: MergeRequest[];
+  totalFetched: number;
   loading: boolean;
   error: string | null;
   lastSyncedAt: number | null;
@@ -54,7 +57,7 @@ interface MRListState {
 
 type MRListAction =
   | { type: 'FETCH_START'; isBackground: boolean }
-  | { type: 'FETCH_SUCCESS'; mrs: MergeRequest[]; newMrIds: Set<number>; timestamp: number }
+  | { type: 'FETCH_SUCCESS'; mrs: MergeRequest[]; totalFetched: number; newMrIds: Set<number>; timestamp: number }
   | { type: 'FETCH_ERROR'; error: string }
   | { type: 'LOAD_END' }
   | { type: 'SYNC_IDLE' }
@@ -73,6 +76,7 @@ function mrListReducer(state: MRListState, action: MRListAction): MRListState {
       return {
         ...state,
         mrs: action.mrs,
+        totalFetched: action.totalFetched,
         loading: false,
         lastSyncedAt: action.timestamp,
         syncStatus: 'success',
@@ -102,9 +106,11 @@ export default function MRList({
   refreshTrigger = 0,
   filterQuery,
   onFilteredCountChange,
+  showApproved = false,
 }: MRListProps) {
   const [state, dispatch] = useReducer(mrListReducer, {
     mrs: [],
+    totalFetched: 0,
     loading: true,
     error: null,
     lastSyncedAt: null,
@@ -112,7 +118,7 @@ export default function MRList({
     syncStatus: 'idle',
   });
 
-  const { mrs, loading, error, lastSyncedAt, newMrIds, syncStatus } = state;
+  const { mrs, totalFetched, loading, error, lastSyncedAt, newMrIds, syncStatus } = state;
 
   // Filter MRs by search query
   const filteredMrs = useMemo(() => {
@@ -160,8 +166,8 @@ export default function MRList({
       // Discard response if the user switched instances while the request was in flight
       if (instanceIdRef.current !== requestedInstanceId) return;
 
-      // Filter out MRs the user has already approved
-      const filteredData = data.filter(mr => !mr.userHasApproved);
+      // Filter out MRs the user has already approved (unless showApproved is enabled)
+      const filteredData = showApproved ? data : data.filter(mr => !mr.userHasApproved);
 
       // Track newly added MRs (only on background refresh)
       let detectedNewIds = new Set<number>();
@@ -181,7 +187,7 @@ export default function MRList({
       // Update previous MR IDs ref
       previousMrIdsRef.current = new Set(filteredData.map(mr => mr.id));
 
-      dispatch({ type: 'FETCH_SUCCESS', mrs: filteredData, newMrIds: detectedNewIds, timestamp: Date.now() });
+      dispatch({ type: 'FETCH_SUCCESS', mrs: filteredData, totalFetched: data.length, newMrIds: detectedNewIds, timestamp: Date.now() });
       onMRsLoaded?.(filteredData);
 
       // Reset success status after a brief moment
@@ -202,7 +208,7 @@ export default function MRList({
       const duration = performance.now() - startTime;
       console.log(`[Performance] MR list load failed: ${duration.toFixed(1)}ms`);
     }
-  }, [instanceId, onMRsLoaded]);
+  }, [instanceId, onMRsLoaded, showApproved]);
 
   // Initial load
   useEffect(() => {
@@ -280,9 +286,11 @@ export default function MRList({
       <div className="mr-list-content">
         {mrs.length === 0 ? (
           <div className="mr-list-empty">
-            <p>No merge requests found</p>
+            <p>No open merge requests</p>
             <span className="mr-list-empty-hint">
-              Sync with GitLab to fetch merge requests
+              {!showApproved && totalFetched > 0
+                ? `${totalFetched} approved — toggle the filter above to show them`
+                : 'Sync with GitLab to fetch merge requests'}
             </span>
           </div>
         ) : filteredMrs.length === 0 ? (
