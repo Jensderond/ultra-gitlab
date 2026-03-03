@@ -23,6 +23,7 @@ import MRHeader from './MRHeader';
 import MRDiffContent from './MRDiffContent';
 import MRFilePanel from './MRFilePanel';
 import { listInstances, deleteComment } from '../../services/gitlab';
+import { trackMRApproved, trackMRUnapproved, trackCommentPosted, trackReplyPosted } from '../../services/analytics';
 import '../MRDetailPage.css';
 
 interface MRDetailPageProps {
@@ -36,6 +37,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
 
   const approvalButtonRef = useRef<ApprovalButtonRef>(null);
   const commentOverlayRef = useRef<CommentOverlayRef>(null);
+  const mrEnteredAtRef = useRef(Date.now());
   const lineSelectionRef = useRef<SelectedLineRange | null>(null);
   const previousFileRef = useRef<string | null>(null);
 
@@ -226,7 +228,11 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         fileCount={files.length}
         approvalButtonRef={approvalButtonRef}
         onToggleMobileSidebar={() => dispatch({ type: 'TOGGLE_MOBILE_SIDEBAR' })}
-        onApproved={() => navigate('/mrs')}
+        onApproved={(trigger) => {
+          trackMRApproved(mrId, Math.round((Date.now() - mrEnteredAtRef.current) / 1000), trigger);
+          navigate('/mrs');
+        }}
+        onUnapproved={(trigger) => trackMRUnapproved(mrId, trigger)}
       />
 
       <div className="mr-detail-content">
@@ -279,7 +285,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         onToggleSystemEvents={() => setShowSystemEvents((s) => !s)}
         heightVh={activityHeightVh}
         onHeightChange={setActivityHeightVh}
-        footer={<CommentInput onSubmit={activityAddComment} />}
+        footer={<CommentInput onSubmit={async (body) => { await activityAddComment(body); trackCommentPosted(mrId); }} />}
       >
         <ActivityFeed
           threads={activityThreads}
@@ -287,7 +293,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           showSystemEvents={showSystemEvents}
           loading={activityLoading}
           currentUser={activityCurrentUser}
-          onReply={activityReplyToComment}
+          onReply={async (discussionId, parentId, body) => { await activityReplyToComment(discussionId, parentId, body); trackReplyPosted(mrId); }}
           onResolve={activityResolveDiscussion}
           onDelete={activityDeleteComment}
         />

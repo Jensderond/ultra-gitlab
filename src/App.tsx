@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { isTauri, tauriListen } from './services/transport';
+import { trackEvent, trackShortcut } from './services/analytics';
 import Settings from './pages/Settings';
 import MRListPage from './pages/MRListPage';
 import MRDetailPage from './pages/MRDetailPage';
@@ -66,6 +67,18 @@ function AppContent() {
   useNotifications();
   useDeepLink();
   const companionStatus = useCompanionStatus();
+
+  // Track screen views for main overview screens
+  useEffect(() => {
+    const screenNames: Record<string, string> = {
+      '/mrs': 'mr_list',
+      '/my-mrs': 'my_mr_list',
+      '/pipelines': 'pipelines',
+      '/settings': 'settings',
+    };
+    const screen = screenNames[location.pathname];
+    if (screen) trackEvent('screen_view', { screen_name: screen });
+  }, [location.pathname]);
 
   // In browser mode, redirect to /auth if not authenticated
   useEffect(() => {
@@ -137,6 +150,7 @@ function AppContent() {
       // Cmd+P or Ctrl+P to open command palette (Tauri only)
       if (isTauri && (e.metaKey || e.ctrlKey) && e.key === 'p') {
         e.preventDefault();
+        trackShortcut('Cmd+P', 'open_command_palette', 'global');
         setCommandPaletteOpen(true);
         return;
       }
@@ -144,6 +158,7 @@ function AppContent() {
       // Cmd+, or Ctrl+, to open settings (desktop only)
       if (isTauri && (e.metaKey || e.ctrlKey) && e.key === ',') {
         e.preventDefault();
+        trackShortcut('Cmd+,', 'open_settings', 'global');
         navigate('/settings');
         return;
       }
@@ -151,6 +166,7 @@ function AppContent() {
       // Cmd+L or Ctrl+L to go to MR list
       if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
         e.preventDefault();
+        trackShortcut('Cmd+L', 'navigate_mr_list', 'global');
         navigate('/mrs');
         return;
       }
@@ -158,6 +174,7 @@ function AppContent() {
       // Cmd+M or Ctrl+M to go to My MRs
       if ((e.metaKey || e.ctrlKey) && e.key === 'm') {
         e.preventDefault();
+        trackShortcut('Cmd+M', 'navigate_my_mrs', 'global');
         navigate('/my-mrs');
         return;
       }
@@ -165,6 +182,7 @@ function AppContent() {
       // Cmd+I or Ctrl+I to go to Pipelines
       if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
         e.preventDefault();
+        trackShortcut('Cmd+I', 'navigate_pipelines', 'global');
         navigate('/pipelines');
         return;
       }
@@ -172,6 +190,7 @@ function AppContent() {
       // Cmd+R or Ctrl+R to trigger sync (only in Tauri — browser needs refresh)
       if (isTauri && (e.metaKey || e.ctrlKey) && e.key === 'r') {
         e.preventDefault();
+        trackShortcut('Cmd+R', 'trigger_sync', 'global');
         manualSync().catch(console.error);
         return;
       }
@@ -179,6 +198,7 @@ function AppContent() {
       // '?' to show keyboard help (but not Shift+/ which is also '?')
       if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
+        trackShortcut('?', 'show_keyboard_help', 'global');
         setKeyboardHelpOpen(true);
         return;
       }

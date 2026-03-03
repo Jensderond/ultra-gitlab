@@ -12,6 +12,7 @@ import { useReducer, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
 import { openExternalUrl } from '../services/transport';
+import { trackShortcut } from '../services/analytics';
 import { getJobTrace, getPipelineJobs } from '../services/tauri';
 import { parseLog, formatSectionName } from '../utils/logLineParser';
 import type { LogLine, LogSection } from '../utils/logLineParser';
@@ -358,9 +359,11 @@ export default function JobLogPage() {
       ) return;
       if (e.key === 'Escape') {
         e.preventDefault();
+        trackShortcut('Escape', 'go_back', 'job_log');
         navigate(backUrl);
       } else if ((e.key === 'o' || e.key === 'O') && jobWebUrl) {
         e.preventDefault();
+        trackShortcut('o', 'open_in_browser', 'job_log');
         openExternalUrl(jobWebUrl);
       }
     }

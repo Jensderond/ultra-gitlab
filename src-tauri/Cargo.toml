@@ -19,6 +19,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-aptabase = "1"
 tauri-plugin-opener = "2"
 tauri-plugin-store = "2"
 tauri-plugin-updater = "2"
@@ -44,7 +45,7 @@ log = "0.4"
 sysinfo = "0.32"
 
 # Async Runtime
-tokio = { version = "1", features = ["sync", "time", "net"] }
+tokio = { version = "1", features = ["sync", "time", "net", "rt-multi-thread"] }
 
 # HTTP Server (companion server)
 axum = "0.8"

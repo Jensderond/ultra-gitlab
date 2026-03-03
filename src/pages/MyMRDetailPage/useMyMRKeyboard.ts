@@ -4,6 +4,7 @@
 
 import { useEffect, useRef } from 'react';
 import { openExternalUrl } from '../../services/transport';
+import { trackShortcut } from '../../services/analytics';
 
 type TabId = 'overview' | 'comments' | 'code';
 
@@ -36,6 +37,7 @@ export function useMyMRKeyboard(options: KeyboardOptions) {
         case 'Escape':
           if (!document.querySelector('.keyboard-help-overlay')) {
             e.preventDefault();
+            trackShortcut('Escape', 'go_back', 'my_mr_detail');
             opts.goBack();
           }
           break;
@@ -44,22 +46,30 @@ export function useMyMRKeyboard(options: KeyboardOptions) {
         case '3': {
           e.preventDefault();
           const tabs: TabId[] = ['overview', 'comments', 'code'];
+          trackShortcut(e.key, `switch_tab_${tabs[parseInt(e.key, 10) - 1]}`, 'my_mr_detail');
           opts.setActiveTab(tabs[parseInt(e.key, 10) - 1]);
           break;
         }
         case 'o':
           e.preventDefault();
-          if (opts.webUrl) openExternalUrl(opts.webUrl);
+          if (opts.webUrl) {
+            trackShortcut('o', 'open_in_browser', 'my_mr_detail');
+            openExternalUrl(opts.webUrl);
+          }
           break;
         case 'y':
           e.preventDefault();
-          if (opts.webUrl) opts.copyToClipboard(opts.webUrl);
+          if (opts.webUrl) {
+            trackShortcut('y', 'copy_link', 'my_mr_detail');
+            opts.copyToClipboard(opts.webUrl);
+          }
           break;
         case 'n':
         case 'j':
         case 'ArrowDown':
           if (opts.activeTab === 'code') {
             e.preventDefault();
+            trackShortcut(e.key, 'navigate_file_next', 'my_mr_detail');
             opts.navigateFile(1);
           }
           break;
@@ -68,12 +78,14 @@ export function useMyMRKeyboard(options: KeyboardOptions) {
         case 'ArrowUp':
           if (opts.activeTab === 'code') {
             e.preventDefault();
+            trackShortcut(e.key, 'navigate_file_prev', 'my_mr_detail');
             opts.navigateFile(-1);
           }
           break;
         case 'g':
           if (opts.activeTab === 'code') {
             e.preventDefault();
+            trackShortcut('g', 'toggle_hide_generated', 'my_mr_detail');
             opts.toggleHideGenerated();
           }
           break;

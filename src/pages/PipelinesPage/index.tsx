@@ -14,6 +14,7 @@ import '../PipelinesPage.css';
 
 export default function PipelinesPage() {
   const navigate = useNavigate();
+
   const {
     instances,
     selectedInstanceId,

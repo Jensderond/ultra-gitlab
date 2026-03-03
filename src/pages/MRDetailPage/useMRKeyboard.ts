@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { openExternalUrl } from '../../services/transport';
+import { trackShortcut } from '../../services/analytics';
 import type { ApprovalButtonRef } from '../../components/Approval';
 import type { CommentOverlayRef } from '../../components/CommentOverlay';
 import type { SelectedLineRange } from '../../components/PierreDiffViewer';
@@ -52,42 +53,55 @@ export function useMRKeyboard({
       case 'j':
       case 'ArrowDown':
         e.preventDefault();
+        trackShortcut(e.key, 'navigate_file_next', 'mr_detail');
         onNavigateFile(1);
         break;
       case 'p':
       case 'k':
       case 'ArrowUp':
         e.preventDefault();
+        trackShortcut(e.key, 'navigate_file_prev', 'mr_detail');
         onNavigateFile(-1);
         break;
       case 'x':
         if (isSmallScreen) break;
         e.preventDefault();
+        trackShortcut('x', 'toggle_view_mode', 'mr_detail');
         onToggleViewMode();
         break;
       case 'a':
         e.preventDefault();
+        trackShortcut('a', 'toggle_approval', 'mr_detail');
         approvalButtonRef.current?.toggle();
         break;
       case 'o':
         e.preventDefault();
-        if (webUrl) openExternalUrl(webUrl);
+        if (webUrl) {
+          trackShortcut('o', 'open_in_browser', 'mr_detail');
+          openExternalUrl(webUrl);
+        }
         break;
       case 'y':
         e.preventDefault();
-        if (webUrl) onCopyLink(webUrl);
+        if (webUrl) {
+          trackShortcut('y', 'copy_link', 'mr_detail');
+          onCopyLink(webUrl);
+        }
         break;
       case 'v':
         e.preventDefault();
+        trackShortcut('v', 'mark_viewed', 'mr_detail');
         onMarkViewedAndNext();
         break;
       case 'g':
         e.preventDefault();
+        trackShortcut('g', 'toggle_hide_generated', 'mr_detail');
         onToggleHideGenerated();
         break;
       case 'c':
         e.preventDefault();
         if (selectedFile) {
+          trackShortcut('c', 'open_comment', 'mr_detail');
           const selC = lineSelectionRef.current;
           if (selC) {
             const isOriginal = selC.side === 'deletions';
@@ -105,6 +119,7 @@ export function useMRKeyboard({
       case 's':
         e.preventDefault();
         if (selectedFile) {
+          trackShortcut('s', 'open_suggestion', 'mr_detail');
           const selS = lineSelectionRef.current;
           if (selS) {
             const isOriginal = selS.side === 'deletions';
@@ -126,8 +141,10 @@ export function useMRKeyboard({
       case 'Escape':
         if (commentOverlayRef.current?.isVisible()) {
           e.preventDefault();
+          trackShortcut('Escape', 'close_comment_overlay', 'mr_detail');
           commentOverlayRef.current.close();
         } else if (!document.querySelector('.keyboard-help-overlay')) {
+          trackShortcut('Escape', 'go_back', 'mr_detail');
           onEscapeBack();
         }
         break;

@@ -30,7 +30,7 @@ interface ApprovalButtonProps {
   /** Whether the current user has approved */
   hasApproved?: boolean;
   /** Called when approval state changes */
-  onApprovalChange?: (approved: boolean, newCount: number) => void;
+  onApprovalChange?: (approved: boolean, newCount: number, trigger: 'button' | 'keyboard') => void;
 }
 
 /**
@@ -52,7 +52,7 @@ const ApprovalButton = forwardRef<ApprovalButtonRef, ApprovalButtonProps>(functi
   const [error, setError] = useState<string | null>(null);
 
   // Handle approve/unapprove
-  const handleClick = useCallback(async () => {
+  const handleClick = useCallback(async (trigger: 'button' | 'keyboard' = 'button') => {
     if (isSubmitting) return;
 
     setIsSubmitting(true);
@@ -63,7 +63,7 @@ const ApprovalButton = forwardRef<ApprovalButtonRef, ApprovalButtonProps>(functi
     const newCount = newApproved ? count + 1 : Math.max(0, count - 1);
     setIsApproved(newApproved);
     setCount(newCount);
-    onApprovalChange?.(newApproved, newCount);
+    onApprovalChange?.(newApproved, newCount, trigger);
 
     try {
       if (newApproved) {
@@ -75,7 +75,7 @@ const ApprovalButton = forwardRef<ApprovalButtonRef, ApprovalButtonProps>(functi
       // Rollback on error
       setIsApproved(isApproved);
       setCount(count);
-      onApprovalChange?.(isApproved, count);
+      onApprovalChange?.(isApproved, count, trigger);
       setError(err instanceof Error ? err.message : 'Failed to update approval');
     } finally {
       setIsSubmitting(false);
@@ -84,7 +84,7 @@ const ApprovalButton = forwardRef<ApprovalButtonRef, ApprovalButtonProps>(functi
 
   // Expose toggle method via ref
   useImperativeHandle(ref, () => ({
-    toggle: handleClick,
+    toggle: () => handleClick('keyboard'),
   }), [handleClick]);
 
   // Determine button state
@@ -98,7 +98,7 @@ const ApprovalButton = forwardRef<ApprovalButtonRef, ApprovalButtonProps>(functi
       <button
         type="button"
         className={buttonClass}
-        onClick={handleClick}
+        onClick={() => handleClick('button')}
         disabled={isSubmitting}
         title={isApproved ? 'Remove your approval' : 'Approve this MR'}
       >

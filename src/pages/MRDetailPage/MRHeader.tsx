@@ -11,7 +11,8 @@ interface MRHeaderProps {
   fileCount: number;
   approvalButtonRef: RefObject<ApprovalButtonRef | null>;
   onToggleMobileSidebar: () => void;
-  onApproved: () => void;
+  onApproved: (trigger: 'button' | 'keyboard') => void;
+  onUnapproved?: (trigger: 'button' | 'keyboard') => void;
 }
 
 export default function MRHeader({
@@ -23,6 +24,7 @@ export default function MRHeader({
   approvalButtonRef,
   onToggleMobileSidebar,
   onApproved,
+  onUnapproved,
 }: MRHeaderProps) {
   return (
     <header className="mr-detail-header">
@@ -58,8 +60,9 @@ export default function MRHeader({
             approvalsCount={mr.approvalsCount ?? 0}
             approvalsRequired={mr.approvalsRequired ?? 1}
             hasApproved={mr.userHasApproved}
-            onApprovalChange={(approved) => {
-              if (approved) onApproved();
+            onApprovalChange={(approved, _count, trigger) => {
+              if (approved) onApproved(trigger);
+              else onUnapproved?.(trigger);
             }}
           />
         </div>

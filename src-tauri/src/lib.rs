@@ -39,6 +39,7 @@ use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
+use tauri_plugin_aptabase::EventTracker;
 use tauri_plugin_store::StoreExt;
 
 #[tauri::command]
@@ -48,7 +49,20 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // tauri-plugin-aptabase calls tokio::spawn during plugin setup, which requires the
+    // current thread to have an active Tokio context. We create the runtime here,
+    // register it with Tauri's async_runtime, and enter it on the main thread so that
+    // tokio::spawn works. The setup hook must NOT call tauri::async_runtime::block_on
+    // while the guard is live (would deadlock); use spawn + sync channel instead.
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("Failed to create Tokio runtime");
+    tauri::async_runtime::set(rt.handle().clone());
+    let _rt_guard = rt.enter();
+
     tauri::Builder::default()
+        .plugin(tauri_plugin_aptabase::Builder::new("A-EU-7406096367").build())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
@@ -66,32 +80,38 @@ pub fn run() {
 
             println!("Database path: {}", db_path.display());
 
-            // Run async initialization in a blocking context
+            // Async initialization via spawn + channel.
+            // Cannot use tauri::async_runtime::block_on here because the main thread
+            // has already entered the Tokio runtime (required for aptabase's tokio::spawn
+            // in its plugin setup); block_on would deadlock in that context.
             let app_handle = app.handle().clone();
-            let (pool, sync_handle) = tauri::async_runtime::block_on(async {
+
+            // Load persisted sync config from settings store (fall back to defaults)
+            let sync_config: SyncConfig = app_handle
+                .store("settings.json")
+                .ok()
+                .and_then(|store| store.get("sync_config"))
+                .and_then(|v| serde_json::from_value(v.clone()).ok())
+                .unwrap_or_default();
+            eprintln!(
+                "[sync] Loaded sync config: sync_authored={}, sync_reviewing={}",
+                sync_config.sync_authored, sync_config.sync_reviewing
+            );
+
+            let (init_tx, init_rx) = std::sync::mpsc::sync_channel(1);
+            tauri::async_runtime::spawn(async move {
                 let pool = db::initialize(&db_path)
                     .await
                     .expect("Failed to initialize database");
-
-                // Load persisted sync config from settings store (fall back to defaults)
-                let sync_config: SyncConfig = app_handle
-                    .store("settings.json")
-                    .ok()
-                    .and_then(|store| store.get("sync_config"))
-                    .and_then(|v| serde_json::from_value(v.clone()).ok())
-                    .unwrap_or_default();
-                eprintln!(
-                    "[sync] Loaded sync config: sync_authored={}, sync_reviewing={}",
-                    sync_config.sync_authored, sync_config.sync_reviewing
-                );
 
                 // Start background sync engine (needs active Tokio runtime for tokio::spawn)
                 let sync_handle =
                     SyncEngine::start_background(pool.clone(), sync_config, app_handle);
                 eprintln!("[sync] Background sync engine started");
 
-                (pool, sync_handle)
+                let _ = init_tx.send((pool, sync_handle));
             });
+            let (pool, sync_handle) = init_rx.recv().expect("Failed to initialize app");
 
             // Store state for use in commands
             app.manage(pool.clone());
@@ -217,6 +237,8 @@ pub fn run() {
             // Prevent the tray icon handle from being dropped (which removes the icon)
             app.manage(tray_icon);
 
+            let _ = app.track_event("app_started", None);
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -322,6 +344,7 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {
+                    let _ = window.track_event("window_closed", None);
                     let _ = window.hide();
                     api.prevent_close();
                 }
@@ -330,11 +353,18 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
-            if let tauri::RunEvent::Reopen { .. } = event {
-                if let Some(window) = app_handle.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
+            match event {
+                tauri::RunEvent::Reopen { .. } => {
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
                 }
+                tauri::RunEvent::Exit => {
+                    let _ = app_handle.track_event("app_exited", None);
+                    app_handle.flush_events_blocking();
+                }
+                _ => {}
             }
         });
 }

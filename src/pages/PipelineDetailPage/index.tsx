@@ -16,6 +16,7 @@ import HistoryTab from './HistoryTab';
 import { pipelineDetailReducer, initialState } from './pipelineDetailReducer';
 import { usePipelineData } from './usePipelineData';
 import { groupJobsByStage } from './utils';
+import { trackPipelineHistoryTabOpened, trackPipelineHistorySelected, trackShortcut } from '../../services/analytics';
 import '../PipelineDetailPage.css';
 
 type TabId = 'jobs' | 'history';
@@ -75,15 +76,19 @@ export default function PipelineDetailPage() {
 
       if (e.key === 'Escape') {
         e.preventDefault();
+        trackShortcut('Escape', 'go_back', 'pipeline_detail');
         navigate('/pipelines');
       } else if (e.key === '1') {
         e.preventDefault();
+        trackShortcut('1', 'switch_tab_jobs', 'pipeline_detail');
         setActiveTab('jobs');
       } else if (e.key === '2') {
         e.preventDefault();
+        trackShortcut('2', 'switch_tab_history', 'pipeline_detail');
         setActiveTab('history');
       } else if ((e.key === 'o' || e.key === 'O') && pipelineWebUrl) {
         e.preventDefault();
+        trackShortcut('o', 'open_in_browser', 'pipeline_detail');
         openExternalUrl(pipelineWebUrl);
       }
     }
@@ -93,6 +98,7 @@ export default function PipelineDetailPage() {
 
   const handleOpenPipeline = useCallback(
     (pipeline: PipelineStatus) => {
+      trackPipelineHistorySelected(pid, pipeline.id);
       const params = new URLSearchParams({
         instance: String(instanceId),
         project: projectName,
@@ -135,7 +141,10 @@ export default function PipelineDetailPage() {
           { id: 'history', label: 'History' },
         ]}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={(tab) => {
+          if (tab === 'history') trackPipelineHistoryTabOpened(pid, plid);
+          setActiveTab(tab);
+        }}
       />
 
       {activeTab === 'jobs' && (
