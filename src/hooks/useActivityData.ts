@@ -8,7 +8,17 @@ import {
   setDiscussionResolved,
   deleteComment as gitlabDeleteComment,
 } from '../services/gitlab';
+import { tauriListen } from '../services/transport';
 import type { Comment } from '../types';
+
+interface ActionSyncedPayload {
+  action_id: number;
+  action_type: string;
+  success: boolean;
+  error: string | null;
+  mr_id: number;
+  local_reference_id: number | null;
+}
 
 // Module-level monotonically decrementing counter for optimistic comment IDs.
 // Guarantees uniqueness even when multiple comments are created in the same millisecond.
@@ -35,6 +45,7 @@ export function useActivityData(mrId: number): ActivityData {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let ignore = false;
     async function load() {
       try {
         setLoading(true);
@@ -44,16 +55,50 @@ export function useActivityData(mrId: number): ActivityData {
           getMergeRequestById(mrId),
           listInstances(),
         ]);
+        if (ignore) return;
         setComments(commentData);
         const matchingInstance = instances.find((inst) => inst.id === mrData.instanceId);
         setCurrentUser(matchingInstance?.authenticatedUsername ?? null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load comments');
+        if (!ignore) setError(err instanceof Error ? err.message : 'Failed to load comments');
       } finally {
-        setLoading(false);
+        if (!ignore) setLoading(false);
       }
     }
     if (mrId) load();
+    return () => { ignore = true; };
+  }, [mrId]);
+
+  // Listen for action-synced events to clear pending state after backend sync
+  useEffect(() => {
+    if (!mrId) return;
+    let ignore = false;
+    let unlisten: (() => void) | undefined;
+    tauriListen<ActionSyncedPayload>('action-synced', async (event) => {
+      const { mr_id, action_type, success, local_reference_id } = event.payload;
+      if (mr_id !== mrId) return;
+      if (action_type !== 'comment' && action_type !== 'reply') return;
+
+      if (success) {
+        // Re-fetch comments so the local pending comment is replaced by the real GitLab comment
+        try {
+          const fresh = await listComments(mrId);
+          if (!ignore) setComments(fresh);
+        } catch {
+          // Silently ignore — the pending badge will stay until the next full refresh
+        }
+      } else if (local_reference_id !== null && !ignore) {
+        // Mark the specific comment as failed
+        setComments(prev =>
+          prev.map(c => (c.id === local_reference_id ? { ...c, syncStatus: 'failed' as const } : c)),
+        );
+      }
+    }).then(fn => { unlisten = fn; });
+
+    return () => {
+      ignore = true;
+      unlisten?.();
+    };
   }, [mrId]);
 
   const threads = useMemo(() => {
