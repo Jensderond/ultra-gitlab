@@ -236,6 +236,13 @@
   opacity: 1 !important;
 }
 
+.activity-comment__delete--confirming {
+  opacity: 1 !important;
+  color: #f7768e;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 /* Inline reply input */
 .activity-reply-input {
   margin-top: 8px;

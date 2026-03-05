@@ -46,12 +46,17 @@ interface CommentEntryProps {
 function CommentEntry({ comment, currentUser, onDelete }: CommentEntryProps) {
   const isOwn = currentUser && comment.authorUsername === currentUser;
 
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
   const handleDelete = useCallback(() => {
     if (!onDelete) return;
-    if (window.confirm('Delete this comment?')) {
+    if (confirmingDelete) {
+      setConfirmingDelete(false);
       onDelete(comment.id);
+    } else {
+      setConfirmingDelete(true);
     }
-  }, [onDelete, comment.id]);
+  }, [onDelete, comment.id, confirmingDelete]);
 
   return (
     <div className="activity-comment" data-testid="activity-comment">
@@ -61,12 +66,13 @@ function CommentEntry({ comment, currentUser, onDelete }: CommentEntryProps) {
         <SyncBadge status={comment.syncStatus} />
         {isOwn && onDelete && (
           <button
-            className="activity-comment__delete"
+            className={`activity-comment__delete ${confirmingDelete ? 'activity-comment__delete--confirming' : ''}`}
             onClick={handleDelete}
-            title="Delete comment"
+            onBlur={() => setConfirmingDelete(false)}
+            title={confirmingDelete ? 'Click again to confirm' : 'Delete comment'}
             data-testid="activity-delete-btn"
           >
-            <TrashIcon />
+            {confirmingDelete ? 'Delete?' : <TrashIcon />}
           </button>
         )}
       </div>
