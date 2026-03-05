@@ -4,20 +4,22 @@
  * Displays structured log output with line numbers, collapsible sections,
  * duration badges, and ANSI color rendering — styled like GitLab's web UI.
  *
- * For running/pending/created jobs, polls the trace endpoint every 3s
- * and appends new content. Polls job status every 10s to detect completion.
+ * For running/pending/created jobs, TanStack Query polls the trace endpoint
+ * every 3s and job status every 10s (via usePipelineJobsQuery). Polling stops
+ * automatically when the job completes.
  */
 
-import { useReducer, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
 import { openExternalUrl } from '../services/transport';
 import { trackShortcut } from '../services/analytics';
-import { getJobTrace, getPipelineJobs } from '../services/tauri';
 import { parseLog, formatSectionName } from '../utils/logLineParser';
 import type { LogLine, LogSection } from '../utils/logLineParser';
 import type { AnsiSegment } from '../utils/ansiParser';
 import type { PipelineJobStatus } from '../types';
+import { useJobTraceQuery } from '../hooks/queries/useJobTraceQuery';
+import { usePipelineJobsQuery } from '../hooks/queries/usePipelineJobsQuery';
 import './JobLogPage.css';
 
 /** Statuses that indicate a job is still active and should be polled. */
@@ -94,7 +96,6 @@ function LogSectionBlock({
   onToggle: () => void;
   showTimestamp?: boolean;
 }) {
-  // showTimestamp is passed through to child LogLineRows
   return (
     <div className={`log-section${expanded ? ' log-section--expanded' : ''}`}>
       <button type="button" className="log-section-header" onClick={onToggle} aria-expanded={expanded}>
@@ -113,50 +114,6 @@ function LogSectionBlock({
       )}
     </div>
   );
-}
-
-interface JobLogState {
-  trace: string;
-  loading: boolean;
-  error: string | null;
-  currentStatus: PipelineJobStatus;
-  followMode: boolean;
-  collapsedSections: Set<string>;
-}
-
-type JobLogAction =
-  | { type: 'TRACE_LOADED'; trace: string }
-  | { type: 'LOAD_ERROR'; error: string }
-  | { type: 'LOAD_END' }
-  | { type: 'STATUS_CHANGED'; status: PipelineJobStatus }
-  | { type: 'TOGGLE_FOLLOW' }
-  | { type: 'SET_FOLLOW'; follow: boolean }
-  | { type: 'TOGGLE_SECTION'; name: string }
-  | { type: 'INIT_COLLAPSED'; names: Set<string> };
-
-function jobLogReducer(state: JobLogState, action: JobLogAction): JobLogState {
-  switch (action.type) {
-    case 'TRACE_LOADED':
-      return { ...state, trace: action.trace, error: null };
-    case 'LOAD_ERROR':
-      return { ...state, error: action.error };
-    case 'LOAD_END':
-      return { ...state, loading: false };
-    case 'STATUS_CHANGED':
-      return { ...state, currentStatus: action.status };
-    case 'TOGGLE_FOLLOW':
-      return { ...state, followMode: !state.followMode };
-    case 'SET_FOLLOW':
-      return { ...state, followMode: action.follow };
-    case 'TOGGLE_SECTION': {
-      const next = new Set(state.collapsedSections);
-      if (next.has(action.name)) next.delete(action.name);
-      else next.add(action.name);
-      return { ...state, collapsedSections: next };
-    }
-    case 'INIT_COLLAPSED':
-      return { ...state, collapsedSections: action.names };
-  }
 }
 
 export default function JobLogPage() {
@@ -182,28 +139,32 @@ export default function JobLogPage() {
   const plid = Number(pipelineId);
   const jid = Number(jobId);
 
-  const [state, dispatch] = useReducer(jobLogReducer, {
-    trace: '',
-    loading: true,
-    error: null,
-    currentStatus: initialStatus,
-    followMode: ACTIVE_STATUSES.has(initialStatus),
-    collapsedSections: new Set<string>(),
-  });
-
-  const { trace, loading, error, currentStatus, followMode, collapsedSections } = state;
+  // Current status — seeded from URL param, updated by jobs query
+  const [currentStatus, setCurrentStatus] = useState<PipelineJobStatus>(initialStatus);
+  const [followMode, setFollowMode] = useState(ACTIVE_STATUSES.has(initialStatus));
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
   const isActive = ACTIVE_STATUSES.has(currentStatus);
 
-  // Ref to track trace length for append-only polling
-  const traceLenRef = useRef(0);
-  // Refs for polling timers
-  const logPollRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const statusPollRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   // Ref for the scrollable log content container
   const logContentRef = useRef<HTMLElement>(null);
   // Ref to suppress scroll handler when auto-scrolling
   const isAutoScrollingRef = useRef(false);
+
+  // TQ-backed trace query — polls every 3s when job is active, stops when complete
+  const traceQuery = useJobTraceQuery(instanceId, pid, jid, currentStatus);
+  const trace = traceQuery.data ?? '';
+
+  // TQ-backed jobs query — polls every 10s when any job is active; used to detect completion
+  const jobsQuery = usePipelineJobsQuery(instanceId, pid, plid);
+
+  // Derive current status from jobs query result
+  useEffect(() => {
+    const job = jobsQuery.data?.find((j) => j.id === jid);
+    if (job && job.status !== currentStatus) {
+      setCurrentStatus(job.status);
+    }
+  }, [jobsQuery.data, jid, currentStatus]);
 
   const parsedLog = useMemo(() => parseLog(trace), [trace]);
 
@@ -218,11 +179,16 @@ export default function JobLogPage() {
         collapsed.add(entry.data.name);
       }
     }
-    if (collapsed.size > 0) dispatch({ type: 'INIT_COLLAPSED', names: collapsed });
+    if (collapsed.size > 0) setCollapsedSections(collapsed);
   }, [parsedLog]);
 
   const toggleSection = useCallback((name: string) => {
-    dispatch({ type: 'TOGGLE_SECTION', name });
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
   }, []);
 
   const backParams = new URLSearchParams({ instance: String(instanceId) });
@@ -230,100 +196,6 @@ export default function JobLogPage() {
   if (pipelineRef) backParams.set('ref', pipelineRef);
   if (pipelineWebUrl) backParams.set('url', pipelineWebUrl);
   const backUrl = `/pipelines/${projectId}/${pipelineId}?${backParams.toString()}`;
-
-  // Initial trace load
-  const loadTrace = useCallback(async () => {
-    if (!instanceId || !pid || !jid) {
-      dispatch({ type: 'LOAD_ERROR', error: 'Missing required parameters' });
-      dispatch({ type: 'LOAD_END' });
-      return;
-    }
-    try {
-      const result = await getJobTrace(instanceId, pid, jid);
-      dispatch({ type: 'TRACE_LOADED', trace: result });
-      traceLenRef.current = result.length;
-    } catch (err) {
-      console.error('Failed to load job trace:', err);
-      dispatch({ type: 'LOAD_ERROR', error: 'Failed to load job trace' });
-    } finally {
-      dispatch({ type: 'LOAD_END' });
-    }
-  }, [instanceId, pid, jid]);
-
-  useEffect(() => {
-    loadTrace();
-  }, [loadTrace]);
-
-  // Poll trace every 3s for active jobs — re-parse full trace on update
-  useEffect(() => {
-    if (!isActive || !instanceId || !pid || !jid) return;
-
-    function scheduleLogPoll() {
-      logPollRef.current = setTimeout(async () => {
-        if (document.visibilityState === 'visible') {
-          try {
-            const full = await getJobTrace(instanceId, pid, jid);
-            if (full.length > traceLenRef.current) {
-              traceLenRef.current = full.length;
-              dispatch({ type: 'TRACE_LOADED', trace: full });
-            }
-          } catch {
-            // Non-critical — will retry next poll
-          }
-        }
-        scheduleLogPoll();
-      }, 3_000);
-    }
-
-    scheduleLogPoll();
-    return () => { if (logPollRef.current) clearTimeout(logPollRef.current); };
-  }, [isActive, instanceId, pid, jid]);
-
-  // Poll job status every 10s to detect when the job finishes
-  useEffect(() => {
-    if (!isActive || !instanceId || !pid || !plid) return;
-
-    function scheduleStatusPoll() {
-      statusPollRef.current = setTimeout(async () => {
-        if (document.visibilityState === 'visible') {
-          try {
-            const jobs = await getPipelineJobs(instanceId, pid, plid);
-            const thisJob = jobs.find((j) => j.id === jid);
-            if (thisJob && thisJob.status !== currentStatus) {
-              dispatch({ type: 'STATUS_CHANGED', status: thisJob.status });
-            }
-          } catch {
-            // Non-critical
-          }
-        }
-        scheduleStatusPoll();
-      }, 10_000);
-    }
-
-    scheduleStatusPoll();
-    return () => { if (statusPollRef.current) clearTimeout(statusPollRef.current); };
-  }, [isActive, instanceId, pid, plid, jid, currentStatus]);
-
-  // Pause/resume polling on visibility change
-  useEffect(() => {
-    if (!isActive) return;
-
-    function handleVisibility() {
-      if (document.visibilityState === 'visible') {
-        if (instanceId && pid && jid) {
-          getJobTrace(instanceId, pid, jid).then((full) => {
-            if (full.length > traceLenRef.current) {
-              traceLenRef.current = full.length;
-              dispatch({ type: 'TRACE_LOADED', trace: full });
-            }
-          }).catch(() => {});
-        }
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [isActive, instanceId, pid, jid]);
 
   // Auto-scroll to bottom when follow mode is on and trace updates
   useEffect(() => {
@@ -343,7 +215,7 @@ export default function JobLogPage() {
       if (isAutoScrollingRef.current) return;
       const { scrollTop, scrollHeight, clientHeight } = el!;
       const atBottom = scrollHeight - scrollTop - clientHeight < 30;
-      dispatch({ type: 'SET_FOLLOW', follow: atBottom });
+      setFollowMode(atBottom);
     }
 
     el.addEventListener('scroll', handleScroll, { passive: true });
@@ -370,6 +242,9 @@ export default function JobLogPage() {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [navigate, backUrl, jobWebUrl]);
+
+  const loading = traceQuery.isLoading;
+  const error = traceQuery.error ? 'Failed to load job trace' : null;
 
   return (
     <div className="job-log-page">
@@ -401,7 +276,7 @@ export default function JobLogPage() {
         <div className="job-log-header-right">
           <button
             className={`job-log-follow-btn${followMode ? ' job-log-follow-btn--active' : ''}`}
-            onClick={() => dispatch({ type: 'TOGGLE_FOLLOW' })}
+            onClick={() => setFollowMode((prev) => !prev)}
             title={followMode ? 'Disable auto-scroll' : 'Enable auto-scroll'}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">

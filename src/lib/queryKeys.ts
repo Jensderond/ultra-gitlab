@@ -32,6 +32,8 @@ export const queryKeys = {
     ["pipelineStatuses", instanceId, projectIds] as const,
   pipelineJobs: (instanceId: string, projectId: number, pipelineId: number) =>
     ["pipelineJobs", instanceId, projectId, pipelineId] as const,
+  pipelineHistory: (instanceId: string, projectId: number) =>
+    ["pipelineHistory", instanceId, projectId] as const,
   jobTrace: (instanceId: string, projectId: number, jobId: number) =>
     ["jobTrace", instanceId, projectId, jobId] as const,
   companionStatus: () => ["companionStatus"] as const,
