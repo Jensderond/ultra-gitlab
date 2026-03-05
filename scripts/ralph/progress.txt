@@ -2,6 +2,21 @@
 Started: Thu Mar  5 16:38:03 CET 2026
 ---
 
+## 2026-03-05 - US-005
+- Created 6 query hook files in `src/hooks/queries/`
+- `useMRListQuery.ts`: useQuery wrapping listMergeRequests(instanceId), enabled: !!instanceId
+- `useMyMRListQuery.ts`: useQuery wrapping listMyMergeRequests(instanceId), enabled: !!instanceId
+- `useMRDetailQuery.ts`: useQuery wrapping getMergeRequestById(mrId), enabled: mrId > 0
+- `useDiffFilesQuery.ts`: useQuery wrapping getMergeRequestFiles(mrId), enabled: mrId > 0
+- `useDiffRefsQuery.ts`: useQuery wrapping getDiffRefs(mrId), enabled: mrId > 0
+- `useMRReviewersQuery.ts`: useQuery wrapping getMrReviewers(mrId), enabled: mrId > 0
+- Files changed: src/hooks/queries/ (6 new files)
+- **Learnings for future iterations:**
+  - `listMyMergeRequests` and `getMrReviewers` live in `services/tauri.ts` (not gitlab.ts)
+  - `listMergeRequests`, `getMergeRequestById`, `getMergeRequestFiles`, `getDiffRefs` are in `services/gitlab.ts`
+  - instanceId-keyed queries use `String(instanceId ?? '')` for the queryKey
+---
+
 ## Codebase Patterns
 - TanStack Query v5 object filter syntax: `queryClient.invalidateQueries({ queryKey: [...] })` (not legacy array shorthand)
 - queryClient singleton exported from `src/lib/queryClient.ts`
