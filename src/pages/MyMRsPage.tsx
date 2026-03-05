@@ -6,13 +6,15 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listMyMergeRequests } from '../services/tauri';
+import { useQueryClient } from '@tanstack/react-query';
 import MRListItem from '../components/MRList/MRListItem';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { useListSearch } from '../hooks/useListSearch';
 import SearchBar from '../components/SearchBar/SearchBar';
 import type { MergeRequest } from '../types';
 import { useInstancesQuery } from '../hooks/queries/useInstancesQuery';
+import { useMyMRListQuery } from '../hooks/queries/useMyMRListQuery';
+import { queryKeys } from '../lib/queryKeys';
 import './MRListPage.css';
 import './MyMRsPage.css';
 
@@ -42,12 +44,22 @@ function isFullyApproved(mr: MergeRequest): boolean {
 
 export default function MyMRsPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const instancesQuery = useInstancesQuery();
   const instances = instancesQuery.data ?? [];
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
-  const [mrs, setMrs] = useState<MergeRequest[]>([]);
-  const [loading, setLoading] = useState(true);
   const mrsRef = useRef<MergeRequest[]>([]);
+
+  // Auto-select first instance when instances load
+  useEffect(() => {
+    if (instances.length > 0 && !selectedInstanceId) {
+      setSelectedInstanceId(instances[0].id);
+    }
+  }, [instances, selectedInstanceId]);
+
+  const myMRsQuery = useMyMRListQuery(selectedInstanceId ?? undefined);
+  const mrs = myMRsQuery.data ?? [];
+  const loading = myMRsQuery.isLoading;
 
   // Search/filter state — filters mrs at the page level
   const {
@@ -64,31 +76,6 @@ export default function MyMRsPage() {
   });
 
   mrsRef.current = filteredItems;
-
-  // Auto-select first instance when instances load
-  useEffect(() => {
-    if (instances.length > 0 && !selectedInstanceId) {
-      setSelectedInstanceId(instances[0].id);
-    }
-  }, [instances, selectedInstanceId]);
-
-  // Load authored MRs
-  const loadMRs = useCallback(async () => {
-    if (!selectedInstanceId) return;
-    try {
-      setLoading(true);
-      const data = await listMyMergeRequests(selectedInstanceId);
-      setMrs(data);
-    } catch (error) {
-      console.error('Failed to load my MRs:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedInstanceId]);
-
-  useEffect(() => {
-    loadMRs();
-  }, [loadMRs]);
 
   // Handle Enter to open selected MR
   const handleSelectByIndex = useCallback(
@@ -149,7 +136,7 @@ export default function MyMRsPage() {
           <h1>My Merge Requests</h1>
           <button
             className="refresh-button"
-            onClick={() => loadMRs()}
+            onClick={() => selectedInstanceId != null && queryClient.invalidateQueries({ queryKey: queryKeys.myMRList(String(selectedInstanceId)) })}
             aria-label="Refresh merge requests"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

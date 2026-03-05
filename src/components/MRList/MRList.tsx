@@ -4,9 +4,9 @@
  * Displays a list of merge requests with filtering and selection.
  */
 
-import { useState, useReducer, useEffect, useCallback, useRef, useMemo } from 'react';
-import { tauriListen } from '../../services/transport';
-import { listMergeRequests } from '../../services/gitlab';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useMRListQuery } from '../../hooks/queries/useMRListQuery';
 import type { MergeRequest } from '../../types';
 import MRListItem from './MRListItem';
 import './MRList.css';
@@ -35,62 +35,12 @@ interface MRListProps {
   onFocusChange?: (index: number) => void;
   /** Callback when MRs are loaded/refreshed (for parent state sync) */
   onMRsLoaded?: (mrs: MergeRequest[]) => void;
-  /** Increment to trigger a manual refresh from parent */
-  refreshTrigger?: number;
   /** Optional search query to filter MRs by title, author, project name */
   filterQuery?: string;
   /** Callback when filtered/total counts change */
   onFilteredCountChange?: (counts: { filtered: number; total: number }) => void;
   /** When true, show MRs the user has already approved (hidden by default) */
   showApproved?: boolean;
-}
-
-interface MRListState {
-  mrs: MergeRequest[];
-  totalFetched: number;
-  loading: boolean;
-  error: string | null;
-  lastSyncedAt: number | null;
-  newMrIds: Set<number>;
-  syncStatus: 'idle' | 'syncing' | 'success' | 'error';
-}
-
-type MRListAction =
-  | { type: 'FETCH_START'; isBackground: boolean }
-  | { type: 'FETCH_SUCCESS'; mrs: MergeRequest[]; totalFetched: number; newMrIds: Set<number>; timestamp: number }
-  | { type: 'FETCH_ERROR'; error: string }
-  | { type: 'LOAD_END' }
-  | { type: 'SYNC_IDLE' }
-  | { type: 'CLEAR_NEW_MRS' };
-
-function mrListReducer(state: MRListState, action: MRListAction): MRListState {
-  switch (action.type) {
-    case 'FETCH_START':
-      return {
-        ...state,
-        loading: action.isBackground ? state.loading : true,
-        syncStatus: 'syncing',
-        error: null,
-      };
-    case 'FETCH_SUCCESS':
-      return {
-        ...state,
-        mrs: action.mrs,
-        totalFetched: action.totalFetched,
-        loading: false,
-        lastSyncedAt: action.timestamp,
-        syncStatus: 'success',
-        newMrIds: action.newMrIds.size > 0 ? action.newMrIds : state.newMrIds,
-      };
-    case 'FETCH_ERROR':
-      return { ...state, error: action.error, loading: false, syncStatus: 'error' };
-    case 'LOAD_END':
-      return { ...state, loading: false };
-    case 'SYNC_IDLE':
-      return { ...state, syncStatus: 'idle' };
-    case 'CLEAR_NEW_MRS':
-      return { ...state, newMrIds: new Set() };
-  }
 }
 
 /**
@@ -103,22 +53,25 @@ export default function MRList({
   focusIndex = 0,
   onFocusChange,
   onMRsLoaded,
-  refreshTrigger = 0,
   filterQuery,
   onFilteredCountChange,
   showApproved = false,
 }: MRListProps) {
-  const [state, dispatch] = useReducer(mrListReducer, {
-    mrs: [],
-    totalFetched: 0,
-    loading: true,
-    error: null,
-    lastSyncedAt: null,
-    newMrIds: new Set<number>(),
-    syncStatus: 'idle',
-  });
+  const query = useMRListQuery(instanceId);
+  const queryClient = useQueryClient();
 
-  const { mrs, totalFetched, loading, error, lastSyncedAt, newMrIds, syncStatus } = state;
+  // UI-only state
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
+  const [newMrIds, setNewMrIds] = useState<Set<number>>(new Set());
+
+  // Apply showApproved filter to query data
+  const mrs = useMemo(() => {
+    const data = query.data ?? [];
+    return showApproved ? data : data.filter(mr => !mr.userHasApproved);
+  }, [query.data, showApproved]);
+
+  const totalFetched = query.data?.length ?? 0;
 
   // Filter MRs by search query
   const filteredMrs = useMemo(() => {
@@ -137,13 +90,57 @@ export default function MRList({
     onFilteredCountChange?.({ filtered: filteredMrs.length, total: mrs.length });
   }, [filteredMrs.length, mrs.length, onFilteredCountChange]);
 
-  const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
-  const previousMrIdsRef = useRef<Set<number>>(new Set());
-  const instanceIdRef = useRef(instanceId);
-  instanceIdRef.current = instanceId;
+  // Notify parent when MRs change
+  useEffect(() => {
+    onMRsLoaded?.(mrs);
+  }, [mrs, onMRsLoaded]);
 
-  // Performance target: <200ms for list load (per spec)
-  const PERF_TARGET_MS = 200;
+  // Track previous query data to detect new MRs
+  const previousDataRef = useRef<MergeRequest[]>([]);
+  useEffect(() => {
+    if (!query.data) return;
+    const prev = previousDataRef.current;
+    if (prev.length > 0) {
+      const prevIds = new Set(prev.map(mr => mr.id));
+      const newIds = new Set<number>();
+      for (const mr of mrs) {
+        if (!prevIds.has(mr.id)) newIds.add(mr.id);
+      }
+      if (newIds.size > 0) {
+        setNewMrIds(newIds);
+        setTimeout(() => setNewMrIds(new Set()), 5000);
+      }
+    }
+    previousDataRef.current = query.data;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.data]);
+
+  // Sync syncStatus with isFetching transitions
+  const prevFetchingRef = useRef(false);
+  useEffect(() => {
+    if (query.isFetching === prevFetchingRef.current) return;
+    prevFetchingRef.current = query.isFetching;
+
+    if (query.isFetching) {
+      setSyncStatus('syncing');
+    } else if (query.isError) {
+      setSyncStatus('error');
+    } else {
+      setSyncStatus('success');
+      setLastSyncedAt(Date.now());
+      const t = setTimeout(() => setSyncStatus('idle'), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [query.isFetching, query.isError]);
+
+  // Update displayed sync time every 10 seconds
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const tickInterval = setInterval(() => setTick(t => t + 1), 10000);
+    return () => clearInterval(tickInterval);
+  }, []);
+
+  const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {
@@ -152,106 +149,6 @@ export default function MRList({
       element.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
   }, [focusIndex]);
-
-  // Load merge requests
-  const loadMRs = useCallback(async (isBackgroundRefresh = false) => {
-    const startTime = performance.now();
-    const requestedInstanceId = instanceId;
-
-    try {
-      dispatch({ type: 'FETCH_START', isBackground: isBackgroundRefresh });
-
-      const data = await listMergeRequests(instanceId, { state: 'opened' });
-
-      // Discard response if the user switched instances while the request was in flight
-      if (instanceIdRef.current !== requestedInstanceId) return;
-
-      // Filter out MRs the user has already approved (unless showApproved is enabled)
-      const filteredData = showApproved ? data : data.filter(mr => !mr.userHasApproved);
-
-      // Track newly added MRs (only on background refresh)
-      let detectedNewIds = new Set<number>();
-      if (isBackgroundRefresh && previousMrIdsRef.current.size > 0) {
-        const currentIds = new Set(filteredData.map(mr => mr.id));
-        for (const id of currentIds) {
-          if (!previousMrIdsRef.current.has(id)) {
-            detectedNewIds.add(id);
-          }
-        }
-        if (detectedNewIds.size > 0) {
-          // Clear the "new" indicator after 5 seconds
-          setTimeout(() => dispatch({ type: 'CLEAR_NEW_MRS' }), 5000);
-        }
-      }
-
-      // Update previous MR IDs ref
-      previousMrIdsRef.current = new Set(filteredData.map(mr => mr.id));
-
-      dispatch({ type: 'FETCH_SUCCESS', mrs: filteredData, totalFetched: data.length, newMrIds: detectedNewIds, timestamp: Date.now() });
-      onMRsLoaded?.(filteredData);
-
-      // Reset success status after a brief moment
-      setTimeout(() => dispatch({ type: 'SYNC_IDLE' }), 2000);
-
-      // Log performance
-      const duration = performance.now() - startTime;
-      const isWithinTarget = duration < PERF_TARGET_MS;
-      console.log(
-        `[Performance] MR list load: ${duration.toFixed(1)}ms (${filteredData.length} items, ${data.length - filteredData.length} approved hidden) ${
-          isWithinTarget ? '✓' : `⚠ exceeds ${PERF_TARGET_MS}ms target`
-        }`
-      );
-    } catch (err) {
-      dispatch({ type: 'FETCH_ERROR', error: err instanceof Error ? err.message : 'Failed to load merge requests' });
-
-      // Log performance even on error
-      const duration = performance.now() - startTime;
-      console.log(`[Performance] MR list load failed: ${duration.toFixed(1)}ms`);
-    }
-  }, [instanceId, onMRsLoaded, showApproved]);
-
-  // Initial load
-  useEffect(() => {
-    loadMRs(false);
-  }, [loadMRs]);
-
-  // Manual refresh from parent
-  const initialTrigger = useRef(refreshTrigger);
-  useEffect(() => {
-    if (refreshTrigger !== initialTrigger.current) {
-      loadMRs(false);
-    }
-  }, [refreshTrigger, loadMRs]);
-
-  // Re-fetch on mr-updated events (debounced at 500ms to handle bursts)
-  useEffect(() => {
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    let unlisten: (() => void) | undefined;
-
-    tauriListen<{ mr_id: number; update_type: string; instance_id: number; iid: number }>(
-      'mr-updated',
-      () => {
-        if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-          loadMRs(true);
-        }, 500);
-      }
-    ).then((fn) => {
-      unlisten = fn;
-    });
-
-    return () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      unlisten?.();
-    };
-  }, [loadMRs]);
-
-  // Update displayed sync time every 10 seconds
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const tickInterval = setInterval(() => setTick(t => t + 1), 10000);
-    return () => clearInterval(tickInterval);
-  }, []);
 
   // Handle MR selection
   const handleSelect = useCallback(
@@ -262,8 +159,10 @@ export default function MRList({
     [onSelect, onFocusChange]
   );
 
-  // Render loading state
-  if (loading && mrs.length === 0) {
+  const error = query.error instanceof Error ? query.error.message : query.error ? 'Failed to load merge requests' : null;
+
+  // Render loading state (foreground — first load with no data)
+  if (query.isLoading && mrs.length === 0) {
     return (
       <div className="mr-list-loading">
         <span>Loading merge requests...</span>
@@ -276,7 +175,7 @@ export default function MRList({
     return (
       <div className="mr-list-error">
         <span>{error}</span>
-        <button onClick={() => loadMRs(false)}>Retry</button>
+        <button onClick={() => queryClient.invalidateQueries({ queryKey: ['mrList'] })}>Retry</button>
       </div>
     );
   }

@@ -6,12 +6,14 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { MRList } from '../components/MRList';
 import type { MergeRequest } from '../types';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { useListSearch } from '../hooks/useListSearch';
 import SearchBar from '../components/SearchBar/SearchBar';
 import { useInstancesQuery } from '../hooks/queries/useInstancesQuery';
+import { queryKeys } from '../lib/queryKeys';
 import './MRListPage.css';
 
 /**
@@ -20,12 +22,12 @@ import './MRListPage.css';
 export default function MRListPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const instancesQuery = useInstancesQuery();
   const instances = instancesQuery.data ?? [];
   const loading = instancesQuery.isLoading;
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
   const [mrs, setMrs] = useState<MergeRequest[]>([]);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showApproved, setShowApproved] = useState(false);
 
   // Shift+H toggles approved MR visibility
@@ -166,7 +168,7 @@ export default function MRListPage() {
           <h1>Merge Requests</h1>
           <button
             className="refresh-button"
-            onClick={() => setRefreshTrigger(t => t + 1)}
+            onClick={() => selectedInstanceId != null && queryClient.invalidateQueries({ queryKey: queryKeys.mrList(String(selectedInstanceId)) })}
             aria-label="Refresh merge requests"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -228,7 +230,6 @@ export default function MRListPage() {
             focusIndex={focusIndex}
             onFocusChange={setFocusIndex}
             onMRsLoaded={handleMRsLoaded}
-            refreshTrigger={refreshTrigger}
             filterQuery={isSearchOpen ? query : undefined}
             onFilteredCountChange={handleFilteredCountChange}
             showApproved={showApproved}
