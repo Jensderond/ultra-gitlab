@@ -73,7 +73,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   // Wire up the stable ref so useMRData can call clearFileCache
   clearFileCacheRef.current = clearFileCache;
 
-  const { fileComments, addComment, removeComment } = useFileComments(mrId, view.selectedFile);
+  const { fileComments, removeComment, restoreComment } = useFileComments(mrId, view.selectedFile);
 
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   useEffect(() => {
@@ -88,9 +88,9 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     const toRestore = fileComments.find((c) => c.id === commentId);
     removeComment(commentId);
     deleteComment(mrId, commentId).catch(() => {
-      if (toRestore) addComment(toRestore);
+      if (toRestore) restoreComment(toRestore);
     });
-  }, [mrId, fileComments, removeComment, addComment]);
+  }, [mrId, fileComments, removeComment, restoreComment]);
 
   // Auto-select first reviewable file on initial load
   const appliedInitialRef = useRef(false);
@@ -275,7 +275,6 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         ref={commentOverlayRef}
         mrId={mrId}
         selectedFile={view.selectedFile}
-        onCommentAdded={addComment}
       />
 
       <ActivityDrawer

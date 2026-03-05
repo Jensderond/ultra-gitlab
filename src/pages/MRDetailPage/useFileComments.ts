@@ -1,58 +1,34 @@
-import { useState, useEffect, useCallback } from 'react';
-import { invoke } from '../../services/tauri';
-import type { Comment } from '../../types';
+import { useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../lib/queryKeys';
+import { useFileCommentsQuery } from '../../hooks/queries/useFileCommentsQuery';
 import type { LineComment } from '../../components/PierreDiffViewer/PierreDiffViewer';
 
 export function useFileComments(mrId: number, selectedFile: string | null) {
-  const [fileComments, setFileComments] = useState<LineComment[]>([]);
+  const queryClient = useQueryClient();
+  const { data: fileComments = [] } = useFileCommentsQuery(mrId, selectedFile);
 
-  useEffect(() => {
-    let cancelled = false;
+  const removeComment = useCallback(
+    (commentId: number) => {
+      if (!selectedFile) return;
+      queryClient.setQueryData<LineComment[]>(
+        queryKeys.mrFileComments(mrId, selectedFile),
+        (prev) => (prev ?? []).filter((c) => c.id !== commentId),
+      );
+    },
+    [queryClient, mrId, selectedFile],
+  );
 
-    async function loadComments() {
-      if (!mrId || !selectedFile) {
-        setFileComments([]);
-        return;
-      }
+  const restoreComment = useCallback(
+    (comment: LineComment) => {
+      if (!selectedFile) return;
+      queryClient.setQueryData<LineComment[]>(
+        queryKeys.mrFileComments(mrId, selectedFile),
+        (prev) => [...(prev ?? []), comment],
+      );
+    },
+    [queryClient, mrId, selectedFile],
+  );
 
-      try {
-        const comments = await invoke<Comment[]>('get_file_comments', {
-          mrId,
-          filePath: selectedFile,
-        });
-
-        if (cancelled) return;
-
-        const lineComments: LineComment[] = comments
-          .filter((c) => !c.system && (c.newLine !== null || c.oldLine !== null))
-          .map((c) => ({
-            id: c.id,
-            line: c.newLine ?? c.oldLine ?? 0,
-            isOldLine: c.newLine === null && c.oldLine !== null,
-            authorUsername: c.authorUsername,
-            body: c.body,
-            createdAt: c.createdAt,
-            resolved: c.resolved,
-          }));
-
-        if (cancelled) return;
-        setFileComments(lineComments);
-      } catch {
-        if (cancelled) return;
-        setFileComments([]);
-      }
-    }
-    loadComments();
-    return () => { cancelled = true; };
-  }, [mrId, selectedFile]);
-
-  const addComment = useCallback((comment: LineComment) => {
-    setFileComments((prev) => [...prev, comment]);
-  }, []);
-
-  const removeComment = useCallback((commentId: number) => {
-    setFileComments((prev) => prev.filter((c) => c.id !== commentId));
-  }, []);
-
-  return { fileComments, addComment, removeComment };
+  return { fileComments, removeComment, restoreComment };
 }
