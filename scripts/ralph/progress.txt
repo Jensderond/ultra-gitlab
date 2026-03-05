@@ -2,6 +2,20 @@
 Started: Thu Mar  5 16:38:03 CET 2026
 ---
 
+## 2026-03-05 - US-006
+- Refactored `src/pages/MRDetailPage/useMRData.ts`: replaced manual useEffect+tauriListen with useMRDetailQuery, useDiffFilesQuery, useDiffRefsQuery, useGitattributesQuery, useCollapsePatternsQuery; clearFileCache kept (removed in US-007); generatedPaths/initialReviewableFile derived via useMemo
+- Refactored `src/pages/MyMRDetailPage/useMyMRData.ts`: replaced useEffect with useMRDetailQuery, useMRReviewersQuery, useCurrentUserQuery; comments fetch kept as useEffect (replaced in US-008/009); setMr now calls queryClient.setQueryData to update TQ cache (needed by MergeSection)
+- Refactored `src/components/MRList/MRList.tsx`: uses useMRListQuery; removed tauriListen('mr-updated'); reducer replaced with plain useState for (syncStatus, lastSyncedAt, newMrIds); newMrIds tracked via useRef+useEffect on query.data; isFetching drives syncStatus transitions; refreshTrigger prop removed
+- Updated `src/pages/MRListPage.tsx`: refresh button uses queryClient.invalidateQueries({ queryKey: queryKeys.mrList(String(selectedInstanceId)) }); removed refreshTrigger state
+- Updated `src/pages/MyMRsPage.tsx`: replaced loadMRs useEffect with useMyMRListQuery; refresh button uses queryClient.invalidateQueries
+- Files changed: src/pages/MRDetailPage/useMRData.ts, src/pages/MyMRDetailPage/useMyMRData.ts, src/components/MRList/MRList.tsx, src/pages/MRListPage.tsx, src/pages/MyMRsPage.tsx
+- **Learnings for future iterations:**
+  - `setMr` in useMyMRData must update TQ cache via `queryClient.setQueryData(queryKeys.mr(mrId), ...)` since MergeSection uses it for optimistic state updates
+  - When removing reducer, syncStatus transitions (syncing/success/idle) need a `prevFetchingRef` to detect isFetching edge transitions
+  - `useGitattributesQuery` takes `(instanceId: number, projectId: number)` — pass `mr?.instanceId ?? 0` when MR not yet loaded (enabled guard prevents fetch)
+  - `refreshTrigger` prop can be removed from MRList when parent uses TQ invalidation directly
+---
+
 ## 2026-03-05 - US-005
 - Created 6 query hook files in `src/hooks/queries/`
 - `useMRListQuery.ts`: useQuery wrapping listMergeRequests(instanceId), enabled: !!instanceId
