@@ -1,18 +1,19 @@
 {
   "project": "Ultra GitLab",
-  "branchName": "ralph/critical-bug-fixes",
-  "description": "Critical Bug Fixes - Fix data loss, incorrect behavior, and security issues found during bug hunt",
+  "branchName": "ralph/tanstack-query-refactor",
+  "description": "TanStack Query Frontend Refactoring - Replace manual useEffect+useState data fetching with TanStack Query v5 for caching, deduplication, polling, and optimistic updates",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Fix generate_local_id collisions within same second",
-      "description": "As a user, I want to rapidly add comments and replies without losing any, so that my review workflow isn't interrupted by silent failures.",
+      "title": "Install TanStack Query and wire up QueryClientProvider",
+      "description": "As a developer, I need TanStack Query installed and a QueryClient configured so all subsequent hooks can use it.",
       "acceptanceCriteria": [
-        "Change generate_local_id() in src-tauri/src/commands/comments.rs to use millisecond-granularity timestamp combined with an atomic counter (AtomicI64) to guarantee uniqueness",
-        "The function must still return negative i64 values (existing negative IDs in DB must remain valid)",
-        "Add #[cfg(test)] mod tests in the same file with a test that calls generate_local_id() 100 times in a tight loop and asserts all values are unique (use a HashSet)",
-        "Add a test that calls generate_local_id() from 2 spawned threads (10 calls each) and asserts no duplicates across threads",
-        "cargo check passes"
+        "Run `bun add @tanstack/react-query` and `bun add -d @tanstack/react-query-devtools` — both appear in package.json",
+        "Create `src/lib/queryClient.ts` exporting a singleton QueryClient with: staleTime: 30_000, gcTime: 5 * 60_000, retry: 1, refetchOnWindowFocus: true, mutations.retry: 0",
+        "Create `src/lib/queryKeys.ts` exporting a `queryKeys` object with typed factory functions for: instances, settings, collapsePatterns, notificationSettings, mrList(instanceId), myMRList(instanceId), mr(mrId), mrFiles(mrId), mrDiffRefs(mrId), mrComments(mrId), mrFileComments(mrId, filePath), mrReviewers(mrId), fileContent(instanceId, projectId, filePath, sha), fileContentBase64(instanceId, projectId, filePath, sha), gitattributes(instanceId, projectId), pipelineProjects(instanceId), pipelineStatuses(instanceId, projectIds[]), pipelineJobs(instanceId, projectId, pipelineId), jobTrace(instanceId, projectId, jobId), companionStatus()",
+        "`src/main.tsx` wraps `<App />` in `<QueryClientProvider client={queryClient}>`",
+        "`<ReactQueryDevtools />` imported from `@tanstack/react-query-devtools` and rendered only inside `{import.meta.env.DEV && <ReactQueryDevtools />}`",
+        "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
@@ -20,89 +21,106 @@
     },
     {
       "id": "US-002",
-      "title": "Fix retry_failed_actions using wrong instance credentials",
-      "description": "As a user with multiple GitLab instances, I want the Retry failed actions feature to use the correct credentials for each action, so that retries don't fail with 401/404 errors.",
+      "title": "Centralize Tauri event → cache invalidation in tauriEvents.ts",
+      "description": "As a developer, I need a single module that wires Tauri backend events to query invalidation so scattered tauriListen calls across hooks can be removed.",
       "acceptanceCriteria": [
-        "In retry_failed_actions in src-tauri/src/commands/sync.rs, remove the ORDER BY id LIMIT 1 query that picks a single instance",
-        "Instead, query each failed action's instance by joining sync_queue.mr_id to merge_requests.instance_id to gitlab_instances (SELECT gi.id, gi.url, gi.token FROM sync_queue sq JOIN merge_requests mr ON sq.mr_id = mr.id JOIN gitlab_instances gi ON mr.instance_id = gi.id WHERE sq.status = 'failed')",
-        "Group actions by instance_id and create one GitLabClient per instance",
-        "Process each group's actions with its own client",
-        "If an action's instance is not found (deleted instance), mark the action as permanently failed instead of silently skipping",
-        "cargo check passes"
+        "Create `src/lib/tauriEvents.ts` exporting `setupTauriEventListeners(): Promise<() => void>`",
+        "Module has a top-level `let initialized = false` guard — calling setupTauriEventListeners() twice is a no-op on the second call",
+        "`mr-updated` handler: debounce 500ms, then call queryClient.invalidateQueries for { queryKey: ['mr', mrId] }, { queryKey: ['mrFiles', mrId] }, { queryKey: ['mrDiffRefs', mrId] }, { queryKey: ['fileContent'] }, { queryKey: ['mrList'] }, { queryKey: ['myMRList'] }",
+        "`action-synced` handler dispatches by action_type — comment/reply: invalidate ['mrComments', mrId] and ['mrFileComments', mrId]; approve/unapprove: invalidate ['mr', mrId], ['mrList'], ['myMRList']; resolve/unresolve: invalidate ['mrComments', mrId]",
+        "All invalidateQueries calls use v5 object filter syntax: `queryClient.invalidateQueries({ queryKey: [...] })` not legacy array shorthand",
+        "`setupTauriEventListeners()` called once in `src/main.tsx`",
+        "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Preserve GitLab error body in handle_response for 403 status",
-      "description": "As a user, I want stale sync actions to be automatically discarded based on GitLab's actual error message, so they don't retry forever.",
+      "title": "Create Phase 1 simple query hook files",
+      "description": "As a developer, I need standalone query hooks for instances, settings, companion status, and gitattributes so duplicated useEffect fetches can be replaced.",
       "acceptanceCriteria": [
-        "In handle_response in src-tauri/src/services/gitlab_client.rs, change the 403 match arm from (StatusCode::FORBIDDEN, _) => \"Access denied\".to_string() to (StatusCode::FORBIDDEN, Some(msg)) => msg.clone() with fallback (StatusCode::FORBIDDEN, None) => \"Access denied\".to_string()",
-        "Add a unit test: construct a body_message of Some(\"Cannot approve: MR is already merged\".to_string()) and verify the resulting error message contains \"merged\" not \"Access denied\"",
-        "Add a unit test: construct body_message of None for 403 and verify fallback to \"Access denied\"",
-        "cargo check passes"
+        "Create `src/hooks/queries/useInstancesQuery.ts` — useQuery wrapping listInstances(), staleTime: 60_000",
+        "Create `src/hooks/queries/useCurrentUserQuery.ts` — calls useInstancesQuery() and derives authenticatedUsername for the given instanceId via useMemo; no new Tauri calls",
+        "Create `src/hooks/queries/useSettingsQuery.ts` — useQuery wrapping getSettings()",
+        "Create `src/hooks/queries/useCollapsePatternsQuery.ts` — useQuery wrapping getCollapsePatterns()",
+        "Create `src/hooks/queries/useGitattributesQuery.ts` — useQuery wrapping getGitattributesPatterns(instanceId, projectId), staleTime: 10 * 60_000, enabled: !!instanceId && !!projectId",
+        "Create `src/hooks/queries/useCompanionStatusQuery.ts` — useQuery wrapping getCompanionStatus(), refetchInterval: 30_000",
+        "Create `src/hooks/queries/useHasApprovedMRsQuery.ts` — uses useQueries over all instances from useInstancesQuery(); each sub-query fetches listMyMergeRequests(instanceId); returns boolean: any MR has approvalStatus === 'approved'; always fetches independently",
+        "All files created in `src/hooks/queries/` directory",
+        "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Fix post_empty, resolve_discussion, and delete_note to read error response body",
-      "description": "As a user, I want all GitLab API error responses to preserve their actual error message, so that conflict detection works for approvals, resolves, and deletions.",
+      "title": "Update Phase 1 consumers and delete replaced hooks",
+      "description": "As a developer, I need all consumers of instances, settings, companion status, and hasApprovedMRs to use the new query hooks so old useEffect patterns are removed.",
       "acceptanceCriteria": [
-        "Extract a shared async helper method error_from_response(&self, response: reqwest::Response, endpoint: &str) -> AppError in gitlab_client.rs that reads response.text(), attempts to parse as JSON to extract a message field, and returns AppError::gitlab_api_full with the parsed message (or a formatted fallback like 'Request failed (STATUS)')",
-        "Update post_empty to use error_from_response instead of returning generic 'Request failed'",
-        "Update resolve_discussion to use error_from_response instead of returning generic 'Failed to resolve discussion'",
-        "Update delete_note to use error_from_response instead of returning generic 'Failed to delete note'",
-        "cargo check passes"
+        "`src/App.tsx`: replace listInstances() useEffect with useInstancesQuery(); replace useHasApprovedMRs() with useHasApprovedMRsQuery(); replace useCompanionStatus() with useCompanionStatusQuery()",
+        "`src/pages/MRListPage.tsx`: replace listInstances() useEffect with useInstancesQuery()",
+        "`src/pages/MyMRsPage.tsx`: replace listInstances() useEffect with useInstancesQuery()",
+        "All Settings section components that call getSettings() or listInstances() inside useEffect replaced with useSettingsQuery() or useInstancesQuery()",
+        "`src/hooks/useCompanionStatus.ts` deleted",
+        "`src/hooks/useHasApprovedMRs.ts` deleted",
+        "No remaining direct calls to listInstances(), getSettings(), or getCompanionStatus() inside useEffect hooks",
+        "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-005",
-      "title": "Fix purge_closed_mrs comparing wrong ID types",
-      "description": "As a user, I want my open MRs to never be incorrectly purged during background sync, so that I don't lose cached diffs, comments, and file content.",
+      "title": "Create MR list and MR detail query hook files",
+      "description": "As a developer, I need TQ-backed query hooks for MR lists and MR detail data so navigating between MRs uses the cache instead of re-fetching.",
       "acceptanceCriteria": [
-        "In sync_instance in src-tauri/src/services/sync_engine.rs, collect the local_mr_id returned from each sync_mr call into a Vec<i64>",
-        "Pass this collected Vec to purge_closed_mrs instead of re-deriving IDs from the raw GitLab MR list",
-        "Update purge_closed_mrs signature to accept the local DB IDs directly instead of extracting mr.id from GitLabMergeRequest objects",
-        "The NOT IN clause in purge_closed_mrs must use these local DB IDs",
-        "cargo check passes"
+        "Create `src/hooks/queries/useMRListQuery.ts` — useQuery wrapping listMergeRequests(instanceId), enabled: !!instanceId",
+        "Create `src/hooks/queries/useMyMRListQuery.ts` — useQuery wrapping listMyMergeRequests(instanceId), enabled: !!instanceId",
+        "Create `src/hooks/queries/useMRDetailQuery.ts` — useQuery wrapping getMergeRequestById(mrId), enabled: mrId > 0",
+        "Create `src/hooks/queries/useDiffFilesQuery.ts` — useQuery wrapping getMergeRequestFiles(mrId), enabled: mrId > 0",
+        "Create `src/hooks/queries/useDiffRefsQuery.ts` — useQuery wrapping getDiffRefs(mrId), enabled: mrId > 0",
+        "Create `src/hooks/queries/useMRReviewersQuery.ts` — useQuery wrapping getMrReviewers(mrId), enabled: mrId > 0",
+        "Typecheck passes"
       ],
       "priority": 5,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Recover actions stuck in syncing state after crash",
-      "description": "As a user, I want actions that were mid-flight when the app crashed to be automatically recovered on next launch, so that my comments and approvals aren't permanently lost.",
+      "title": "Refactor MR data hooks and MRList component to use TQ queries",
+      "description": "As a developer, I need useMRData, useMyMRData, and MRList to compose TQ query hooks so tauriListen and manual useEffect fetch patterns are removed.",
       "acceptanceCriteria": [
-        "Add a recover_stale_syncing_actions async function in src-tauri/src/services/sync_engine.rs (or sync_queue.rs) that runs UPDATE sync_queue SET status = 'pending' WHERE status = 'syncing'",
-        "Call this function during sync engine initialization, before the first sync cycle begins (in start_sync or the SyncEngine constructor/init method)",
-        "Log the number of recovered actions if any were found (e.g., eprintln or log::info)",
-        "Add a unit test: insert 3 actions (one pending, one syncing, one failed) into an in-memory DB, call the recovery function, verify only the syncing one is reset to pending",
-        "cargo check passes"
+        "`src/pages/MRDetailPage/useMRData.ts`: compose useMRDetailQuery + useDiffFilesQuery + useDiffRefsQuery + useGitattributesQuery + useCollapsePatternsQuery; remove tauriListen('mr-updated') call; do NOT remove clearFileCache/clearFileCacheRef yet (removed in US-007)",
+        "`src/pages/MyMRDetailPage/useMyMRData.ts`: compose useMRDetailQuery + useMRReviewersQuery + useCurrentUserQuery; remove manual useEffect fetches",
+        "`src/components/MRList/MRList.tsx`: data from useMRListQuery(instanceId); tauriListen('mr-updated') removed; reducer slimmed to UI-only state (syncStatus, newMrIds); query.isLoading drives foreground spinner; query.isFetching drives background indicator; newMrIds tracking uses useRef comparing previous vs current query data in a useEffect",
+        "`src/pages/MRListPage.tsx`: refresh button calls queryClient.invalidateQueries({ queryKey: queryKeys.mrList(instanceId) })",
+        "`src/pages/MyMRsPage.tsx`: replace loadMRs useEffect with useMyMRListQuery; remove tauriListen('mr-updated')",
+        "Typecheck passes"
       ],
       "priority": 6,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-007",
-      "title": "Secure companion QR code endpoint",
-      "description": "As a user, I want the companion server PIN to not be exposed to unauthenticated LAN devices, so that unauthorized devices can't bypass authentication.",
+      "title": "Replace file content dual-cache with useFileContentQuery",
+      "description": "As a user, I want file navigation between diff files to feel instant when already viewed, with adjacent files prefetched automatically.",
       "acceptanceCriteria": [
-        "Remove or protect the GET /api/auth/qr endpoint in src-tauri/src/services/companion_auth.rs so that it no longer serves the PIN to unauthenticated requests",
-        "Add a new Tauri command get_companion_qr_code in the appropriate commands file that generates the QR code SVG string (move the QR generation logic from the HTTP handler to this command)",
-        "Register the new command in commands/mod.rs and lib.rs generate_handler!",
-        "The frontend companion pairing UI should call invoke('get_companion_qr_code') instead of fetching from the HTTP endpoint",
-        "cargo check passes"
+        "Create `src/hooks/queries/useFileContentQuery.ts` with text variant: queryKey: queryKeys.fileContent(instanceId, projectId, filePath, sha), staleTime: Infinity, gcTime: 30 * 60_000, refetchOnWindowFocus: false, refetchOnMount: false",
+        "Image/binary variant uses queryKeys.fileContentBase64(...) with same settings, calls getFileContentBase64 instead of getFileContent",
+        "Query function handles all edge cases: isNewFile → return '' for base; isDeletedFile → return '' for head; renamed files use oldPath for base and newPath for head",
+        "getCachedFilePair (SQLite read-by-mrId) is NOT called in query function — TQ cache handles deduplication",
+        "keepPreviousData is NOT used on file content queries",
+        "Adjacent file prefetching: useEffect after active file query resolves calls queryClient.prefetchQuery for currentIdx-1 and currentIdx+1 in reviewable file list",
+        "useLayoutEffect removed from useFileContent.ts",
+        "clearFileCacheRef and clearFileCache removed from src/pages/MRDetailPage/index.tsx and useMRData.ts",
+        "Navigating back to a previously-viewed file shows content immediately with no loading state",
+        "Typecheck passes"
       ],
       "priority": 7,
       "passes": false,
@@ -110,17 +128,124 @@
     },
     {
       "id": "US-008",
-      "title": "Fix companion auth rate limit TOCTOU bypass",
-      "description": "As a user, I want the companion server rate limiting to actually enforce attempt limits, so that brute-force PIN attacks are prevented.",
+      "title": "Create comment query and all mutation hook files",
+      "description": "As a developer, I need TQ-backed hooks for fetching and mutating comments so optimistic updates are handled consistently.",
       "acceptanceCriteria": [
-        "Combine is_rate_limited and record_failed_attempt in src-tauri/src/services/companion_auth.rs into a single pub async fn check_and_record_attempt(ip: IpAddr) -> bool that acquires one write lock, checks the count, records the attempt, and returns true if rate limited",
-        "Update verify_pin_handler to call the new combined function instead of the separate is_rate_limited and record_failed_attempt",
-        "After pruning expired entries for an IP, remove the IP key from the HashMap if the vec is empty (fixes memory leak)",
-        "Add a unit test: call check_and_record_attempt MAX_ATTEMPTS times for the same IP, verify the last call returns true (rate limited)",
-        "Add a unit test: after the rate limit window expires, verify the IP entry is cleaned up from the HashMap",
-        "cargo check passes"
+        "Create `src/hooks/queries/useCommentsQuery.ts` — useQuery wrapping listComments(mrId), staleTime: 30_000, enabled: mrId > 0",
+        "Create `src/hooks/mutations/useAddCommentMutation.ts` — onMutate: cancel queries, snapshot cache, append optimistic comment with negative ID; onError: rollback; onSettled: does NOT call invalidateQueries (invalidation by action-synced event)",
+        "Create `src/hooks/mutations/useReplyCommentMutation.ts` — same onMutate/onError/onSettled pattern, optimistically appends reply",
+        "Create `src/hooks/mutations/useResolveDiscussionMutation.ts` — onMutate: optimistically toggle resolved on all comments with matching discussionId; onError: rollback; onSettled: does NOT invalidate",
+        "Create `src/hooks/mutations/useDeleteCommentMutation.ts` — onMutate: snapshot + remove comment optimistically; onError: rollback",
+        "Create `src/hooks/mutations/useAddInlineCommentMutation.ts` — request shape includes filePath + newLine/oldLine; onMutate optimistically updates both ['mrFileComments', mrId, filePath] and ['mrComments', mrId] caches",
+        "Typecheck passes"
       ],
       "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Refactor useActivityData to use comment query and mutation hooks",
+      "description": "As a developer, I need useActivityData composed from TQ hooks so the manual tauriListen and useEffect fetch patterns are removed.",
+      "acceptanceCriteria": [
+        "`src/hooks/useActivityData.ts` uses useCommentsQuery(mrId) instead of manual useEffect fetch",
+        "useActivityData uses useCurrentUserQuery(instanceId) instead of its own listInstances() call",
+        "addComment, replyToComment, resolveDiscussion, deleteComment delegate to mutation hooks from US-008",
+        "tauriListen('action-synced') removed from useActivityData — handled by tauriEvents.ts",
+        "Thread building (buildThreads, systemEvents) remains as useMemo derived from commentsQuery.data",
+        "A comment that fails mutation has its optimistic entry automatically removed (onError rollback)",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Create pipeline query hooks and refactor pipeline pages to remove polling",
+      "description": "As a user, I want the pipeline dashboard and job log to update automatically while jobs run and stop polling automatically when they complete.",
+      "acceptanceCriteria": [
+        "Create `src/hooks/queries/usePipelineJobsQuery.ts` — refetchInterval: (query) => hasActiveJobs(query.state.data) ? 10_000 : false, refetchIntervalInBackground: false",
+        "Create `src/hooks/queries/usePipelineStatusesQuery.ts` — refetchInterval: (query) => hasActivePipelines(query.state.data) ? 30_000 : 120_000, refetchIntervalInBackground: false",
+        "Create `src/hooks/queries/useJobTraceQuery.ts` — refetchInterval: isActiveStatus(status) ? 3_000 : false, staleTime: isActiveStatus(status) ? 0 : Infinity, refetchIntervalInBackground: false",
+        "`src/pages/PipelineDetailPage/usePipelineData.ts`: drop reducer entirely; jobs from usePipelineJobsQuery; activeActions as useState<Set<number>>; job action handlers call queryClient.invalidateQueries after mutation",
+        "`src/pages/PipelinesPage/usePipelinesData.ts`: drop reducer entirely; selectedInstanceId + searchQuery as plain useState; emitPipelineChanges as useEffect comparing prev vs current usePipelineStatusesQuery.data via useRef; when project list changes call queryClient.removeQueries({ queryKey: ['pipelineStatuses'] })",
+        "`src/pages/JobLogPage.tsx`: three polling useEffect hooks removed; uses useJobTraceQuery + usePipelineJobsQuery",
+        "All manual setTimeout/setInterval polling code removed from pipeline files",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Migrate file comments and CommentOverlay to TQ",
+      "description": "As a developer, I need inline file comments to go through TQ so the file comment cache and activity comment cache stay consistent.",
+      "acceptanceCriteria": [
+        "Create `src/hooks/queries/useFileCommentsQuery.ts` — useQuery wrapping getFileComments(mrId, filePath), enabled: mrId > 0 && !!filePath",
+        "`src/pages/MRDetailPage/useFileComments.ts` updated to use useFileCommentsQuery internally",
+        "`src/components/CommentOverlay.tsx` updated to call useAddInlineCommentMutation instead of calling the service directly",
+        "Adding an inline comment via CommentOverlay optimistically updates both ['mrFileComments', mrId, filePath] and ['mrComments', mrId] caches",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Migrate approval mutations, settings invalidation, and useCodeTab lazy loading",
+      "description": "As a developer, I need approvals and settings to go through TQ so the UI stays consistent without manual cache management.",
+      "acceptanceCriteria": [
+        "Create `src/hooks/mutations/useApproveMRMutation.ts` — onMutate: snapshot + optimistically set userHasApproved: true on ['mr', mrId] cache; onError: rollback from snapshot; MR list refresh driven by action-synced approve handler in tauriEvents.ts",
+        "Create `src/hooks/mutations/useUnapproveMRMutation.ts` — same pattern, sets userHasApproved: false",
+        "All settings saves in Settings section components call queryClient.invalidateQueries({ queryKey: queryKeys.settings() }) after persisting",
+        "`src/pages/MyMRDetailPage/useCodeTab.ts` uses enabled: activeTab === 'code' on its diff/file queries; on MR change calls queryClient.removeQueries for relevant diff and file content keys",
+        "No remaining raw useEffect + useState fetch patterns anywhere in src/",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Surface TQ error objects consistently across the UI",
+      "description": "As a user, I want to see a clear error message when data fails to load instead of silently empty states.",
+      "acceptanceCriteria": [
+        "MR list page displays an error message when useMRListQuery returns an error (not an empty list)",
+        "MR detail page displays an error message when useMRDetailQuery or useDiffFilesQuery returns an error",
+        "Pipeline dashboard displays an error message when usePipelineStatusesQuery returns an error",
+        "Job log page displays an error message when useJobTraceQuery returns an error",
+        "Error messages strip the 'Tauri IPC error:' prefix — display the human-readable part only",
+        "Previously silently-ignored errors that returned empty arrays now surface a message where data is essential",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Browser verification pass across all major flows",
+      "description": "As a developer, I want to run through all major UI flows in the browser after the refactor is complete to confirm loading states, data display, and interactions work correctly end-to-end.",
+      "acceptanceCriteria": [
+        "App launches without console errors or white screens",
+        "MR list loads and displays merge requests for each configured instance",
+        "MR detail opens; files panel and diff viewer load correctly",
+        "Navigating between diff files shows content instantly for cached files, loading state for uncached",
+        "Adjacent file prefetch verified: navigate forward once, go back — second visit is instant with no loading state",
+        "Comments load in activity drawer; adding a comment shows optimistic entry immediately",
+        "Resolving a discussion thread toggles resolved state immediately (optimistic)",
+        "Pipeline dashboard loads; status badges reflect current pipeline states",
+        "Job log page streams trace output while job is active; stops polling when job completes",
+        "Settings page loads and saves without error",
+        "React Query Devtools panel is visible and accessible in dev build",
+        "No duplicate Tauri IPC calls observed for the same resource during normal navigation",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 14,
       "passes": false,
       "notes": ""
     }
