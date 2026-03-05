@@ -7,6 +7,39 @@ Started: Thu Mar  5 16:38:03 CET 2026
 - queryClient singleton exported from `src/lib/queryClient.ts`
 - queryKeys factory functions in `src/lib/queryKeys.ts`
 
+## 2026-03-05 - US-003
+- Created 7 query hook files in `src/hooks/queries/`
+- `useInstancesQuery.ts`: useQuery wrapping listInstances(), staleTime: 60_000
+- `useCurrentUserQuery.ts`: wraps useInstancesQuery(), derives authenticatedUsername via useMemo, no Tauri calls
+- `useSettingsQuery.ts`: useQuery wrapping getSettings()
+- `useCollapsePatternsQuery.ts`: useQuery wrapping getCollapsePatterns()
+- `useGitattributesQuery.ts`: useQuery wrapping getGitattributesPatterns(), staleTime: 10*60_000, enabled: !!instanceId && !!projectId
+- `useCompanionStatusQuery.ts`: useQuery wrapping getCompanionStatus(), refetchInterval: 30_000
+- `useHasApprovedMRsQuery.ts`: useQueries over instances, returns boolean if any MR has approvalStatus === 'approved'
+- Files changed: src/hooks/queries/ (7 new files)
+- **Learnings for future iterations:**
+  - `listMyMergeRequests` is in `services/tauri.ts` (not gitlab.ts)
+  - queryKeys factory uses `string` for instanceId, but service calls use `number`; use String(instance.id) for queryKey
+  - `useQueries` in TQ v5 takes `{ queries: [...] }` object format
+  - `useCurrentUserQuery` returns spread of instancesQuery with overridden `data` field — clean pattern for derived queries
+  - `getGitattributesPatterns` is in `services/gitlab.ts` (re-exports tauri.ts `getGitattributes`)
+---
+
+## 2026-03-05 - US-002
+- Created `src/lib/tauriEvents.ts` exporting `setupTauriEventListeners(): Promise<() => void>`
+- Module has `let initialized = false` guard — calling twice is a no-op
+- `mr-updated` handler: per-mrId debounce 500ms, then invalidates `['mr', mrId]`, `['mrFiles', mrId]`, `['mrDiffRefs', mrId]`, `['fileContent']`, `['mrList']`, `['myMRList']`
+- `action-synced` handler: dispatches by action_type (comment/reply, approve/unapprove, resolve/unresolve)
+- `setupTauriEventListeners()` called in `src/main.tsx` before render
+- Files changed: src/lib/tauriEvents.ts, src/main.tsx
+- **Learnings for future iterations:**
+  - `tauriListen` from `../services/transport` (not @tauri-apps/api directly)
+  - `action-synced` payload shape: `{ action_id, action_type, success, error, mr_id, local_reference_id }`
+  - `mr-updated` payload shape: `{ mr_id, update_type, instance_id, iid }`
+  - Per-mrId debounce with a `Map<number, timer>` prevents over-invalidation on rapid events
+  - Setting `initialized = false` in the returned cleanup function allows re-setup after teardown
+---
+
 ## 2026-03-05 - US-001
 - Installed `@tanstack/react-query` and `@tanstack/react-query-devtools`
 - Created `src/lib/queryClient.ts` with singleton QueryClient (staleTime: 30k, gcTime: 5min, retry: 1, refetchOnWindowFocus: true, mutations.retry: 0)
