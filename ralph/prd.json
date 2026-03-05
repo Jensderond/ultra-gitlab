@@ -57,28 +57,28 @@
       "title": "Migrate file comments and CommentOverlay (Phase 6)",
       "description": "As a developer, I need inline file comments to go through TQ mutations so the cache stays consistent between the file comment and activity views.",
       "priority": 8,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-009",
       "title": "Migrate approval mutations and finalize settings (Phase 7)",
       "description": "As a developer, I need approval actions and settings saves to go through TQ so the UI stays consistent without manual cache management.",
       "priority": 9,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-010",
       "title": "Consistent error state surface",
       "description": "As a user, I want to see a clear error message when data fails to load instead of silently empty states.",
       "priority": 10,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-011",
       "title": "Browser verification pass across all major flows",
       "description": "As a developer, I want to run through all major UI flows in the browser after the refactor is complete so that I can confirm loading states, data display, and interactions still work correctly end-to-end.",
       "priority": 11,
-      "passes": false
+      "passes": true
     }
   ]
 }

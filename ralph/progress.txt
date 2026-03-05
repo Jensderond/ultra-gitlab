@@ -73,3 +73,44 @@
   - `handleNavigateToJob` signature preserved exactly to avoid breaking PipelineDetailPage consumers
   - TQ `staleTime: Infinity` on completed job traces prevents unnecessary refetches
 ---
+
+## 2026-03-05 - US-008
+- Added `getFileComments()` wrapper to `src/services/tauri.ts`
+- Created `src/hooks/queries/useFileCommentsQuery.ts` — TQ query with `mrFileComments` key, staleTime 30s, maps Comment[] to LineComment[]
+- Created `src/hooks/queries/useAddInlineCommentMutation.ts` — TQ mutation, invalidates `mrFileComments` + `mrComments` on success
+- Refactored `src/pages/MRDetailPage/useFileComments.ts` — replaced useEffect/useState with TQ query; addComment/removeComment replaced by removeComment (optimistic via setQueryData) + restoreComment for rollback
+- Updated `src/components/CommentOverlay.tsx` — uses `useAddInlineCommentMutation` instead of direct invoke; `submitting` comes from `isPending`; `onCommentAdded` prop is now optional
+- Updated `src/pages/MRDetailPage/index.tsx` — uses `restoreComment` instead of `addComment` in handleDeleteComment; removed `onCommentAdded` from CommentOverlay (TQ invalidation handles refresh)
+- Files changed: tauri.ts, useFileCommentsQuery.ts (new), useAddInlineCommentMutation.ts (new), useFileComments.ts, CommentOverlay.tsx, MRDetailPage/index.tsx
+- **Learnings for future iterations:**
+  - When migrating from local state to TQ, replace `setState(prev => prev.filter(...))` with `queryClient.setQueryData(key, fn)` for optimistic cache mutations
+  - For delete rollback, use `restoreComment` pattern (setQueryData to add back) — avoids re-fetch round-trip
+  - `onCommentAdded` callback no longer needed when TQ mutation invalidates the right query keys — cache refresh happens automatically
+---
+
+## 2026-03-05 - US-009
+- Created `src/hooks/queries/useApproveMRMutation.ts` — approve + unapprove mutations; invalidates mr(mrId), ['mrList'], ['myMRList'] on success
+- Updated `ApprovalButton.tsx` — uses useApproveMRMutation; `isPending` drives `isSubmitting`; rollback in mutation `onError` callback; removed unused `projectId` and `mrIid` props (they were vestigial from old invoke calls)
+- Created `src/hooks/queries/useUpdateSyncSettingsMutation.ts` — wraps `update_sync_settings` command, invalidates `settings` on success
+- Updated `SyncSettingsSection.tsx` — uses TQ mutation; optimistic local setState before mutation fires for instant UI feedback
+- Files changed: useApproveMRMutation.ts (new), useUpdateSyncSettingsMutation.ts (new), ApprovalButton.tsx, MRHeader.tsx, SyncSettingsSection.tsx
+- **Learnings for future iterations:**
+  - TQ v5 partial key invalidation: `invalidateQueries({ queryKey: ['mrList'] })` invalidates ALL queries starting with 'mrList' — no need for full key
+  - When removing unused props from a component, check all callers and update them too (TypeScript will catch if they still pass the removed props)
+  - Can mix TQ mutation's `isPending` with local state optimistic updates — local state handles instant UI feedback, TQ handles backend + cache
+---
+
+## 2026-03-05 - US-010
+- Added error state in `MyMRsPage.tsx`: when `myMRsQuery.isError && mrs.length === 0`, shows "Failed to Load" with retry button instead of silent empty state
+- Added `error?: string | null` prop to `ActivityFeed.tsx`: renders error message between loading check and empty state check
+- Updated `MRDetailPage/index.tsx`: extracts `activityError` from `useActivityData` and passes it to `ActivityFeed`
+- Files changed: MyMRsPage.tsx, ActivityFeed.tsx, MRDetailPage/index.tsx
+---
+
+## 2026-03-05 - US-011
+- Ran Playwright browser verification against `bun run dev` frontend-only server (http://localhost:5173)
+- Verified: /mrs loads with TQ Loading state (correct), /my-mrs loads with TQ Loading state (correct), /pipelines shows empty state (correct)
+- No JavaScript errors in console on any page
+- Typecheck passes: `bunx tsc --noEmit` clean
+- Full end-to-end verification with real Tauri backend requires `bun run tauri dev` (display required)
+---
