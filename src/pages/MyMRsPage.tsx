@@ -115,6 +115,19 @@ export default function MyMRsPage() {
     );
   }
 
+  if (myMRsQuery.isError && mrs.length === 0) {
+    const errMsg = myMRsQuery.error instanceof Error ? myMRsQuery.error.message : 'Failed to load merge requests';
+    return (
+      <div className="mr-list-page">
+        <div className="mr-list-page-empty">
+          <h2>Failed to Load</h2>
+          <p>{errMsg}</p>
+          <button onClick={() => myMRsQuery.refetch()} className="primary-button">Retry</button>
+        </div>
+      </div>
+    );
+  }
+
   if (instances.length === 0) {
     return (
       <div className="mr-list-page">

@@ -44,7 +44,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   const [activityOpen, setActivityOpen] = useState(false);
   const [showSystemEvents, setShowSystemEvents] = useState(false);
   const [activityHeightVh, setActivityHeightVh] = useState(40);
-  const { threads: activityThreads, systemEvents: activitySystemEvents, unresolvedCount, currentUser: activityCurrentUser, loading: activityLoading, addComment: activityAddComment, replyToComment: activityReplyToComment, resolveDiscussion: activityResolveDiscussion, deleteComment: activityDeleteComment } = useActivityData(mrId);
+  const { threads: activityThreads, systemEvents: activitySystemEvents, unresolvedCount, currentUser: activityCurrentUser, loading: activityLoading, error: activityError, addComment: activityAddComment, replyToComment: activityReplyToComment, resolveDiscussion: activityResolveDiscussion, deleteComment: activityDeleteComment } = useActivityData(mrId);
   const [showCopyToast, copyToClipboard] = useCopyToast();
   const isSmallScreen = useSmallScreen();
   const [view, dispatch] = useViewReducer();
@@ -291,6 +291,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           systemEvents={activitySystemEvents}
           showSystemEvents={showSystemEvents}
           loading={activityLoading}
+          error={activityError}
           currentUser={activityCurrentUser}
           onReply={async (discussionId, parentId, body) => { await activityReplyToComment(discussionId, parentId, body); trackReplyPosted(mrId); }}
           onResolve={activityResolveDiscussion}
