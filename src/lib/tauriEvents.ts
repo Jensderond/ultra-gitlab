@@ -41,7 +41,6 @@ export async function setupTauriEventListeners(): Promise<() => void> {
           queryClient.invalidateQueries({ queryKey: ['mr', mr_id] });
           queryClient.invalidateQueries({ queryKey: ['mrFiles', mr_id] });
           queryClient.invalidateQueries({ queryKey: ['mrDiffRefs', mr_id] });
-          queryClient.invalidateQueries({ queryKey: ['fileContent'] });
           queryClient.invalidateQueries({ queryKey: ['mrList'] });
           queryClient.invalidateQueries({ queryKey: ['myMRList'] });
         }, 500),
@@ -55,14 +54,18 @@ export async function setupTauriEventListeners(): Promise<() => void> {
       const { action_type, mr_id } = event.payload;
 
       if (action_type === 'comment' || action_type === 'reply') {
-        queryClient.invalidateQueries({ queryKey: ['mrComments', mr_id] });
-        queryClient.invalidateQueries({ queryKey: ['mrFileComments', mr_id] });
+        if (event.payload.success) {
+          queryClient.invalidateQueries({ queryKey: ['mrComments', mr_id] });
+          queryClient.invalidateQueries({ queryKey: ['mrFileComments', mr_id] });
+        }
       } else if (action_type === 'approve' || action_type === 'unapprove') {
         queryClient.invalidateQueries({ queryKey: ['mr', mr_id] });
+        queryClient.invalidateQueries({ queryKey: ['mrReviewers', mr_id] });
         queryClient.invalidateQueries({ queryKey: ['mrList'] });
         queryClient.invalidateQueries({ queryKey: ['myMRList'] });
       } else if (action_type === 'resolve' || action_type === 'unresolve') {
         queryClient.invalidateQueries({ queryKey: ['mrComments', mr_id] });
+        queryClient.invalidateQueries({ queryKey: ['mrFileComments', mr_id] });
       }
     },
   );

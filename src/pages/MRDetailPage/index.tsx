@@ -22,7 +22,8 @@ import { useMRKeyboard } from './useMRKeyboard';
 import MRHeader from './MRHeader';
 import MRDiffContent from './MRDiffContent';
 import MRFilePanel from './MRFilePanel';
-import { listInstances, deleteComment } from '../../services/gitlab';
+import { deleteComment } from '../../services/gitlab';
+import { useCurrentUserQuery } from '../../hooks/queries/useCurrentUserQuery';
 import { trackMRApproved, trackMRUnapproved, trackCommentPosted, trackReplyPosted } from '../../services/analytics';
 import '../MRDetailPage.css';
 
@@ -75,14 +76,8 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
 
   const { fileComments, removeComment, restoreComment } = useFileComments(mrId, view.selectedFile);
 
-  const [currentUser, setCurrentUser] = useState<string | null>(null);
-  useEffect(() => {
-    if (!mr) return;
-    listInstances().then((instances) => {
-      const matchingInstance = instances.find((inst) => inst.id === mr.instanceId);
-      setCurrentUser(matchingInstance?.authenticatedUsername ?? null);
-    }).catch(() => {});
-  }, [mr]);
+  const currentUserQuery = useCurrentUserQuery(mr?.instanceId ?? 0);
+  const currentUser = currentUserQuery.data ?? null;
 
   const handleDeleteComment = useCallback((commentId: number) => {
     const toRestore = fileComments.find((c) => c.id === commentId);

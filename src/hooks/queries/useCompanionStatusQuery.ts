@@ -7,5 +7,6 @@ export function useCompanionStatusQuery() {
     queryKey: queryKeys.companionStatus(),
     queryFn: getCompanionStatus,
     refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 }

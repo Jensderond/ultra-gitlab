@@ -17,6 +17,7 @@ export function useUpdateSyncSettingsMutation() {
       invoke<void>('update_sync_settings', { syncConfig }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.settings() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.syncSettings() });
     },
   });
 }

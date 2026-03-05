@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQueries } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { isTauri, tauriListen } from './services/transport';
 import { trackEvent, trackShortcut } from './services/analytics';
@@ -29,12 +30,13 @@ import useDeepLink from './hooks/useDeepLink';
 import { CommandId, CommandCategory, commandDefinitions } from './commands/registry';
 import { manualSync } from './services/storage';
 import { useInstancesQuery } from './hooks/queries/useInstancesQuery';
+import { queryKeys } from './lib/queryKeys';
 import { listPipelineProjects, visitPipelineProject } from './services/tauri';
 import { WorkerPoolContextProvider } from '@pierre/diffs/react';
 import WorkerUrl from '@pierre/diffs/worker/worker.js?worker&url';
 import { ThemeProvider } from './components/ThemeProvider';
 import { ToastProvider, useToast, ToastContainer } from './components/Toast';
-import type { AuthExpiredPayload, PipelineProject } from './types';
+import type { AuthExpiredPayload } from './types';
 import './App.css';
 
 /** Worker factory for Pierre diffs syntax highlighting (runs off main thread) */
@@ -59,7 +61,6 @@ function AppContent() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
   const [authExpired, setAuthExpired] = useState<AuthExpiredState | null>(null);
-  const [pipelineProjects, setPipelineProjects] = useState<PipelineProject[]>([]);
   const companionAuth = useCompanionAuth(isTauri || location.pathname === '/auth');
   const updateChecker = useUpdateChecker();
   const hasApprovedMRs = useHasApprovedMRsQuery();
@@ -110,29 +111,21 @@ function AppContent() {
     };
   }, []);
 
-  // Load pipeline projects for command palette.
-  // In browser mode, wait until authenticated to avoid 401 spam.
+  // Load pipeline projects for command palette via TQ
   const isAuthed = companionAuth.isAuthenticated;
   const instances = instancesQuery.data ?? [];
-  useEffect(() => {
-    if (!isTauri && isAuthed !== true) return;
-    if (instances.length === 0) return;
-
-    async function loadPipelineProjects() {
-      try {
-        const allProjects: PipelineProject[] = [];
-        for (const inst of instances) {
-          const projects = await listPipelineProjects(inst.id);
-          allProjects.push(...projects);
-        }
-        setPipelineProjects(allProjects);
-      } catch {
-        // Non-critical — command palette just won't show pipeline projects
-      }
-    }
-    loadPipelineProjects();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthed, instances]);
+  const pipelineProjectQueries = useQueries({
+    queries: instances.map((inst) => ({
+      queryKey: queryKeys.pipelineProjects(String(inst.id)),
+      queryFn: () => listPipelineProjects(inst.id),
+      staleTime: 60_000,
+      enabled: isTauri || isAuthed === true,
+    })),
+  });
+  const pipelineProjects = useMemo(
+    () => pipelineProjectQueries.filter((q) => q.isSuccess).flatMap((q) => q.data ?? []),
+    [pipelineProjectQueries],
+  );
 
   // Clear auth expired state
   const dismissAuthExpired = useCallback(() => {

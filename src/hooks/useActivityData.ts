@@ -1,14 +1,16 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
-  listComments,
-  listInstances,
-  getMergeRequestById,
   addGeneralComment,
   replyToDiscussion,
   setDiscussionResolved,
   deleteComment as gitlabDeleteComment,
 } from '../services/gitlab';
 import { tauriListen } from '../services/transport';
+import { useCommentsQuery } from './queries/useCommentsQuery';
+import { useCurrentUserQuery } from './queries/useCurrentUserQuery';
+import { useMRDetailQuery } from './queries/useMRDetailQuery';
+import { queryKeys } from '../lib/queryKeys';
 import type { Comment } from '../types';
 
 interface ActionSyncedPayload {
@@ -39,67 +41,34 @@ export interface ActivityData {
 }
 
 export function useActivityData(mrId: number): ActivityData {
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [currentUser, setCurrentUser] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const commentsQuery = useCommentsQuery(mrId);
+  const mrQuery = useMRDetailQuery(mrId);
+  const currentUserQuery = useCurrentUserQuery(mrQuery.data?.instanceId ?? 0);
 
-  useEffect(() => {
-    let ignore = false;
-    async function load() {
-      try {
-        setLoading(true);
-        setError(null);
-        const [commentData, mrData, instances] = await Promise.all([
-          listComments(mrId),
-          getMergeRequestById(mrId),
-          listInstances(),
-        ]);
-        if (ignore) return;
-        setComments(commentData);
-        const matchingInstance = instances.find((inst) => inst.id === mrData.instanceId);
-        setCurrentUser(matchingInstance?.authenticatedUsername ?? null);
-      } catch (err) {
-        if (!ignore) setError(err instanceof Error ? err.message : 'Failed to load comments');
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    }
-    if (mrId) load();
-    return () => { ignore = true; };
-  }, [mrId]);
+  const comments = commentsQuery.data ?? [];
 
-  // Listen for action-synced events to clear pending state after backend sync
+  // Listen for action-synced failures to mark comments as failed
   useEffect(() => {
     if (!mrId) return;
-    let ignore = false;
     let unlisten: (() => void) | undefined;
-    tauriListen<ActionSyncedPayload>('action-synced', async (event) => {
+    tauriListen<ActionSyncedPayload>('action-synced', (event) => {
       const { mr_id, action_type, success, local_reference_id } = event.payload;
       if (mr_id !== mrId) return;
       if (action_type !== 'comment' && action_type !== 'reply') return;
 
-      if (success) {
-        // Re-fetch comments so the local pending comment is replaced by the real GitLab comment
-        try {
-          const fresh = await listComments(mrId);
-          if (!ignore) setComments(fresh);
-        } catch {
-          // Silently ignore — the pending badge will stay until the next full refresh
-        }
-      } else if (local_reference_id !== null && !ignore) {
-        // Mark the specific comment as failed
-        setComments(prev =>
-          prev.map(c => (c.id === local_reference_id ? { ...c, syncStatus: 'failed' as const } : c)),
-        );
+      if (!success && local_reference_id !== null) {
+        queryClient.setQueryData<Comment[]>(queryKeys.mrComments(mrId), (prev) => {
+          if (!prev) return prev;
+          return prev.map(c =>
+            c.id === local_reference_id ? { ...c, syncStatus: 'failed' as const } : c,
+          );
+        });
       }
     }).then(fn => { unlisten = fn; });
 
-    return () => {
-      ignore = true;
-      unlisten?.();
-    };
-  }, [mrId]);
+    return () => { unlisten?.(); };
+  }, [mrId, queryClient]);
 
   const threads = useMemo(() => {
     const threadMap = new Map<string, Comment[]>();
@@ -126,6 +95,8 @@ export function useActivityData(mrId: number): ActivityData {
     t => t.some(c => c.discussionId) && !t.some(c => c.resolved),
   ).length;
 
+  const currentUser = currentUserQuery.data ?? null;
+
   const addComment = useCallback(
     async (body: string) => {
       const optimistic: Comment = {
@@ -145,16 +116,23 @@ export function useActivityData(mrId: number): ActivityData {
         isLocal: true,
         syncStatus: 'pending',
       };
-      setComments(prev => [...prev, optimistic]);
+      queryClient.setQueryData<Comment[]>(queryKeys.mrComments(mrId), (prev) => [
+        ...(prev ?? []),
+        optimistic,
+      ]);
 
       try {
         const created = await addGeneralComment(mrId, body);
-        setComments(prev => prev.map(c => (c.id === optimistic.id ? created : c)));
+        queryClient.setQueryData<Comment[]>(queryKeys.mrComments(mrId), (prev) =>
+          (prev ?? []).map(c => (c.id === optimistic.id ? created : c)),
+        );
       } catch {
-        setComments(prev => prev.filter(c => c.id !== optimistic.id));
+        queryClient.setQueryData<Comment[]>(queryKeys.mrComments(mrId), (prev) =>
+          (prev ?? []).filter(c => c.id !== optimistic.id),
+        );
       }
     },
-    [mrId, currentUser],
+    [mrId, currentUser, queryClient],
   );
 
   const replyToComment = useCallback(
@@ -176,44 +154,50 @@ export function useActivityData(mrId: number): ActivityData {
         isLocal: true,
         syncStatus: 'pending',
       };
-      setComments(prev => [...prev, optimistic]);
+      queryClient.setQueryData<Comment[]>(queryKeys.mrComments(mrId), (prev) => [
+        ...(prev ?? []),
+        optimistic,
+      ]);
 
       try {
         const created = await replyToDiscussion(mrId, discussionId, parentId, body);
-        setComments(prev => prev.map(c => (c.id === optimistic.id ? created : c)));
+        queryClient.setQueryData<Comment[]>(queryKeys.mrComments(mrId), (prev) =>
+          (prev ?? []).map(c => (c.id === optimistic.id ? created : c)),
+        );
       } catch {
-        setComments(prev => prev.filter(c => c.id !== optimistic.id));
+        queryClient.setQueryData<Comment[]>(queryKeys.mrComments(mrId), (prev) =>
+          (prev ?? []).filter(c => c.id !== optimistic.id),
+        );
       }
     },
-    [mrId, currentUser],
+    [mrId, currentUser, queryClient],
   );
 
   const resolveDiscussion = useCallback(
     async (discussionId: string, resolved: boolean) => {
-      setComments(prev =>
-        prev.map(c => (c.discussionId === discussionId ? { ...c, resolved } : c)),
+      queryClient.setQueryData<Comment[]>(queryKeys.mrComments(mrId), (prev) =>
+        (prev ?? []).map(c => (c.discussionId === discussionId ? { ...c, resolved } : c)),
       );
 
       try {
         await setDiscussionResolved(mrId, discussionId, resolved);
       } catch {
-        setComments(prev =>
-          prev.map(c => (c.discussionId === discussionId ? { ...c, resolved: !resolved } : c)),
+        queryClient.setQueryData<Comment[]>(queryKeys.mrComments(mrId), (prev) =>
+          (prev ?? []).map(c =>
+            c.discussionId === discussionId ? { ...c, resolved: !resolved } : c,
+          ),
         );
       }
     },
-    [mrId],
+    [mrId, queryClient],
   );
 
   const deleteComment = useCallback(
     async (commentId: number) => {
-      let removedIndex = -1;
       let removedComment: Comment | undefined;
-      setComments(prev => {
-        const idx = prev.findIndex(c => c.id === commentId);
-        if (idx === -1) return prev;
-        removedIndex = idx;
-        removedComment = prev[idx];
+      queryClient.setQueryData<Comment[]>(queryKeys.mrComments(mrId), (prev) => {
+        if (!prev) return prev;
+        removedComment = prev.find(c => c.id === commentId);
         return prev.filter(c => c.id !== commentId);
       });
 
@@ -222,16 +206,14 @@ export function useActivityData(mrId: number): ActivityData {
       } catch {
         if (removedComment !== undefined) {
           const toRestore = removedComment;
-          const atIndex = removedIndex;
-          setComments(prev => {
-            const next = [...prev];
-            next.splice(atIndex, 0, toRestore);
-            return next;
-          });
+          queryClient.setQueryData<Comment[]>(queryKeys.mrComments(mrId), (prev) => [
+            ...(prev ?? []),
+            toRestore,
+          ]);
         }
       }
     },
-    [mrId],
+    [mrId, queryClient],
   );
 
   return {
@@ -239,8 +221,10 @@ export function useActivityData(mrId: number): ActivityData {
     systemEvents,
     unresolvedCount,
     currentUser,
-    loading,
-    error,
+    loading: commentsQuery.isLoading,
+    error: commentsQuery.error
+      ? (commentsQuery.error instanceof Error ? commentsQuery.error.message : 'Failed to load comments')
+      : null,
     addComment,
     replyToComment,
     resolveDiscussion,

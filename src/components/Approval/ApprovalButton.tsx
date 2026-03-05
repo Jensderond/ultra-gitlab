@@ -5,7 +5,7 @@
  * while the action is queued for sync to GitLab.
  */
 
-import { useState, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { useState, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useApproveMRMutation } from '../../hooks/queries/useApproveMRMutation';
 import './ApprovalButton.css';
 
@@ -43,6 +43,10 @@ const ApprovalButton = forwardRef<ApprovalButtonRef, ApprovalButtonProps>(functi
   const [isApproved, setIsApproved] = useState(hasApproved);
   const [count, setCount] = useState(approvalsCount);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync local state when props change (e.g., from TQ background refetch)
+  useEffect(() => { setIsApproved(hasApproved); }, [hasApproved]);
+  useEffect(() => { setCount(approvalsCount); }, [approvalsCount]);
 
   const { approve, unapprove } = useApproveMRMutation(mrId);
   const isSubmitting = approve.isPending || unapprove.isPending;

@@ -2,12 +2,13 @@
  * Hook for loading MR data, reviewers, and comments.
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { getComments, deleteComment as tauriDeleteComment } from '../../services/tauri';
+import { deleteComment as tauriDeleteComment } from '../../services/tauri';
 import { useMRDetailQuery } from '../../hooks/queries/useMRDetailQuery';
 import { useMRReviewersQuery } from '../../hooks/queries/useMRReviewersQuery';
 import { useCurrentUserQuery } from '../../hooks/queries/useCurrentUserQuery';
+import { useCommentsQuery } from '../../hooks/queries/useCommentsQuery';
 import { queryKeys } from '../../lib/queryKeys';
 import type { MergeRequest, MrReviewer, Comment, DeleteCommentRequest } from '../../types';
 
@@ -29,30 +30,11 @@ export function useMyMRData(mrId: number): MyMRData {
   const queryClient = useQueryClient();
   const mrQuery = useMRDetailQuery(mrId);
   const reviewersQuery = useMRReviewersQuery(mrId);
+  const commentsQuery = useCommentsQuery(mrId);
 
   const mr = mrQuery.data ?? null;
   const currentUserQuery = useCurrentUserQuery(mr?.instanceId ?? 0);
-
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [commentsLoading, setCommentsLoading] = useState(true);
-
-  useEffect(() => {
-    if (!mrId) return;
-    let cancelled = false;
-    async function load() {
-      try {
-        setCommentsLoading(true);
-        const data = await getComments(mrId);
-        if (!cancelled) setComments(data);
-      } catch (err) {
-        console.error('Failed to load comments:', err);
-      } finally {
-        if (!cancelled) setCommentsLoading(false);
-      }
-    }
-    load();
-    return () => { cancelled = true; };
-  }, [mrId]);
+  const comments = commentsQuery.data ?? [];
 
   const setMr = useCallback((updater: React.SetStateAction<MergeRequest | null>) => {
     queryClient.setQueryData(queryKeys.mr(mrId), (prev: MergeRequest | undefined) => {
@@ -65,9 +47,8 @@ export function useMyMRData(mrId: number): MyMRData {
   const handleDeleteComment = useCallback(async (commentId: number) => {
     const request: DeleteCommentRequest = { mrId, commentId };
     await tauriDeleteComment(request);
-    const updated = await getComments(mrId);
-    setComments(updated);
-  }, [mrId]);
+    queryClient.invalidateQueries({ queryKey: queryKeys.mrComments(mrId) });
+  }, [mrId, queryClient]);
 
   const threads = useMemo(() => {
     const threadMap = new Map<string, Comment[]>();
@@ -91,7 +72,7 @@ export function useMyMRData(mrId: number): MyMRData {
   ).length;
   const approvedCount = reviewers.filter(r => r.status === 'approved').length;
 
-  const loading = mrQuery.isLoading || commentsLoading;
+  const loading = mrQuery.isLoading || commentsQuery.isLoading;
   const error = mrQuery.error
     ? (mrQuery.error instanceof Error ? mrQuery.error.message : 'Failed to load MR')
     : null;

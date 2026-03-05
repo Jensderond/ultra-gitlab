@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { getCompanionSettings, getCompanionQrSvg, updateCompanionSettings, regenerateCompanionPin, revokeCompanionDevice, startCompanionServer, stopCompanionServer } from '../../services/tauri';
+import { getCompanionQrSvg, updateCompanionSettings, regenerateCompanionPin, revokeCompanionDevice, startCompanionServer, stopCompanionServer } from '../../services/tauri';
 import type { CompanionServerSettings } from '../../types';
 import { useToast } from '../../components/Toast';
+import { useCompanionSettingsQuery } from '../../hooks/queries/useCompanionSettingsQuery';
 import { queryKeys } from '../../lib/queryKeys';
 import CompanionActivePanel from './CompanionActivePanel';
 
@@ -13,20 +14,14 @@ import CompanionActivePanel from './CompanionActivePanel';
 export default function CompanionServerSection() {
   const { addToast } = useToast();
   const queryClient = useQueryClient();
-  const [settings, setSettings] = useState<CompanionServerSettings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const settingsQuery = useCompanionSettingsQuery();
+
   const [saving, setSaving] = useState(false);
   const [portInput, setPortInput] = useState('');
   const [portError, setPortError] = useState<string | null>(null);
   const [qrSvg, setQrSvg] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadSettings();
-    const interval = setInterval(loadSettings, 15_000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const initialLoadDone = useRef(false);
+  const settings = settingsQuery.data ?? null;
 
   const refreshQrSvg = useCallback((s: CompanionServerSettings) => {
     if (s.enabled && s.port) {
@@ -36,23 +31,19 @@ export default function CompanionServerSection() {
     }
   }, []);
 
-  async function loadSettings() {
-    try {
-      if (!initialLoadDone.current) setLoading(true);
-      const s = await getCompanionSettings();
-      setSettings(s);
-      refreshQrSvg(s);
-      setPortInput((prev) => {
-        const currentPort = String(s.port);
-        return prev === '' || prev === currentPort ? currentPort : prev;
-      });
-      initialLoadDone.current = true;
-    } catch (err) {
-      console.error('Failed to load companion settings:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
+  // Sync port input and QR when query data changes
+  useEffect(() => {
+    if (!settings) return;
+    refreshQrSvg(settings);
+    setPortInput((prev) => {
+      const currentPort = String(settings.port);
+      return prev === '' || prev === currentPort ? currentPort : prev;
+    });
+  }, [settings, refreshQrSvg]);
+
+  const invalidateSettings = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.companionSettings() });
+  }, [queryClient]);
 
   async function handleToggle(enabled: boolean) {
     if (!settings) return;
@@ -67,8 +58,7 @@ export default function CompanionServerSection() {
         await stopCompanionServer();
         addToast({ type: 'info', title: 'Companion Server', body: 'Server stopped' });
       }
-      setSettings(updated);
-      refreshQrSvg(updated);
+      invalidateSettings();
       queryClient.invalidateQueries({ queryKey: queryKeys.companionStatus() });
     } catch (err) {
       console.error('Failed to toggle companion server:', err);
@@ -92,8 +82,7 @@ export default function CompanionServerSection() {
     try {
       setSaving(true);
       await updateCompanionSettings(updated);
-      setSettings(updated);
-      refreshQrSvg(updated);
+      invalidateSettings();
       if (settings.enabled) {
         await stopCompanionServer();
         await startCompanionServer();
@@ -109,13 +98,8 @@ export default function CompanionServerSection() {
   async function handleRegeneratePin() {
     try {
       setSaving(true);
-      const newPin = await regenerateCompanionPin();
-      setSettings((prev) => {
-        if (!prev) return prev;
-        const updated = { ...prev, pin: newPin, authorizedDevices: [] };
-        refreshQrSvg(updated);
-        return updated;
-      });
+      await regenerateCompanionPin();
+      invalidateSettings();
       addToast({ type: 'info', title: 'PIN Regenerated', body: 'All devices have been disconnected' });
     } catch (err) {
       console.error('Failed to regenerate PIN:', err);
@@ -128,10 +112,7 @@ export default function CompanionServerSection() {
     try {
       setSaving(true);
       await revokeCompanionDevice(deviceId);
-      setSettings((prev) => prev ? {
-        ...prev,
-        authorizedDevices: prev.authorizedDevices.filter((d) => d.id !== deviceId),
-      } : prev);
+      invalidateSettings();
     } catch (err) {
       console.error('Failed to revoke device:', err);
     } finally {
@@ -139,7 +120,7 @@ export default function CompanionServerSection() {
     }
   }
 
-  if (loading) {
+  if (settingsQuery.isLoading) {
     return (
       <>
         <h2>Companion Server <span className="beta-badge">Beta</span></h2>

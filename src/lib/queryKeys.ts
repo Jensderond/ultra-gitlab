@@ -37,4 +37,6 @@ export const queryKeys = {
   jobTrace: (instanceId: string, projectId: number, jobId: number) =>
     ["jobTrace", instanceId, projectId, jobId] as const,
   companionStatus: () => ["companionStatus"] as const,
+  companionSettings: () => ["companionSettings"] as const,
+  syncSettings: () => ["syncSettings"] as const,
 };

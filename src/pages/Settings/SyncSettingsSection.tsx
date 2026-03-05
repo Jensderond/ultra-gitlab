@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { invoke } from '../../services/tauri';
+import { useState } from 'react';
+import { useSyncSettingsQuery } from '../../hooks/queries/useSyncSettingsQuery';
 import { useUpdateSyncSettingsMutation } from '../../hooks/queries/useUpdateSyncSettingsMutation';
 
 /** Sync configuration */
@@ -8,11 +8,6 @@ interface SyncConfig {
   sync_authored: boolean;
   sync_reviewing: boolean;
   max_mrs_per_sync: number;
-}
-
-/** Application settings */
-interface AppSettings {
-  sync: SyncConfig;
 }
 
 /** Predefined sync interval options */
@@ -29,37 +24,15 @@ const SYNC_INTERVALS = [
  * Sync settings section — interval and scope configuration.
  */
 export default function SyncSettingsSection() {
-  const [syncSettings, setSyncSettings] = useState<SyncConfig | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  const syncQuery = useSyncSettingsQuery();
   const updateMutation = useUpdateSyncSettingsMutation();
+
+  const syncSettings = syncQuery.data ?? null;
+  const loading = syncQuery.isLoading;
   const saving = updateMutation.isPending;
 
-  useEffect(() => {
-    loadSyncSettings();
-  }, []);
-
-  async function loadSyncSettings() {
-    try {
-      setLoading(true);
-      const settings = await invoke<AppSettings>('get_settings');
-      setSyncSettings(settings.sync);
-    } catch (err) {
-      console.error('Failed to load sync settings:', err);
-      setSyncSettings({
-        interval_secs: 300,
-        sync_authored: true,
-        sync_reviewing: true,
-        max_mrs_per_sync: 100,
-      });
-    } finally {
-      setLoading(false);
-    }
-  }
-
   function saveSyncSettings(newSettings: SyncConfig) {
-    setSyncSettings(newSettings);
     updateMutation.mutate(newSettings, {
       onError: (err) => {
         console.error('Failed to save sync settings:', err);

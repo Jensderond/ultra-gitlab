@@ -78,6 +78,9 @@ export function usePipelineData({
         queryClient.invalidateQueries({
           queryKey: queryKeys.pipelineJobs(String(instanceId), projectId, pipelineId),
         });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pipelineStatuses(String(instanceId), [projectId]),
+        });
       }
     },
     [instanceId, projectId, pipelineId]
@@ -99,6 +102,9 @@ export function usePipelineData({
         queryClient.invalidateQueries({
           queryKey: queryKeys.pipelineJobs(String(instanceId), projectId, pipelineId),
         });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pipelineStatuses(String(instanceId), [projectId]),
+        });
       }
     },
     [instanceId, projectId, pipelineId]
@@ -119,6 +125,9 @@ export function usePipelineData({
         });
         queryClient.invalidateQueries({
           queryKey: queryKeys.pipelineJobs(String(instanceId), projectId, pipelineId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pipelineStatuses(String(instanceId), [projectId]),
         });
       }
     },

@@ -7,6 +7,7 @@ export function useApproveMRMutation(mrId: number) {
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.mr(mrId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.mrReviewers(mrId) });
     // Invalidate all MR list queries so approval badges stay consistent
     queryClient.invalidateQueries({ queryKey: ['mrList'] });
     queryClient.invalidateQueries({ queryKey: ['myMRList'] });
