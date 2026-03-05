@@ -6,6 +6,23 @@ Started: Thu Mar  5 16:38:03 CET 2026
 - TanStack Query v5 object filter syntax: `queryClient.invalidateQueries({ queryKey: [...] })` (not legacy array shorthand)
 - queryClient singleton exported from `src/lib/queryClient.ts`
 - queryKeys factory functions in `src/lib/queryKeys.ts`
+- When deleting a hook that exports constants used by other files, replace those usages before deleting
+- `useQueryClient()` from `@tanstack/react-query` provides queryClient in components; import `queryKeys` from `../../lib/queryKeys` for typed invalidation
+
+## 2026-03-05 - US-004
+- Updated `src/App.tsx`: replaced `useHasApprovedMRs` → `useHasApprovedMRsQuery`, `useCompanionStatus` → `useCompanionStatusQuery`, `listInstances()` in pipeline useEffect → `useInstancesQuery()`.
+- Updated `src/pages/MRListPage.tsx`: removed `listInstances()` useEffect, replaced with `useInstancesQuery()` + derived auto-select useEffect
+- Updated `src/pages/MyMRsPage.tsx`: replaced `listInstances()` useEffect with `useInstancesQuery()`, removed `tauriListen('mr-updated')` (handled by tauriEvents.ts)
+- Updated `src/pages/Settings/InstancesSection.tsx`: replaced `listInstances()` useEffect with `useInstancesQuery()`; used `queryClient.invalidateQueries` after delete/setup complete
+- Updated `src/pages/Settings/CompanionServerSection.tsx`: replaced `COMPANION_STATUS_CHANGED` event dispatch with `queryClient.invalidateQueries({ queryKey: queryKeys.companionStatus() })`
+- Deleted `src/hooks/useCompanionStatus.ts` and `src/hooks/useHasApprovedMRs.ts`
+- Files changed: src/App.tsx, src/pages/MRListPage.tsx, src/pages/MyMRsPage.tsx, src/pages/Settings/InstancesSection.tsx, src/pages/Settings/CompanionServerSection.tsx (deleted 2 hook files)
+- **Learnings for future iterations:**
+  - `companionStatusQuery.data` is `CompanionStatus | undefined`; use `?? false`/`?? 0` fallbacks in JSX
+  - `useQueryClient()` is the TQ hook for accessing queryClient in components (not importing the singleton directly)
+  - When removing a hook that dispatches/listens to a custom DOM event, replace with `queryClient.invalidateQueries` in all places
+  - Edit tool had intermittent issues with `replace_all: false` — Write was used for complete rewrites
+---
 
 ## 2026-03-05 - US-003
 - Created 7 query hook files in `src/hooks/queries/`
