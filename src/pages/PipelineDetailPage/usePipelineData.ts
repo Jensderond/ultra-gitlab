@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, type Dispatch } from 'react';
+import { useState, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
-  getPipelineJobs,
   getPipelineStatuses,
   getProjectPipelines,
   playPipelineJob,
@@ -9,178 +9,152 @@ import {
   cancelPipeline,
 } from '../../services/tauri';
 import type { PipelineJob } from '../../types';
-import type { PipelineDetailAction, PipelineDetailState } from './pipelineDetailReducer';
+import { usePipelineJobsQuery } from '../../hooks/queries/usePipelineJobsQuery';
+import { queryClient } from '../../lib/queryClient';
+import { queryKeys } from '../../lib/queryKeys';
 
 interface UsePipelineDataOptions {
   instanceId: number;
   projectId: number;
   pipelineId: number;
-  state: PipelineDetailState;
-  dispatch: Dispatch<PipelineDetailAction>;
 }
 
 export function usePipelineData({
   instanceId,
   projectId,
   pipelineId,
-  state,
-  dispatch,
 }: UsePipelineDataOptions) {
-  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const jobsQuery = usePipelineJobsQuery(instanceId, projectId, pipelineId);
 
-  const loadJobs = useCallback(async () => {
-    if (!instanceId || !projectId || !pipelineId) {
-      dispatch({ type: 'JOBS_ERROR', error: 'Missing required parameters' });
-      return;
-    }
-    try {
-      const jobList = await getPipelineJobs(instanceId, projectId, pipelineId);
-      dispatch({ type: 'JOBS_LOADED', jobs: jobList });
-    } catch (err) {
-      console.error('Failed to load pipeline jobs:', err);
-      dispatch({ type: 'JOBS_ERROR', error: 'Failed to load pipeline jobs' });
-    }
-  }, [instanceId, projectId, pipelineId, dispatch]);
+  const [activeActions, setActiveActions] = useState<Set<number>>(new Set());
+  const [pipelineActionLoading, setPipelineActionLoading] = useState<Set<number>>(new Set());
 
-  const loadPipelineStatus = useCallback(async () => {
-    if (!instanceId || !projectId) return;
-    try {
-      const statuses = await getPipelineStatuses(instanceId, [projectId]);
-      const status = statuses.find((s) => s.id === pipelineId);
-      if (status) {
-        dispatch({ type: 'PIPELINE_STATUS', status: status.status });
-      }
-    } catch {
-      // Non-critical
-    }
-  }, [instanceId, projectId, pipelineId, dispatch]);
+  // Pipeline overall status
+  const statusesQuery = useQuery({
+    queryKey: queryKeys.pipelineStatuses(String(instanceId), [projectId]),
+    queryFn: () => getPipelineStatuses(instanceId, [projectId]),
+    enabled: !!instanceId && !!projectId,
+    staleTime: 30_000,
+  });
+  const pipelineStatus =
+    statusesQuery.data?.find((s) => s.id === pipelineId)?.status ?? null;
 
-  // Initial load + reset on param change
-  useEffect(() => {
-    dispatch({ type: 'RESET' });
-    loadJobs();
-    loadPipelineStatus();
-  }, [loadJobs, loadPipelineStatus, dispatch]);
+  // History is lazy — only enabled when the History tab is opened
+  const [historyEnabled, setHistoryEnabled] = useState(false);
+  const historyQuery = useQuery({
+    queryKey: queryKeys.pipelineHistory(String(instanceId), projectId),
+    queryFn: () => getProjectPipelines(instanceId, projectId, 20),
+    enabled: historyEnabled && !!instanceId && !!projectId,
+    staleTime: 30_000,
+  });
 
-  // Auto-refresh when pipeline is active
-  useEffect(() => {
-    const hasActive = state.jobs.some(
-      (j) => j.status === 'running' || j.status === 'pending' || j.status === 'preparing'
-    );
+  const loadHistory = useCallback(() => {
+    setHistoryEnabled(true);
+  }, []);
 
-    if (!hasActive) return;
-
-    function scheduleNextPoll() {
-      pollTimerRef.current = setTimeout(async () => {
-        if (document.visibilityState === 'visible') {
-          await loadJobs();
-          await loadPipelineStatus();
-        }
-        scheduleNextPoll();
-      }, 10_000);
-    }
-
-    scheduleNextPoll();
-
-    return () => {
-      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
-    };
-  }, [state.jobs, loadJobs, loadPipelineStatus]);
-
-  // Lazy-load pipeline history when switching to the history tab
-  const loadHistory = useCallback(async () => {
-    if (state.historyLoaded || !instanceId || !projectId) return;
-    dispatch({ type: 'HISTORY_LOADING' });
-    try {
-      const list = await getProjectPipelines(instanceId, projectId, 20);
-      dispatch({ type: 'HISTORY_LOADED', pipelines: list });
-    } catch (err) {
-      console.error('Failed to load pipeline history:', err);
-      dispatch({ type: 'HISTORY_LOADED', pipelines: [] });
-    }
-  }, [state.historyLoaded, instanceId, projectId, dispatch]);
+  const refresh = useCallback(() => {
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.pipelineJobs(String(instanceId), projectId, pipelineId),
+    });
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.pipelineStatuses(String(instanceId), [projectId]),
+    });
+  }, [instanceId, projectId, pipelineId]);
 
   // Job actions
   const handlePlayJob = useCallback(
     async (jobId: number) => {
-      dispatch({ type: 'ACTION_START', jobId });
+      setActiveActions((prev) => new Set(prev).add(jobId));
       try {
-        const updated = await playPipelineJob(instanceId, projectId, jobId);
-        dispatch({ type: 'UPDATE_JOB', job: updated });
+        await playPipelineJob(instanceId, projectId, jobId);
       } catch (err) {
         console.error('Failed to play job:', err);
       } finally {
-        dispatch({ type: 'ACTION_END', jobId });
-        setTimeout(loadJobs, 1500);
+        setActiveActions((prev) => {
+          const next = new Set(prev);
+          next.delete(jobId);
+          return next;
+        });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pipelineJobs(String(instanceId), projectId, pipelineId),
+        });
       }
     },
-    [instanceId, projectId, loadJobs, dispatch]
+    [instanceId, projectId, pipelineId]
   );
 
   const handleRetryJob = useCallback(
     async (jobId: number) => {
-      dispatch({ type: 'ACTION_START', jobId });
+      setActiveActions((prev) => new Set(prev).add(jobId));
       try {
         await retryPipelineJob(instanceId, projectId, jobId);
       } catch (err) {
         console.error('Failed to retry job:', err);
       } finally {
-        dispatch({ type: 'ACTION_END', jobId });
-        setTimeout(loadJobs, 1500);
+        setActiveActions((prev) => {
+          const next = new Set(prev);
+          next.delete(jobId);
+          return next;
+        });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pipelineJobs(String(instanceId), projectId, pipelineId),
+        });
       }
     },
-    [instanceId, projectId, loadJobs, dispatch]
+    [instanceId, projectId, pipelineId]
   );
 
   const handleCancelJob = useCallback(
     async (jobId: number) => {
-      dispatch({ type: 'ACTION_START', jobId });
+      setActiveActions((prev) => new Set(prev).add(jobId));
       try {
-        const updated = await cancelPipelineJob(instanceId, projectId, jobId);
-        dispatch({ type: 'UPDATE_JOB', job: updated });
+        await cancelPipelineJob(instanceId, projectId, jobId);
       } catch (err) {
         console.error('Failed to cancel job:', err);
       } finally {
-        dispatch({ type: 'ACTION_END', jobId });
-        setTimeout(loadJobs, 1500);
+        setActiveActions((prev) => {
+          const next = new Set(prev);
+          next.delete(jobId);
+          return next;
+        });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pipelineJobs(String(instanceId), projectId, pipelineId),
+        });
       }
     },
-    [instanceId, projectId, loadJobs, dispatch]
+    [instanceId, projectId, pipelineId]
   );
-
-  const reloadHistory = useCallback(async () => {
-    if (!instanceId || !projectId) return;
-    dispatch({ type: 'HISTORY_LOADING' });
-    try {
-      const list = await getProjectPipelines(instanceId, projectId, 20);
-      dispatch({ type: 'HISTORY_LOADED', pipelines: list });
-    } catch (err) {
-      console.error('Failed to reload pipeline history:', err);
-      dispatch({ type: 'HISTORY_LOADED', pipelines: [] });
-    }
-  }, [instanceId, projectId, dispatch]);
 
   const handleCancelPipeline = useCallback(
     async (cancelPipelineId: number) => {
-      dispatch({ type: 'PIPELINE_ACTION_START', pipelineId: cancelPipelineId });
+      setPipelineActionLoading((prev) => new Set(prev).add(cancelPipelineId));
       try {
-        const updated = await cancelPipeline(instanceId, projectId, cancelPipelineId);
-        dispatch({ type: 'UPDATE_PIPELINE', pipeline: updated });
+        await cancelPipeline(instanceId, projectId, cancelPipelineId);
       } catch (err) {
         console.error('Failed to cancel pipeline:', err);
       } finally {
-        dispatch({ type: 'PIPELINE_ACTION_END', pipelineId: cancelPipelineId });
-        setTimeout(() => {
-          reloadHistory();
-          loadJobs();
-        }, 1500);
+        setPipelineActionLoading((prev) => {
+          const next = new Set(prev);
+          next.delete(cancelPipelineId);
+          return next;
+        });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pipelineHistory(String(instanceId), projectId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pipelineJobs(String(instanceId), projectId, pipelineId),
+        });
       }
     },
-    [instanceId, projectId, reloadHistory, loadJobs, dispatch]
+    [instanceId, projectId, pipelineId]
   );
 
   const handleNavigateToJob = useCallback(
-    (job: PipelineJob, navigate: (path: string) => void, params: { projectName: string; pipelineRef: string; pipelineWebUrl: string }) => {
+    (
+      job: PipelineJob,
+      navigate: (path: string) => void,
+      params: { projectName: string; pipelineRef: string; pipelineWebUrl: string }
+    ) => {
       const searchParams = new URLSearchParams({
         instance: String(instanceId),
         name: job.name,
@@ -204,8 +178,16 @@ export function usePipelineData({
   );
 
   return {
-    loadJobs,
-    loadPipelineStatus,
+    jobs: jobsQuery.data ?? [],
+    loading: jobsQuery.isLoading,
+    error: jobsQuery.error ? 'Failed to load pipeline jobs' : null,
+    actionLoading: activeActions,
+    pipelineStatus,
+    pipelineActionLoading,
+    pipelines: historyQuery.data ?? [],
+    historyLoading: historyQuery.isLoading && historyEnabled,
+    historyLoaded: historyEnabled && (historyQuery.isSuccess || historyQuery.isError),
+    refresh,
     loadHistory,
     handlePlayJob,
     handleRetryJob,

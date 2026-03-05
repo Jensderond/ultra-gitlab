@@ -54,8 +54,6 @@ export default function MRHeader({
           <ApprovalButton
             ref={approvalButtonRef}
             mrId={mrId}
-            projectId={mr.projectId}
-            mrIid={mr.iid}
             approvalStatus={mr.approvalStatus}
             approvalsCount={mr.approvalsCount ?? 0}
             approvalsRequired={mr.approvalsRequired ?? 1}

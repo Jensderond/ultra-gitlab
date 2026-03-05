@@ -44,7 +44,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   const [activityOpen, setActivityOpen] = useState(false);
   const [showSystemEvents, setShowSystemEvents] = useState(false);
   const [activityHeightVh, setActivityHeightVh] = useState(40);
-  const { threads: activityThreads, systemEvents: activitySystemEvents, unresolvedCount, currentUser: activityCurrentUser, loading: activityLoading, addComment: activityAddComment, replyToComment: activityReplyToComment, resolveDiscussion: activityResolveDiscussion, deleteComment: activityDeleteComment } = useActivityData(mrId);
+  const { threads: activityThreads, systemEvents: activitySystemEvents, unresolvedCount, currentUser: activityCurrentUser, loading: activityLoading, error: activityError, addComment: activityAddComment, replyToComment: activityReplyToComment, resolveDiscussion: activityResolveDiscussion, deleteComment: activityDeleteComment } = useActivityData(mrId);
   const [showCopyToast, copyToClipboard] = useCopyToast();
   const isSmallScreen = useSmallScreen();
   const [view, dispatch] = useViewReducer();
@@ -73,7 +73,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   // Wire up the stable ref so useMRData can call clearFileCache
   clearFileCacheRef.current = clearFileCache;
 
-  const { fileComments, addComment, removeComment } = useFileComments(mrId, view.selectedFile);
+  const { fileComments, removeComment, restoreComment } = useFileComments(mrId, view.selectedFile);
 
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   useEffect(() => {
@@ -88,9 +88,9 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     const toRestore = fileComments.find((c) => c.id === commentId);
     removeComment(commentId);
     deleteComment(mrId, commentId).catch(() => {
-      if (toRestore) addComment(toRestore);
+      if (toRestore) restoreComment(toRestore);
     });
-  }, [mrId, fileComments, removeComment, addComment]);
+  }, [mrId, fileComments, removeComment, restoreComment]);
 
   // Auto-select first reviewable file on initial load
   const appliedInitialRef = useRef(false);
@@ -275,7 +275,6 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         ref={commentOverlayRef}
         mrId={mrId}
         selectedFile={view.selectedFile}
-        onCommentAdded={addComment}
       />
 
       <ActivityDrawer
@@ -292,6 +291,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           systemEvents={activitySystemEvents}
           showSystemEvents={showSystemEvents}
           loading={activityLoading}
+          error={activityError}
           currentUser={activityCurrentUser}
           onReply={async (discussionId, parentId, body) => { await activityReplyToComment(discussionId, parentId, body); trackReplyPosted(mrId); }}
           onResolve={activityResolveDiscussion}

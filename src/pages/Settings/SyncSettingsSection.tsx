@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '../../services/tauri';
+import { useUpdateSyncSettingsMutation } from '../../hooks/queries/useUpdateSyncSettingsMutation';
 
 /** Sync configuration */
 interface SyncConfig {
@@ -30,8 +31,10 @@ const SYNC_INTERVALS = [
 export default function SyncSettingsSection() {
   const [syncSettings, setSyncSettings] = useState<SyncConfig | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const updateMutation = useUpdateSyncSettingsMutation();
+  const saving = updateMutation.isPending;
 
   useEffect(() => {
     loadSyncSettings();
@@ -55,17 +58,14 @@ export default function SyncSettingsSection() {
     }
   }
 
-  async function saveSyncSettings(newSettings: SyncConfig) {
-    try {
-      setSaving(true);
-      await invoke('update_sync_settings', { syncConfig: newSettings });
-      setSyncSettings(newSettings);
-    } catch (err) {
-      console.error('Failed to save sync settings:', err);
-      setError(err instanceof Error ? err.message : 'Failed to save settings');
-    } finally {
-      setSaving(false);
-    }
+  function saveSyncSettings(newSettings: SyncConfig) {
+    setSyncSettings(newSettings);
+    updateMutation.mutate(newSettings, {
+      onError: (err) => {
+        console.error('Failed to save sync settings:', err);
+        setError(err instanceof Error ? err.message : 'Failed to save settings');
+      },
+    });
   }
 
   function handleIntervalChange(e: React.ChangeEvent<HTMLSelectElement>) {

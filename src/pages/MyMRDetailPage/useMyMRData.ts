@@ -3,7 +3,12 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { getMergeRequest, getMrReviewers, getComments, getGitLabInstances, deleteComment as tauriDeleteComment } from '../../services/tauri';
+import { useQueryClient } from '@tanstack/react-query';
+import { getComments, deleteComment as tauriDeleteComment } from '../../services/tauri';
+import { useMRDetailQuery } from '../../hooks/queries/useMRDetailQuery';
+import { useMRReviewersQuery } from '../../hooks/queries/useMRReviewersQuery';
+import { useCurrentUserQuery } from '../../hooks/queries/useCurrentUserQuery';
+import { queryKeys } from '../../lib/queryKeys';
 import type { MergeRequest, MrReviewer, Comment, DeleteCommentRequest } from '../../types';
 
 export interface MyMRData {
@@ -21,42 +26,45 @@ export interface MyMRData {
 }
 
 export function useMyMRData(mrId: number): MyMRData {
-  const [mr, setMr] = useState<MergeRequest | null>(null);
-  const [reviewers, setReviewers] = useState<MrReviewer[]>([]);
+  const queryClient = useQueryClient();
+  const mrQuery = useMRDetailQuery(mrId);
+  const reviewersQuery = useMRReviewersQuery(mrId);
+
+  const mr = mrQuery.data ?? null;
+  const currentUserQuery = useCurrentUserQuery(mr?.instanceId ?? 0);
+
   const [comments, setComments] = useState<Comment[]>([]);
-  const [currentUser, setCurrentUser] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [commentsLoading, setCommentsLoading] = useState(true);
 
   useEffect(() => {
+    if (!mrId) return;
+    let cancelled = false;
     async function load() {
       try {
-        setLoading(true);
-        setError(null);
-        const [mrData, reviewerData, commentData, instances] = await Promise.all([
-          getMergeRequest(mrId),
-          getMrReviewers(mrId),
-          getComments(mrId),
-          getGitLabInstances(),
-        ]);
-        setMr(mrData);
-        setReviewers(reviewerData);
-        setComments(commentData);
-        const matchingInstance = instances.find((inst) => inst.id === mrData.instanceId);
-        setCurrentUser(matchingInstance?.authenticatedUsername ?? null);
+        setCommentsLoading(true);
+        const data = await getComments(mrId);
+        if (!cancelled) setComments(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load MR');
+        console.error('Failed to load comments:', err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setCommentsLoading(false);
       }
     }
-    if (mrId) load();
+    load();
+    return () => { cancelled = true; };
   }, [mrId]);
+
+  const setMr = useCallback((updater: React.SetStateAction<MergeRequest | null>) => {
+    queryClient.setQueryData(queryKeys.mr(mrId), (prev: MergeRequest | undefined) => {
+      if (!prev) return prev;
+      const newValue = typeof updater === 'function' ? updater(prev) : updater;
+      return newValue ?? undefined;
+    });
+  }, [queryClient, mrId]);
 
   const handleDeleteComment = useCallback(async (commentId: number) => {
     const request: DeleteCommentRequest = { mrId, commentId };
     await tauriDeleteComment(request);
-    // Refresh comments after deletion
     const updated = await getComments(mrId);
     setComments(updated);
   }, [mrId]);
@@ -77,11 +85,28 @@ export function useMyMRData(mrId: number): MyMRData {
     });
   }, [comments]);
 
+  const reviewers: MrReviewer[] = reviewersQuery.data ?? [];
   const unresolvedCount = threads.filter(
     t => t.some(c => c.discussionId) && !t.some(c => c.resolved)
   ).length;
-
   const approvedCount = reviewers.filter(r => r.status === 'approved').length;
 
-  return { mr, reviewers, comments, currentUser, loading, error, threads, unresolvedCount, approvedCount, handleDeleteComment, setMr };
+  const loading = mrQuery.isLoading || commentsLoading;
+  const error = mrQuery.error
+    ? (mrQuery.error instanceof Error ? mrQuery.error.message : 'Failed to load MR')
+    : null;
+
+  return {
+    mr,
+    setMr,
+    reviewers,
+    comments,
+    currentUser: currentUserQuery.data,
+    loading,
+    error,
+    threads,
+    unresolvedCount,
+    approvedCount,
+    handleDeleteComment,
+  };
 }

@@ -1,188 +1,84 @@
 {
   "project": "Ultra GitLab",
-  "branchName": "ralph/mr-activity-panel",
-  "description": "Add a bottom drawer activity panel to MRDetailPage showing all MR comments, discussion threads, and system events with full interaction support",
+  "branchName": "ralph/tanstack-query-refactor",
+  "description": "Refactor the Ultra GitLab frontend data layer to use TanStack Query v5. Replace all useEffect + useState data fetching with useQuery / useMutation / useQueries, eliminate redundant network calls through TQ cache deduplication, replace manual polling loops with refetchInterval, and surface errors consistently across the UI.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Create useActivityData hook for loading and grouping MR comments",
-      "description": "As a developer, I need a hook that fetches all comments for an MR and groups them into discussion threads and system events, so the activity drawer has structured data to render.",
-      "acceptanceCriteria": [
-        "Create src/hooks/useActivityData.ts hook that takes mrId (number) as parameter",
-        "Calls get_comments(mrId) via the existing tauri service to fetch all comments",
-        "Groups non-system comments by discussionId into threads (Comment[][]), standalone comments as single-item arrays",
-        "Separates system comments (system: true) into a separate systemEvents array",
-        "Sorts threads: unresolved first, then by creation time (oldest first)",
-        "Computes unresolvedCount: number of threads with a discussionId that are not resolved",
-        "Exposes addComment, replyToComment, resolveDiscussion, deleteComment mutation callbacks using existing tauri services",
-        "Mutations update local state optimistically (add to array, remove from array, toggle resolved)",
-        "Exposes loading and error states",
-        "Re-exports from src/hooks/index.ts (create if needed) or export directly",
-        "Typecheck passes (bunx tsc --noEmit)"
-      ],
+      "title": "Install TanStack Query and wire up QueryClientProvider",
+      "description": "As a developer, I need TanStack Query installed and a QueryClient configured so all subsequent hooks can use it.",
       "priority": 1,
-      "passes": true,
-      "notes": "Follow the pattern from useMyMRData.ts (src/pages/MyMRDetailPage/useMyMRData.ts) for thread grouping logic. Use existing service functions from src/services/tauri.ts: getComments, addComment, replyToComment, resolveDiscussion, deleteComment. Comment type from src/types/index.ts."
+      "passes": true
     },
     {
       "id": "US-002",
-      "title": "Create ActivityDrawer shell with open/close toggle and overlay positioning",
-      "description": "As a reviewer, I want to open/close an activity panel from the diff view so I can check discussions without navigating away.",
-      "acceptanceCriteria": [
-        "Create src/components/ActivityDrawer/ActivityDrawer.tsx component",
-        "Create src/components/ActivityDrawer/ActivityDrawer.css for styles",
-        "Create src/components/ActivityDrawer/index.ts barrel export",
-        "Drawer renders as a bottom overlay panel (position: fixed or absolute at bottom, z-index above diff content)",
-        "Drawer has open/closed state controlled via an isOpen prop and onToggle callback",
-        "Drawer slides up with CSS transition animation when opening",
-        "Default height ~40% of viewport, diff content stays full height underneath (overlay, not shrink)",
-        "Drawer has a header bar with title 'Activity' and a close button",
-        "Drawer content area is scrollable",
-        "Follow Kanagawa Wave theme: glassmorphism panel, muted background, existing color tokens from the codebase",
-        "Typecheck passes (bunx tsc --noEmit)",
-        "Playwright E2E test(s) pass for this story"
-      ],
+      "title": "Centralize Tauri event → cache invalidation",
+      "description": "As a developer, I need a single module that wires Tauri backend events to query invalidation so I don't maintain scattered tauriListen calls across multiple hooks.",
       "priority": 2,
-      "passes": true,
-      "notes": "Look at MRDetailPage.css and MyMRDetailPage.css for existing Kanagawa Wave theme patterns (glassmorphism, gradients, color variables). The drawer should overlay, NOT shrink the diff content. Add a toggle button in MRDetailPage footer or header area. Create e2e/activity-drawer.spec.ts for Playwright tests — follow patterns from e2e/mr-detail.spec.ts."
+      "passes": true
     },
     {
       "id": "US-003",
-      "title": "Add drag-to-resize handle on ActivityDrawer",
-      "description": "As a reviewer, I want to resize the activity drawer by dragging its top edge so I can adjust how much screen space it uses.",
-      "acceptanceCriteria": [
-        "Drag handle at the top edge of the drawer (visible as a small bar or grip indicator)",
-        "Mouse drag on the handle resizes the drawer height",
-        "Minimum height ~20% of viewport, maximum ~80%",
-        "Cursor changes to ns-resize when hovering over the drag handle",
-        "Drawer height persists within the session (useState, not across app restarts)",
-        "Typecheck passes (bunx tsc --noEmit)",
-        "Playwright E2E test(s) pass for this story"
-      ],
+      "title": "Migrate simple read-only queries (Phase 1)",
+      "description": "As a developer, I need simple, standalone queries for instances, settings, and companion status so I can remove duplicated useEffect fetches across pages.",
       "priority": 3,
-      "passes": true,
-      "notes": "Implement with mousedown/mousemove/mouseup event handlers on the drag handle. Calculate height from viewport height minus mouse Y position. Clamp between min/max. Store height in state."
+      "passes": true
     },
     {
       "id": "US-004",
-      "title": "Add Cmd+D keyboard shortcut and toggle button with unresolved badge",
-      "description": "As a reviewer, I want to toggle the activity drawer with Cmd+D and see the unresolved thread count on the toggle button.",
-      "acceptanceCriteria": [
-        "Cmd+D keyboard shortcut toggles the drawer open/closed in MRDetailPage",
-        "Shortcut does not fire when focus is in a text input or textarea",
-        "Toggle button in the MRDetailPage footer area opens/closes the drawer",
-        "Toggle button shows unresolved thread count as a badge (e.g., '3' or '(3)')",
-        "Badge hidden when count is 0",
-        "Typecheck passes (bunx tsc --noEmit)",
-        "Playwright E2E test(s) pass for this story"
-      ],
+      "title": "Migrate MR list and MR detail queries (Phase 2)",
+      "description": "As a developer, I need TQ-backed queries for MR lists and MR detail data so that navigating between MRs doesn't refetch data that's already cached.",
       "priority": 4,
-      "passes": true,
-      "notes": "Wire useActivityData hook into MRDetailPage to get unresolvedCount. Add keydown listener for Cmd+D (metaKey + 'd'). Check activeElement tagName to skip when in input/textarea. Follow existing keyboard shortcut patterns in the codebase (check useMRKeyboard.ts)."
+      "passes": true
     },
     {
       "id": "US-005",
-      "title": "Render discussion threads in activity feed",
-      "description": "As a reviewer, I want to see all discussion threads in the activity drawer so I can follow the review conversation.",
-      "acceptanceCriteria": [
-        "Activity feed renders inside ActivityDrawer scrollable content area",
-        "Each discussion thread shows: root comment author, relative timestamp, body, and all replies",
-        "Inline threads show file path and line number above the thread",
-        "Resolved threads are visually distinguished (muted/dimmed styling)",
-        "Threads ordered chronologically with unresolved threads first",
-        "Empty state message when no comments exist",
-        "Loading spinner while fetching comments",
-        "Typecheck passes (bunx tsc --noEmit)",
-        "Playwright E2E test(s) pass for this story"
-      ],
+      "title": "Replace file content dual-cache with TQ (Phase 3)",
+      "description": "As a user, I want file navigation between diff files to feel instant when I've already viewed them, and I want adjacent files to load in the background automatically.",
       "priority": 5,
-      "passes": true,
-      "notes": "Use threads from useActivityData. Each thread is Comment[][] — first item is root, rest are replies. Show comment.authorUsername, relative time from comment.createdAt (Unix timestamp), comment.body. For inline: comment.filePath and comment.newLine or comment.oldLine. Follow CommentsTab.tsx patterns for rendering."
+      "passes": true
     },
     {
       "id": "US-006",
-      "title": "Add system events display with show/hide toggle",
-      "description": "As a reviewer, I want to optionally see system events (approvals, merges) in the activity feed.",
-      "acceptanceCriteria": [
-        "System events rendered as compact, single-line entries with muted styling",
-        "System events hidden by default",
-        "'Show activity' toggle checkbox or switch in the drawer header",
-        "Toggle enables/disables system event visibility globally within the session",
-        "System events interleaved chronologically with comment threads when visible",
-        "Typecheck passes (bunx tsc --noEmit)",
-        "Playwright E2E test(s) pass for this story"
-      ],
+      "title": "Migrate comment mutations with optimistic updates (Phase 4)",
+      "description": "As a user, I want comments I post to appear immediately and remain visible as 'pending' until the backend confirms, and I want failed comments to disappear automatically.",
       "priority": 6,
-      "passes": true,
-      "notes": "System comments have system: true in the Comment type. They contain GitLab-generated messages like 'approved this merge request', 'merged'. Use systemEvents from useActivityData. Store showActivity toggle in useState."
+      "passes": true
     },
     {
       "id": "US-007",
-      "title": "Add general comment input to activity drawer",
-      "description": "As a reviewer, I want to post a general comment from the activity panel so I can leave overall feedback.",
-      "acceptanceCriteria": [
-        "Text input area at the bottom of the activity drawer (fixed, not scrolling with content)",
-        "Submit with Cmd+Enter or a send button",
-        "Comment appears immediately in the feed after submission (optimistic update)",
-        "Input clears after successful submission",
-        "Pending sync badge shown on newly added comment",
-        "Typecheck passes (bunx tsc --noEmit)",
-        "Playwright E2E test(s) pass for this story"
-      ],
+      "title": "Replace pipeline polling with TQ refetchInterval (Phase 5)",
+      "description": "As a user, I want the pipeline dashboard and job log to update automatically while jobs are running, and stop polling when they complete, without manual intervention.",
       "priority": 7,
-      "passes": true,
-      "notes": "Use the addComment mutation from useActivityData which calls the existing add_comment Tauri command with just mrId and body (no filePath/line). Optimistic update: insert with negative ID and syncStatus 'pending'. Follow CommentOverlay.tsx patterns for the textarea and Cmd+Enter handling."
+      "passes": true
     },
     {
       "id": "US-008",
-      "title": "Add reply to thread functionality",
-      "description": "As a reviewer, I want to reply to an existing discussion thread from the activity panel.",
-      "acceptanceCriteria": [
-        "Each thread has a 'Reply' button that expands an inline text input below the thread",
-        "Reply submitted with Cmd+Enter or send button",
-        "Reply appears immediately in the thread (optimistic update)",
-        "Only one reply input open at a time (opening a new one closes the previous)",
-        "Reply input auto-focuses when opened",
-        "Typecheck passes (bunx tsc --noEmit)",
-        "Playwright E2E test(s) pass for this story"
-      ],
+      "title": "Migrate file comments and CommentOverlay (Phase 6)",
+      "description": "As a developer, I need inline file comments to go through TQ mutations so the cache stays consistent between the file comment and activity views.",
       "priority": 8,
-      "passes": true,
-      "notes": "Use replyToComment mutation from useActivityData which calls reply_to_comment Tauri command with mrId, discussionId, parentId, and body. Track replyingToDiscussionId in state to manage which thread has the reply input open."
+      "passes": true
     },
     {
       "id": "US-009",
-      "title": "Add resolve/unresolve and delete comment actions",
-      "description": "As a reviewer, I want to resolve discussions and delete my own comments from the activity panel.",
-      "acceptanceCriteria": [
-        "Resolve/Unresolve button on each discussion thread (threads with a discussionId, not standalone comments)",
-        "Toggling resolution updates all comments in the thread immediately (optimistic)",
-        "Resolved threads visually collapse or dim after toggling",
-        "Delete button (trash icon) shown only on comments authored by the current user",
-        "Confirmation prompt before deletion",
-        "Comment removed from feed immediately after confirmation (optimistic)",
-        "Typecheck passes (bunx tsc --noEmit)",
-        "Playwright E2E test(s) pass for this story"
-      ],
+      "title": "Migrate approval mutations and finalize settings (Phase 7)",
+      "description": "As a developer, I need approval actions and settings saves to go through TQ so the UI stays consistent without manual cache management.",
       "priority": 9,
-      "passes": true,
-      "notes": "Use resolveDiscussion and deleteComment mutations from useActivityData. Current user available from useActivityData or fetched separately (check how MRDetailPage gets currentUser). For delete confirmation, use window.confirm() or a simple modal. Check comment.authorUsername === currentUser to show delete button."
+      "passes": true
     },
     {
       "id": "US-010",
-      "title": "Add sync status indicators to comments",
-      "description": "As a reviewer, I want to see which comments are pending sync or failed so I know what GitLab has received.",
-      "acceptanceCriteria": [
-        "Pending comments show a subtle pending indicator (e.g., clock icon or 'Pending' text, muted)",
-        "Failed syncs show a warning indicator (e.g., warning icon or 'Failed' text, red/orange)",
-        "Synced comments show no special indicator (clean, default state)",
-        "Indicators based on comment.syncStatus field ('pending', 'failed', 'synced', null)",
-        "Typecheck passes (bunx tsc --noEmit)",
-        "Playwright E2E test(s) pass for this story"
-      ],
+      "title": "Consistent error state surface",
+      "description": "As a user, I want to see a clear error message when data fails to load instead of silently empty states.",
       "priority": 10,
-      "passes": true,
-      "notes": "The Comment type has syncStatus: SyncStatus | null where SyncStatus = 'synced' | 'pending' | 'failed' | 'discarded'. Show indicator for 'pending' and 'failed' only. Follow existing sync badge patterns — check how CommentThread.tsx in src/components/CommentPanel/ handles this."
+      "passes": true
+    },
+    {
+      "id": "US-011",
+      "title": "Browser verification pass across all major flows",
+      "description": "As a developer, I want to run through all major UI flows in the browser after the refactor is complete so that I can confirm loading states, data display, and interactions still work correctly end-to-end.",
+      "priority": 11,
+      "passes": true
     }
   ]
 }

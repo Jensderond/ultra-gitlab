@@ -6,12 +6,14 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { MRList } from '../components/MRList';
-import { listInstances, type GitLabInstanceWithStatus } from '../services/gitlab';
 import type { MergeRequest } from '../types';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { useListSearch } from '../hooks/useListSearch';
 import SearchBar from '../components/SearchBar/SearchBar';
+import { useInstancesQuery } from '../hooks/queries/useInstancesQuery';
+import { queryKeys } from '../lib/queryKeys';
 import './MRListPage.css';
 
 /**
@@ -20,11 +22,12 @@ import './MRListPage.css';
 export default function MRListPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [instances, setInstances] = useState<GitLabInstanceWithStatus[]>([]);
+  const queryClient = useQueryClient();
+  const instancesQuery = useInstancesQuery();
+  const instances = instancesQuery.data ?? [];
+  const loading = instancesQuery.isLoading;
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
   const [mrs, setMrs] = useState<MergeRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showApproved, setShowApproved] = useState(false);
 
   // Shift+H toggles approved MR visibility
@@ -61,26 +64,12 @@ export default function MRListPage() {
     setFilteredCounts(counts);
   }, []);
 
-  // Load instances on mount
+  // Auto-select first instance when instances load
   useEffect(() => {
-    async function loadInstances() {
-      try {
-        const data = await listInstances();
-        setInstances(data);
-
-        // Auto-select first instance if available
-        if (data.length > 0 && !selectedInstanceId) {
-          setSelectedInstanceId(data[0].id);
-        }
-      } catch (error) {
-        console.error('Failed to load instances:', error);
-      } finally {
-        setLoading(false);
-      }
+    if (instances.length > 0 && !selectedInstanceId) {
+      setSelectedInstanceId(instances[0].id);
     }
-    loadInstances();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [instances, selectedInstanceId]);
 
   // Sync MRs from MRList component (for keyboard navigation)
   const handleMRsLoaded = useCallback((loadedMrs: MergeRequest[]) => {
@@ -179,7 +168,7 @@ export default function MRListPage() {
           <h1>Merge Requests</h1>
           <button
             className="refresh-button"
-            onClick={() => setRefreshTrigger(t => t + 1)}
+            onClick={() => selectedInstanceId != null && queryClient.invalidateQueries({ queryKey: queryKeys.mrList(String(selectedInstanceId)) })}
             aria-label="Refresh merge requests"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -210,7 +199,7 @@ export default function MRListPage() {
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 11l3 3L22 4" />
-                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1 2-2h11" />
               </svg>
               <span className="approved-toggle-popover">
                 <span className="approved-toggle-popover-shortcut"><kbd>Shift</kbd>+<kbd>H</kbd></span>
@@ -241,7 +230,6 @@ export default function MRListPage() {
             focusIndex={focusIndex}
             onFocusChange={setFocusIndex}
             onMRsLoaded={handleMRsLoaded}
-            refreshTrigger={refreshTrigger}
             filterQuery={isSearchOpen ? query : undefined}
             onFilteredCountChange={handleFilteredCountChange}
             showApproved={showApproved}

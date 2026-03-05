@@ -16,6 +16,7 @@ interface ActivityFeedProps {
   systemEvents: Comment[];
   showSystemEvents: boolean;
   loading: boolean;
+  error?: string | null;
   currentUser?: string | null;
   onReply?: (discussionId: string, parentId: number, body: string) => Promise<void>;
   onResolve?: (discussionId: string, resolved: boolean) => Promise<void>;
@@ -251,7 +252,7 @@ function SystemEventEntry({ event }: { event: Comment }) {
   );
 }
 
-export default function ActivityFeed({ threads, systemEvents, showSystemEvents, loading, currentUser, onReply, onResolve, onDelete }: ActivityFeedProps) {
+export default function ActivityFeed({ threads, systemEvents, showSystemEvents, loading, error, currentUser, onReply, onResolve, onDelete }: ActivityFeedProps) {
   const [replyingToThreadRootId, setReplyingToThreadRootId] = useState<number | null>(null);
 
   const feedItems = useMemo((): FeedItem[] => {
@@ -282,6 +283,14 @@ export default function ActivityFeed({ threads, systemEvents, showSystemEvents, 
       <div className="activity-feed__loading" data-testid="activity-feed-loading">
         <div className="activity-feed__spinner" />
         Loading comments...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="activity-feed__error" data-testid="activity-feed-error">
+        {error}
       </div>
     );
   }

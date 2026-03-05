@@ -5,8 +5,7 @@
  */
 
 import { useState, useCallback, useRef, forwardRef, useImperativeHandle, useEffect } from 'react';
-import { invoke } from '../services/tauri';
-import type { AddCommentRequest } from '../types';
+import { useAddInlineCommentMutation } from '../hooks/queries/useAddInlineCommentMutation';
 import type { LineComment } from './PierreDiffViewer/PierreDiffViewer';
 
 export interface CursorPosition {
@@ -23,12 +22,6 @@ export interface LineSelection {
   text: string;
 }
 
-interface CommentResponse {
-  id: number;
-  authorUsername: string;
-  createdAt: number;
-}
-
 export interface CommentOverlayRef {
   isVisible: () => boolean;
   open: (position: CursorPosition, selection: LineSelection | null, initialText?: string) => void;
@@ -38,7 +31,7 @@ export interface CommentOverlayRef {
 interface CommentOverlayProps {
   mrId: number;
   selectedFile: string | null;
-  onCommentAdded: (comment: LineComment) => void;
+  onCommentAdded?: (comment: LineComment) => void;
 }
 
 interface CommentState {
@@ -46,7 +39,6 @@ interface CommentState {
   position: CursorPosition | null;
   selection: LineSelection | null;
   text: string;
-  submitting: boolean;
 }
 
 const EMPTY_STATE: CommentState = {
@@ -54,7 +46,6 @@ const EMPTY_STATE: CommentState = {
   position: null,
   selection: null,
   text: '',
-  submitting: false,
 };
 
 export const CommentOverlay = forwardRef<CommentOverlayRef, CommentOverlayProps>(
@@ -66,45 +57,44 @@ export const CommentOverlay = forwardRef<CommentOverlayRef, CommentOverlayProps>
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const submitRef = useRef<() => void>(() => {});
 
+    const { mutate: addInlineComment, isPending: submitting } = useAddInlineCommentMutation(mrId);
+
     const close = useCallback(() => {
       visibleRef.current = false;
       setState(EMPTY_STATE);
     }, []);
 
-    const submit = useCallback(async () => {
+    const submit = useCallback(() => {
       const { text, position } = stateRef.current;
       if (!text.trim() || !selectedFile || !position) return;
 
-      setState((prev) => ({ ...prev, submitting: true }));
+      const request = {
+        mrId,
+        body: text.trim(),
+        filePath: selectedFile,
+        ...(position.isOriginal
+          ? { oldLine: position.line }
+          : { newLine: position.line }),
+        ...(position.isContext && { isContextLine: true }),
+      };
 
-      try {
-        const request: AddCommentRequest = {
-          mrId,
-          body: text.trim(),
-          filePath: selectedFile,
-          ...(position.isOriginal
-            ? { oldLine: position.line }
-            : { newLine: position.line }),
-          ...(position.isContext && { isContextLine: true }),
-        };
-
-        const response = await invoke<CommentResponse>('add_comment', { input: request });
-
-        onCommentAdded({
-          id: response.id,
-          line: position.line,
-          isOldLine: position.isOriginal,
-          authorUsername: response.authorUsername,
-          body: text.trim(),
-          createdAt: response.createdAt,
-        });
-
-        close();
-      } catch (err) {
-        console.error('Failed to add comment:', err);
-        setState((prev) => ({ ...prev, submitting: false }));
-      }
-    }, [selectedFile, mrId, onCommentAdded, close]);
+      addInlineComment(request, {
+        onSuccess: (response) => {
+          onCommentAdded?.({
+            id: response.id,
+            line: position.line,
+            isOldLine: position.isOriginal,
+            authorUsername: response.authorUsername,
+            body: text.trim(),
+            createdAt: response.createdAt,
+          });
+          close();
+        },
+        onError: (err) => {
+          console.error('Failed to add comment:', err);
+        },
+      });
+    }, [selectedFile, mrId, addInlineComment, onCommentAdded, close]);
 
     submitRef.current = submit;
 
@@ -117,7 +107,6 @@ export const CommentOverlay = forwardRef<CommentOverlayRef, CommentOverlayProps>
           position,
           selection,
           text: initialText,
-          submitting: false,
         });
       },
       close,
@@ -189,7 +178,7 @@ export const CommentOverlay = forwardRef<CommentOverlayRef, CommentOverlayProps>
                 }
               }}
               placeholder="Write a comment... (Markdown supported)"
-              disabled={state.submitting}
+              disabled={submitting}
               rows={8}
             />
           </div>
@@ -200,9 +189,9 @@ export const CommentOverlay = forwardRef<CommentOverlayRef, CommentOverlayProps>
             <button
               className="comment-input-submit"
               onClick={submit}
-              disabled={!state.text.trim() || state.submitting}
+              disabled={!state.text.trim() || submitting}
             >
-              {state.submitting ? 'Submitting...' : 'Add Comment'}
+              {submitting ? 'Submitting...' : 'Add Comment'}
             </button>
           </div>
         </div>

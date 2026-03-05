@@ -303,6 +303,13 @@ export async function getComments(mrId: number): Promise<Comment[]> {
 }
 
 /**
+ * Get inline comments for a specific file in a merge request.
+ */
+export async function getFileComments(mrId: number, filePath: string): Promise<Comment[]> {
+  return invoke<Comment[]>('get_file_comments', { mrId, filePath });
+}
+
+/**
  * Add a new comment to a merge request.
  */
 export async function addComment(request: AddCommentRequest): Promise<Comment> {

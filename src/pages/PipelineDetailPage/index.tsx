@@ -5,7 +5,7 @@
  * with the ability to trigger manual jobs, retry failed jobs, and cancel running jobs.
  */
 
-import { useState, useEffect, useReducer, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import TabBar from '../../components/TabBar';
 import { openExternalUrl } from '../../services/transport';
@@ -13,7 +13,6 @@ import type { PipelineStatus } from '../../types';
 import PipelineHeader from './PipelineHeader';
 import JobsTab from './JobsTab';
 import HistoryTab from './HistoryTab';
-import { pipelineDetailReducer, initialState } from './pipelineDetailReducer';
 import { usePipelineData } from './usePipelineData';
 import { groupJobsByStage } from './utils';
 import { trackPipelineHistoryTabOpened, trackPipelineHistorySelected, trackShortcut } from '../../services/analytics';
@@ -34,11 +33,18 @@ export default function PipelineDetailPage() {
   const plid = Number(pipelineId);
 
   const [activeTab, setActiveTab] = useState<TabId>('jobs');
-  const [state, dispatch] = useReducer(pipelineDetailReducer, initialState);
 
   const {
-    loadJobs,
-    loadPipelineStatus,
+    jobs,
+    loading,
+    error,
+    actionLoading,
+    pipelineStatus,
+    pipelineActionLoading,
+    pipelines,
+    historyLoading,
+    historyLoaded,
+    refresh,
     loadHistory,
     handlePlayJob,
     handleRetryJob,
@@ -49,8 +55,6 @@ export default function PipelineDetailPage() {
     instanceId,
     projectId: pid,
     pipelineId: plid,
-    state,
-    dispatch,
   });
 
   // Switch to jobs tab when navigating to a different pipeline (e.g. from history)
@@ -117,22 +121,17 @@ export default function PipelineDetailPage() {
     [handleNavigateToJob, navigate, projectName, pipelineRef, pipelineWebUrl]
   );
 
-  const handleRefresh = useCallback(() => {
-    loadJobs();
-    loadPipelineStatus();
-  }, [loadJobs, loadPipelineStatus]);
-
-  const stages = groupJobsByStage(state.jobs);
+  const stages = groupJobsByStage(jobs);
 
   return (
     <div className="pipeline-detail-page">
       <PipelineHeader
         pipelineId={plid}
-        pipelineStatus={state.pipelineStatus}
+        pipelineStatus={pipelineStatus}
         projectName={projectName}
         pipelineRef={pipelineRef}
         pipelineWebUrl={pipelineWebUrl}
-        onRefresh={handleRefresh}
+        onRefresh={refresh}
       />
 
       <TabBar<TabId>
@@ -150,10 +149,10 @@ export default function PipelineDetailPage() {
       {activeTab === 'jobs' && (
         <JobsTab
           stages={stages}
-          jobs={state.jobs}
-          loading={state.loading}
-          error={state.error}
-          actionLoading={state.actionLoading}
+          jobs={jobs}
+          loading={loading}
+          error={error}
+          actionLoading={actionLoading}
           onPlay={handlePlayJob}
           onRetry={handleRetryJob}
           onCancel={handleCancelJob}
@@ -163,13 +162,13 @@ export default function PipelineDetailPage() {
 
       {activeTab === 'history' && (
         <HistoryTab
-          pipelines={state.pipelines}
-          historyLoading={state.historyLoading}
-          historyLoaded={state.historyLoaded}
+          pipelines={pipelines}
+          historyLoading={historyLoading}
+          historyLoaded={historyLoaded}
           currentPipelineId={plid}
           onOpenPipeline={handleOpenPipeline}
           onCancelPipeline={handleCancelPipeline}
-          pipelineActionLoading={state.pipelineActionLoading}
+          pipelineActionLoading={pipelineActionLoading}
         />
       )}
     </div>

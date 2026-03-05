@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback, forwardRef, useImperativeHandle } from 'react';
-import { invoke } from '../../services/tauri';
+import { useApproveMRMutation } from '../../hooks/queries/useApproveMRMutation';
 import './ApprovalButton.css';
 
 /** Methods exposed via ref */
@@ -17,10 +17,6 @@ export interface ApprovalButtonRef {
 interface ApprovalButtonProps {
   /** Merge request ID */
   mrId: number;
-  /** Project ID for API calls */
-  projectId: number;
-  /** MR IID for API calls */
-  mrIid: number;
   /** Current approval status */
   approvalStatus: 'approved' | 'pending' | 'changes_requested' | null;
   /** Current number of approvals */
@@ -38,8 +34,6 @@ interface ApprovalButtonProps {
  */
 const ApprovalButton = forwardRef<ApprovalButtonRef, ApprovalButtonProps>(function ApprovalButton({
   mrId,
-  projectId,
-  mrIid,
   approvalStatus,
   approvalsCount,
   approvalsRequired,
@@ -48,14 +42,14 @@ const ApprovalButton = forwardRef<ApprovalButtonRef, ApprovalButtonProps>(functi
 }, ref) {
   const [isApproved, setIsApproved] = useState(hasApproved);
   const [count, setCount] = useState(approvalsCount);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Handle approve/unapprove
-  const handleClick = useCallback(async (trigger: 'button' | 'keyboard' = 'button') => {
-    if (isSubmitting) return;
+  const { approve, unapprove } = useApproveMRMutation(mrId);
+  const isSubmitting = approve.isPending || unapprove.isPending;
 
-    setIsSubmitting(true);
+  // Handle approve/unapprove
+  const handleClick = useCallback((trigger: 'button' | 'keyboard' = 'button') => {
+    if (isSubmitting) return;
     setError(null);
 
     // Optimistic update
@@ -65,22 +59,17 @@ const ApprovalButton = forwardRef<ApprovalButtonRef, ApprovalButtonProps>(functi
     setCount(newCount);
     onApprovalChange?.(newApproved, newCount, trigger);
 
-    try {
-      if (newApproved) {
-        await invoke('approve_mr', { mrId });
-      } else {
-        await invoke('unapprove_mr', { mrId });
-      }
-    } catch (err) {
-      // Rollback on error
-      setIsApproved(isApproved);
-      setCount(count);
-      onApprovalChange?.(isApproved, count, trigger);
-      setError(err instanceof Error ? err.message : 'Failed to update approval');
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [isApproved, count, isSubmitting, mrId, projectId, mrIid, onApprovalChange]);
+    const mutation = newApproved ? approve : unapprove;
+    mutation.mutate(undefined, {
+      onError: (err) => {
+        // Rollback on error
+        setIsApproved(isApproved);
+        setCount(count);
+        onApprovalChange?.(isApproved, count, trigger);
+        setError(err instanceof Error ? err.message : 'Failed to update approval');
+      },
+    });
+  }, [isApproved, count, isSubmitting, approve, unapprove, onApprovalChange]);
 
   // Expose toggle method via ref
   useImperativeHandle(ref, () => ({

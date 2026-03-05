@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { getCompanionSettings, getCompanionQrSvg, updateCompanionSettings, regenerateCompanionPin, revokeCompanionDevice, startCompanionServer, stopCompanionServer } from '../../services/tauri';
 import type { CompanionServerSettings } from '../../types';
 import { useToast } from '../../components/Toast';
-import { COMPANION_STATUS_CHANGED } from '../../hooks/useCompanionStatus';
+import { queryKeys } from '../../lib/queryKeys';
 import CompanionActivePanel from './CompanionActivePanel';
 
 /**
@@ -11,6 +12,7 @@ import CompanionActivePanel from './CompanionActivePanel';
  */
 export default function CompanionServerSection() {
   const { addToast } = useToast();
+  const queryClient = useQueryClient();
   const [settings, setSettings] = useState<CompanionServerSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -67,7 +69,7 @@ export default function CompanionServerSection() {
       }
       setSettings(updated);
       refreshQrSvg(updated);
-      window.dispatchEvent(new Event(COMPANION_STATUS_CHANGED));
+      queryClient.invalidateQueries({ queryKey: queryKeys.companionStatus() });
     } catch (err) {
       console.error('Failed to toggle companion server:', err);
       addToast({ type: 'info', title: 'Error', body: err instanceof Error ? err.message : 'Failed to toggle server' });

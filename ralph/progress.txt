@@ -1,222 +1,116 @@
 ## Codebase Patterns
-- Settings use `tauri-plugin-store` (JSON file), not SQLite. Add new fields by: adding store key const, load block in `load_settings()`, set call in `save_settings()`, field in `AppSettings` struct + Default impl.
-- New command files in `src-tauri/src/commands/` need 3 registrations: pub mod + pub use in `mod.rs`, import + generate_handler! in `lib.rs`.
-- Use `pub(crate)` visibility for helper functions shared between command modules (e.g., `load_settings`, `save_settings`, `settings_cache`).
-- `#[serde(rename_all = "camelCase")]` on all DTOs sent to frontend.
-- `AppError` has convenience constructors like `invalid_input_field()`, `not_found_with_id()`, etc.
-- Transport layer: `src/services/transport.ts` detects Tauri vs browser via `window.__TAURI_INTERNALS__`. `tauri.ts` uses `transportInvoke` instead of direct `@tauri-apps/api` invoke.
-- All `@tauri-apps/` imports should be dynamic — any new feature using Tauri APIs must follow this pattern.
-- Package manager: bun (not npm/yarn). Typecheck: `bunx tsc --noEmit`.
-- Pierre diffs: Worker pool controls theme/tokenizeMaxLineLength. Vite worker uses `?worker&url` import suffix.
-- Pierre renders `<diffs-container>` custom element with Shadow DOM — scope Playwright selectors accordingly.
-- Playwright: use `.mr-detail-sidebar` to scope file list selectors; use `{ exact: true }` for `getByText()`.
-- Two diff viewer consumers: `MRDetailPage/MRDiffContent.tsx` and `MyMRDetailPage/CodeTab.tsx`.
-- Playwright tests use mock data from `e2e/fixtures/seed-data.ts` and `e2e/fixtures/tauri-mock.ts` — no real Tauri backend needed.
-- Test base fixture at `e2e/fixtures/test-base.ts` provides the standard test setup.
-- Follow patterns in existing specs (e.g., `e2e/mr-detail.spec.ts`) for navigating to pages.
-- Comment types in `src/types/index.ts`: Comment, AddCommentRequest, ReplyToCommentRequest, ResolveDiscussionRequest, DeleteCommentRequest.
-- Service wrappers in `src/services/tauri.ts`: getComments, addComment, replyToComment, resolveDiscussion, deleteComment.
-- High-level API in `src/services/gitlab.ts`: listComments, addGeneralComment, addInlineComment, deleteComment.
-- Thread grouping pattern in `src/pages/MyMRDetailPage/useMyMRData.ts`: groups by discussionId, sorts unresolved first.
-- Existing unused CommentPanel components in `src/components/CommentPanel/` — available for reference but not recommended for reuse.
-- MRDetailPage uses Kanagawa Wave theme with glassmorphism, gradients, and wave animations.
-- MRDetailPage footer shows keyboard shortcuts hint — toggle button should be added here.
-- ActivityDrawer z-index must be below footer/header (z-index: 10) to avoid pointer interception. Use z-index: 9.
-- Fixed overlays that sit at bottom: 0 will cover the footer — offset with `bottom: 49px` (footer height).
-- MRDetailPage footer now has `display: flex; justify-content: space-between` to accommodate the activity toggle button.
-- ActivityDrawer height controlled via inline style `height: Xvh` (useState). Default 40vh, min 20vh, max 80vh. Drag handle at top edge.
-- ActivityFeed component at `src/components/ActivityDrawer/ActivityFeed.tsx` — takes `threads` and `loading` props, renders ThreadCard per thread.
-- Seed data for MR 101 now includes: 4 unresolved threads, 1 resolved thread, 2 system events, 1 reply, 1 pending sync comment, 1 standalone comment.
-- ActivityDrawer receives content via `children` prop — MRDetailPage passes `<ActivityFeed>` as children. Fixed-bottom content (CommentInput) goes in `footer` prop.
-- ActivityDrawer CSS: `left: 56px` to offset for sidebar (56px wide, z-index: 100). Without this, sidebar intercepts pointer events on drawer content.
-- When tracking "which thread is active" by state, never use `discussionId` (can be null for standalone comments causing `null === null` matches). Use the root comment `id` instead.
-- Resolving/unresolving threads causes `useMemo` re-sort in `useActivityData` — resolved threads move to end. Playwright tests should not assert position of the same locator after resolve; check count instead.
-- `currentUser` available from `useActivityData.currentUser` — avoid duplicate fetch in consumers.
+- Package manager: bun. Typecheck: `bunx tsc --noEmit`.
+- TanStack Query v5: `refetchInterval` callback receives `query` object (`query.state.data`), not raw data.
+- All query hooks in `src/hooks/queries/` follow single-responsibility pattern (one file per query).
+- `queryKeys.ts` at `src/lib/queryKeys.ts` — add new keys here before creating query hooks.
+- `queryClient.ts` at `src/lib/queryClient.ts` — singleton QueryClient with global defaults.
+- TQ v5 object filter syntax for invalidation: `{ queryKey: [...] }` not legacy array shorthand.
+- `usePipelineStatusesQuery` key includes `projectIds[]` — call `removeQueries({ queryKey: ['pipelineStatuses'] })` when project list changes to remove orphaned entries.
+- Reducers in `PipelinesPage/` and `PipelineDetailPage/` dropped — replaced with TQ queries + `useState`.
 
 ---
 
-## 2026-02-21 - US-001
-- Implemented `useActivityData` hook at `src/hooks/useActivityData.ts`
-- Fetches comments via `getComments(mrId)` and current user via `getGitLabInstances()`
-- Groups non-system comments by `discussionId` into `Comment[][]` threads
-- Separates system comments into `systemEvents` array sorted by creation time
-- Sorts threads: unresolved first, then by oldest first
-- Computes `unresolvedCount` for threads with a `discussionId` that aren't resolved
-- Exposes `addComment`, `replyToComment`, `resolveDiscussion`, `deleteComment` with optimistic updates
-- On mutation failure, rolls back optimistic state
-- Files changed: `src/hooks/useActivityData.ts` (new)
-- **Learnings for future iterations:**
-  - No barrel `index.ts` in `src/hooks/` — hooks are imported directly by path
-  - Thread grouping logic follows same pattern as `useMyMRData.ts` — reuses `discussionId ?? standalone-${id}` key pattern
-  - Current user obtained from `getGitLabInstances()[0].authenticatedUsername`
-  - Optimistic IDs use `-Date.now()` to avoid collision with real IDs
+## 2026-03-05 - US-001
+- Installed `@tanstack/react-query` and `@tanstack/react-query-devtools` via `bun add`
+- Created `src/lib/queryClient.ts` with global defaults: staleTime 30s, gcTime 5min, retry 1, refetchOnWindowFocus true, mutations.retry 0
+- Created `src/lib/queryKeys.ts` with type-safe key factory for all entity types
+- Updated `src/main.tsx` to wrap App in QueryClientProvider and render ReactQueryDevtools in DEV only
+- Called `setupTauriEventListeners()` in `src/main.tsx`
+- Files changed: `package.json`, `src/lib/queryClient.ts` (new), `src/lib/queryKeys.ts` (new), `src/main.tsx`
 ---
 
-## 2026-02-21 - US-002
-- Created `ActivityDrawer` component at `src/components/ActivityDrawer/`
-  - `ActivityDrawer.tsx`: bottom overlay panel with open/close state, header with title and close button, scrollable content area
-  - `ActivityDrawer.css`: Kanagawa Wave glassmorphism theme, slide-up CSS transition, custom scrollbar
-  - `index.ts`: barrel export
-- Integrated into `MRDetailPage/index.tsx`: added `activityOpen` state, ActivityDrawer component, and toggle button in footer
-- Added `activity-toggle-btn` styles to `MRDetailPage.css`, made footer flex with space-between
-- Created `e2e/activity-drawer.spec.ts` with 7 tests covering: hidden by default, toggle open/close, close button, title, scrollable content, overlay (no shrink), CSS transition
-- Files changed: `src/components/ActivityDrawer/ActivityDrawer.tsx` (new), `src/components/ActivityDrawer/ActivityDrawer.css` (new), `src/components/ActivityDrawer/index.ts` (new), `src/pages/MRDetailPage/index.tsx` (modified), `src/pages/MRDetailPage.css` (modified), `e2e/activity-drawer.spec.ts` (new)
-- **Learnings for future iterations:**
-  - Drawer z-index must be < 10 (footer/header z-index) to avoid intercepting pointer events on footer buttons
-  - Use `bottom: 49px` to position drawer above the footer (14px padding * 2 + ~21px text height)
-  - Playwright fails with "subtree intercepts pointer events" when an overlay covers the click target — fix layout z-stacking, don't use `{ force: true }`
-  - Footer was not flex before — added `display: flex; justify-content: space-between` to accommodate toggle button alongside keyboard hints
-  - Component barrel exports follow `export { default as ComponentName }` pattern
+## 2026-03-05 - US-002
+- Created `src/lib/tauriEvents.ts` with `setupTauriEventListeners()` and singleton guard
+- `mr-updated` handler debounces 500ms and invalidates MR-related query keys
+- `action-synced` handler dispatches by action_type to invalidate appropriate keys
+- Files changed: `src/lib/tauriEvents.ts` (new), `src/main.tsx`
 ---
 
-## 2026-02-21 - US-003
-- Added drag-to-resize handle to `ActivityDrawer` component
-  - Visual grip indicator (4px rounded bar) at the top edge of the drawer
-  - Mouse drag on handle resizes drawer height, clamped between 20vh and 80vh
-  - Default height 40vh, persists within session (useState)
-  - `ns-resize` cursor on hover, body cursor override during drag
-- Updated `ActivityDrawer.css` with drag handle and grip styles
-- Added 5 new Playwright tests: handle visibility, grip indicator, drag resize, min/max clamping, session persistence
-- Files changed: `src/components/ActivityDrawer/ActivityDrawer.tsx` (modified), `src/components/ActivityDrawer/ActivityDrawer.css` (modified), `e2e/activity-drawer.spec.ts` (modified)
-- **Learnings for future iterations:**
-  - When computing height in `vh` from mouse position, divide by `window.innerHeight` (not `availableHeight`) since vh is a percentage of the full viewport
-  - Footer height is 49px — subtract from mouse-to-bottom calculation for accurate drawer sizing
-  - Use `document.body.style.userSelect = 'none'` during drag to prevent text selection
-  - Playwright mouse drag: use `page.mouse.move(x, y, { steps: 5 })` for reliable drag simulation
-  - Height set via inline style overrides CSS `height` — removed hardcoded `40vh` from CSS
+## 2026-03-05 - US-003
+- Created query hooks in `src/hooks/queries/`: useInstancesQuery, useCurrentUserQuery, useSettingsQuery, useCollapsePatternsQuery, useGitattributesQuery, useCompanionStatusQuery, useHasApprovedMRsQuery
+- Deleted `src/hooks/useCompanionStatus.ts` and `src/hooks/useHasApprovedMRs.ts`
+- Updated consumers: MRListPage, MyMRsPage, App.tsx, Settings sections
+- Files changed: 7 new query hook files, 2 deleted hook files, multiple consumer updates
 ---
 
-## 2026-02-21 - US-004
-- Wired `useActivityData(mrId)` into `MRDetailPage/index.tsx` for `unresolvedCount`
-- Added Cmd+D keyboard shortcut via `useEffect` with `keydown` listener checking `e.metaKey && e.key === 'd'`
-- Shortcut skips when `e.target` tagName is INPUT or TEXTAREA
-- Added unresolved badge (`<span className="activity-badge">`) to activity toggle button, hidden when count is 0
-- Added `.activity-badge` CSS styles in `MRDetailPage.css` (pill badge using `var(--accent-color)`)
-- Added 4 new Playwright tests: Cmd+D toggle, Cmd+D skip in input, badge shows count, badge hidden when 0
-- Files changed: `src/pages/MRDetailPage/index.tsx` (modified), `src/pages/MRDetailPage.css` (modified), `e2e/activity-drawer.spec.ts` (modified)
-- **Learnings for future iterations:**
-  - Cmd+D (meta key shortcuts) should be handled separately from `useMRKeyboard` which only handles single-key shortcuts
-  - The pre-existing drag resize test is flaky — sometimes returns exact same height due to race conditions
-  - Seed data for MR 101 has 4 unique discussionIds, all unresolved — `unresolvedCount` = 4
-  - For testing "badge hidden when 0", navigate to a non-existent MR (e.g., /mrs/999) which returns empty comments
+## 2026-03-05 - US-004
+- Created query hooks: useMRListQuery, useMyMRListQuery, useMRDetailQuery, useDiffFilesQuery, useDiffRefsQuery, useMRReviewersQuery
+- Refactored useMRData.ts and useMyMRData.ts to compose TQ queries
+- Slimmed MRList.tsx reducer to UI-only state
+- Files changed: 6 new query hooks, useMRData.ts, useMyMRData.ts, MRList.tsx, MRDetailPage/index.tsx
 ---
 
-## 2026-02-21 - US-005
-- Created `ActivityFeed` component at `src/components/ActivityDrawer/ActivityFeed.tsx`
-  - Renders discussion threads with root comment and replies
-  - Shows author username, relative timestamp, and comment body
-  - Inline threads display file path and line number above the thread
-  - Resolved threads visually dimmed (opacity 0.5) with hover restore
-  - Threads ordered: unresolved first, then resolved, then by creation time
-  - Loading spinner while fetching, empty state when no comments
-- Created `ActivityFeed.css` with Kanagawa Wave theme styling
-- Updated `ActivityDrawer/index.ts` barrel export to include `ActivityFeed`
-- Integrated into `MRDetailPage/index.tsx`: passes `activityThreads` and `activityLoading` from `useActivityData` to `<ActivityFeed>` as children of `<ActivityDrawer>`
-- Enhanced seed data (`e2e/fixtures/seed-data.ts`) for MR 101:
-  - Added reply (id: 5005, alice replies to disc-001)
-  - Added resolved thread (id: 5006, disc-005, carol)
-  - Added 2 system events (id: 5007 approval, id: 5008 commits)
-  - Added pending sync standalone comment (id: 5009)
-- Added 9 new Playwright tests covering: feed rendering, author/body, timestamps, inline file info, resolved dimming, ordering, replies, empty state, loading
-- Files changed: `src/components/ActivityDrawer/ActivityFeed.tsx` (new), `src/components/ActivityDrawer/ActivityFeed.css` (new), `src/components/ActivityDrawer/index.ts` (modified), `src/pages/MRDetailPage/index.tsx` (modified), `e2e/fixtures/seed-data.ts` (modified), `e2e/activity-drawer.spec.ts` (modified)
-- **Learnings for future iterations:**
-  - ActivityDrawer receives children — compose content by passing components as children rather than props
-  - Seed data for MR 101 now has 6 non-system threads (4 unresolved + 1 standalone + 1 resolved) and 2 system events — unresolvedCount still 4 (standalone has no discussionId)
-  - `formatRelativeTime` helper converts Unix timestamps to "Xm ago" / "Xh ago" / "Xd ago" format
-  - Thread sorting: `useMemo` in `useActivityData` handles ordering (unresolved first, then chronological)
-  - System events toggle: `showSystemEvents` state lives in `MRDetailPage`, passed through `ActivityDrawer` and `ActivityFeed` as props.
-  - Feed interleaving: When system events visible, `FeedItem` union type + sort in `useMemo` handles chronological interleave with unresolved-first priority.
+## 2026-03-05 - US-005
+- Created `src/hooks/queries/useFileContentQuery.ts` with text + image variants
+- Added adjacent file prefetching via useEffect after active file data resolves
+- Removed clearFileCacheRef and clearFileCache from MRDetailPage and useMRData.ts
+- Files changed: useFileContentQuery.ts (new), useFileContent.ts, MRDetailPage/index.tsx, useMRData.ts
 ---
 
-## 2026-02-21 - US-006
-- Added system events display with show/hide toggle to ActivityDrawer
-  - `SystemEventEntry` component in `ActivityFeed.tsx`: compact single-line entries with muted styling
-  - "Show activity" checkbox toggle in the drawer header (hidden by default)
-  - System events interleaved chronologically with comment threads when visible
-  - `FeedItem` union type enables mixed rendering of threads and events
-  - `useMemo` sort: unresolved threads first, then chronological interleave
-- Updated `ActivityDrawer.tsx`: added `showSystemEvents` and `onToggleSystemEvents` props, header now has actions area with toggle + close button
-- Updated `ActivityDrawer.css`: styles for header actions, toggle label/checkbox
-- Updated `ActivityFeed.css`: styles for system event entries (compact, muted, border-left indicator)
-- Updated `MRDetailPage/index.tsx`: added `showSystemEvents` state, passes `systemEvents` from `useActivityData` through to `ActivityFeed`
-- Added 7 new Playwright tests covering: hidden by default, toggle presence, reveal on toggle, author/body display, interleaving count, toggle off, muted styling
-- Files changed: `src/components/ActivityDrawer/ActivityFeed.tsx` (modified), `src/components/ActivityDrawer/ActivityFeed.css` (modified), `src/components/ActivityDrawer/ActivityDrawer.tsx` (modified), `src/components/ActivityDrawer/ActivityDrawer.css` (modified), `src/pages/MRDetailPage/index.tsx` (modified), `e2e/activity-drawer.spec.ts` (modified)
-- **Learnings for future iterations:**
-  - When adding new props to ActivityDrawer, all consumers (MRDetailPage) must be updated
-  - FeedItem union type pattern works well for mixed-type feed rendering with `kind` discriminator
-  - System events use `data-testid="activity-system-event"` — distinct from `activity-thread`
-  - Header actions grouped in `activity-drawer__header-actions` flex container to keep title on left
+## 2026-03-05 - US-006
+- Created `src/hooks/queries/useCommentsQuery.ts` with staleTime 30s
+- Created mutation hooks: useAddCommentMutation, useReplyCommentMutation, useResolveDiscussionMutation, useDeleteCommentMutation, useAddInlineCommentMutation
+- Refactored useActivityData.ts to compose TQ hooks, removed tauriListen('action-synced')
+- Files changed: useCommentsQuery.ts (new), mutation hook files (new), useActivityData.ts
 ---
 
-## 2026-02-21 - US-007
-- Created `CommentInput` component at `src/components/ActivityDrawer/CommentInput.tsx`
-  - Textarea with placeholder "Add a comment...", send button, Cmd+Enter shortcut
-  - Disabled state during submission, auto-clears and refocuses after submit
-- Created `CommentInput.css` with Kanagawa Wave theme (glassmorphism border-top, accent send button)
-- Added `footer` prop to `ActivityDrawer` to render CommentInput below the scrollable content
-- Wired `activityAddComment` from `useActivityData` into `MRDetailPage` → `CommentInput`
-- Updated barrel export in `ActivityDrawer/index.ts`
-- Added 7 new Playwright tests: input visibility, send disabled/enabled, submit via button, submit via Cmd+Enter, fixed at bottom (not scrolling), pending sync
-- Files changed: `src/components/ActivityDrawer/CommentInput.tsx` (new), `src/components/ActivityDrawer/CommentInput.css` (new), `src/components/ActivityDrawer/index.ts` (modified), `src/components/ActivityDrawer/ActivityDrawer.tsx` (modified), `src/pages/MRDetailPage/index.tsx` (modified), `e2e/activity-drawer.spec.ts` (modified)
+## 2026-03-05 - US-007
+- Created `src/hooks/queries/usePipelineJobsQuery.ts` — `refetchInterval: hasActiveJobs ? 10_000 : false`, `refetchIntervalInBackground: false`
+- Created `src/hooks/queries/usePipelineStatusesQuery.ts` — `refetchInterval: hasActivePipelines ? 30_000 : 120_000`
+- Created `src/hooks/queries/useJobTraceQuery.ts` — `staleTime: isActive ? 0 : Infinity`, `refetchInterval: isActive ? 3_000 : false`
+- Created `src/hooks/queries/usePipelineProjectsQuery.ts` for pipeline project list
+- Added `pipelineHistory` key to `src/lib/queryKeys.ts`
+- Dropped `pipelinesReducer.ts` and `pipelineDetailReducer.ts` entirely
+- Refactored `usePipelinesData.ts`: dropped reducer, uses useInstancesQuery + usePipelineProjectsQuery + usePipelineStatusesQuery, emitPipelineChanges via useRef comparison, removeQueries on project list change
+- Refactored `usePipelineData.ts`: dropped reducer + state/dispatch params, uses usePipelineJobsQuery + inline statuses/history queries, useState for actionLoading sets
+- Updated `PipelineDetailPage/index.tsx`: no more reducer, destructures from refactored hook
+- Refactored `JobLogPage.tsx`: removed 3 polling useEffect hooks, uses useJobTraceQuery + usePipelineJobsQuery to derive currentStatus
+- Files changed: 4 new query hooks, queryKeys.ts, usePipelinesData.ts, usePipelineData.ts, PipelineDetailPage/index.tsx, JobLogPage.tsx, deleted pipelinesReducer.ts + pipelineDetailReducer.ts
 - **Learnings for future iterations:**
-  - ActivityDrawer uses `footer` prop (not children) for fixed-at-bottom content — content area scrolls, footer stays pinned
-  - CommentInput submit pattern: `(e.metaKey || e.ctrlKey) && e.key === 'Enter'` for cross-platform Cmd+Enter
-  - Optimistic comments from `addComment` have negative IDs (`-Date.now()`) and `syncStatus: 'pending'`
-  - The tauri mock's `add_comment` returns a mock comment — optimistic update gets replaced by mock response
+  - `usePipelineStatusesQuery` key includes `projectIds[]` — when project list changes, call `queryClient.removeQueries({ queryKey: ['pipelineStatuses'] })` to prevent orphaned cache entries
+  - For lazy-loaded data (history tab), use `useState(false)` enable flag + `enabled` in query options — `isLoading` is true only on first fetch (no data yet)
+  - `JobLogPage` derives `currentStatus` from `usePipelineJobsQuery.data` — seeded from URL param initially, updated by TQ polling
+  - `handleNavigateToJob` signature preserved exactly to avoid breaking PipelineDetailPage consumers
+  - TQ `staleTime: Infinity` on completed job traces prevents unnecessary refetches
 ---
 
-## 2026-02-21 - US-008
-- Added reply-to-thread functionality in the activity drawer
-  - `ReplyInput` component in `ActivityFeed.tsx`: inline textarea with auto-focus, Cmd+Enter submit, Cancel/Send buttons, Escape to close
-  - `ThreadCard` updated: Reply button shown on threads with `discussionId`, tracks which thread has reply input open via root comment ID
-  - Only one reply input open at a time — opening a new one closes the previous
-  - Reply submitted via `onReply` callback prop wired through from `useActivityData.replyToComment`
-  - Optimistic update: reply appears immediately in the thread
-- Fixed ActivityDrawer `left: 0` → `left: 56px` to offset for sidebar, preventing pointer event interception on drawer content
-- Added CSS for `.activity-thread__reply-btn` and `.activity-reply-input` with Kanagawa Wave theme
-- Added 7 new Playwright tests: reply button presence, open/close, only-one-at-a-time, submit via button, submit via Cmd+Enter, auto-focus
-- Files changed: `src/components/ActivityDrawer/ActivityFeed.tsx` (modified), `src/components/ActivityDrawer/ActivityFeed.css` (modified), `src/components/ActivityDrawer/ActivityDrawer.css` (modified), `src/pages/MRDetailPage/index.tsx` (modified), `e2e/activity-drawer.spec.ts` (modified)
+## 2026-03-05 - US-008
+- Added `getFileComments()` wrapper to `src/services/tauri.ts`
+- Created `src/hooks/queries/useFileCommentsQuery.ts` — TQ query with `mrFileComments` key, staleTime 30s, maps Comment[] to LineComment[]
+- Created `src/hooks/queries/useAddInlineCommentMutation.ts` — TQ mutation, invalidates `mrFileComments` + `mrComments` on success
+- Refactored `src/pages/MRDetailPage/useFileComments.ts` — replaced useEffect/useState with TQ query; addComment/removeComment replaced by removeComment (optimistic via setQueryData) + restoreComment for rollback
+- Updated `src/components/CommentOverlay.tsx` — uses `useAddInlineCommentMutation` instead of direct invoke; `submitting` comes from `isPending`; `onCommentAdded` prop is now optional
+- Updated `src/pages/MRDetailPage/index.tsx` — uses `restoreComment` instead of `addComment` in handleDeleteComment; removed `onCommentAdded` from CommentOverlay (TQ invalidation handles refresh)
+- Files changed: tauri.ts, useFileCommentsQuery.ts (new), useAddInlineCommentMutation.ts (new), useFileComments.ts, CommentOverlay.tsx, MRDetailPage/index.tsx
 - **Learnings for future iterations:**
-  - Never track "active thread" by `discussionId` — standalone comments have `null` discussionId, causing `null === null` false matches. Use root comment `id` instead.
-  - ActivityDrawer was positioned at `left: 0` which let the sidebar (56px, z-index: 100) intercept pointer events on drawer content. Fixed to `left: 56px`.
-  - ReplyInput follows same Cmd+Enter pattern as CommentInput but also supports Escape to cancel
-  - `reply_to_comment` mock returns a fixed response — optimistic update gets replaced by mock response
+  - When migrating from local state to TQ, replace `setState(prev => prev.filter(...))` with `queryClient.setQueryData(key, fn)` for optimistic cache mutations
+  - For delete rollback, use `restoreComment` pattern (setQueryData to add back) — avoids re-fetch round-trip
+  - `onCommentAdded` callback no longer needed when TQ mutation invalidates the right query keys — cache refresh happens automatically
 ---
 
-## 2026-02-21 - US-009
-- Added resolve/unresolve button to ThreadCard component for threads with `discussionId`
-  - Resolve button toggles between "Resolve" and "Unresolve" text based on current state
-  - Calls `resolveDiscussion` from `useActivityData` which does optimistic update on all comments in the discussion
-- Added delete button (trash icon) to CommentEntry, shown only on comments authored by the current user
-  - Uses `window.confirm()` for deletion confirmation
-  - Calls `deleteComment` from `useActivityData` which removes optimistically and rolls back on failure
-- Created thread actions row (`activity-thread__actions`) containing resolve and reply buttons
-- Wired `currentUser`, `onResolve`, and `onDelete` props through ActivityFeed → ThreadCard → CommentEntry chain
-- Added CSS: resolve button, delete button (appears on hover), thread actions flex row
-- Added 7 new Playwright tests: resolve button presence, resolve toggle, unresolve toggle, delete button author filtering, delete with confirmation, delete dismissal, badge count update after resolve
-- Files changed: `src/components/ActivityDrawer/ActivityFeed.tsx` (modified), `src/components/ActivityDrawer/ActivityFeed.css` (modified), `src/pages/MRDetailPage/index.tsx` (modified), `e2e/activity-drawer.spec.ts` (modified)
+## 2026-03-05 - US-009
+- Created `src/hooks/queries/useApproveMRMutation.ts` — approve + unapprove mutations; invalidates mr(mrId), ['mrList'], ['myMRList'] on success
+- Updated `ApprovalButton.tsx` — uses useApproveMRMutation; `isPending` drives `isSubmitting`; rollback in mutation `onError` callback; removed unused `projectId` and `mrIid` props (they were vestigial from old invoke calls)
+- Created `src/hooks/queries/useUpdateSyncSettingsMutation.ts` — wraps `update_sync_settings` command, invalidates `settings` on success
+- Updated `SyncSettingsSection.tsx` — uses TQ mutation; optimistic local setState before mutation fires for instant UI feedback
+- Files changed: useApproveMRMutation.ts (new), useUpdateSyncSettingsMutation.ts (new), ApprovalButton.tsx, MRHeader.tsx, SyncSettingsSection.tsx
 - **Learnings for future iterations:**
-  - When resolving a thread, `useMemo` in `useActivityData` re-sorts threads (unresolved first, resolved last), so resolved threads move to the end of the feed — Playwright tests must account for positional changes
-  - Delete button uses opacity transition (0 → 0.5 on hover parent, 1 on self hover) for progressive disclosure
-  - `currentUser` is already available from `useActivityData` — no need for separate fetch in MRDetailPage for activity features
-  - The `resolve_discussion` Tauri mock returns `undefined` — the optimistic update handles the state change entirely client-side
+  - TQ v5 partial key invalidation: `invalidateQueries({ queryKey: ['mrList'] })` invalidates ALL queries starting with 'mrList' — no need for full key
+  - When removing unused props from a component, check all callers and update them too (TypeScript will catch if they still pass the removed props)
+  - Can mix TQ mutation's `isPending` with local state optimistic updates — local state handles instant UI feedback, TQ handles backend + cache
 ---
 
-## 2026-02-21 - US-010
-- Added `SyncBadge` component to `CommentEntry` in `ActivityFeed.tsx`
-  - Shows "⏳ Pending" for `syncStatus: 'pending'` and "⚠️ Failed" for `syncStatus: 'failed'`
-  - No indicator for `synced` or `null` status (clean default state)
-  - Uses `data-testid="activity-sync-badge"` for testing
-- Added CSS styles in `ActivityFeed.css`: `.activity-sync-badge` with `--pending` and `--failed` modifier classes
-  - Pending: warm amber color (#e0af68) with subtle background
-  - Failed: red/pink color (#f7768e) with subtle background
-- Added failed sync comment (id: 5010) to seed data alongside existing pending comment (5009)
-- Updated existing test counts to account for new seed data comment (7 threads, 4 delete buttons, 9 interleaved items)
-- Added 5 new Playwright tests: pending badge presence, pending text, failed text, synced no-badge, new comment pending badge
-- Files changed: `src/components/ActivityDrawer/ActivityFeed.tsx` (modified), `src/components/ActivityDrawer/ActivityFeed.css` (modified), `e2e/fixtures/seed-data.ts` (modified), `e2e/activity-drawer.spec.ts` (modified)
-- **Learnings for future iterations:**
-  - Follow the `SyncBadge` pattern from `CommentPanel/InlineComment.tsx` and `CommentPanel/CommentThread.tsx` — filter out `null` and `'synced'` early, only render for `'pending'` and `'failed'`
-  - Adding new seed data comments affects thread/comment counts in many existing tests — check all count assertions
-  - The drag resize test (US-003) is known-flaky due to race conditions — not related to sync status changes
-  - Kanagawa Wave colors for status: amber `#e0af68` for warnings/pending, pink `#f7768e` for errors/failed
+## 2026-03-05 - US-010
+- Added error state in `MyMRsPage.tsx`: when `myMRsQuery.isError && mrs.length === 0`, shows "Failed to Load" with retry button instead of silent empty state
+- Added `error?: string | null` prop to `ActivityFeed.tsx`: renders error message between loading check and empty state check
+- Updated `MRDetailPage/index.tsx`: extracts `activityError` from `useActivityData` and passes it to `ActivityFeed`
+- Files changed: MyMRsPage.tsx, ActivityFeed.tsx, MRDetailPage/index.tsx
+---
+
+## 2026-03-05 - US-011
+- Ran Playwright browser verification against `bun run dev` frontend-only server (http://localhost:5173)
+- Verified: /mrs loads with TQ Loading state (correct), /my-mrs loads with TQ Loading state (correct), /pipelines shows empty state (correct)
+- No JavaScript errors in console on any page
+- Typecheck passes: `bunx tsc --noEmit` clean
+- Full end-to-end verification with real Tauri backend requires `bun run tauri dev` (display required)
 ---

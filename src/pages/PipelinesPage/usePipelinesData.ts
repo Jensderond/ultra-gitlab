@@ -1,211 +1,155 @@
-import { useReducer, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listInstances } from '../../services/gitlab';
 import {
-  listPipelineProjects,
-  getPipelineStatuses,
   visitPipelineProject,
   togglePinPipelineProject,
   removePipelineProject,
 } from '../../services/tauri';
 import type { PipelineProject, PipelineStatus, ProjectSearchResult } from '../../types';
-import { pipelinesReducer, initialPipelinesState } from './pipelinesReducer';
+import { useInstancesQuery } from '../../hooks/queries/useInstancesQuery';
+import { usePipelineProjectsQuery } from '../../hooks/queries/usePipelineProjectsQuery';
+import { usePipelineStatusesQuery } from '../../hooks/queries/usePipelineStatusesQuery';
+import { queryClient } from '../../lib/queryClient';
+import { queryKeys } from '../../lib/queryKeys';
 
 export default function usePipelinesData() {
   const navigate = useNavigate();
-  const [state, dispatch] = useReducer(pipelinesReducer, initialPipelinesState);
 
-  const statusesRef = useRef(state.statuses);
-  statusesRef.current = state.statuses;
-  const projectsRef = useRef(state.projects);
-  projectsRef.current = state.projects;
-  const firstLoadDoneRef = useRef(false);
-  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const selectedInstanceIdRef = useRef(state.selectedInstanceId);
-  selectedInstanceIdRef.current = state.selectedInstanceId;
+  const instancesQuery = useInstancesQuery();
+  const instances = instancesQuery.data ?? [];
 
-  /** Emit window events for pinned project status changes (skips first load). */
-  const emitPipelineChanges = useCallback(
-    (newStatusMap: Map<number, PipelineStatus>) => {
-      if (!firstLoadDoneRef.current) {
-        firstLoadDoneRef.current = true;
-        return;
-      }
+  const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
 
-      const oldStatuses = statusesRef.current;
-      const currentProjects = projectsRef.current;
-      const pinnedIds = new Set(
-        currentProjects.filter((p) => p.pinned).map((p) => p.projectId)
-      );
+  // Auto-select first instance when instances load
+  useEffect(() => {
+    if (selectedInstanceId === null && instances.length > 0) {
+      setSelectedInstanceId(instances[0].id);
+    }
+  }, [selectedInstanceId, instances]);
 
-      for (const [projectId, newStatus] of newStatusMap) {
-        if (!pinnedIds.has(projectId)) continue;
-        const oldStatus = oldStatuses.get(projectId);
-        if (!oldStatus || oldStatus.status === newStatus.status) continue;
+  const projectsQuery = usePipelineProjectsQuery(selectedInstanceId);
+  const projects = projectsQuery.data ?? [];
 
-        const project = currentProjects.find((p) => p.projectId === projectId);
-        window.dispatchEvent(
-          new CustomEvent('notification:pipeline-changed', {
-            detail: {
-              projectName: project?.nameWithNamespace ?? `Project ${projectId}`,
-              oldStatus: oldStatus.status,
-              newStatus: newStatus.status,
-              refName: newStatus.refName,
-              webUrl: newStatus.webUrl,
-            },
-          })
-        );
-      }
-    },
-    []
+  const projectIds = useMemo(() => projects.map((p) => p.projectId), [projects]);
+
+  const statusesQuery = usePipelineStatusesQuery(selectedInstanceId, projectIds);
+  const statusList = statusesQuery.data ?? [];
+  const statuses = useMemo(
+    () => new Map(statusList.map((s) => [s.projectId, s])),
+    [statusList]
   );
 
-  // Load instances
+  const lastFetched = statusesQuery.dataUpdatedAt
+    ? new Date(statusesQuery.dataUpdatedAt)
+    : null;
+
+  // Emit window events for pinned project status changes (skips first load)
+  const prevStatusesRef = useRef<Map<number, PipelineStatus> | null>(null);
   useEffect(() => {
-    listInstances()
-      .then((data) =>
-        dispatch({
-          type: 'SET_INSTANCES',
-          instances: data,
-          autoSelectId: data.length > 0 ? data[0].id : null,
-        })
-      )
-      .catch((error) => console.error('Failed to load instances:', error));
-  }, []);
+    if (statuses.size === 0) return;
 
-  // Load projects and their pipeline statuses
-  const loadProjects = useCallback(async () => {
-    if (!state.selectedInstanceId) return;
-    const requestedInstanceId = state.selectedInstanceId;
-    dispatch({ type: 'SET_LOADING', loading: true });
-
-    // Fetch projects first — always dispatch them on success regardless of status fetch outcome
-    let projectList: PipelineProject[];
-    try {
-      projectList = await listPipelineProjects(requestedInstanceId);
-    } catch (error) {
-      console.error('Failed to load pipeline projects:', error);
-      dispatch({ type: 'SET_LOADING', loading: false });
+    // Skip first successful load — just record the baseline
+    if (prevStatusesRef.current === null) {
+      prevStatusesRef.current = statuses;
       return;
     }
 
-    if (selectedInstanceIdRef.current !== requestedInstanceId) return;
-    const projectIds = projectList.map((p) => p.projectId);
-    dispatch({ type: 'SET_PROJECTS', projects: projectList });
-    dispatch({ type: 'SET_LOADING', loading: false });
+    const pinnedIds = new Set(projects.filter((p) => p.pinned).map((p) => p.projectId));
+    for (const [projectId, newStatus] of statuses) {
+      if (!pinnedIds.has(projectId)) continue;
+      const oldStatus = prevStatusesRef.current.get(projectId);
+      if (!oldStatus || oldStatus.status === newStatus.status) continue;
 
-    if (projectIds.length === 0) return;
-
-    // Fetch statuses separately — failure shows empty statuses but projects still visible
-    dispatch({ type: 'SET_STATUSES_LOADING', loading: true });
-    try {
-      const statusList = await getPipelineStatuses(requestedInstanceId, projectIds);
-      if (selectedInstanceIdRef.current !== requestedInstanceId) return;
-      const statusMap = new Map(statusList.map((s) => [s.projectId, s]));
-      emitPipelineChanges(statusMap);
-      dispatch({ type: 'SET_STATUSES', statuses: statusMap });
-    } catch (error) {
-      console.error('Failed to load pipeline statuses:', error);
-      if (selectedInstanceIdRef.current === requestedInstanceId) {
-        dispatch({ type: 'SET_STATUSES', statuses: new Map() });
-      }
-    } finally {
-      dispatch({ type: 'SET_STATUSES_LOADING', loading: false });
-    }
-  }, [state.selectedInstanceId, emitPipelineChanges]);
-
-  useEffect(() => { loadProjects(); }, [loadProjects]);
-
-  // Refresh only pipeline statuses (used by polling)
-  const refreshStatuses = useCallback(async () => {
-    if (!state.selectedInstanceId || state.projects.length === 0) return;
-    const requestedInstanceId = state.selectedInstanceId;
-    try {
-      const projectIds = state.projects.map((p) => p.projectId);
-      const statusList = await getPipelineStatuses(requestedInstanceId, projectIds);
-      if (selectedInstanceIdRef.current !== requestedInstanceId) return;
-      const statusMap = new Map(statusList.map((s) => [s.projectId, s]));
-      emitPipelineChanges(statusMap);
-      dispatch({ type: 'SET_STATUSES', statuses: statusMap });
-    } catch (error) {
-      console.error('Failed to refresh pipeline statuses:', error);
-    }
-  }, [state.selectedInstanceId, state.projects, emitPipelineChanges]);
-
-  // Auto-refresh polling with adaptive interval
-  useEffect(() => {
-    if (!state.selectedInstanceId || state.projects.length === 0) return;
-
-    function getInterval() {
-      const hasActive = Array.from(statusesRef.current.values()).some(
-        (s) => s.status === 'running' || s.status === 'pending'
+      const project = projects.find((p) => p.projectId === projectId);
+      window.dispatchEvent(
+        new CustomEvent('notification:pipeline-changed', {
+          detail: {
+            projectName: project?.nameWithNamespace ?? `Project ${projectId}`,
+            oldStatus: oldStatus.status,
+            newStatus: newStatus.status,
+            refName: newStatus.refName,
+            webUrl: newStatus.webUrl,
+          },
+        })
       );
-      return hasActive ? 30_000 : 120_000;
     }
+    prevStatusesRef.current = statuses;
+  }, [statuses, projects]);
 
-    function scheduleNextPoll() {
-      pollTimerRef.current = setTimeout(async () => {
-        if (document.visibilityState === 'visible') await refreshStatuses();
-        scheduleNextPoll();
-      }, getInterval());
-    }
-
-    function handleVisibilityChange() {
-      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
-      if (document.visibilityState === 'visible') {
-        refreshStatuses().then(scheduleNextPoll);
+  const handleSelectResult = useCallback(
+    async (result: ProjectSearchResult) => {
+      if (!selectedInstanceId) return;
+      try {
+        await visitPipelineProject(selectedInstanceId, result.id);
+        queryClient.removeQueries({ queryKey: ['pipelineStatuses'] });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pipelineProjects(String(selectedInstanceId)),
+        });
+      } catch (error) {
+        console.error('Failed to add project:', error);
       }
-    }
+    },
+    [selectedInstanceId]
+  );
 
-    scheduleNextPoll();
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [state.selectedInstanceId, state.projects, refreshStatuses]);
+  const handleTogglePin = useCallback(
+    async (projectId: number) => {
+      if (!selectedInstanceId) return;
+      try {
+        await togglePinPipelineProject(selectedInstanceId, projectId);
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pipelineProjects(String(selectedInstanceId)),
+        });
+      } catch (error) {
+        console.error('Failed to toggle pin:', error);
+      }
+    },
+    [selectedInstanceId]
+  );
 
-  const handleSelectResult = useCallback(async (result: ProjectSearchResult) => {
-    if (!state.selectedInstanceId) return;
-    try {
-      await visitPipelineProject(state.selectedInstanceId, result.id);
-      loadProjects();
-    } catch (error) { console.error('Failed to add project:', error); }
-  }, [state.selectedInstanceId, loadProjects]);
+  const handleRemoveProject = useCallback(
+    async (projectId: number) => {
+      if (!selectedInstanceId) return;
+      try {
+        await removePipelineProject(selectedInstanceId, projectId);
+        queryClient.removeQueries({ queryKey: ['pipelineStatuses'] });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pipelineProjects(String(selectedInstanceId)),
+        });
+      } catch (error) {
+        console.error('Failed to remove project:', error);
+      }
+    },
+    [selectedInstanceId]
+  );
 
-  const handleTogglePin = useCallback(async (projectId: number) => {
-    if (!state.selectedInstanceId) return;
-    try {
-      await togglePinPipelineProject(state.selectedInstanceId, projectId);
-      const projectList = await listPipelineProjects(state.selectedInstanceId);
-      dispatch({ type: 'SET_PROJECTS', projects: projectList });
-    } catch (error) { console.error('Failed to toggle pin:', error); }
-  }, [state.selectedInstanceId]);
-
-  const handleRemoveProject = useCallback(async (projectId: number) => {
-    if (!state.selectedInstanceId) return;
-    try {
-      await removePipelineProject(state.selectedInstanceId, projectId);
-      dispatch({ type: 'REMOVE_PROJECT', projectId });
-    } catch (error) { console.error('Failed to remove project:', error); }
-  }, [state.selectedInstanceId]);
-
-  const handleOpenDetail = useCallback((project: PipelineProject, status: PipelineStatus) => {
-    const params = new URLSearchParams({
-      instance: String(project.instanceId),
-      project: project.nameWithNamespace,
-      ref: status.refName,
-      url: status.webUrl,
-    });
-    navigate(`/pipelines/${project.projectId}/${status.id}?${params.toString()}`);
-  }, [navigate]);
+  const handleOpenDetail = useCallback(
+    (project: PipelineProject, status: PipelineStatus) => {
+      const params = new URLSearchParams({
+        instance: String(project.instanceId),
+        project: project.nameWithNamespace,
+        ref: status.refName,
+        url: status.webUrl,
+      });
+      navigate(`/pipelines/${project.projectId}/${status.id}?${params.toString()}`);
+    },
+    [navigate]
+  );
 
   const handleSelectInstance = useCallback((id: number) => {
-    dispatch({ type: 'SELECT_INSTANCE', id });
+    setSelectedInstanceId(id);
+    queryClient.removeQueries({ queryKey: ['pipelineStatuses'] });
+    prevStatusesRef.current = null;
   }, []);
 
   return {
-    ...state,
+    instances,
+    selectedInstanceId,
+    projects,
+    statuses,
+    loading: projectsQuery.isLoading,
+    statusesLoading: statusesQuery.isFetching,
+    lastFetched,
     handleSelectResult,
     handleTogglePin,
     handleRemoveProject,
