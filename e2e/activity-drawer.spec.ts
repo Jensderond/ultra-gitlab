@@ -750,16 +750,16 @@ test.describe('Activity Drawer', () => {
 
     const commentsBefore = await page.getByTestId('activity-comment').count();
 
-    // Accept the confirmation dialog
-    page.on('dialog', (dialog) => dialog.accept());
-
-    // Click a delete button
+    // First click puts the button into confirming state
     const deleteBtn = page.getByTestId('activity-delete-btn').first();
     await deleteBtn.click();
+    await expect(deleteBtn).toHaveText('Delete?');
 
-    // One less comment after deletion
-    const commentsAfter = await page.getByTestId('activity-comment').count();
-    expect(commentsAfter).toBe(commentsBefore - 1);
+    // Second click confirms the deletion
+    await deleteBtn.click();
+
+    // One less comment after deletion (wait for async removal)
+    await expect(page.getByTestId('activity-comment')).toHaveCount(commentsBefore - 1);
   });
 
   test('delete confirmation dismissed keeps comment in feed', async ({ page }) => {
@@ -769,11 +769,13 @@ test.describe('Activity Drawer', () => {
 
     const commentsBefore = await page.getByTestId('activity-comment').count();
 
-    // Dismiss the confirmation dialog
-    page.on('dialog', (dialog) => dialog.dismiss());
-
+    // First click puts the button into confirming state
     const deleteBtn = page.getByTestId('activity-delete-btn').first();
     await deleteBtn.click();
+    await expect(deleteBtn).toHaveText('Delete?');
+
+    // Blur the button to dismiss the confirmation
+    await page.getByTestId('activity-feed').click();
 
     // Comment count should remain the same
     const commentsAfter = await page.getByTestId('activity-comment').count();
