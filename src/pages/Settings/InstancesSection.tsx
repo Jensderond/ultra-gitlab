@@ -1,41 +1,35 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import InstanceSetup from '../../components/InstanceSetup/InstanceSetup';
 import {
-  listInstances,
   removeInstance,
-  type GitLabInstanceWithStatus,
 } from '../../services/gitlab';
 import { getTokenInfo } from '../../services/tauri';
 import type { TokenInfo } from '../../types';
 import InstanceItem from './InstanceItem';
+import { useInstancesQuery } from '../../hooks/queries/useInstancesQuery';
+import { queryKeys } from '../../lib/queryKeys';
 
 /**
  * GitLab instances management section.
  */
 export default function InstancesSection() {
-  const [instances, setInstances] = useState<GitLabInstanceWithStatus[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const instancesQuery = useInstancesQuery();
+  const instances = instancesQuery.data ?? [];
+  const loading = instancesQuery.isLoading;
   const [error, setError] = useState<string | null>(null);
   const [showSetup, setShowSetup] = useState(false);
   const [tokenInfoMap, setTokenInfoMap] = useState<Record<number, TokenInfo | 'error'>>({});
 
-  useEffect(() => { loadInstances(); }, []);
-
-  async function loadInstances() {
-    try {
-      setLoading(true);
-      setError(null);
-      const result = await listInstances();
-      setInstances(result);
-      loadTokenInfos(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load instances');
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (instances.length > 0) {
+      loadTokenInfos(instances);
     }
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instances]);
 
-  async function loadTokenInfos(insts: GitLabInstanceWithStatus[]) {
+  async function loadTokenInfos(insts: typeof instances) {
     const results = await Promise.allSettled(
       insts.filter((i) => i.hasToken).map(async (inst) => {
         const info = await getTokenInfo(inst.id);
@@ -54,7 +48,7 @@ export default function InstancesSection() {
   async function handleDelete(instanceId: number) {
     try {
       await removeInstance(instanceId);
-      await loadInstances();
+      queryClient.invalidateQueries({ queryKey: queryKeys.instances() });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete instance');
     }
@@ -62,7 +56,7 @@ export default function InstancesSection() {
 
   function handleSetupComplete() {
     setShowSetup(false);
-    loadInstances();
+    queryClient.invalidateQueries({ queryKey: queryKeys.instances() });
   }
 
   return (
@@ -103,7 +97,7 @@ export default function InstancesSection() {
               inst={inst}
               tokenInfo={tokenInfoMap[inst.id]}
               onDelete={handleDelete}
-              onTokenUpdated={loadInstances}
+              onTokenUpdated={() => queryClient.invalidateQueries({ queryKey: queryKeys.instances() })}
             />
           ))}
         </ul>

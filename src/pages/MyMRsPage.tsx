@@ -6,14 +6,13 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { tauriListen } from '../services/transport';
-import { listInstances, type GitLabInstanceWithStatus } from '../services/gitlab';
 import { listMyMergeRequests } from '../services/tauri';
 import MRListItem from '../components/MRList/MRListItem';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { useListSearch } from '../hooks/useListSearch';
 import SearchBar from '../components/SearchBar/SearchBar';
 import type { MergeRequest } from '../types';
+import { useInstancesQuery } from '../hooks/queries/useInstancesQuery';
 import './MRListPage.css';
 import './MyMRsPage.css';
 
@@ -43,7 +42,8 @@ function isFullyApproved(mr: MergeRequest): boolean {
 
 export default function MyMRsPage() {
   const navigate = useNavigate();
-  const [instances, setInstances] = useState<GitLabInstanceWithStatus[]>([]);
+  const instancesQuery = useInstancesQuery();
+  const instances = instancesQuery.data ?? [];
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
   const [mrs, setMrs] = useState<MergeRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,21 +65,12 @@ export default function MyMRsPage() {
 
   mrsRef.current = filteredItems;
 
-  // Load instances
+  // Auto-select first instance when instances load
   useEffect(() => {
-    async function loadInstances() {
-      try {
-        const data = await listInstances();
-        setInstances(data);
-        if (data.length > 0 && !selectedInstanceId) {
-          setSelectedInstanceId(data[0].id);
-        }
-      } catch (error) {
-        console.error('Failed to load instances:', error);
-      }
+    if (instances.length > 0 && !selectedInstanceId) {
+      setSelectedInstanceId(instances[0].id);
     }
-    loadInstances();
-  }, [selectedInstanceId]);
+  }, [instances, selectedInstanceId]);
 
   // Load authored MRs
   const loadMRs = useCallback(async () => {
@@ -97,22 +88,6 @@ export default function MyMRsPage() {
 
   useEffect(() => {
     loadMRs();
-  }, [loadMRs]);
-
-  // Re-fetch on mr-updated events
-  useEffect(() => {
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    let unlisten: (() => void) | undefined;
-
-    tauriListen<{ mr_id: number }>('mr-updated', () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => loadMRs(), 500);
-    }).then((fn) => { unlisten = fn; });
-
-    return () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      unlisten?.();
-    };
   }, [loadMRs]);
 
   // Handle Enter to open selected MR
@@ -145,7 +120,7 @@ export default function MyMRsPage() {
     [navigate, setFocusIndex]
   );
 
-  if (loading && instances.length === 0) {
+  if (instancesQuery.isLoading && instances.length === 0) {
     return (
       <div className="mr-list-page">
         <div className="mr-list-page-loading">Loading...</div>

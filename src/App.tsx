@@ -21,14 +21,14 @@ import { CommandPalette, type Command } from './components/CommandPalette';
 import { KeyboardHelp } from './components/KeyboardHelp';
 import { ReAuthPrompt } from './components/ReAuthPrompt';
 import useUpdateChecker from './hooks/useUpdateChecker';
-import useHasApprovedMRs from './hooks/useHasApprovedMRs';
+import { useHasApprovedMRsQuery } from './hooks/queries/useHasApprovedMRsQuery';
 import useNotifications from './hooks/useNotifications';
-import useCompanionStatus from './hooks/useCompanionStatus';
+import { useCompanionStatusQuery } from './hooks/queries/useCompanionStatusQuery';
 import useCompanionAuth from './hooks/useCompanionAuth';
 import useDeepLink from './hooks/useDeepLink';
 import { CommandId, CommandCategory, commandDefinitions } from './commands/registry';
 import { manualSync } from './services/storage';
-import { listInstances } from './services/gitlab';
+import { useInstancesQuery } from './hooks/queries/useInstancesQuery';
 import { listPipelineProjects, visitPipelineProject } from './services/tauri';
 import { WorkerPoolContextProvider } from '@pierre/diffs/react';
 import WorkerUrl from '@pierre/diffs/worker/worker.js?worker&url';
@@ -62,11 +62,12 @@ function AppContent() {
   const [pipelineProjects, setPipelineProjects] = useState<PipelineProject[]>([]);
   const companionAuth = useCompanionAuth(isTauri || location.pathname === '/auth');
   const updateChecker = useUpdateChecker();
-  const hasApprovedMRs = useHasApprovedMRs();
+  const hasApprovedMRs = useHasApprovedMRsQuery();
   const { toasts } = useToast();
   useNotifications();
   useDeepLink();
-  const companionStatus = useCompanionStatus();
+  const companionStatusQuery = useCompanionStatusQuery();
+  const instancesQuery = useInstancesQuery();
 
   // Track screen views for main overview screens
   useEffect(() => {
@@ -112,12 +113,13 @@ function AppContent() {
   // Load pipeline projects for command palette.
   // In browser mode, wait until authenticated to avoid 401 spam.
   const isAuthed = companionAuth.isAuthenticated;
+  const instances = instancesQuery.data ?? [];
   useEffect(() => {
     if (!isTauri && isAuthed !== true) return;
+    if (instances.length === 0) return;
 
     async function loadPipelineProjects() {
       try {
-        const instances = await listInstances();
         const allProjects: PipelineProject[] = [];
         for (const inst of instances) {
           const projects = await listPipelineProjects(inst.id);
@@ -129,7 +131,8 @@ function AppContent() {
       }
     }
     loadPipelineProjects();
-  }, [isAuthed]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthed, instances]);
 
   // Clear auth expired state
   const dismissAuthExpired = useCallback(() => {
@@ -300,7 +303,7 @@ function AppContent() {
   return (
     <div className="app">
       {isTauri && <div className="titlebar-drag-region" data-tauri-drag-region />}
-      <AppSidebar updateAvailable={updateChecker.available} hasApprovedMRs={hasApprovedMRs} hasActiveToasts={toasts.length > 0} companionEnabled={companionStatus.enabled} companionDeviceCount={companionStatus.connectedDevices} />
+      <AppSidebar updateAvailable={updateChecker.available} hasApprovedMRs={hasApprovedMRs} hasActiveToasts={toasts.length > 0} companionEnabled={companionStatusQuery.data?.enabled ?? false} companionDeviceCount={companionStatusQuery.data?.connectedDevices ?? 0} />
       <div className="app-content">
         <Routes>
           {/* Redirect root to MR list */}
