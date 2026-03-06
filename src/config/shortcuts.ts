@@ -164,6 +164,20 @@ export const defaultShortcuts: ShortcutDefinition[] = [
     context: 'diff-viewer',
   },
   {
+    id: 'jump-files-forward',
+    description: 'Jump files forward',
+    defaultKey: '→',
+    category: 'diff',
+    context: 'diff-viewer',
+  },
+  {
+    id: 'jump-files-backward',
+    description: 'Jump files backward',
+    defaultKey: '←',
+    category: 'diff',
+    context: 'diff-viewer',
+  },
+  {
     id: 'toggle-view-mode',
     description: 'Toggle unified/split view',
     defaultKey: 'x',

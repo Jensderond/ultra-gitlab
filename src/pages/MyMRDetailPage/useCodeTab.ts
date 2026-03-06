@@ -8,6 +8,7 @@ import { getCollapsePatterns } from '../../services/tauri';
 import { classifyFiles } from '../../utils/classifyFiles';
 import { useFileContent } from '../../hooks/useFileContent';
 import type { MergeRequest, DiffFileSummary, DiffRefs } from '../../types';
+import { computeNextFileIndex } from '../../utils/fileNavigation';
 
 export interface CodeTabState {
   files: DiffFileSummary[];
@@ -22,7 +23,7 @@ export interface CodeTabState {
   imageContent: { originalBase64: string | null; modifiedBase64: string | null };
   fileContentLoading: boolean;
   handleFileSelect: (filePath: string) => void;
-  navigateFile: (direction: 1 | -1) => void;
+  navigateFile: (direction: number) => void;
   toggleHideGenerated: () => void;
 }
 
@@ -116,17 +117,10 @@ export function useCodeTab(
   }, [files]);
 
   const navigateFile = useCallback(
-    (direction: 1 | -1) => {
+    (direction: number) => {
       if (reviewableFiles.length === 0) return;
       const currentIdx = reviewableFiles.findIndex((f) => f.newPath === selectedFile);
-      let nextIdx: number;
-      if (currentIdx === -1) {
-        nextIdx = direction === 1 ? 0 : reviewableFiles.length - 1;
-      } else {
-        nextIdx = currentIdx + direction;
-        if (nextIdx < 0) nextIdx = reviewableFiles.length - 1;
-        if (nextIdx >= reviewableFiles.length) nextIdx = 0;
-      }
+      const nextIdx = computeNextFileIndex(currentIdx, direction, reviewableFiles.length);
       const nextFile = reviewableFiles[nextIdx];
       const fullIndex = files.findIndex((f) => f.newPath === nextFile.newPath);
       if (fullIndex >= 0) setFileFocusIndex(fullIndex);

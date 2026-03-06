@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { openExternalUrl } from '../../services/transport';
+import { DEFAULT_FILE_JUMP_COUNT } from '../../utils/fileNavigation';
 import { trackShortcut } from '../../services/analytics';
 import type { ApprovalButtonRef } from '../../components/Approval';
 import type { CommentOverlayRef } from '../../components/CommentOverlay';
@@ -12,7 +13,8 @@ interface UseMRKeyboardOptions {
   approvalButtonRef: React.RefObject<ApprovalButtonRef | null>;
   commentOverlayRef: React.RefObject<CommentOverlayRef | null>;
   lineSelectionRef: React.RefObject<SelectedLineRange | null>;
-  onNavigateFile: (direction: 1 | -1) => void;
+  onNavigateFile: (direction: number) => void;
+  fileJumpCount?: number;
   onToggleViewMode: () => void;
   onMarkViewedAndNext: () => void;
   onToggleHideGenerated: () => void;
@@ -28,6 +30,7 @@ export function useMRKeyboard({
   commentOverlayRef,
   lineSelectionRef,
   onNavigateFile,
+  fileJumpCount = DEFAULT_FILE_JUMP_COUNT,
   onToggleViewMode,
   onMarkViewedAndNext,
   onToggleHideGenerated,
@@ -62,6 +65,16 @@ export function useMRKeyboard({
         e.preventDefault();
         trackShortcut(e.key, 'navigate_file_prev', 'mr_detail');
         onNavigateFile(-1);
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        trackShortcut('ArrowRight', 'navigate_file_jump_next', 'mr_detail');
+        onNavigateFile(fileJumpCount);
+        break;
+      case 'ArrowLeft':
+        e.preventDefault();
+        trackShortcut('ArrowLeft', 'navigate_file_jump_prev', 'mr_detail');
+        onNavigateFile(-fileJumpCount);
         break;
       case 'x':
         if (isSmallScreen) break;

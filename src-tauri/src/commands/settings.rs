@@ -40,6 +40,12 @@ const CUSTOM_THEME_COLORS_KEY: &str = "custom_theme_colors";
 /// Key for companion server settings in the store.
 const COMPANION_SERVER_KEY: &str = "companion_server";
 
+/// Key for file jump count in the store.
+const FILE_JUMP_COUNT_KEY: &str = "file_jump_count";
+
+/// Default number of files to jump with arrow-left/right.
+const DEFAULT_FILE_JUMP_COUNT: u32 = 5;
+
 /// Default theme ID.
 const DEFAULT_THEME: &str = "kanagawa-wave";
 
@@ -98,6 +104,8 @@ pub struct AppSettings {
     pub custom_theme_colors: Option<CustomThemeColors>,
     /// Companion server settings (mobile web access).
     pub companion_server: CompanionServerSettings,
+    /// Number of files to jump when pressing arrow-left/right in file navigation.
+    pub file_jump_count: u32,
 }
 
 impl Default for AppSettings {
@@ -111,6 +119,7 @@ impl Default for AppSettings {
             diffs_font: DEFAULT_DIFFS_FONT.to_string(),
             custom_theme_colors: None,
             companion_server: CompanionServerSettings::default(),
+            file_jump_count: DEFAULT_FILE_JUMP_COUNT,
         }
     }
 }
@@ -185,6 +194,12 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         None => CompanionServerSettings::default(),
     };
 
+    // Try to load file jump count
+    let file_jump_count = match store.get(FILE_JUMP_COUNT_KEY) {
+        Some(value) => serde_json::from_value(value.clone()).unwrap_or(DEFAULT_FILE_JUMP_COUNT),
+        None => DEFAULT_FILE_JUMP_COUNT,
+    };
+
     Ok(AppSettings {
         sync,
         collapse_patterns,
@@ -194,6 +209,7 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         diffs_font,
         custom_theme_colors,
         companion_server,
+        file_jump_count,
     })
 }
 
@@ -234,6 +250,10 @@ pub(crate) async fn save_settings(app: &AppHandle, settings: &AppSettings) -> Re
     // Save companion server settings
     let companion_value = serde_json::to_value(&settings.companion_server)?;
     store.set(COMPANION_SERVER_KEY, companion_value);
+
+    // Save file jump count
+    let file_jump_count_value = serde_json::to_value(&settings.file_jump_count)?;
+    store.set(FILE_JUMP_COUNT_KEY, file_jump_count_value);
 
     // Persist to disk
     store

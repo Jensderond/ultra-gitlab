@@ -24,7 +24,9 @@ import MRDiffContent from './MRDiffContent';
 import MRFilePanel from './MRFilePanel';
 import { deleteComment } from '../../services/gitlab';
 import { useCurrentUserQuery } from '../../hooks/queries/useCurrentUserQuery';
+import { useSettingsQuery } from '../../hooks/queries/useSettingsQuery';
 import { trackMRApproved, trackMRUnapproved, trackCommentPosted, trackReplyPosted } from '../../services/analytics';
+import { computeNextFileIndex } from '../../utils/fileNavigation';
 import '../MRDetailPage.css';
 
 interface MRDetailPageProps {
@@ -74,6 +76,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   // Wire up the stable ref so useMRData can call clearFileCache
   clearFileCacheRef.current = clearFileCache;
 
+  const { data: settings } = useSettingsQuery();
   const { fileComments, removeComment, restoreComment } = useFileComments(mrId, view.selectedFile);
 
   const currentUserQuery = useCurrentUserQuery(mr?.instanceId ?? 0);
@@ -124,14 +127,11 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     previousFileRef.current = filePath;
   }, [files, dispatch]);
 
-  // Navigate to next/previous reviewable file
   const navigateFile = useCallback(
-    (direction: 1 | -1) => {
+    (direction: number) => {
       if (reviewableFiles.length === 0) return;
       const currentIdx = reviewableFiles.findIndex((f) => f.newPath === view.selectedFile);
-      const nextIdx = currentIdx === -1
-        ? (direction === 1 ? 0 : reviewableFiles.length - 1)
-        : (currentIdx + direction + reviewableFiles.length) % reviewableFiles.length;
+      const nextIdx = computeNextFileIndex(currentIdx, direction, reviewableFiles.length);
       handleFileSelect(reviewableFiles[nextIdx].newPath);
     },
     [reviewableFiles, view.selectedFile, handleFileSelect]
@@ -187,6 +187,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     commentOverlayRef,
     lineSelectionRef,
     onNavigateFile: navigateFile,
+    fileJumpCount: settings?.fileJumpCount,
     onToggleViewMode: handleToggleViewMode,
     onMarkViewedAndNext: markViewedAndNext,
     onToggleHideGenerated: () => dispatch({ type: 'TOGGLE_HIDE_GENERATED' }),

@@ -13,6 +13,7 @@ import TabBar from '../../components/TabBar';
 import { useMyMRData } from './useMyMRData';
 import { useCodeTab } from './useCodeTab';
 import { useMyMRKeyboard } from './useMyMRKeyboard';
+import { useSettingsQuery } from '../../hooks/queries/useSettingsQuery';
 import { mergeReducer, initialMergeState } from './mergeReducer';
 import { OverviewTab } from './OverviewTab';
 import { CommentsTab } from './CommentsTab';
@@ -33,6 +34,7 @@ export default function MyMRDetailPage() {
   const { mr, setMr, reviewers, loading, error, threads, unresolvedCount, approvedCount, currentUser, handleDeleteComment, handleReply, handleResolve } =
     useMyMRData(mrId);
 
+  const { data: settings } = useSettingsQuery();
   const codeTab = useCodeTab(mrId, mr, activeTab);
 
   const goBack = useCallback(() => {
@@ -46,6 +48,7 @@ export default function MyMRDetailPage() {
     webUrl: mr?.webUrl,
     copyToClipboard,
     navigateFile: codeTab.navigateFile,
+    fileJumpCount: settings?.fileJumpCount,
     toggleHideGenerated: codeTab.toggleHideGenerated,
   });
 

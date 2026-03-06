@@ -14,6 +14,7 @@ import CompanionServerSection from './CompanionServerSection';
 import AppearanceSection from './AppearanceSection';
 import NotificationsSection from './NotificationsSection';
 import CollapsePatternsEditor from './CollapsePatternsEditor';
+import NavigationSection from './NavigationSection';
 import ShortcutEditor from './ShortcutEditor';
 import '../Settings.css';
 
@@ -56,6 +57,12 @@ export default function Settings({ updateChecker }: SettingsProps) {
         {isTauri && (
           <section className="settings-section">
             <CollapsePatternsEditor />
+          </section>
+        )}
+
+        {isTauri && (
+          <section className="settings-section">
+            <NavigationSection />
           </section>
         )}
 

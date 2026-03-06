@@ -568,6 +568,7 @@ export const settings: Settings = {
   keyboardShortcuts: {},
   diffViewMode: 'split',
   collapsePatterns: ['*.lock', 'package-lock.json'],
+  fileJumpCount: 2,
 };
 
 // ============================================================================

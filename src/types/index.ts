@@ -293,6 +293,7 @@ export interface Settings {
   keyboardShortcuts: Record<string, string>;
   diffViewMode: DiffViewMode;
   collapsePatterns: string[];
+  fileJumpCount: number;
 }
 
 export type SettingsUpdate = Partial<Settings>;

@@ -4,6 +4,7 @@
 
 import { useEffect, useRef } from 'react';
 import { openExternalUrl } from '../../services/transport';
+import { DEFAULT_FILE_JUMP_COUNT } from '../../utils/fileNavigation';
 import { trackShortcut } from '../../services/analytics';
 
 type TabId = 'overview' | 'comments' | 'code';
@@ -14,7 +15,8 @@ interface KeyboardOptions {
   activeTab: TabId;
   webUrl: string | undefined;
   copyToClipboard: (text: string) => void;
-  navigateFile: (direction: 1 | -1) => void;
+  navigateFile: (direction: number) => void;
+  fileJumpCount?: number;
   toggleHideGenerated: () => void;
 }
 
@@ -80,6 +82,20 @@ export function useMyMRKeyboard(options: KeyboardOptions) {
             e.preventDefault();
             trackShortcut(e.key, 'navigate_file_prev', 'my_mr_detail');
             opts.navigateFile(-1);
+          }
+          break;
+        case 'ArrowRight':
+          if (opts.activeTab === 'code') {
+            e.preventDefault();
+            trackShortcut('ArrowRight', 'navigate_file_jump_next', 'my_mr_detail');
+            opts.navigateFile(opts.fileJumpCount ?? DEFAULT_FILE_JUMP_COUNT);
+          }
+          break;
+        case 'ArrowLeft':
+          if (opts.activeTab === 'code') {
+            e.preventDefault();
+            trackShortcut('ArrowLeft', 'navigate_file_jump_prev', 'my_mr_detail');
+            opts.navigateFile(-(opts.fileJumpCount ?? DEFAULT_FILE_JUMP_COUNT));
           }
           break;
         case 'g':
