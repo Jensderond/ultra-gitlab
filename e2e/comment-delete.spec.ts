@@ -12,18 +12,18 @@ test.describe('Comment Deletion', () => {
     await expect(page.locator('.my-mr-comments')).toBeVisible();
 
     // alice's comment should NOT have a delete button at all
-    const aliceComment = page.locator('.my-mr-comment', { hasText: 'Great work on the notification preferences!' });
+    const aliceComment = page.locator('.activity-comment', { hasText: 'Great work on the notification preferences!' });
     await expect(aliceComment).toBeVisible();
-    await expect(aliceComment.locator('.my-mr-comment-delete')).toHaveCount(0);
+    await expect(aliceComment.locator('.activity-comment__delete')).toHaveCount(0);
 
     // testuser's comment should have a delete button (hidden until hover)
-    const myComment = page.locator('.my-mr-comment', { hasText: 'Added a note about the notification API changes.' });
+    const myComment = page.locator('.activity-comment', { hasText: 'Added a note about the notification API changes.' });
     await expect(myComment).toBeVisible();
     // Button exists in DOM
-    await expect(myComment.locator('.my-mr-comment-delete')).toHaveCount(1);
+    await expect(myComment.locator('.activity-comment__delete')).toHaveCount(1);
     // Hover to reveal it
     await myComment.hover();
-    await expect(myComment.locator('.my-mr-comment-delete')).toBeVisible();
+    await expect(myComment.locator('.activity-comment__delete')).toBeVisible();
   });
 
   test('deletes a comment when delete button is clicked', async ({ page }) => {
@@ -34,12 +34,14 @@ test.describe('Comment Deletion', () => {
     await expect(page.locator('.my-mr-comments')).toBeVisible();
 
     // Verify testuser's comment is present
-    const myComment = page.locator('.my-mr-comment', { hasText: 'Added a note about the notification API changes.' });
+    const myComment = page.locator('.activity-comment', { hasText: 'Added a note about the notification API changes.' });
     await expect(myComment).toBeVisible();
 
-    // Hover to reveal delete button, then click it
+    // Hover to reveal delete button, then click once to get confirmation
     await myComment.hover();
-    await myComment.locator('.my-mr-comment-delete').click();
+    await myComment.locator('.activity-comment__delete').click();
+    // Click again to confirm deletion
+    await myComment.locator('.activity-comment__delete').click();
 
     // Comment should be removed from the DOM after deletion
     await expect(myComment).toHaveCount(0);
@@ -51,9 +53,9 @@ test.describe('Comment Deletion', () => {
     await expect(page.locator('.my-mr-comments')).toBeVisible();
 
     // alice's comment should not have a delete button even on hover
-    const aliceComment = page.locator('.my-mr-comment', { hasText: 'Great work on the notification preferences!' });
+    const aliceComment = page.locator('.activity-comment', { hasText: 'Great work on the notification preferences!' });
     await expect(aliceComment).toBeVisible();
     await aliceComment.hover();
-    await expect(aliceComment.locator('.my-mr-comment-delete')).toHaveCount(0);
+    await expect(aliceComment.locator('.activity-comment__delete')).toHaveCount(0);
   });
 });
