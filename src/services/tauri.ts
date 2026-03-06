@@ -697,6 +697,14 @@ export async function regenerateCompanionPin(): Promise<string> {
 }
 
 /**
+ * Set a custom companion server PIN (4–8 digits).
+ * Clears all authorized devices.
+ */
+export async function setCompanionPin(pin: string): Promise<void> {
+  return invoke<void>('set_companion_pin', { pin });
+}
+
+/**
  * Generate QR code SVG for the companion server.
  * Returns an SVG string encoding the connection URL + PIN.
  */

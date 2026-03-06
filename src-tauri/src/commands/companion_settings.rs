@@ -113,6 +113,28 @@ pub async fn regenerate_companion_pin(app: AppHandle) -> Result<String, AppError
     Ok(new_pin)
 }
 
+/// Set a custom companion server PIN.
+///
+/// PIN must be exactly 4–8 digits. Clears all authorized devices since
+/// the old PIN is no longer valid.
+#[tauri::command]
+pub async fn set_companion_pin(app: AppHandle, pin: String) -> Result<(), AppError> {
+    if pin.len() < 4 || pin.len() > 8 || !pin.chars().all(|c| c.is_ascii_digit()) {
+        return Err(AppError::invalid_input_field(
+            "PIN must be 4–8 digits",
+            "pin",
+        ));
+    }
+
+    let mut settings = load_settings(&app).await?;
+    settings.companion_server.pin = pin;
+    settings.companion_server.authorized_devices.clear();
+    companion_auth::clear_all_sessions().await;
+    save_settings(&app, &settings).await?;
+    *settings_cache().write().await = settings;
+    Ok(())
+}
+
 /// Status of the companion server for the toolbar indicator.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

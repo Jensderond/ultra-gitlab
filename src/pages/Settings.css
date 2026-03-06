@@ -1177,6 +1177,30 @@ fieldset.setting-row {
   padding: 6px 16px;
   border-radius: 6px;
   border: 1px solid var(--border-color);
+  cursor: pointer;
+}
+
+.companion-pin-value:hover {
+  border-color: var(--text-fuji);
+}
+
+.companion-pin-input {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--text-primary);
+  background: var(--overlay-hover);
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--text-fuji);
+  outline: none;
+  width: 140px;
+}
+
+.companion-pin-error {
+  color: var(--text-error, #f44);
+  font-size: 12px;
 }
 
 .companion-pin-regenerate {

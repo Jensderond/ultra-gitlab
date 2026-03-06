@@ -41,7 +41,7 @@ pub use comments::{
 pub use companion_server::{start_companion_server_cmd, stop_companion_server_cmd};
 pub use companion_settings::{
     get_companion_qr_svg, get_companion_settings, get_companion_status, regenerate_companion_pin,
-    revoke_companion_device, update_companion_settings,
+    revoke_companion_device, set_companion_pin, update_companion_settings,
 };
 pub use fonts::list_system_fonts;
 pub use diagnostics::{

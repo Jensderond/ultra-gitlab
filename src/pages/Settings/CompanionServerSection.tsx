@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { getCompanionQrSvg, updateCompanionSettings, regenerateCompanionPin, revokeCompanionDevice, startCompanionServer, stopCompanionServer } from '../../services/tauri';
+import { getCompanionQrSvg, updateCompanionSettings, regenerateCompanionPin, setCompanionPin, revokeCompanionDevice, startCompanionServer, stopCompanionServer } from '../../services/tauri';
 import type { CompanionServerSettings } from '../../types';
 import { useToast } from '../../components/Toast';
 import { useCompanionSettingsQuery } from '../../hooks/queries/useCompanionSettingsQuery';
@@ -108,6 +108,20 @@ export default function CompanionServerSection() {
     }
   }
 
+  async function handleSetPin(pin: string) {
+    try {
+      setSaving(true);
+      await setCompanionPin(pin);
+      invalidateSettings();
+      addToast({ type: 'info', title: 'PIN Updated', body: 'All devices have been disconnected' });
+    } catch (err) {
+      console.error('Failed to set PIN:', err);
+      addToast({ type: 'info', title: 'Error', body: err instanceof Error ? err.message : 'PIN must be 4–8 digits' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleRevokeDevice(deviceId: string) {
     try {
       setSaving(true);
@@ -188,6 +202,7 @@ export default function CompanionServerSection() {
             qrSvg={qrSvg}
             saving={saving}
             onRegeneratePin={handleRegeneratePin}
+            onSetPin={handleSetPin}
             onRevokeDevice={handleRevokeDevice}
           />
         )}
