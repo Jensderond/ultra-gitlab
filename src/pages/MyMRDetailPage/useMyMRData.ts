@@ -5,6 +5,7 @@
 import { useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { deleteComment as tauriDeleteComment } from '../../services/tauri';
+import { replyToDiscussion, setDiscussionResolved } from '../../services/gitlab';
 import { useMRDetailQuery } from '../../hooks/queries/useMRDetailQuery';
 import { useMRReviewersQuery } from '../../hooks/queries/useMRReviewersQuery';
 import { useCurrentUserQuery } from '../../hooks/queries/useCurrentUserQuery';
@@ -24,6 +25,8 @@ export interface MyMRData {
   unresolvedCount: number;
   approvedCount: number;
   handleDeleteComment: (commentId: number) => Promise<void>;
+  handleReply: (discussionId: string, parentId: number, body: string) => Promise<void>;
+  handleResolve: (discussionId: string, resolved: boolean) => Promise<void>;
 }
 
 export function useMyMRData(mrId: number): MyMRData {
@@ -48,6 +51,28 @@ export function useMyMRData(mrId: number): MyMRData {
     const request: DeleteCommentRequest = { mrId, commentId };
     await tauriDeleteComment(request);
     queryClient.invalidateQueries({ queryKey: queryKeys.mrComments(mrId) });
+  }, [mrId, queryClient]);
+
+  const handleReply = useCallback(async (discussionId: string, parentId: number, body: string) => {
+    await replyToDiscussion(mrId, discussionId, parentId, body);
+    queryClient.invalidateQueries({ queryKey: queryKeys.mrComments(mrId) });
+  }, [mrId, queryClient]);
+
+  const handleResolve = useCallback(async (discussionId: string, resolved: boolean) => {
+    // Optimistic update
+    queryClient.setQueryData<Comment[]>(queryKeys.mrComments(mrId), (prev) =>
+      (prev ?? []).map(c => (c.discussionId === discussionId ? { ...c, resolved } : c)),
+    );
+    try {
+      await setDiscussionResolved(mrId, discussionId, resolved);
+    } catch {
+      // Rollback
+      queryClient.setQueryData<Comment[]>(queryKeys.mrComments(mrId), (prev) =>
+        (prev ?? []).map(c =>
+          c.discussionId === discussionId ? { ...c, resolved: !resolved } : c,
+        ),
+      );
+    }
   }, [mrId, queryClient]);
 
   const threads = useMemo(() => {
@@ -89,5 +114,7 @@ export function useMyMRData(mrId: number): MyMRData {
     unresolvedCount,
     approvedCount,
     handleDeleteComment,
+    handleReply,
+    handleResolve,
   };
 }
