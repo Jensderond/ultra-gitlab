@@ -5,6 +5,8 @@
   position: relative;
   padding: 14px 32px;
   background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
   border: none;
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;

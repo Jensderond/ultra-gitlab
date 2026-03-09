@@ -586,6 +586,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 24px;
+  user-select: none;
+  -webkit-user-select: none;
   background: linear-gradient(180deg,
     var(--overlay-glass-light) 0%,
     var(--overlay-glass) 100%);

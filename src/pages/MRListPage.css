@@ -70,6 +70,8 @@
   align-items: baseline;
   justify-content: space-between;
   padding: 24px 32px 20px;
+  user-select: none;
+  -webkit-user-select: none;
   position: relative;
   z-index: 100;
   animation: headerReveal 0.5s cubic-bezier(0.22, 1, 0.36, 1);
@@ -475,6 +477,8 @@
 
 .mr-list-page-footer {
   padding: 12px 32px;
+  user-select: none;
+  -webkit-user-select: none;
   background: linear-gradient(180deg,
     transparent 0%,
     var(--overlay-glass) 40%);

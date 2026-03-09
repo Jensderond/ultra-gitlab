@@ -97,6 +97,8 @@
 .pipelines-search-container {
   position: relative;
   padding: 0 32px 16px;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .pipelines-search-input-wrapper {
@@ -302,6 +304,8 @@
   flex-direction: column;
   gap: 10px;
   transition: border-color 0.15s ease, background 0.15s ease;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .pipeline-card--clickable {

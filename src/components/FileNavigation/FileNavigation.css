@@ -5,6 +5,8 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
   background: linear-gradient(180deg,
     var(--overlay-backdrop-light) 0%,
     transparent 100%);

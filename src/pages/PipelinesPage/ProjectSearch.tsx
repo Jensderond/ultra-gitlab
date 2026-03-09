@@ -97,6 +97,10 @@ export default function ProjectSearch({ selectedInstanceId, onSelectResult }: Pr
           type="text"
           className="pipelines-search-input"
           placeholder="Search projects to add..."
+          spellCheck={false}
+          autoCorrect="off"
+          autoCapitalize="off"
+          autoComplete="off"
           value={searchQuery}
           onChange={(e) => {
             setSearchQuery(e.target.value);
