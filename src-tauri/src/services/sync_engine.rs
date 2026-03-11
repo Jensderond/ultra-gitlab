@@ -455,6 +455,11 @@ impl SyncEngine {
             }
         }
 
+        // Clean up completed sync queue entries to prevent unbounded table growth
+        if let Err(e) = sync_queue::cleanup_synced(&self.pool).await {
+            log::warn!("Failed to cleanup synced actions: {}", e);
+        }
+
         // Calculate duration
         result.duration_ms = start.elapsed().as_millis() as i64;
 
@@ -597,18 +602,22 @@ impl SyncEngine {
             duration_ms: 0,
         };
 
-        // Validate token and ensure authenticated_username is persisted
-        // (may be NULL for instances created before migration 0008)
-        if let Ok(user) = client.validate_token().await {
-            let _ = sqlx::query(
-                "UPDATE gitlab_instances SET authenticated_username = ? WHERE id = ? AND (authenticated_username IS NULL OR authenticated_username != ?)"
-            )
-            .bind(&user.username)
-            .bind(instance.id)
-            .bind(&user.username)
-            .execute(&self.pool)
-            .await;
-        }
+        // Validate token ONCE per instance — also used for approval checks in sync_mr()
+        // to avoid per-MR API calls and transient-failure false negatives.
+        let current_user_id: Option<i64> = match client.validate_token().await {
+            Ok(user) => {
+                let _ = sqlx::query(
+                    "UPDATE gitlab_instances SET authenticated_username = ? WHERE id = ? AND (authenticated_username IS NULL OR authenticated_username != ?)"
+                )
+                .bind(&user.username)
+                .bind(instance.id)
+                .bind(&user.username)
+                .execute(&self.pool)
+                .await;
+                Some(user.id)
+            }
+            Err(_) => None,
+        };
 
         // Emit fetching_mrs event
         self.emit_progress(
@@ -643,7 +652,7 @@ impl SyncEngine {
         // Process each MR and collect local DB IDs for purge
         let mut synced_local_mr_ids: Vec<i64> = Vec::new();
         for mr in &mrs {
-            match self.sync_mr(instance.id, &client, mr).await {
+            match self.sync_mr(instance.id, &client, mr, current_user_id).await {
                 Ok(local_mr_id) => {
                     synced_local_mr_ids.push(local_mr_id);
                     result.mr_count += 1;
@@ -794,6 +803,7 @@ impl SyncEngine {
         instance_id: i64,
         client: &GitLabClient,
         mr: &GitLabMergeRequest,
+        current_user_id: Option<i64>,
     ) -> Result<i64, AppError> {
         let start = Instant::now();
 
@@ -830,10 +840,10 @@ impl SyncEngine {
         // Fetch and store approval status + per-reviewer data
         match client.get_mr_approvals(mr.project_id, mr.iid).await {
             Ok(approvals) => {
-                // Get current user to check if they've approved
-                let current_user = client.validate_token().await.ok();
-                let user_has_approved = current_user.map_or(false, |u| {
-                    approvals.approved_by.iter().any(|a| a.user.id == u.id)
+                // Use pre-fetched current_user_id (hoisted to sync_instance) to avoid
+                // per-MR validate_token() calls and transient-failure false negatives
+                let remote_user_has_approved = current_user_id.map_or(false, |uid| {
+                    approvals.approved_by.iter().any(|a| a.user.id == uid)
                 });
 
                 let approval_status = if approvals.approved {
@@ -842,6 +852,39 @@ impl SyncEngine {
                     "pending"
                 };
                 let approvals_count = approvals.approvals_required - approvals.approvals_left;
+
+                // Guard: check for pending/in-flight approval actions in sync_queue.
+                // If present, preserve the optimistic DB value to prevent stale API data
+                // from overwriting a local approve/unapprove the user just performed.
+                // Note: unapprove actions also use action_type = 'approve' (distinguished by payload)
+                let has_pending_approval_action: i64 = sqlx::query_scalar(
+                    "SELECT COUNT(*) FROM sync_queue WHERE mr_id = ? AND action_type = 'approve' AND status IN ('pending', 'syncing')"
+                )
+                .bind(local_mr_id)
+                .fetch_one(&self.pool)
+                .await
+                .unwrap_or(0);
+
+                let user_has_approved = if has_pending_approval_action > 0 && !remote_user_has_approved {
+                    // Pending local action exists and remote doesn't reflect it yet —
+                    // read and preserve the current (optimistic) DB value
+                    let current: bool = sqlx::query_scalar(
+                        "SELECT user_has_approved FROM merge_requests WHERE id = ?"
+                    )
+                    .bind(local_mr_id)
+                    .fetch_optional(&self.pool)
+                    .await
+                    .unwrap_or(None)
+                    .unwrap_or(remote_user_has_approved);
+
+                    log::info!(
+                        "[sync] MR !{}: preserving local approval state (pending action in queue, remote={})",
+                        mr.iid, remote_user_has_approved
+                    );
+                    current
+                } else {
+                    remote_user_has_approved
+                };
 
                 sqlx::query(
                     "UPDATE merge_requests SET
@@ -858,6 +901,11 @@ impl SyncEngine {
                 .bind(local_mr_id)
                 .execute(&self.pool)
                 .await?;
+
+                // Emit event AFTER approval fields are written so the frontend
+                // sees correct state (closes the "blind spot" between upsert_mr
+                // and diff events where stale approval data could leak through)
+                self.emit_mr_updated(local_mr_id, instance_id, mr.iid, MrUpdateType::Updated);
 
                 // Upsert per-reviewer status
                 self.upsert_reviewers(local_mr_id, mr, &approvals).await;
