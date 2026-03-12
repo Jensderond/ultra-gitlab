@@ -13,6 +13,7 @@ import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { useListSearch } from '../hooks/useListSearch';
 import SearchBar from '../components/SearchBar/SearchBar';
 import { useInstancesQuery } from '../hooks/queries/useInstancesQuery';
+import { InstanceSwitcher } from '../components/InstanceSwitcher';
 import { queryKeys } from '../lib/queryKeys';
 import './MRListPage.css';
 
@@ -178,19 +179,11 @@ export default function MRListPage() {
           </button>
         </div>
         <div className="header-actions">
-          {instances.length > 1 && (
-            <select
-              value={selectedInstanceId ?? ''}
-              onChange={(e) => setSelectedInstanceId(Number(e.target.value))}
-              className="instance-selector"
-            >
-              {instances.map((instance) => (
-                <option key={instance.id} value={instance.id}>
-                  {instance.name || instance.url}
-                </option>
-              ))}
-            </select>
-          )}
+          <InstanceSwitcher
+            instances={instances}
+            selectedId={selectedInstanceId}
+            onSelect={setSelectedInstanceId}
+          />
           <div className="approved-toggle-wrapper">
             <button
               className={`approved-toggle-button${showApproved ? ' approved-toggle-button--active' : ''}`}

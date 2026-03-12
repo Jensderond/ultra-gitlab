@@ -10,6 +10,7 @@ interface InstanceItemProps {
   tokenInfo: TokenInfo | 'error' | undefined;
   onDelete: (id: number) => void;
   onTokenUpdated: () => void;
+  onSetDefault: (id: number) => void;
 }
 
 function formatExpiration(info: TokenInfo): { text: string; daysLeft: number | null } {
@@ -26,9 +27,9 @@ function formatExpiration(info: TokenInfo): { text: string; daysLeft: number | n
 }
 
 /**
- * Single instance row with token editing inline.
+ * Single instance card in the settings page.
  */
-export default function InstanceItem({ inst, tokenInfo, onDelete, onTokenUpdated }: InstanceItemProps) {
+export default function InstanceItem({ inst, tokenInfo, onDelete, onTokenUpdated, onSetDefault }: InstanceItemProps) {
   const [editing, setEditing] = useState(false);
   const [tokenInput, setTokenInput] = useState('');
   const [saving, setSaving] = useState(false);
@@ -100,7 +101,7 @@ export default function InstanceItem({ inst, tokenInfo, onDelete, onTokenUpdated
       setCookieInput('');
       setTimeout(() => {
         cancelCookieEdit();
-        onTokenUpdated(); // refresh instance list to reflect cookie status
+        onTokenUpdated();
       }, 1500);
     } catch (err) {
       setCookieError(err instanceof Error ? err.message : 'Failed to save cookie');
@@ -141,30 +142,63 @@ export default function InstanceItem({ inst, tokenInfo, onDelete, onTokenUpdated
   const hasCookie = !!inst.sessionCookie;
 
   return (
-    <li className="instance-item">
-      <div className="instance-info">
-        <span className="instance-name">{inst.name || inst.url}</span>
-        <span className="instance-url">{inst.url}</span>
-        <span className="instance-meta">
-          Added {formatRelativeTime(inst.createdAt)}
-          {!inst.hasToken && (
-            <span className="token-warning"> • Token missing</span>
+    <li className={`instance-item${inst.isDefault ? ' instance-item--default' : ''}`}>
+      {/* ── Header row: identity + actions ── */}
+      <div className="instance-header">
+        <div className="instance-identity">
+          <span className="instance-name">{inst.name || inst.url}</span>
+          {inst.isDefault && (
+            <span className="instance-default-badge">Default</span>
           )}
+        </div>
+        <div className="instance-header-actions">
+          {!inst.isDefault && (
+            <button
+              className="instance-action-btn instance-action-btn--default"
+              onClick={() => onSetDefault(inst.id)}
+            >
+              Set as Default
+            </button>
+          )}
+          <button
+            className="instance-action-btn instance-action-btn--delete"
+            onClick={() => onDelete(inst.id)}
+            title="Remove instance"
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+
+      {/* ── Meta row: URL + date + token status ── */}
+      <div className="instance-meta-row">
+        <span className="instance-url">{inst.url}</span>
+        <span className="instance-meta-separator" />
+        <span className="instance-meta-text">
+          Added {formatRelativeTime(inst.createdAt)}
         </span>
+        {!inst.hasToken && (
+          <span className="instance-status-pill instance-status-pill--warn">Token missing</span>
+        )}
         {tokenInfo && tokenInfo !== 'error' && (() => {
           const { text, daysLeft } = formatExpiration(tokenInfo);
           return (
-            <span className="instance-expiration">
-              {text}
+            <>
+              <span className="instance-meta-separator" />
+              <span className="instance-meta-text">{text}</span>
               {daysLeft !== null && daysLeft < 0 && (
-                <span className="token-badge token-badge-expired">Expired</span>
+                <span className="instance-status-pill instance-status-pill--error">Expired</span>
               )}
               {daysLeft !== null && daysLeft >= 0 && daysLeft < 30 && (
-                <span className="token-badge token-badge-warning">Expiring soon</span>
+                <span className="instance-status-pill instance-status-pill--warn">Expiring soon</span>
               )}
-            </span>
+            </>
           );
         })()}
+      </div>
+
+      {/* ── Inline actions row ── */}
+      <div className="instance-controls">
         {editing ? (
           <div className="edit-token-form">
             <input
@@ -178,7 +212,6 @@ export default function InstanceItem({ inst, tokenInfo, onDelete, onTokenUpdated
               }}
               placeholder="glpat-..."
               disabled={saving}
-              // autoFocus: user just clicked "Edit Token" — focus the input immediately
               autoFocus
             />
             <div className="edit-token-actions">
@@ -206,83 +239,70 @@ export default function InstanceItem({ inst, tokenInfo, onDelete, onTokenUpdated
           </button>
         )}
 
-        {/* Session Cookie Section */}
-        <div className="session-cookie-section">
-          <span className="session-cookie-status">
-            Avatars: {hasCookie ? 'Cookie set' : 'No cookie'}
-          </span>
-          {editingCookie ? (
-            <div className="edit-token-form">
-              <textarea
-                className="edit-token-input session-cookie-input"
-                value={cookieInput}
-                onChange={(e) => setCookieInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') cancelCookieEdit();
-                }}
-                placeholder="Paste _gitlab_session cookie value..."
-                disabled={cookieSaving}
-                rows={2}
-                autoFocus
-              />
-              <div className="edit-token-actions">
-                <button
-                  className="edit-token-save"
-                  onClick={handleCookieSave}
-                  disabled={cookieSaving || !cookieInput.trim()}
-                >
-                  {cookieSaving ? 'Saving...' : 'Save'}
-                </button>
-                {hasCookie && (
-                  <button
-                    className="edit-token-cancel"
-                    onClick={handleClearCookie}
-                    disabled={cookieSaving}
-                  >
-                    Clear
-                  </button>
-                )}
-                <button
-                  className="edit-token-cancel"
-                  onClick={cancelCookieEdit}
-                  disabled={cookieSaving}
-                >
-                  Cancel
-                </button>
-              </div>
-              <span className="session-cookie-hint">
-                Cookie expires with your browser session. Re-paste after logging in again.
-              </span>
-              {cookieError && <span className="edit-token-error">{cookieError}</span>}
-              {cookieSuccess && <span className="edit-token-success">{cookieSuccess}</span>}
-            </div>
-          ) : (
+        {editingCookie ? (
+          <div className="edit-token-form">
+            <textarea
+              className="edit-token-input session-cookie-input"
+              value={cookieInput}
+              onChange={(e) => setCookieInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') cancelCookieEdit();
+              }}
+              placeholder="Paste _gitlab_session cookie value..."
+              disabled={cookieSaving}
+              rows={2}
+              autoFocus
+            />
             <div className="edit-token-actions">
-              <button className="edit-token-button" onClick={startCookieEdit}>
-                {hasCookie ? 'Update Cookie' : 'Set Session Cookie'}
+              <button
+                className="edit-token-save"
+                onClick={handleCookieSave}
+                disabled={cookieSaving || !cookieInput.trim()}
+              >
+                {cookieSaving ? 'Saving...' : 'Save'}
               </button>
               {hasCookie && (
                 <button
-                  className="edit-token-button"
-                  onClick={handleRefreshAvatars}
-                  disabled={refreshing}
+                  className="edit-token-cancel"
+                  onClick={handleClearCookie}
+                  disabled={cookieSaving}
                 >
-                  {refreshing ? 'Refreshing...' : 'Refresh Avatars'}
+                  Clear
                 </button>
               )}
+              <button
+                className="edit-token-cancel"
+                onClick={cancelCookieEdit}
+                disabled={cookieSaving}
+              >
+                Cancel
+              </button>
             </div>
-          )}
-          {!editingCookie && cookieError && <span className="edit-token-error">{cookieError}</span>}
-          {!editingCookie && cookieSuccess && <span className="edit-token-success">{cookieSuccess}</span>}
-        </div>
+            <span className="session-cookie-hint">
+              Cookie expires with your browser session. Re-paste after logging in again.
+            </span>
+            {cookieError && <span className="edit-token-error">{cookieError}</span>}
+            {cookieSuccess && <span className="edit-token-success">{cookieSuccess}</span>}
+          </div>
+        ) : (
+          <>
+            <button className="edit-token-button" onClick={startCookieEdit}>
+              {hasCookie ? 'Update Cookie' : 'Set Session Cookie'}
+            </button>
+            {hasCookie && (
+              <button
+                className="edit-token-button"
+                onClick={handleRefreshAvatars}
+                disabled={refreshing}
+              >
+                {refreshing ? 'Refreshing...' : 'Refresh Avatars'}
+              </button>
+            )}
+          </>
+        )}
+        {!editingCookie && cookieError && <span className="edit-token-error">{cookieError}</span>}
+        {!editingCookie && cookieSuccess && <span className="edit-token-success">{cookieSuccess}</span>}
       </div>
-      <button
-        className="delete-button"
-        onClick={() => onDelete(inst.id)}
-        title="Remove instance"
-      >
-        ×
-      </button>
     </li>
   );
 }

@@ -1,0 +1,148 @@
+/* Instance Switcher — macOS-native dropdown feel */
+
+.instance-switcher {
+  position: relative;
+}
+
+/* Trigger button — mirrors the old .instance-selector styling */
+.instance-switcher-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.instance-switcher-trigger:hover {
+  border-color: var(--text-fuji);
+  color: var(--text-secondary);
+}
+
+.instance-switcher-trigger:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px var(--wave-glow);
+  color: var(--text-primary);
+}
+
+.instance-switcher-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.instance-switcher-chevron {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.instance-switcher-chevron--open {
+  transform: rotate(180deg);
+}
+
+/* Dropdown panel — macOS popover style */
+.instance-switcher-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  max-width: 340px;
+  padding: 4px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 200;
+  animation: instanceDropdownIn 0.12s ease-out;
+}
+
+@keyframes instanceDropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Individual option row */
+.instance-switcher-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  font-family: 'Noto Sans JP', -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.1s ease, color 0.1s ease;
+  text-align: left;
+}
+
+.instance-switcher-option:hover,
+.instance-switcher-option:focus {
+  background: var(--overlay-glass);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.instance-switcher-option--selected {
+  color: var(--accent-color);
+  font-weight: 500;
+}
+
+.instance-switcher-option--selected:hover,
+.instance-switcher-option--selected:focus {
+  color: var(--accent-hover);
+}
+
+.instance-switcher-option-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.instance-switcher-option-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  color: var(--accent-color);
+}
+
+/* Keyboard shortcut badge */
+.instance-switcher-shortcut {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--overlay-surface);
+  border: 1px solid var(--overlay-divider);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 1px 5px;
+  line-height: 1.4;
+}

@@ -14,6 +14,7 @@ export interface GitLabInstance {
   createdAt: number;
   sessionCookie: string | null;
   authenticatedUsername: string | null;
+  isDefault: boolean;
 }
 
 export interface GitLabInstanceSetup {

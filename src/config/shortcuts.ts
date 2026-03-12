@@ -111,6 +111,13 @@ export const defaultShortcuts: ShortcutDefinition[] = [
     context: 'global',
   },
   {
+    id: 'switch-instance',
+    description: 'Switch GitLab instance',
+    defaultKey: 'Cmd+1..9',
+    category: 'navigation',
+    context: 'global',
+  },
+  {
     id: 'go-back',
     description: 'Go back / close panel',
     defaultKey: 'Escape',

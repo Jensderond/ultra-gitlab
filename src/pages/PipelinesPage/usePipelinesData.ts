@@ -20,7 +20,7 @@ export default function usePipelinesData() {
 
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
 
-  // Auto-select first instance when instances load
+  // Auto-select default or first instance when instances load
   useEffect(() => {
     if (selectedInstanceId === null && instances.length > 0) {
       setSelectedInstanceId(instances[0].id);

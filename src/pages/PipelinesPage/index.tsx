@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import usePipelinesData from './usePipelinesData';
 import ProjectSearch from './ProjectSearch';
 import ProjectCard from './ProjectCard';
+import { InstanceSwitcher } from '../../components/InstanceSwitcher';
 import { formatRelativeTime } from './utils';
 import '../PipelinesPage.css';
 
@@ -66,19 +67,11 @@ export default function PipelinesPage() {
             </span>
           )}
         </div>
-        {instances.length > 1 && (
-          <select
-            value={selectedInstanceId ?? ''}
-            onChange={(e) => handleSelectInstance(Number(e.target.value))}
-            className="instance-selector"
-          >
-            {instances.map((instance) => (
-              <option key={instance.id} value={instance.id}>
-                {instance.name || instance.url}
-              </option>
-            ))}
-          </select>
-        )}
+        <InstanceSwitcher
+          instances={instances}
+          selectedId={selectedInstanceId}
+          onSelect={handleSelectInstance}
+        />
       </header>
 
       <ProjectSearch

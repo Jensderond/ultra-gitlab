@@ -72,7 +72,7 @@ pub async fn setup_gitlab_instance(
         INSERT INTO gitlab_instances (url, name, token, created_at, authenticated_username, session_cookie)
         VALUES ($1, $2, $3, $4, $5, $6)
         ON CONFLICT (url) DO UPDATE SET name = $2, token = $3, authenticated_username = $5, session_cookie = COALESCE($6, gitlab_instances.session_cookie)
-        RETURNING id, url, name, token, created_at, authenticated_username, session_cookie
+        RETURNING id, url, name, token, created_at, authenticated_username, session_cookie, is_default
         "#,
     )
     .bind(&url)
@@ -113,7 +113,7 @@ pub async fn get_gitlab_instances(
     pool: State<'_, DbPool>,
 ) -> Result<Vec<GitLabInstanceWithStatus>, AppError> {
     let instances: Vec<GitLabInstance> =
-        sqlx::query_as("SELECT id, url, name, token, created_at, authenticated_username, session_cookie FROM gitlab_instances ORDER BY created_at DESC")
+        sqlx::query_as("SELECT id, url, name, token, created_at, authenticated_username, session_cookie, is_default FROM gitlab_instances ORDER BY is_default DESC, created_at DESC")
             .fetch_all(pool.inner())
             .await?;
 
@@ -168,7 +168,7 @@ pub async fn get_token_info(
     instance_id: i64,
 ) -> Result<TokenInfoResponse, AppError> {
     let instance: GitLabInstance = sqlx::query_as(
-        "SELECT id, url, name, token, created_at, authenticated_username, session_cookie FROM gitlab_instances WHERE id = $1",
+        "SELECT id, url, name, token, created_at, authenticated_username, session_cookie, is_default FROM gitlab_instances WHERE id = $1",
     )
     .bind(instance_id)
     .fetch_optional(pool.inner())
@@ -200,7 +200,7 @@ pub async fn update_instance_token(
     token: String,
 ) -> Result<String, AppError> {
     let instance: GitLabInstance = sqlx::query_as(
-        "SELECT id, url, name, token, created_at, authenticated_username, session_cookie FROM gitlab_instances WHERE id = $1",
+        "SELECT id, url, name, token, created_at, authenticated_username, session_cookie, is_default FROM gitlab_instances WHERE id = $1",
     )
     .bind(instance_id)
     .fetch_optional(pool.inner())
@@ -227,6 +227,19 @@ pub async fn update_instance_token(
     .await?;
 
     Ok(user.username)
+}
+
+/// Set an instance as the default (clears default from all others).
+#[tauri::command]
+pub async fn set_default_instance(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+) -> Result<(), AppError> {
+    sqlx::query("UPDATE gitlab_instances SET is_default = CASE WHEN id = $1 THEN 1 ELSE 0 END")
+        .bind(instance_id)
+        .execute(pool.inner())
+        .await?;
+    Ok(())
 }
 
 /// Delete a GitLab instance.

@@ -13,6 +13,7 @@ import { useListSearch } from '../hooks/useListSearch';
 import SearchBar from '../components/SearchBar/SearchBar';
 import type { MergeRequest } from '../types';
 import { useInstancesQuery } from '../hooks/queries/useInstancesQuery';
+import { InstanceSwitcher } from '../components/InstanceSwitcher';
 import { useMyMRListQuery } from '../hooks/queries/useMyMRListQuery';
 import { queryKeys } from '../lib/queryKeys';
 import './MRListPage.css';
@@ -50,7 +51,7 @@ export default function MyMRsPage() {
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
   const mrsRef = useRef<MergeRequest[]>([]);
 
-  // Auto-select first instance when instances load
+  // Auto-select default or first instance when instances load
   useEffect(() => {
     if (instances.length > 0 && !selectedInstanceId) {
       setSelectedInstanceId(instances[0].id);
@@ -158,19 +159,11 @@ export default function MyMRsPage() {
             </svg>
           </button>
         </div>
-        {instances.length > 1 && (
-          <select
-            value={selectedInstanceId ?? ''}
-            onChange={(e) => setSelectedInstanceId(Number(e.target.value))}
-            className="instance-selector"
-          >
-            {instances.map((instance) => (
-              <option key={instance.id} value={instance.id}>
-                {instance.name || instance.url}
-              </option>
-            ))}
-          </select>
-        )}
+        <InstanceSwitcher
+          instances={instances}
+          selectedId={selectedInstanceId}
+          onSelect={setSelectedInstanceId}
+        />
       </header>
 
       <main className="mr-list-page-content">

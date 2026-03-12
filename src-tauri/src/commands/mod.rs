@@ -30,8 +30,8 @@ pub mod sync;
 // Re-export commands for registration in lib.rs
 pub use approval::{approve_mr, get_approval_status, unapprove_mr};
 pub use auth::{
-    delete_gitlab_instance, get_gitlab_instances, get_token_info, setup_gitlab_instance,
-    update_instance_token,
+    delete_gitlab_instance, get_gitlab_instances, get_token_info, set_default_instance,
+    setup_gitlab_instance, update_instance_token,
 };
 pub use avatar::{get_avatar, get_avatars, refresh_avatars, update_session_cookie};
 pub use comments::{

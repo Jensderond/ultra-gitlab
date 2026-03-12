@@ -51,7 +51,7 @@ pub async fn update_session_cookie(
 #[tauri::command]
 pub async fn refresh_avatars(pool: State<'_, DbPool>, instance_id: i64) -> Result<u32, AppError> {
     let instance: GitLabInstance = sqlx::query_as(
-        "SELECT id, url, name, token, created_at, authenticated_username, session_cookie FROM gitlab_instances WHERE id = ?",
+        "SELECT id, url, name, token, created_at, authenticated_username, session_cookie, is_default FROM gitlab_instances WHERE id = ?",
     )
     .bind(instance_id)
     .fetch_optional(pool.inner())

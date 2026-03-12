@@ -27,6 +27,9 @@ pub struct GitLabInstance {
 
     /// Session cookie for downloading avatar images.
     pub session_cookie: Option<String>,
+
+    /// Whether this is the default instance (auto-selected on pages).
+    pub is_default: bool,
 }
 
 /// Data required to create a new GitLab instance.

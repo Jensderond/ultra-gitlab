@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import InstanceSetup from '../../components/InstanceSetup/InstanceSetup';
 import {
   removeInstance,
+  setDefaultInstance,
 } from '../../services/gitlab';
 import { getTokenInfo } from '../../services/tauri';
 import type { TokenInfo } from '../../types';
@@ -54,6 +55,15 @@ export default function InstancesSection() {
     }
   }
 
+  async function handleSetDefault(instanceId: number) {
+    try {
+      await setDefaultInstance(instanceId);
+      queryClient.invalidateQueries({ queryKey: queryKeys.instances() });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to set default');
+    }
+  }
+
   function handleSetupComplete() {
     setShowSetup(false);
     queryClient.invalidateQueries({ queryKey: queryKeys.instances() });
@@ -97,6 +107,7 @@ export default function InstancesSection() {
               inst={inst}
               tokenInfo={tokenInfoMap[inst.id]}
               onDelete={handleDelete}
+              onSetDefault={handleSetDefault}
               onTokenUpdated={() => queryClient.invalidateQueries({ queryKey: queryKeys.instances() })}
             />
           ))}

@@ -124,6 +124,13 @@ export async function getTokenInfo(instanceId: number): Promise<TokenInfo> {
 }
 
 /**
+ * Set an instance as the default (auto-selected on pages).
+ */
+export async function setDefaultInstance(instanceId: number): Promise<void> {
+  return invoke<void>('set_default_instance', { instanceId });
+}
+
+/**
  * Update the personal access token for a GitLab instance.
  * Validates the token and returns the authenticated username.
  */

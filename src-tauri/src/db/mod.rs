@@ -118,6 +118,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0015_fix_mr_unique_constraint",
         include_str!("migrations/0015_fix_mr_unique_constraint.sql"),
     ),
+    (
+        "0016_add_default_instance",
+        include_str!("migrations/0016_add_default_instance.sql"),
+    ),
 ];
 
 /// Run all pending database migrations.

@@ -191,6 +191,17 @@ function AppContent() {
         return;
       }
 
+      // Cmd+1..9 to switch instance
+      if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '9') {
+        e.preventDefault();
+        const index = parseInt(e.key, 10) - 1;
+        trackShortcut(`Cmd+${e.key}`, 'switch_instance', 'global');
+        window.dispatchEvent(
+          new CustomEvent('instance-switch', { detail: { index } })
+        );
+        return;
+      }
+
       // '?' to show keyboard help (but not Shift+/ which is also '?')
       if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();

@@ -25,7 +25,7 @@ use commands::{
     rebase_mr, refresh_avatars, refresh_gitattributes, regenerate_companion_pin, set_companion_pin,
     remove_pipeline_project, reply_to_comment, resolve_discussion, retry_failed_actions,
     retry_pipeline_job, revoke_companion_device, search_projects, send_native_notification,
-    setup_gitlab_instance, start_companion_server_cmd, stop_companion_server_cmd,
+    set_default_instance, setup_gitlab_instance, start_companion_server_cmd, stop_companion_server_cmd,
     toggle_pin_pipeline_project, trigger_sync, unapprove_mr, update_collapse_patterns,
     update_companion_settings, update_custom_theme_colors, update_diffs_font,
     update_display_font,
@@ -291,6 +291,7 @@ pub fn run() {
             clear_test_data,
             get_token_info,
             update_instance_token,
+            set_default_instance,
             // Deep-link
             resolve_mr_by_web_url,
             fetch_mr_by_web_url,

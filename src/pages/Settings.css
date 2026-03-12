@@ -248,29 +248,52 @@
   list-style: none;
   padding: 0;
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .instance-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--overlay-divider);
-  transition: background 0.15s ease;
-}
-
-.instance-item:last-child {
-  border-bottom: none;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.2s ease;
 }
 
 .instance-item:hover {
   background: var(--overlay-hover);
 }
 
-.instance-info {
+/* Default instance gets a subtle left accent */
+.instance-item--default {
+  border-left: 2px solid var(--accent-color);
+  background: linear-gradient(90deg,
+    var(--wave-glow) 0%,
+    transparent 30%);
+}
+
+.instance-item--default:hover {
+  background: linear-gradient(90deg,
+    var(--wave-glow-strong) 0%,
+    var(--overlay-hover) 30%);
+}
+
+/* ── Header: name + badge + action buttons ── */
+
+.instance-header {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.instance-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -278,51 +301,129 @@
   font-weight: 600;
   font-size: 14px;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.instance-url {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-
-.instance-meta {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.token-warning {
-  color: var(--accent-ronin);
-}
-
-.instance-expiration {
-  display: flex;
+.instance-default-badge {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.token-badge {
-  display: inline-block;
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
+  background: var(--accent-bg);
+  color: var(--accent-color);
+  border: 1px solid var(--wave-glow-strong);
+  flex-shrink: 0;
 }
 
-.token-badge-warning {
+.instance-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.instance-action-btn {
+  padding: 4px 12px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.instance-action-btn--default {
+  background: var(--wave-glow);
+  border: 1px solid var(--wave-glow-strong);
+  color: var(--accent-hover);
+}
+
+.instance-action-btn--default:hover {
+  background: var(--wave-glow-strong);
+  border-color: var(--accent-color);
+  color: var(--accent-crystal);
+  box-shadow: 0 2px 12px var(--wave-glow);
+}
+
+.instance-action-btn--delete {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+}
+
+.instance-action-btn--delete:hover {
+  color: var(--error-color);
+  background: var(--error-light);
+  border-color: var(--error-bg);
+}
+
+/* ── Meta row: URL, date, status pills ── */
+
+.instance-meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.instance-url {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.instance-meta-text {
+  color: var(--text-muted);
+}
+
+.instance-meta-separator {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.instance-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.instance-status-pill--warn {
   background: var(--warning-light);
   color: var(--accent-ronin);
   border: 1px solid var(--warning-bg);
 }
 
-.token-badge-expired {
+.instance-status-pill--error {
   background: var(--error-light);
   color: var(--error-color);
   border: 1px solid var(--error-bg);
+}
+
+/* ── Controls row: inline action buttons ── */
+
+.instance-controls {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 /* ================================================

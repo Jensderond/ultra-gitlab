@@ -9,6 +9,7 @@ import {
   setupGitLabInstance,
   getGitLabInstances,
   deleteGitLabInstance,
+  setDefaultInstance as tauriSetDefaultInstance,
   getMergeRequests,
   getMergeRequest,
   getDiffFiles,
@@ -90,6 +91,15 @@ export async function listInstances(): Promise<GitLabInstanceWithStatus[]> {
  */
 export async function removeInstance(instanceId: number): Promise<void> {
   return deleteGitLabInstance(instanceId);
+}
+
+/**
+ * Set an instance as the default for auto-selection on pages.
+ *
+ * @param instanceId - The instance ID to set as default
+ */
+export async function setDefaultInstance(instanceId: number): Promise<void> {
+  return tauriSetDefaultInstance(instanceId);
 }
 
 // ============================================================================
