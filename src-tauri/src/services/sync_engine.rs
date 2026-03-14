@@ -964,15 +964,25 @@ impl SyncEngine {
             }
         }
 
-        // Emit fetching_diff event
+        // Emit both progress events before concurrent fetch
         self.emit_progress(
             SyncPhase::FetchingDiff,
             format!("Fetching diff for MR !{}", mr.iid),
         );
+        self.emit_progress(
+            SyncPhase::FetchingComments,
+            format!("Fetching comments for MR !{}", mr.iid),
+        );
 
-        // Fetch and store diff
+        // Fetch diff and comments concurrently
         let diff_start = Instant::now();
-        match client.get_merge_request_diff(mr.project_id, mr.iid).await {
+        let (diff_result, comments_result) = tokio::join!(
+            client.get_merge_request_diff(mr.project_id, mr.iid),
+            client.list_discussions(mr.project_id, mr.iid)
+        );
+
+        // Process diff result first (cache_file_contents depends on it)
+        match diff_result {
             Ok(diff) => {
                 // Get previously cached SHAs before upserting (for skip-unchanged logic)
                 let prev_shas =
@@ -1030,15 +1040,9 @@ impl SyncEngine {
             }
         }
 
-        // Emit fetching_comments event
-        self.emit_progress(
-            SyncPhase::FetchingComments,
-            format!("Fetching comments for MR !{}", mr.iid),
-        );
-
-        // Fetch and store comments
+        // Process comments result
         let comments_start = Instant::now();
-        match client.list_discussions(mr.project_id, mr.iid).await {
+        match comments_result {
             Ok(discussions) => {
                 self.upsert_discussions(local_mr_id, &discussions)
                     .await
