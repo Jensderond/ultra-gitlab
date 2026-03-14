@@ -122,6 +122,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0016_add_default_instance",
         include_str!("migrations/0016_add_default_instance.sql"),
     ),
+    (
+        "0017_sync_metrics",
+        include_str!("migrations/0017_sync_metrics.sql"),
+    ),
 ];
 
 /// Run all pending database migrations.

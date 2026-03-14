@@ -135,6 +135,9 @@ pub struct SyncResult {
 
     /// Duration of the sync in milliseconds.
     pub duration_ms: i64,
+
+    /// Number of API calls made during this sync.
+    pub api_calls: u64,
 }
 
 /// Commands that can be sent to the sync engine.
@@ -391,6 +394,7 @@ impl SyncEngine {
     /// 4. Purges merged/closed MRs
     pub async fn run_sync(&mut self) -> Result<SyncResult, AppError> {
         let start = Instant::now();
+        let sync_run_id = uuid::Uuid::new_v4().to_string();
 
         // Emit starting event
         self.emit_progress(SyncPhase::Starting, "Starting sync...");
@@ -407,6 +411,7 @@ impl SyncEngine {
             actions_pushed: 0,
             errors: Vec::new(),
             duration_ms: 0,
+            api_calls: 0,
         };
 
         // Get all GitLab instances
@@ -420,13 +425,17 @@ impl SyncEngine {
             );
         }
 
+        // Track total API calls across all instances
+        let mut total_api_calls: u64 = 0;
+
         for instance in instances {
-            match self.sync_instance(&instance).await {
+            match self.sync_instance(&instance, &sync_run_id).await {
                 Ok(instance_result) => {
                     result.mr_count += instance_result.mr_count;
                     result.purged_count += instance_result.purged_count;
                     result.actions_pushed += instance_result.actions_pushed;
                     result.errors.extend(instance_result.errors);
+                    total_api_calls += instance_result.api_calls;
                 }
                 Err(e) => {
                     // Emit auth-expired event if this is an authentication error
@@ -545,6 +554,28 @@ impl SyncEngine {
         )
         .await?;
 
+        // Record total sync run metric
+        if let Err(e) = self.record_metric(
+            &sync_run_id,
+            "total",
+            None,
+            None,
+            result.duration_ms,
+            total_api_calls,
+            result.mr_count as u64,
+        ).await {
+            log::warn!("Failed to record total sync metric: {}", e);
+        }
+
+        // Summary log line
+        log::info!(
+            "[sync] run={} total_ms={} api_calls={} mr_count={}",
+            sync_run_id,
+            result.duration_ms,
+            total_api_calls,
+            result.mr_count
+        );
+
         Ok(result)
     }
 
@@ -552,7 +583,9 @@ impl SyncEngine {
     async fn sync_instance(
         &mut self,
         instance: &GitLabInstanceRow,
+        sync_run_id: &str,
     ) -> Result<SyncResult, AppError> {
+        let instance_start = Instant::now();
         let config = self.config.read().await;
         eprintln!(
             "[sync] sync_instance: url={}, has_token={}, sync_authored={}, sync_reviewing={}",
@@ -600,6 +633,7 @@ impl SyncEngine {
             actions_pushed: 0,
             errors: Vec::new(),
             duration_ms: 0,
+            api_calls: 0,
         };
 
         // Validate token ONCE per instance — also used for approval checks in sync_mr()
@@ -652,7 +686,7 @@ impl SyncEngine {
         // Process each MR and collect local DB IDs for purge
         let mut synced_local_mr_ids: Vec<i64> = Vec::new();
         for mr in &mrs {
-            match self.sync_mr(instance.id, &client, mr, current_user_id).await {
+            match self.sync_mr(instance.id, &client, mr, current_user_id, sync_run_id).await {
                 Ok(local_mr_id) => {
                     synced_local_mr_ids.push(local_mr_id);
                     result.mr_count += 1;
@@ -713,6 +747,22 @@ impl SyncEngine {
                         .push(format!("Action {}: {}", push_result.action.id, err));
                 }
             }
+        }
+
+        // Capture API call count from this instance's client
+        result.api_calls = client.call_count();
+
+        // Record instance-level metrics
+        if let Err(e) = self.record_metric(
+            sync_run_id,
+            "instance",
+            Some(instance.id),
+            None,
+            instance_start.elapsed().as_millis() as i64,
+            result.api_calls,
+            result.mr_count as u64,
+        ).await {
+            log::warn!("Failed to record instance metric: {}", e);
         }
 
         Ok(result)
@@ -804,6 +854,7 @@ impl SyncEngine {
         client: &GitLabClient,
         mr: &GitLabMergeRequest,
         current_user_id: Option<i64>,
+        sync_run_id: &str,
     ) -> Result<i64, AppError> {
         let start = Instant::now();
 
@@ -923,6 +974,7 @@ impl SyncEngine {
         );
 
         // Fetch and store diff
+        let diff_start = Instant::now();
         match client.get_merge_request_diff(mr.project_id, mr.iid).await {
             Ok(diff) => {
                 // Get previously cached SHAs before upserting (for skip-unchanged logic)
@@ -939,7 +991,17 @@ impl SyncEngine {
                 // Emit diff_updated event
                 self.emit_mr_updated(local_mr_id, instance_id, mr.iid, MrUpdateType::DiffUpdated);
 
+                // Record diff phase metric
+                if let Err(e) = self.record_metric(
+                    sync_run_id, "diff", Some(instance_id), Some(mr.iid),
+                    diff_start.elapsed().as_millis() as i64, 0,
+                    diff.diffs.len() as u64,
+                ).await {
+                    log::warn!("Failed to record diff metric: {}", e);
+                }
+
                 // Pre-cache full file content for instant viewing
+                let file_cache_start = Instant::now();
                 self.cache_file_contents(
                     local_mr_id,
                     mr.project_id,
@@ -949,6 +1011,15 @@ impl SyncEngine {
                     prev_shas.as_ref(),
                 )
                 .await;
+
+                // Record file_cache phase metric
+                if let Err(e) = self.record_metric(
+                    sync_run_id, "file_cache", Some(instance_id), Some(mr.iid),
+                    file_cache_start.elapsed().as_millis() as i64, 0,
+                    diff.diffs.len() as u64,
+                ).await {
+                    log::warn!("Failed to record file_cache metric: {}", e);
+                }
             }
             Err(e) => {
                 self.log_sync_operation(
@@ -969,6 +1040,7 @@ impl SyncEngine {
         );
 
         // Fetch and store comments
+        let comments_start = Instant::now();
         match client.list_discussions(mr.project_id, mr.iid).await {
             Ok(discussions) => {
                 self.upsert_discussions(local_mr_id, &discussions)
@@ -985,6 +1057,15 @@ impl SyncEngine {
                     mr.iid,
                     MrUpdateType::CommentsUpdated,
                 );
+
+                // Record comments phase metric
+                if let Err(e) = self.record_metric(
+                    sync_run_id, "comments", Some(instance_id), Some(mr.iid),
+                    comments_start.elapsed().as_millis() as i64, 0,
+                    discussions.len() as u64,
+                ).await {
+                    log::warn!("Failed to record comments metric: {}", e);
+                }
             }
             Err(e) => {
                 self.log_sync_operation(
@@ -999,14 +1080,28 @@ impl SyncEngine {
         }
 
         // Log successful sync
+        let mr_duration_ms = start.elapsed().as_millis() as i64;
         self.log_sync_operation(
             "sync_mr",
             "success",
             Some(local_mr_id),
             None,
-            Some(start.elapsed().as_millis() as i64),
+            Some(mr_duration_ms),
         )
         .await?;
+
+        // Record MR-level metric
+        if let Err(e) = self.record_metric(
+            sync_run_id,
+            "mr",
+            Some(instance_id),
+            Some(mr.iid),
+            mr_duration_ms,
+            0,
+            0,
+        ).await {
+            log::warn!("Failed to record MR metric: {}", e);
+        }
 
         Ok(local_mr_id)
     }
@@ -2042,6 +2137,39 @@ impl SyncEngine {
             "#,
         )
         .bind(MAX_LOG_ENTRIES)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Record a sync metric to the sync_metrics table.
+    ///
+    /// Errors are returned (not swallowed) so callers can decide to warn or ignore.
+    async fn record_metric(
+        &self,
+        sync_run_id: &str,
+        phase: &str,
+        instance_id: Option<i64>,
+        mr_iid: Option<i64>,
+        duration_ms: i64,
+        api_calls: u64,
+        items_processed: u64,
+    ) -> Result<(), AppError> {
+        sqlx::query(
+            r#"
+            INSERT INTO sync_metrics (sync_run_id, phase, instance_id, mr_iid, duration_ms, api_calls, items_processed, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(sync_run_id)
+        .bind(phase)
+        .bind(instance_id)
+        .bind(mr_iid)
+        .bind(duration_ms)
+        .bind(api_calls as i64)
+        .bind(items_processed as i64)
+        .bind(now())
         .execute(&self.pool)
         .await?;
 

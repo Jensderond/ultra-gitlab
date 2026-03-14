@@ -6,6 +6,8 @@ use crate::error::AppError;
 use reqwest::{header, Client, Response, StatusCode};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
 /// GitLab API client configuration.
 #[derive(Debug, Clone)]
@@ -35,6 +37,8 @@ impl Default for GitLabClientConfig {
 pub struct GitLabClient {
     client: Client,
     config: GitLabClientConfig,
+    /// Shared API call counter for metrics instrumentation.
+    api_call_count: Arc<AtomicU64>,
 }
 
 /// Pagination information from GitLab API response headers.
@@ -352,7 +356,11 @@ impl GitLabClient {
             .build()
             .map_err(|e| AppError::internal(format!("Failed to build HTTP client: {}", e)))?;
 
-        Ok(Self { client, config })
+        Ok(Self {
+            client,
+            config,
+            api_call_count: Arc::new(AtomicU64::new(0)),
+        })
     }
 
     /// Get the base URL for API requests.
@@ -401,10 +409,21 @@ impl GitLabClient {
                 continue;
             }
 
+            self.api_call_count.fetch_add(1, Ordering::Relaxed);
             return Ok(response);
         }
 
         unreachable!()
+    }
+
+    /// Return the total number of API calls made by this client (and its clones).
+    pub fn call_count(&self) -> u64 {
+        self.api_call_count.load(Ordering::Relaxed)
+    }
+
+    /// Reset the API call counter to zero.
+    pub fn reset_call_count(&self) {
+        self.api_call_count.store(0, Ordering::Relaxed);
     }
 
     /// Parse pagination headers from response.
