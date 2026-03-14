@@ -44,6 +44,9 @@ const CACHE_SIZE_WARNING_BYTES: i64 = 400 * 1024 * 1024;
 /// Cache size hard limit in bytes (500MB per spec).
 const CACHE_SIZE_LIMIT_BYTES: i64 = 500 * 1024 * 1024;
 
+/// Maximum number of MRs to sync concurrently within an instance.
+const MAX_CONCURRENT_MRS: usize = 4;
+
 /// Get the current Unix timestamp.
 fn now() -> i64 {
     SystemTime::now()
@@ -225,6 +228,7 @@ impl SyncHandle {
 /// - Fetching diffs and comments
 /// - Pushing local actions to GitLab
 /// - Purging merged/closed MRs
+#[derive(Clone)]
 pub struct SyncEngine {
     /// Database connection pool.
     pool: DbPool,
@@ -684,16 +688,58 @@ impl SyncEngine {
         let mr_ids: Vec<i64> = mrs.iter().map(|mr| mr.id).collect();
         let pre_sync_ready = self.get_ready_states(&mr_ids).await;
 
-        // Process each MR and collect local DB IDs for purge
+        // Process MRs concurrently with bounded parallelism
+        let instance_id = instance.id;
         let mut synced_local_mr_ids: Vec<i64> = Vec::new();
-        for mr in &mrs {
-            match self.sync_mr(instance.id, &client, mr, current_user_id, sync_run_id).await {
-                Ok(local_mr_id) => {
+        let semaphore = Arc::new(tokio::sync::Semaphore::new(MAX_CONCURRENT_MRS));
+        let mut join_set = tokio::task::JoinSet::new();
+
+        for mr in mrs.clone() {
+            let permit = semaphore.clone().acquire_owned().await.unwrap();
+            let engine = self.clone();
+            let client = client.clone();
+            let sync_run_id = sync_run_id.to_string();
+            join_set.spawn(async move {
+                let mr_iid = mr.iid;
+                let res = engine
+                    .sync_mr(instance_id, &client, &mr, current_user_id, &sync_run_id)
+                    .await;
+                drop(permit);
+                (mr_iid, res)
+            });
+        }
+
+        while let Some(task_result) = join_set.join_next().await {
+            match task_result {
+                Ok((_mr_iid, Ok(local_mr_id))) => {
                     synced_local_mr_ids.push(local_mr_id);
                     result.mr_count += 1;
                 }
-                Err(e) => {
-                    result.errors.push(format!("MR !{}: {}", mr.iid, e));
+                Ok((mr_iid, Err(e))) => {
+                    if e.is_authentication_expired() {
+                        if let Err(emit_err) = self.app_handle.emit(
+                            AUTH_EXPIRED_EVENT,
+                            AuthExpiredPayload {
+                                instance_id: e.get_expired_instance_id().unwrap_or(instance.id),
+                                instance_url: e
+                                    .get_expired_instance_url()
+                                    .unwrap_or(&instance.url)
+                                    .to_string(),
+                                message: format!(
+                                    "Authentication expired for {}. Please re-authenticate.",
+                                    instance.url
+                                ),
+                            },
+                        ) {
+                            log::warn!("Failed to emit auth-expired event: {}", emit_err);
+                        }
+                    }
+                    result.errors.push(format!("MR !{}: {}", mr_iid, e));
+                }
+                Err(join_err) => {
+                    result
+                        .errors
+                        .push(format!("MR task panicked: {}", join_err));
                 }
             }
         }
