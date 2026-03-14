@@ -239,7 +239,7 @@ pub struct SyncEngine {
     app_handle: tauri::AppHandle,
 
     /// MR IDs already notified as ready-to-merge this session (avoids duplicate notifications).
-    notified_mr_ready: HashSet<i64>,
+    notified_mr_ready: Arc<RwLock<HashSet<i64>>>,
 }
 
 impl SyncEngine {
@@ -250,7 +250,7 @@ impl SyncEngine {
             config: Arc::new(RwLock::new(SyncConfig::default())),
             status: Arc::new(RwLock::new(SyncStatus::default())),
             app_handle,
-            notified_mr_ready: HashSet::new(),
+            notified_mr_ready: Arc::new(RwLock::new(HashSet::new())),
         }
     }
 
@@ -307,12 +307,12 @@ impl SyncEngine {
             // Brief delay so the app window appears before we start network I/O
             tokio::time::sleep(Duration::from_secs(3)).await;
 
-            let mut engine = SyncEngine {
+            let engine = SyncEngine {
                 pool,
                 config: config_for_task,
                 status: Arc::new(RwLock::new(SyncStatus::default())),
                 app_handle,
-                notified_mr_ready: HashSet::new(),
+                notified_mr_ready: Arc::new(RwLock::new(HashSet::new())),
             };
 
             // Recover any actions stuck in 'syncing' state from a previous crash
@@ -393,7 +393,7 @@ impl SyncEngine {
     /// 2. Fetches diffs and comments for each MR
     /// 3. Pushes pending local actions to GitLab
     /// 4. Purges merged/closed MRs
-    pub async fn run_sync(&mut self) -> Result<SyncResult, AppError> {
+    pub async fn run_sync(&self) -> Result<SyncResult, AppError> {
         let start = Instant::now();
         let sync_run_id = uuid::Uuid::new_v4().to_string();
 
@@ -582,7 +582,7 @@ impl SyncEngine {
 
     /// Sync a single GitLab instance.
     async fn sync_instance(
-        &mut self,
+        &self,
         instance: &GitLabInstanceRow,
         sync_run_id: &str,
     ) -> Result<SyncResult, AppError> {
@@ -1999,7 +1999,7 @@ impl SyncEngine {
     /// transitioned from not-ready to ready, and only if notification settings
     /// have mr_ready_to_merge enabled.
     async fn check_mr_ready_transitions(
-        &mut self,
+        &self,
         mr_ids: &[i64],
         pre_sync_ready: &std::collections::HashMap<i64, bool>,
         mrs: &[GitLabMergeRequest],
@@ -2025,7 +2025,7 @@ impl SyncEngine {
             let mr_id = mr.id;
 
             // Skip if already notified this session
-            if self.notified_mr_ready.contains(&mr_id) {
+            if self.notified_mr_ready.read().await.contains(&mr_id) {
                 continue;
             }
 
@@ -2047,7 +2047,7 @@ impl SyncEngine {
                     log::warn!("Failed to emit mr-ready event: {}", e);
                 }
 
-                self.notified_mr_ready.insert(mr_id);
+                self.notified_mr_ready.write().await.insert(mr_id);
                 eprintln!(
                     "[sync] MR !{} is now ready to merge, notification emitted",
                     mr.iid
