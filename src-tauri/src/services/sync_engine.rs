@@ -26,6 +26,7 @@ use crate::services::sync_queue;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::Emitter;
 use tokio::sync::{mpsc, RwLock};
@@ -1462,16 +1463,23 @@ impl SyncEngine {
             }
         }
 
+        use futures::stream::{self, StreamExt};
+
+        const MAX_CONCURRENT_FILE_FETCHES: usize = 6;
+
         let instance_id_str = instance_id.to_string();
-        let mut skipped = 0u32;
+        let skipped = Arc::new(AtomicU32::new(0));
 
-        for file_diff in &diff.diffs {
-            // Skip binary files
-            if is_binary_extension(&file_diff.new_path) || is_binary_extension(&file_diff.old_path)
-            {
-                continue;
-            }
+        // Filter out binary files before building the concurrent stream
+        let non_binary_diffs: Vec<_> = diff
+            .diffs
+            .iter()
+            .filter(|fd| !is_binary_extension(&fd.new_path) && !is_binary_extension(&fd.old_path))
+            .collect();
 
+        // Build a list of fetch tasks: (path, ref_sha, version_label)
+        let mut fetch_tasks: Vec<(String, String, &str)> = Vec::new();
+        for file_diff in &non_binary_diffs {
             let change_type = if file_diff.new_file {
                 "added"
             } else if file_diff.deleted_file {
@@ -1480,141 +1488,96 @@ impl SyncEngine {
                 "modified"
             };
 
-            // Fetch base version for non-added files
+            // Base version for non-added files
             if change_type != "added" {
-                // Skip if already cached
-                let has_cached = crate::db::file_cache::has_cached_version(
-                    &self.pool,
-                    mr_id,
-                    &file_diff.old_path,
+                fetch_tasks.push((
+                    file_diff.old_path.clone(),
+                    diff.base_commit_sha.clone(),
                     "base",
-                )
-                .await
-                .unwrap_or(false);
-
-                if has_cached {
-                    skipped += 1;
-                } else {
-                    match client
-                        .get_file_content(project_id, &file_diff.old_path, &diff.base_commit_sha)
-                        .await
-                    {
-                        Ok(content) => {
-                            let mut hasher = Sha256::new();
-                            hasher.update(content.as_bytes());
-                            let sha = format!("{:x}", hasher.finalize());
-                            let size_bytes = content.len() as i64;
-
-                            if let Err(e) = crate::db::file_cache::upsert_file_blob(
-                                &self.pool, &sha, &content, size_bytes,
-                            )
-                            .await
-                            {
-                                log::warn!(
-                                    "Failed to cache base blob for {}: {}",
-                                    file_diff.old_path,
-                                    e
-                                );
-                            }
-                            if let Err(e) = crate::db::file_cache::upsert_file_version(
-                                &self.pool,
-                                mr_id,
-                                &file_diff.old_path,
-                                "base",
-                                &sha,
-                                &instance_id_str,
-                                project_id,
-                            )
-                            .await
-                            {
-                                log::warn!(
-                                    "Failed to cache base version for {}: {}",
-                                    file_diff.old_path,
-                                    e
-                                );
-                            }
-                        }
-                        Err(e) => {
-                            log::warn!(
-                                "Failed to fetch base content for {}: {}",
-                                file_diff.old_path,
-                                e
-                            );
-                        }
-                    }
-                }
+                ));
             }
 
-            // Fetch head version for non-deleted files
+            // Head version for non-deleted files
             if change_type != "deleted" {
-                // Skip if already cached
-                let has_cached = crate::db::file_cache::has_cached_version(
-                    &self.pool,
-                    mr_id,
-                    &file_diff.new_path,
+                fetch_tasks.push((
+                    file_diff.new_path.clone(),
+                    diff.head_commit_sha.clone(),
                     "head",
-                )
-                .await
-                .unwrap_or(false);
-
-                if has_cached {
-                    skipped += 1;
-                } else {
-                    match client
-                        .get_file_content(project_id, &file_diff.new_path, &diff.head_commit_sha)
-                        .await
-                    {
-                        Ok(content) => {
-                            let mut hasher = Sha256::new();
-                            hasher.update(content.as_bytes());
-                            let sha = format!("{:x}", hasher.finalize());
-                            let size_bytes = content.len() as i64;
-
-                            if let Err(e) = crate::db::file_cache::upsert_file_blob(
-                                &self.pool, &sha, &content, size_bytes,
-                            )
-                            .await
-                            {
-                                log::warn!(
-                                    "Failed to cache head blob for {}: {}",
-                                    file_diff.new_path,
-                                    e
-                                );
-                            }
-                            if let Err(e) = crate::db::file_cache::upsert_file_version(
-                                &self.pool,
-                                mr_id,
-                                &file_diff.new_path,
-                                "head",
-                                &sha,
-                                &instance_id_str,
-                                project_id,
-                            )
-                            .await
-                            {
-                                log::warn!(
-                                    "Failed to cache head version for {}: {}",
-                                    file_diff.new_path,
-                                    e
-                                );
-                            }
-                        }
-                        Err(e) => {
-                            log::warn!(
-                                "Failed to fetch head content for {}: {}",
-                                file_diff.new_path,
-                                e
-                            );
-                        }
-                    }
-                }
+                ));
             }
         }
 
-        if skipped > 0 {
+        stream::iter(fetch_tasks)
+            .for_each_concurrent(MAX_CONCURRENT_FILE_FETCHES, |(path, ref_sha, version)| {
+                let pool = self.pool.clone();
+                let client = client.clone();
+                let instance_id_str = instance_id_str.clone();
+                let skipped = skipped.clone();
+                async move {
+                    // Skip if already cached
+                    let has_cached =
+                        crate::db::file_cache::has_cached_version(&pool, mr_id, &path, version)
+                            .await
+                            .unwrap_or(false);
+
+                    if has_cached {
+                        skipped.fetch_add(1, Ordering::Relaxed);
+                        return;
+                    }
+
+                    match client
+                        .get_file_content(project_id, &path, &ref_sha)
+                        .await
+                    {
+                        Ok(content) => {
+                            let mut hasher = Sha256::new();
+                            hasher.update(content.as_bytes());
+                            let sha = format!("{:x}", hasher.finalize());
+                            let size_bytes = content.len() as i64;
+
+                            if let Err(e) = crate::db::file_cache::upsert_file_blob(
+                                &pool, &sha, &content, size_bytes,
+                            )
+                            .await
+                            {
+                                log::warn!(
+                                    "Failed to cache {} blob for {}: {}",
+                                    version, path, e
+                                );
+                            }
+                            if let Err(e) = crate::db::file_cache::upsert_file_version(
+                                &pool,
+                                mr_id,
+                                &path,
+                                version,
+                                &sha,
+                                &instance_id_str,
+                                project_id,
+                            )
+                            .await
+                            {
+                                log::warn!(
+                                    "Failed to cache {} version for {}: {}",
+                                    version, path, e
+                                );
+                            }
+                        }
+                        Err(e) => {
+                            log::warn!(
+                                "Failed to fetch {} content for {}: {}",
+                                version, path, e
+                            );
+                        }
+                    }
+                }
+            })
+            .await;
+
+        let skipped_count = skipped.load(Ordering::Relaxed);
+        if skipped_count > 0 {
             log::debug!(
                 "Skipped {} already-cached file versions for MR {}",
-                skipped,
+                skipped_count,
                 mr_id
             );
         }
