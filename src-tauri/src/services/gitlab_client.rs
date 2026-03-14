@@ -332,6 +332,9 @@ fn resolve_error_message(
     }
 }
 
+/// Maximum number of retries for 429 (rate limit) responses.
+const MAX_429_RETRIES: u32 = 3;
+
 impl GitLabClient {
     /// Create a new GitLab client.
     pub fn new(config: GitLabClientConfig) -> Result<Self, AppError> {
@@ -359,6 +362,49 @@ impl GitLabClient {
             self.config.base_url.trim_end_matches('/'),
             path
         )
+    }
+
+    /// Send an HTTP request with automatic retry on 429 (rate limit) responses.
+    ///
+    /// Retries up to [`MAX_429_RETRIES`] times with exponential backoff (1s, 2s, 4s).
+    /// Respects the `Retry-After` header from GitLab when present.
+    async fn send_with_retry(
+        &self,
+        request_builder: reqwest::RequestBuilder,
+    ) -> Result<Response, AppError> {
+        let request = request_builder
+            .build()
+            .map_err(|e| AppError::internal(format!("Failed to build request: {}", e)))?;
+
+        for attempt in 0..=MAX_429_RETRIES {
+            let req = request.try_clone().ok_or_else(|| {
+                AppError::internal("Request cannot be cloned for retry")
+            })?;
+
+            let response = self.client.execute(req).await?;
+
+            if response.status() == StatusCode::TOO_MANY_REQUESTS && attempt < MAX_429_RETRIES {
+                let delay_secs = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(1u64 << attempt); // 1s, 2s, 4s
+
+                log::warn!(
+                    "Rate limited (429), retry {}/{} after {}s",
+                    attempt + 1,
+                    MAX_429_RETRIES,
+                    delay_secs
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
+                continue;
+            }
+
+            return Ok(response);
+        }
+
+        unreachable!()
     }
 
     /// Parse pagination headers from response.
@@ -443,7 +489,7 @@ impl GitLabClient {
             request = request.query(q);
         }
 
-        let response = request.send().await?;
+        let response = self.send_with_retry(request).await?;
         let pagination = Self::parse_pagination(&response);
         let data = self.handle_response::<Vec<T>>(response, endpoint).await?;
 
@@ -471,7 +517,7 @@ impl GitLabClient {
             // Add pagination params
             request = request.query(&[("page", page.to_string()), ("per_page", "100".to_string())]);
 
-            let response = request.send().await?;
+            let response = self.send_with_retry(request).await?;
             let pagination = Self::parse_pagination(&response);
             let data = self.handle_response::<Vec<T>>(response, endpoint).await?;
 
@@ -489,7 +535,7 @@ impl GitLabClient {
     /// Validate the token by fetching the current user.
     pub async fn validate_token(&self) -> Result<GitLabUser, AppError> {
         let url = self.api_url("/user");
-        let response = self.client.get(&url).send().await?;
+        let response = self.send_with_retry(self.client.get(&url)).await?;
         self.handle_response(response, "/user").await
     }
 
@@ -497,7 +543,7 @@ impl GitLabClient {
     pub async fn get_token_info(&self) -> Result<PersonalAccessTokenInfo, AppError> {
         let endpoint = "/personal_access_tokens/self";
         let url = self.api_url(endpoint);
-        let response = self.client.get(&url).send().await?;
+        let response = self.send_with_retry(self.client.get(&url)).await?;
         self.handle_response(response, endpoint).await
     }
 
@@ -505,7 +551,7 @@ impl GitLabClient {
     pub async fn get_project(&self, project_id: i64) -> Result<GitLabProject, AppError> {
         let endpoint = format!("/projects/{}", project_id);
         let url = self.api_url(&endpoint);
-        let response = self.client.get(&url).send().await?;
+        let response = self.send_with_retry(self.client.get(&url)).await?;
         self.handle_response(response, &endpoint).await
     }
 
@@ -518,10 +564,11 @@ impl GitLabClient {
         let endpoint = "/projects";
         let url = self.api_url(endpoint);
         let response = self
-            .client
-            .get(&url)
-            .query(&[("search", query), ("per_page", &per_page.to_string())])
-            .send()
+            .send_with_retry(
+                self.client
+                    .get(&url)
+                    .query(&[("search", query), ("per_page", &per_page.to_string())]),
+            )
             .await?;
         self.handle_response(response, endpoint).await
     }
@@ -534,10 +581,7 @@ impl GitLabClient {
         let endpoint = format!("/projects/{}/pipelines", project_id);
         let url = self.api_url(&endpoint);
         let response = self
-            .client
-            .get(&url)
-            .query(&[("per_page", "1")])
-            .send()
+            .send_with_retry(self.client.get(&url).query(&[("per_page", "1")]))
             .await?;
         let pipelines: Vec<GitLabPipeline> = self.handle_response(response, &endpoint).await?;
         Ok(pipelines.into_iter().next())
@@ -552,10 +596,7 @@ impl GitLabClient {
         let endpoint = format!("/projects/{}/pipelines", project_id);
         let url = self.api_url(&endpoint);
         let response = self
-            .client
-            .get(&url)
-            .query(&[("per_page", &limit.to_string())])
-            .send()
+            .send_with_retry(self.client.get(&url).query(&[("per_page", &limit.to_string())]))
             .await?;
         self.handle_response(response, &endpoint).await
     }
@@ -588,7 +629,7 @@ impl GitLabClient {
     pub async fn play_job(&self, project_id: i64, job_id: i64) -> Result<GitLabJob, AppError> {
         let endpoint = format!("/projects/{}/jobs/{}/play", project_id, job_id);
         let url = self.api_url(&endpoint);
-        let response = self.client.post(&url).send().await?;
+        let response = self.send_with_retry(self.client.post(&url)).await?;
         self.handle_response(response, &endpoint).await
     }
 
@@ -596,7 +637,7 @@ impl GitLabClient {
     pub async fn retry_job(&self, project_id: i64, job_id: i64) -> Result<GitLabJob, AppError> {
         let endpoint = format!("/projects/{}/jobs/{}/retry", project_id, job_id);
         let url = self.api_url(&endpoint);
-        let response = self.client.post(&url).send().await?;
+        let response = self.send_with_retry(self.client.post(&url)).await?;
         self.handle_response(response, &endpoint).await
     }
 
@@ -604,7 +645,7 @@ impl GitLabClient {
     pub async fn cancel_job(&self, project_id: i64, job_id: i64) -> Result<GitLabJob, AppError> {
         let endpoint = format!("/projects/{}/jobs/{}/cancel", project_id, job_id);
         let url = self.api_url(&endpoint);
-        let response = self.client.post(&url).send().await?;
+        let response = self.send_with_retry(self.client.post(&url)).await?;
         self.handle_response(response, &endpoint).await
     }
 
@@ -612,7 +653,7 @@ impl GitLabClient {
     pub async fn cancel_pipeline(&self, project_id: i64, pipeline_id: i64) -> Result<GitLabPipeline, AppError> {
         let endpoint = format!("/projects/{}/pipelines/{}/cancel", project_id, pipeline_id);
         let url = self.api_url(&endpoint);
-        let response = self.client.post(&url).send().await?;
+        let response = self.send_with_retry(self.client.post(&url)).await?;
         self.handle_response(response, &endpoint).await
     }
 
@@ -632,7 +673,7 @@ impl GitLabClient {
     ) -> Result<GitLabMergeRequest, AppError> {
         let endpoint = format!("/projects/{}/merge_requests/{}", project_id, mr_iid);
         let url = self.api_url(&endpoint);
-        let response = self.client.get(&url).send().await?;
+        let response = self.send_with_retry(self.client.get(&url)).await?;
         self.handle_response(response, &endpoint).await
     }
 
@@ -645,7 +686,7 @@ impl GitLabClient {
         let encoded = urlencoding::encode(project_path);
         let endpoint = format!("/projects/{}/merge_requests/{}", encoded, mr_iid);
         let url = self.api_url(&endpoint);
-        let response = self.client.get(&url).send().await?;
+        let response = self.send_with_retry(self.client.get(&url)).await?;
         self.handle_response(response, &endpoint).await
     }
 
@@ -661,7 +702,7 @@ impl GitLabClient {
             project_id, mr_iid
         );
         let url = self.api_url(&versions_endpoint);
-        let response = self.client.get(&url).send().await?;
+        let response = self.send_with_retry(self.client.get(&url)).await?;
 
         let versions: Vec<serde_json::Value> =
             self.handle_response(response, &versions_endpoint).await?;
@@ -679,7 +720,7 @@ impl GitLabClient {
             project_id, mr_iid, version_id
         );
         let url = self.api_url(&version_endpoint);
-        let response = self.client.get(&url).send().await?;
+        let response = self.send_with_retry(self.client.get(&url)).await?;
         self.handle_response(response, &version_endpoint).await
     }
 
@@ -728,7 +769,7 @@ impl GitLabClient {
     /// Send a POST request to an endpoint, expecting only a success status.
     async fn post_empty(&self, endpoint: &str) -> Result<(), AppError> {
         let url = self.api_url(endpoint);
-        let response = self.client.post(&url).send().await?;
+        let response = self.send_with_retry(self.client.post(&url)).await?;
 
         if response.status().is_success() {
             Ok(())
@@ -767,7 +808,7 @@ impl GitLabClient {
     pub async fn merge_merge_request(&self, project_id: i64, mr_iid: i64) -> Result<(), AppError> {
         let endpoint = format!("/projects/{}/merge_requests/{}/merge", project_id, mr_iid);
         let url = self.api_url(&endpoint);
-        let response = self.client.put(&url).send().await?;
+        let response = self.send_with_retry(self.client.put(&url)).await?;
 
         if response.status().is_success() {
             Ok(())
@@ -798,7 +839,7 @@ impl GitLabClient {
     pub async fn rebase_merge_request(&self, project_id: i64, mr_iid: i64) -> Result<(), AppError> {
         let endpoint = format!("/projects/{}/merge_requests/{}/rebase", project_id, mr_iid);
         let url = self.api_url(&endpoint);
-        let response = self.client.put(&url).send().await?;
+        let response = self.send_with_retry(self.client.put(&url)).await?;
 
         if response.status().is_success() {
             Ok(())
@@ -829,10 +870,11 @@ impl GitLabClient {
         let url = self.api_url(&endpoint);
 
         let response = self
-            .client
-            .post(&url)
-            .json(&serde_json::json!({ "body": body }))
-            .send()
+            .send_with_retry(
+                self.client
+                    .post(&url)
+                    .json(&serde_json::json!({ "body": body })),
+            )
             .await?;
 
         self.handle_response(response, &endpoint).await
@@ -893,7 +935,9 @@ impl GitLabClient {
             },
         };
 
-        let response = self.client.post(&url).json(&request_body).send().await?;
+        let response = self
+            .send_with_retry(self.client.post(&url).json(&request_body))
+            .await?;
 
         self.handle_response(response, &endpoint).await
     }
@@ -913,10 +957,11 @@ impl GitLabClient {
         let url = self.api_url(&endpoint);
 
         let response = self
-            .client
-            .post(&url)
-            .json(&serde_json::json!({ "body": body }))
-            .send()
+            .send_with_retry(
+                self.client
+                    .post(&url)
+                    .json(&serde_json::json!({ "body": body })),
+            )
             .await?;
 
         self.handle_response(response, &endpoint).await
@@ -933,7 +978,7 @@ impl GitLabClient {
             project_id, mr_iid
         );
         let url = self.api_url(&endpoint);
-        let response = self.client.get(&url).send().await?;
+        let response = self.send_with_retry(self.client.get(&url)).await?;
         self.handle_response(response, &endpoint).await
     }
 
@@ -953,7 +998,7 @@ impl GitLabClient {
         );
         let url = self.api_url(&endpoint);
 
-        let response = self.client.delete(&url).send().await?;
+        let response = self.send_with_retry(self.client.delete(&url)).await?;
 
         if response.status().is_success() {
             Ok(())
@@ -977,10 +1022,11 @@ impl GitLabClient {
         let url = self.api_url(&endpoint);
 
         let response = self
-            .client
-            .put(&url)
-            .json(&serde_json::json!({ "resolved": resolved }))
-            .send()
+            .send_with_retry(
+                self.client
+                    .put(&url)
+                    .json(&serde_json::json!({ "resolved": resolved })),
+            )
             .await?;
 
         if response.status().is_success() {
@@ -1006,7 +1052,9 @@ impl GitLabClient {
         );
         let url = self.api_url(&endpoint);
 
-        let response = self.client.get(&url).query(&[("ref", sha)]).send().await?;
+        let response = self
+            .send_with_retry(self.client.get(&url).query(&[("ref", sha)]))
+            .await?;
 
         let status = response.status();
 
@@ -1057,7 +1105,7 @@ impl GitLabClient {
     pub async fn get_job_trace(&self, project_id: i64, job_id: i64) -> Result<String, AppError> {
         let endpoint = format!("/projects/{}/jobs/{}/trace", project_id, job_id);
         let url = self.api_url(&endpoint);
-        let response = self.client.get(&url).send().await?;
+        let response = self.send_with_retry(self.client.get(&url)).await?;
 
         let status = response.status();
         if status == StatusCode::NOT_FOUND {
