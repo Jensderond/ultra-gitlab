@@ -876,18 +876,6 @@ impl SyncEngine {
             e
         })?;
 
-        // Emit created or updated event
-        self.emit_mr_updated(
-            local_mr_id,
-            instance_id,
-            mr.iid,
-            if is_new {
-                MrUpdateType::Created
-            } else {
-                MrUpdateType::Updated
-            },
-        );
-
         // Fetch and store approval status + per-reviewer data
         match client.get_mr_approvals(mr.project_id, mr.iid).await {
             Ok(approvals) => {
@@ -956,7 +944,16 @@ impl SyncEngine {
                 // Emit event AFTER approval fields are written so the frontend
                 // sees correct state (closes the "blind spot" between upsert_mr
                 // and diff events where stale approval data could leak through)
-                self.emit_mr_updated(local_mr_id, instance_id, mr.iid, MrUpdateType::Updated);
+                self.emit_mr_updated(
+                    local_mr_id,
+                    instance_id,
+                    mr.iid,
+                    if is_new {
+                        MrUpdateType::Created
+                    } else {
+                        MrUpdateType::Updated
+                    },
+                );
 
                 // Upsert per-reviewer status
                 self.upsert_reviewers(local_mr_id, mr, &approvals).await;
