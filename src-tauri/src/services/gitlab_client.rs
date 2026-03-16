@@ -391,13 +391,16 @@ impl GitLabClient {
 
             let response = self.client.execute(req).await?;
 
+            self.api_call_count.fetch_add(1, Ordering::Relaxed);
+
             if response.status() == StatusCode::TOO_MANY_REQUESTS && attempt < MAX_429_RETRIES {
                 let delay_secs = response
                     .headers()
                     .get("retry-after")
                     .and_then(|v| v.to_str().ok())
                     .and_then(|s| s.parse::<u64>().ok())
-                    .unwrap_or(1u64 << attempt); // 1s, 2s, 4s
+                    .unwrap_or(1u64 << attempt) // 1s, 2s, 4s
+                    .min(60); // Clamp to 60s max
 
                 log::warn!(
                     "Rate limited (429), retry {}/{} after {}s",
@@ -409,11 +412,10 @@ impl GitLabClient {
                 continue;
             }
 
-            self.api_call_count.fetch_add(1, Ordering::Relaxed);
             return Ok(response);
         }
 
-        unreachable!()
+        Err(AppError::internal("Rate limit retries exhausted"))
     }
 
     /// Return the total number of API calls made by this client (and its clones).

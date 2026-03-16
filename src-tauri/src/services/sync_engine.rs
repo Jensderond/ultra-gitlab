@@ -17,9 +17,9 @@ use crate::services::gitlab_client::{
     MergeRequestsQuery,
 };
 use crate::services::sync_events::{
-    ActionSyncedPayload, AuthExpiredPayload, MrReadyPayload, MrUpdateType, MrUpdatedPayload,
-    SyncPhase, SyncProgressPayload, ACTION_SYNCED_EVENT, AUTH_EXPIRED_EVENT, MR_READY_EVENT,
-    MR_UPDATED_EVENT, SYNC_PROGRESS_EVENT,
+    ActionSyncedPayload, AuthExpiredPayload, EventEmitter, MrReadyPayload, MrUpdateType,
+    MrUpdatedPayload, SyncPhase, SyncProgressPayload, ACTION_SYNCED_EVENT, AUTH_EXPIRED_EVENT,
+    MR_READY_EVENT, MR_UPDATED_EVENT, SYNC_PROGRESS_EVENT,
 };
 use crate::services::sync_processor::{self, ProcessResult};
 use crate::services::sync_queue;
@@ -28,7 +28,6 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use tauri::Emitter;
 use tokio::sync::{mpsc, RwLock};
 use tokio::time;
 
@@ -239,8 +238,8 @@ pub struct SyncEngine {
     /// Sync status.
     status: Arc<RwLock<SyncStatus>>,
 
-    /// Tauri app handle for emitting events to the frontend.
-    app_handle: tauri::AppHandle,
+    /// Event emitter for notifying the frontend (or no-op for benchmarks).
+    emitter: Arc<dyn EventEmitter>,
 
     /// MR IDs already notified as ready-to-merge this session (avoids duplicate notifications).
     notified_mr_ready: Arc<RwLock<HashSet<i64>>>,
@@ -248,49 +247,54 @@ pub struct SyncEngine {
 
 impl SyncEngine {
     /// Create a new sync engine.
-    pub fn new(pool: DbPool, app_handle: tauri::AppHandle) -> Self {
+    pub fn new(pool: DbPool, emitter: Arc<dyn EventEmitter>) -> Self {
         Self {
             pool,
             config: Arc::new(RwLock::new(SyncConfig::default())),
             status: Arc::new(RwLock::new(SyncStatus::default())),
-            app_handle,
+            emitter,
             notified_mr_ready: Arc::new(RwLock::new(HashSet::new())),
         }
     }
 
+    /// Update the sync configuration.
+    pub async fn set_config(&self, config: SyncConfig) {
+        *self.config.write().await = config;
+    }
+
+    /// Emit an event with a serializable payload. Errors are silently logged.
+    fn emit_event<T: Serialize>(&self, event: &str, payload: &T) {
+        self.emitter.emit_json(
+            event,
+            serde_json::to_value(payload).unwrap_or_default(),
+        );
+    }
+
     /// Emit a sync-progress event to the frontend.
-    ///
-    /// Failures are logged but never abort the sync.
     fn emit_progress(&self, phase: SyncPhase, message: impl Into<String>) {
-        if let Err(e) = self.app_handle.emit(
+        self.emit_event(
             SYNC_PROGRESS_EVENT,
-            SyncProgressPayload {
+            &SyncProgressPayload {
                 phase,
                 message: message.into(),
                 processed: None,
                 total: None,
                 is_error: false,
             },
-        ) {
-            log::warn!("Failed to emit sync-progress event: {}", e);
-        }
+        );
     }
 
     /// Emit an mr-updated event to the frontend.
-    ///
-    /// Failures are logged but never abort the sync.
     fn emit_mr_updated(&self, mr_id: i64, instance_id: i64, iid: i64, update_type: MrUpdateType) {
-        if let Err(e) = self.app_handle.emit(
+        self.emit_event(
             MR_UPDATED_EVENT,
-            MrUpdatedPayload {
+            &MrUpdatedPayload {
                 mr_id,
                 update_type,
                 instance_id,
                 iid,
             },
-        ) {
-            log::warn!("Failed to emit mr-updated event: {}", e);
-        }
+        );
     }
 
     /// Start the background sync loop.
@@ -301,7 +305,7 @@ impl SyncEngine {
     pub fn start_background(
         pool: DbPool,
         config: SyncConfig,
-        app_handle: tauri::AppHandle,
+        emitter: Arc<dyn EventEmitter>,
     ) -> SyncHandle {
         let (tx, mut rx) = mpsc::channel::<SyncCommand>(16);
         let config_shared = Arc::new(RwLock::new(config.clone()));
@@ -315,7 +319,7 @@ impl SyncEngine {
                 pool,
                 config: config_for_task,
                 status: Arc::new(RwLock::new(SyncStatus::default())),
-                app_handle,
+                emitter,
                 notified_mr_ready: Arc::new(RwLock::new(HashSet::new())),
             };
 
@@ -445,9 +449,9 @@ impl SyncEngine {
                 Err(e) => {
                     // Emit auth-expired event if this is an authentication error
                     if e.is_authentication_expired() {
-                        if let Err(emit_err) = self.app_handle.emit(
+                        self.emit_event(
                             AUTH_EXPIRED_EVENT,
-                            AuthExpiredPayload {
+                            &AuthExpiredPayload {
                                 instance_id: e.get_expired_instance_id().unwrap_or(instance.id),
                                 instance_url: e
                                     .get_expired_instance_url()
@@ -458,9 +462,7 @@ impl SyncEngine {
                                     instance.url
                                 ),
                             },
-                        ) {
-                            log::warn!("Failed to emit auth-expired event: {}", emit_err);
-                        }
+                        );
                     }
                     result
                         .errors
@@ -512,9 +514,9 @@ impl SyncEngine {
 
         // Emit complete or failed event
         if result.errors.is_empty() {
-            if let Err(e) = self.app_handle.emit(
+            self.emit_event(
                 SYNC_PROGRESS_EVENT,
-                SyncProgressPayload {
+                &SyncProgressPayload {
                     phase: SyncPhase::Complete,
                     message: format!(
                         "Sync complete: {} MRs in {}ms",
@@ -524,22 +526,18 @@ impl SyncEngine {
                     total: Some(result.mr_count),
                     is_error: false,
                 },
-            ) {
-                log::warn!("Failed to emit sync-progress complete event: {}", e);
-            }
+            );
         } else {
-            if let Err(e) = self.app_handle.emit(
+            self.emit_event(
                 SYNC_PROGRESS_EVENT,
-                SyncProgressPayload {
+                &SyncProgressPayload {
                     phase: SyncPhase::Failed,
                     message: result.errors.join("; "),
                     processed: Some(result.mr_count),
                     total: None,
                     is_error: true,
                 },
-            ) {
-                log::warn!("Failed to emit sync-progress failed event: {}", e);
-            }
+            );
         }
 
         // Log the sync operation
@@ -571,6 +569,9 @@ impl SyncEngine {
         ).await {
             log::warn!("Failed to record total sync metric: {}", e);
         }
+
+        // Populate result with total API calls
+        result.api_calls = total_api_calls;
 
         // Summary log line
         log::info!(
@@ -643,7 +644,7 @@ impl SyncEngine {
 
         // Validate token ONCE per instance — also used for approval checks in sync_mr()
         // to avoid per-MR API calls and transient-failure false negatives.
-        let current_user_id: Option<i64> = match client.validate_token().await {
+        let (current_user_id, current_username): (Option<i64>, Option<String>) = match client.validate_token().await {
             Ok(user) => {
                 let _ = sqlx::query(
                     "UPDATE gitlab_instances SET authenticated_username = ? WHERE id = ? AND (authenticated_username IS NULL OR authenticated_username != ?)"
@@ -653,9 +654,9 @@ impl SyncEngine {
                 .bind(&user.username)
                 .execute(&self.pool)
                 .await;
-                Some(user.id)
+                (Some(user.id), Some(user.username))
             }
-            Err(_) => None,
+            Err(_) => (None, None),
         };
 
         // Emit fetching_mrs event
@@ -664,8 +665,8 @@ impl SyncEngine {
             format!("Fetching MRs from {}", instance.url),
         );
 
-        // Fetch MRs based on scope
-        let mrs = match self.fetch_mrs_for_instance(&client, &config).await {
+        // Fetch MRs based on scope — reuse username from validate_token above
+        let mrs = match self.fetch_mrs_for_instance(&client, &config, current_username.as_deref().unwrap_or("unknown")).await {
             Ok(mrs) => mrs,
             Err(e) => {
                 // If auth expired, propagate the error with instance info
@@ -693,12 +694,14 @@ impl SyncEngine {
         let mut synced_local_mr_ids: Vec<i64> = Vec::new();
         let semaphore = Arc::new(tokio::sync::Semaphore::new(MAX_CONCURRENT_MRS));
         let mut join_set = tokio::task::JoinSet::new();
+        let mrs_shared = Arc::new(mrs);
 
-        for mr in mrs.clone() {
+        for mr in mrs_shared.iter() {
             let permit = semaphore.clone().acquire_owned().await.unwrap();
             let engine = self.clone();
             let client = client.clone();
             let sync_run_id = sync_run_id.to_string();
+            let mr = mr.clone();
             join_set.spawn(async move {
                 let mr_iid = mr.iid;
                 let res = engine
@@ -708,6 +711,8 @@ impl SyncEngine {
                 (mr_iid, res)
             });
         }
+        // Unwrap Arc for post-loop operations (all tasks have their own clones now)
+        let mrs = Arc::try_unwrap(mrs_shared).unwrap_or_else(|arc| (*arc).clone());
 
         while let Some(task_result) = join_set.join_next().await {
             match task_result {
@@ -717,9 +722,9 @@ impl SyncEngine {
                 }
                 Ok((mr_iid, Err(e))) => {
                     if e.is_authentication_expired() {
-                        if let Err(emit_err) = self.app_handle.emit(
+                        self.emit_event(
                             AUTH_EXPIRED_EVENT,
-                            AuthExpiredPayload {
+                            &AuthExpiredPayload {
                                 instance_id: e.get_expired_instance_id().unwrap_or(instance.id),
                                 instance_url: e
                                     .get_expired_instance_url()
@@ -730,9 +735,7 @@ impl SyncEngine {
                                     instance.url
                                 ),
                             },
-                        ) {
-                            log::warn!("Failed to emit auth-expired event: {}", emit_err);
-                        }
+                        );
                     }
                     result.errors.push(format!("MR !{}: {}", mr_iid, e));
                 }
@@ -758,11 +761,19 @@ impl SyncEngine {
         // Sync user avatars (non-fatal)
         self.sync_user_avatars(instance, &mrs).await;
 
-        // Emit purging event
-        self.emit_progress(SyncPhase::Purging, "Purging merged/closed MRs");
-
-        // Purge merged/closed MRs
-        result.purged_count = self.purge_closed_mrs(instance.id, &synced_local_mr_ids).await?;
+        // Purge merged/closed MRs — only if at least one MR synced successfully.
+        // If all tasks failed (e.g. network outage), synced_local_mr_ids is empty
+        // and purge would delete every local MR for this instance.
+        if !synced_local_mr_ids.is_empty() {
+            self.emit_progress(SyncPhase::Purging, "Purging merged/closed MRs");
+            result.purged_count = self.purge_closed_mrs(instance.id, &synced_local_mr_ids).await?;
+        } else if !mrs.is_empty() {
+            log::warn!(
+                "[sync] Skipping purge for instance {}: all {} MR tasks failed",
+                instance.id,
+                mrs.len()
+            );
+        }
 
         // Emit pushing_actions event
         self.emit_progress(SyncPhase::PushingActions, "Processing sync queue");
@@ -773,9 +784,9 @@ impl SyncEngine {
 
         for push_result in &push_results {
             // Emit action-synced event for each processed action
-            if let Err(e) = self.app_handle.emit(
+            self.emit_event(
                 ACTION_SYNCED_EVENT,
-                ActionSyncedPayload {
+                &ActionSyncedPayload {
                     action_id: push_result.action.id,
                     action_type: push_result.action.action_type.clone(),
                     success: push_result.success,
@@ -783,9 +794,7 @@ impl SyncEngine {
                     mr_id: push_result.action.mr_id,
                     local_reference_id: push_result.action.local_reference_id,
                 },
-            ) {
-                log::warn!("Failed to emit action-synced event: {}", e);
-            }
+            );
 
             if !push_result.success {
                 if let Some(err) = &push_result.error {
@@ -820,15 +829,9 @@ impl SyncEngine {
         &self,
         client: &GitLabClient,
         config: &SyncConfig,
+        username: &str,
     ) -> Result<Vec<GitLabMergeRequest>, AppError> {
         let mut all_mrs = Vec::new();
-
-        // Validate token and get current user
-        let current_user = client.validate_token().await?;
-        eprintln!(
-            "[sync] Authenticated as user: '{}' (id={})",
-            current_user.username, current_user.id
-        );
 
         // Fetch authored MRs if enabled
         if config.sync_authored {
@@ -841,7 +844,7 @@ impl SyncEngine {
 
             eprintln!(
                 "[sync] Fetching authored MRs for user '{}', query: {}",
-                current_user.username,
+                username,
                 serde_json::to_string(&query).unwrap_or_default()
             );
 
@@ -858,10 +861,10 @@ impl SyncEngine {
             let query = MergeRequestsQuery {
                 state: Some("opened".to_string()),
                 scope: Some("all".to_string()),
-                reviewer_username: Some(current_user.username.clone()),
+                reviewer_username: Some(username.to_string()),
                 draft: Some("no".to_string()), // Exclude draft/WIP MRs
-                not_author_username: Some(current_user.username.clone()), // Exclude own MRs
-                not_approved_by_usernames: Some(current_user.username.clone()), // Exclude already approved
+                not_author_username: Some(username.to_string()), // Exclude own MRs
+                not_approved_by_usernames: Some(username.to_string()), // Exclude already approved
                 per_page: Some(100),
                 ..Default::default()
             };
@@ -869,7 +872,7 @@ impl SyncEngine {
             // Log the query parameters so we can verify the username and filters
             eprintln!(
                 "[sync] Fetching reviewing MRs for user '{}', query: {}",
-                current_user.username,
+                username,
                 serde_json::to_string(&query).unwrap_or_default()
             );
 
@@ -988,20 +991,6 @@ impl SyncEngine {
                 .execute(&self.pool)
                 .await?;
 
-                // Emit event AFTER approval fields are written so the frontend
-                // sees correct state (closes the "blind spot" between upsert_mr
-                // and diff events where stale approval data could leak through)
-                self.emit_mr_updated(
-                    local_mr_id,
-                    instance_id,
-                    mr.iid,
-                    if is_new {
-                        MrUpdateType::Created
-                    } else {
-                        MrUpdateType::Updated
-                    },
-                );
-
                 // Upsert per-reviewer status
                 self.upsert_reviewers(local_mr_id, mr, &approvals).await;
             }
@@ -1010,6 +999,20 @@ impl SyncEngine {
                 log::warn!("Failed to fetch approvals for MR {}: {}", mr.iid, e);
             }
         }
+
+        // Emit event AFTER approval fields are written (when available) so the
+        // frontend sees correct state. Always emit even if approvals fetch failed
+        // so the frontend knows about new/updated MRs.
+        self.emit_mr_updated(
+            local_mr_id,
+            instance_id,
+            mr.iid,
+            if is_new {
+                MrUpdateType::Created
+            } else {
+                MrUpdateType::Updated
+            },
+        );
 
         // Emit both progress events before concurrent fetch
         self.emit_progress(
@@ -1087,8 +1090,8 @@ impl SyncEngine {
             }
         }
 
-        // Process comments result
-        let comments_start = Instant::now();
+        // Process comments result (fetch happened concurrently with diff via join!)
+        let comments_start = diff_start; // Both started at the same time
         match comments_result {
             Ok(discussions) => {
                 self.upsert_discussions(local_mr_id, &discussions)
@@ -1964,9 +1967,9 @@ impl SyncEngine {
             let result = sync_processor::process_action(&client, &self.pool, action).await;
 
             // Emit action-synced event
-            if let Err(e) = self.app_handle.emit(
+            self.emit_event(
                 ACTION_SYNCED_EVENT,
-                ActionSyncedPayload {
+                &ActionSyncedPayload {
                     action_id: action.id,
                     action_type: action.action_type.clone(),
                     success: result.success,
@@ -1974,9 +1977,7 @@ impl SyncEngine {
                     mr_id: action.mr_id,
                     local_reference_id: action.local_reference_id,
                 },
-            ) {
-                log::warn!("Failed to emit action-synced event: {}", e);
-            }
+            );
 
             if result.success {
                 eprintln!(
@@ -2082,16 +2083,14 @@ impl SyncEngine {
             if !was_ready && is_ready {
                 let project_name = extract_project_path(&mr.web_url);
 
-                if let Err(e) = self.app_handle.emit(
+                self.emit_event(
                     MR_READY_EVENT,
-                    MrReadyPayload {
+                    &MrReadyPayload {
                         title: mr.title.clone(),
                         project_name,
                         web_url: mr.web_url.clone(),
                     },
-                ) {
-                    log::warn!("Failed to emit mr-ready event: {}", e);
-                }
+                );
 
                 self.notified_mr_ready.write().await.insert(mr_id);
                 eprintln!(

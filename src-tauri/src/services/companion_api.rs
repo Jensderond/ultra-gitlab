@@ -900,7 +900,7 @@ async fn get_sync_status_handler(
         .await
         .map_err(ApiErr::from)?;
 
-    let engine = SyncEngine::new(state.db.clone(), state.app_handle.clone());
+    let engine = SyncEngine::new(state.db.clone(), std::sync::Arc::new(crate::services::sync_events::TauriEmitter(state.app_handle.clone())));
     let recent_logs = engine.get_sync_log(50).await.map_err(ApiErr::from)?;
 
     let last_sync_time = recent_logs

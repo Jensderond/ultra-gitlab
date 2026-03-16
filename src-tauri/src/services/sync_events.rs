@@ -5,6 +5,34 @@
 
 use serde::Serialize;
 
+/// Trait for emitting events to the frontend (or nowhere, for benchmarks).
+///
+/// All implementations should treat errors as non-fatal (log and continue).
+/// The sync engine never depends on successful event delivery.
+pub trait EventEmitter: Send + Sync {
+    /// Emit an event with a JSON-serialized payload.
+    fn emit_json(&self, event: &str, payload: serde_json::Value);
+}
+
+/// Wraps a `tauri::AppHandle` to implement `EventEmitter`.
+pub struct TauriEmitter(pub tauri::AppHandle);
+
+impl EventEmitter for TauriEmitter {
+    fn emit_json(&self, event: &str, payload: serde_json::Value) {
+        use tauri::Emitter;
+        if let Err(e) = self.0.emit(event, payload) {
+            log::warn!("Failed to emit {} event: {}", event, e);
+        }
+    }
+}
+
+/// No-op emitter for benchmarks and tests.
+pub struct NoopEmitter;
+
+impl EventEmitter for NoopEmitter {
+    fn emit_json(&self, _event: &str, _payload: serde_json::Value) {}
+}
+
 /// Event: sync-progress
 /// Emitted during sync operations to report progress.
 pub const SYNC_PROGRESS_EVENT: &str = "sync-progress";

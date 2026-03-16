@@ -33,7 +33,9 @@ use commands::{
     update_sync_config, update_sync_settings, update_theme, update_ui_font, visit_pipeline_project,
 };
 use services::companion_server;
+use std::sync::Arc;
 use services::sync_engine::{SyncConfig, SyncEngine};
+use services::sync_events::TauriEmitter;
 use tauri::{
     Manager, TitleBarStyle, WebviewUrl, WebviewWindowBuilder,
     menu::{MenuBuilder, MenuItemBuilder},
@@ -106,7 +108,7 @@ pub fn run() {
 
                 // Start background sync engine (needs active Tokio runtime for tokio::spawn)
                 let sync_handle =
-                    SyncEngine::start_background(pool.clone(), sync_config, app_handle);
+                    SyncEngine::start_background(pool.clone(), sync_config, Arc::new(TauriEmitter(app_handle)));
                 eprintln!("[sync] Background sync engine started");
 
                 let _ = init_tx.send((pool, sync_handle));
