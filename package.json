@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
-    "@pierre/diffs": "1.1.0-beta.17",
+    "@pierre/diffs": "1.1.0",
     "@tanstack/react-query": "^5.90.21",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-deep-link": "~2",
