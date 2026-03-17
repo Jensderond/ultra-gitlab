@@ -22,6 +22,8 @@ interface MRDiffContentProps {
   onRetry: () => void;
   currentUser?: string;
   onDeleteComment?: (commentId: number) => void;
+  onReply?: (discussionId: string, parentId: number, body: string) => Promise<void>;
+  onResolve?: (discussionId: string, resolved: boolean) => Promise<void>;
   bottomPadding?: number;
 }
 
@@ -42,6 +44,8 @@ export default function MRDiffContent({
   onRetry,
   currentUser,
   onDeleteComment,
+  onReply,
+  onResolve,
   bottomPadding,
 }: MRDiffContentProps) {
   if (!selectedFile) {
@@ -114,6 +118,8 @@ export default function MRDiffContent({
           onLineSelected={onLineSelected}
           currentUser={currentUser}
           onDeleteComment={onDeleteComment}
+          onReply={onReply}
+          onResolve={onResolve}
         />
       )}
     </main>

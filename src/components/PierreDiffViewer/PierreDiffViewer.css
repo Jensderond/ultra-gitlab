@@ -1,0 +1,59 @@
+/* Annotation thread overrides for inline diff comments */
+
+.annotation-thread-wrapper .activity-thread {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Resolved thread: faded appearance */
+.annotation-thread--resolved .activity-thread {
+  opacity: 0.75;
+}
+
+.annotation-thread--resolved:hover .activity-thread {
+  opacity: 1;
+}
+
+/* Clickable header bar — always visible, toggles thread open/closed */
+.annotation-thread__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 2px 0;
+  min-width: 0;
+}
+
+.annotation-thread__resolved-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-success, #4caf50);
+  background: rgba(76, 175, 80, 0.12);
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.annotation-thread__header-author {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #ccc);
+  flex-shrink: 0;
+}
+
+.annotation-thread__header-body {
+  font-size: 12px;
+  color: var(--text-tertiary, #888);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.annotation-thread__reply-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-tertiary, #888);
+  white-space: nowrap;
+  flex-shrink: 0;
+}

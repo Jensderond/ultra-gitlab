@@ -10,14 +10,13 @@ import { test, expect } from './fixtures/test-base';
  * Current user is "testuser" (from seed instances).
  */
 
-/** Helper: find annotation elements inside Pierre's shadow DOM. */
+/** Helper: find annotation thread elements inside Pierre's shadow DOM. */
 async function findAnnotations(page: import('@playwright/test').Page) {
   return page.evaluate(() => {
     const container = document.querySelector('diffs-container');
     if (!container?.shadowRoot) return [];
 
-    // Pierre renders annotation content into the shadow DOM
-    // Walk the entire shadow DOM tree looking for our annotation divs
+    // Walk the shadow DOM looking for our annotation thread wrappers
     const results: Array<{
       text: string;
       hasDeleteBtn: boolean;
@@ -26,13 +25,18 @@ async function findAnnotations(page: import('@playwright/test').Page) {
 
     const walk = (root: Node) => {
       if (root instanceof HTMLElement) {
-        if (root.classList.contains('pierre-annotation-comment')) {
-          const author = root.querySelector('strong')?.textContent || '';
-          const hasDeleteBtn = root.querySelector('.annotation-delete-btn') !== null;
-          results.push({ text: root.textContent || '', hasDeleteBtn, author });
+        // Find annotation thread wrappers (unique to inline diff annotations)
+        if (root.classList.contains('annotation-thread-wrapper')) {
+          // Extract comment info from the first .activity-comment inside
+          const comment = root.querySelector('.activity-comment');
+          if (comment) {
+            const author = comment.querySelector('.activity-comment__author')?.textContent || '';
+            const hasDeleteBtn = comment.querySelector('.activity-comment__delete') !== null;
+            results.push({ text: comment.textContent || '', hasDeleteBtn, author });
+          }
+          return; // Don't descend further into this annotation
         }
       }
-      // Check children
       if (root instanceof HTMLElement || root instanceof DocumentFragment) {
         for (const child of root.childNodes) {
           walk(child);
@@ -42,12 +46,15 @@ async function findAnnotations(page: import('@playwright/test').Page) {
 
     walk(container.shadowRoot);
 
-    // If nothing found in shadow DOM, check light DOM as fallback
+    // Fallback to light DOM
     if (results.length === 0) {
-      document.querySelectorAll('.pierre-annotation-comment').forEach((el) => {
-        const author = el.querySelector('strong')?.textContent || '';
-        const hasDeleteBtn = el.querySelector('.annotation-delete-btn') !== null;
-        results.push({ text: el.textContent || '', hasDeleteBtn, author });
+      document.querySelectorAll('.annotation-thread-wrapper').forEach((el) => {
+        const comment = el.querySelector('.activity-comment');
+        if (comment) {
+          const author = comment.querySelector('.activity-comment__author')?.textContent || '';
+          const hasDeleteBtn = comment.querySelector('.activity-comment__delete') !== null;
+          results.push({ text: comment.textContent || '', hasDeleteBtn, author });
+        }
       });
     }
 
@@ -92,11 +99,16 @@ test.describe('Diff Viewer Comment Deletion', () => {
     let annotations = await findAnnotations(page);
     expect(annotations.find((a) => a.text.includes('memoize this callback'))).toBeDefined();
 
-    // Hover over testuser's comment to reveal delete button, then click it
-    // Use Playwright's built-in shadow DOM piercing with text matching
-    const testUserComment = page.locator('.pierre-annotation-comment', { hasText: 'memoize this callback' });
+    // Hover over testuser's comment to reveal delete button, then click it.
+    // Scope to .annotation-thread-wrapper to avoid matching ActivityDrawer comments.
+    // Delete requires two clicks: first shows "Delete?", second confirms.
+    const testUserComment = page.locator('.annotation-thread-wrapper .activity-comment', { hasText: 'memoize this callback' });
     await testUserComment.hover();
-    await testUserComment.locator('.annotation-delete-btn').click();
+    const deleteBtn = testUserComment.locator('.activity-comment__delete');
+    await deleteBtn.click();
+    // Wait for the confirm state to render, then click again
+    await expect(deleteBtn).toHaveText('Delete?');
+    await deleteBtn.click();
 
     // Comment should be removed after deletion
     await expect.poll(async () => {

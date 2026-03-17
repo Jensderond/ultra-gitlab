@@ -263,6 +263,8 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           onRetry={() => view.selectedFile && handleFileSelect(view.selectedFile)}
           currentUser={currentUser ?? undefined}
           onDeleteComment={handleDeleteComment}
+          onReply={async (discussionId, parentId, body) => { await activityReplyToComment(discussionId, parentId, body); trackReplyPosted(mrId); }}
+          onResolve={activityResolveDiscussion}
           bottomPadding={activityOpen ? activityHeightVh : undefined}
         />
       </div>

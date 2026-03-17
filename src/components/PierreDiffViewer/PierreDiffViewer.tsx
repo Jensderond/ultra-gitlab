@@ -1,8 +1,10 @@
 import { MultiFileDiff } from '@pierre/diffs/react';
 import type { FileContents } from '@pierre/diffs/react';
 import type { DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
-import { useMemo, useCallback, useState, useRef, type ReactNode } from 'react';
+import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { TrashIcon } from '../icons';
+import '../ActivityDrawer/ActivityFeed.css';
+import './PierreDiffViewer.css';
 
 /** Comment data attached to a diff line annotation. */
 export interface LineComment {
@@ -13,6 +15,8 @@ export interface LineComment {
   body: string;
   createdAt: number;
   resolved?: boolean;
+  discussionId?: string | null;
+  replies?: LineComment[];
 }
 
 /** Pierre line type for diff lines. */
@@ -49,6 +53,10 @@ export interface PierreDiffViewerProps {
   currentUser?: string;
   /** Called when a comment delete button is clicked */
   onDeleteComment?: (commentId: number) => void;
+  /** Called when the user submits a reply to a discussion thread */
+  onReply?: (discussionId: string, parentId: number, body: string) => Promise<void>;
+  /** Called when the user resolves/unresolves a discussion thread */
+  onResolve?: (discussionId: string, resolved: boolean) => Promise<void>;
 }
 
 /** Map LineComment[] to Pierre DiffLineAnnotation<LineComment>[]. */
@@ -75,53 +83,217 @@ function formatDate(ts: number): string {
   return date.toLocaleDateString();
 }
 
-/** Render a single annotation (comment thread) inline in the diff. */
-function renderAnnotationBase(
-  annotation: DiffLineAnnotation<LineComment>,
-  currentUser?: string,
-  onDeleteComment?: (commentId: number) => void,
-): ReactNode {
-  const c = annotation.metadata;
-  const canDelete = currentUser && c.authorUsername === currentUser && onDeleteComment;
+/** Single comment entry within an annotation thread. */
+function AnnotationComment({
+  comment,
+  currentUser,
+  onDeleteComment,
+}: {
+  comment: LineComment;
+  currentUser?: string;
+  onDeleteComment?: (commentId: number) => void;
+}) {
+  const isOwn = currentUser && comment.authorUsername === currentUser;
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  const handleDelete = useCallback(() => {
+    if (!onDeleteComment) return;
+    if (confirmingDelete) {
+      setConfirmingDelete(false);
+      onDeleteComment(comment.id);
+    } else {
+      setConfirmingDelete(true);
+    }
+  }, [onDeleteComment, comment.id, confirmingDelete]);
+
   return (
-    <div className="pierre-annotation-comment" style={{
-      padding: '8px 12px',
-      borderTop: '1px solid var(--border-secondary, #333)',
-      background: 'var(--bg-secondary, #1e1e2e)',
-      fontSize: '13px',
-      lineHeight: '1.4',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-        <strong style={{ color: 'var(--text-primary, #e0e0e0)' }}>{c.authorUsername}</strong>
-        <span style={{ color: 'var(--text-tertiary, #888)', fontSize: '12px' }}>{formatDate(c.createdAt)}</span>
-        {c.resolved && (
-          <span style={{ color: 'var(--color-success, #4caf50)', fontSize: '11px', fontWeight: 600 }}>Resolved</span>
-        )}
-        {canDelete && (
+    <div className="activity-comment">
+      <div className="activity-comment__meta">
+        <span className="activity-comment__author">{comment.authorUsername}</span>
+        <span className="activity-comment__time">{formatDate(comment.createdAt)}</span>
+        {isOwn && onDeleteComment && (
           <button
-            className="annotation-delete-btn"
-            onClick={(e) => { e.stopPropagation(); onDeleteComment(c.id); }}
-            title="Delete comment"
-            style={{
-              marginLeft: 'auto',
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-tertiary, #888)',
-              cursor: 'pointer',
-              padding: '2px 4px',
-              fontSize: '12px',
-              lineHeight: 1,
-              borderRadius: '3px',
-              opacity: 0,
-              transition: 'opacity 0.15s, color 0.15s',
-            }}
+            className={`activity-comment__delete ${confirmingDelete ? 'activity-comment__delete--confirming' : ''}`}
+            onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+            onBlur={() => setConfirmingDelete(false)}
+            title={confirmingDelete ? 'Click again to confirm' : 'Delete comment'}
           >
-            <TrashIcon />
+            {confirmingDelete ? 'Delete?' : <TrashIcon />}
           </button>
         )}
       </div>
-      <div style={{ color: 'var(--text-secondary, #ccc)', whiteSpace: 'pre-wrap' }}>{c.body}</div>
+      <div className="activity-comment__body">{comment.body}</div>
+    </div>
+  );
+}
+
+/** Inline reply input for annotation threads. */
+function AnnotationReplyInput({ onSubmit, onCancel }: { onSubmit: (body: string) => Promise<void>; onCancel: () => void }) {
+  const [value, setValue] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
+
+  const handleSubmit = useCallback(async () => {
+    const body = value.trim();
+    if (!body || submitting) return;
+    setSubmitting(true);
+    try {
+      await onSubmit(body);
+      setValue('');
+      onCancel();
+    } finally {
+      setSubmitting(false);
+    }
+  }, [value, submitting, onSubmit, onCancel]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSubmit();
+      }
+      if (e.key === 'Escape') {
+        onCancel();
+      }
+    },
+    [handleSubmit, onCancel],
+  );
+
+  return (
+    <div className="activity-reply-input">
+      <textarea
+        ref={textareaRef}
+        className="activity-reply-input__textarea"
+        placeholder="Write a reply..."
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        rows={2}
+        disabled={submitting}
+      />
+      <div className="activity-reply-input__actions">
+        <button className="activity-reply-input__cancel" onClick={onCancel} disabled={submitting}>
+          Cancel
+        </button>
+        <button
+          className="activity-reply-input__send"
+          onClick={handleSubmit}
+          disabled={!value.trim() || submitting}
+          title="Send (⌘Enter)"
+        >
+          Send
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Render a single annotation (comment thread) inline in the diff. */
+function AnnotationThread({
+  annotation,
+  currentUser,
+  onDeleteComment,
+  onReply,
+  onResolve,
+}: {
+  annotation: DiffLineAnnotation<LineComment>;
+  currentUser?: string;
+  onDeleteComment?: (commentId: number) => void;
+  onReply?: (discussionId: string, parentId: number, body: string) => Promise<void>;
+  onResolve?: (discussionId: string, resolved: boolean) => Promise<void>;
+}) {
+  const root = annotation.metadata;
+  const replies = root.replies ?? [];
+  const isResolved = root.resolved;
+  const hasDiscussion = !!root.discussionId;
+  const [replying, setReplying] = useState(false);
+  const [collapsed, setCollapsed] = useState(!!isResolved);
+
+  const handleReplySubmit = useCallback(
+    async (body: string) => {
+      if (onReply && root.discussionId) {
+        await onReply(root.discussionId, root.id, body);
+      }
+    },
+    [onReply, root.discussionId, root.id],
+  );
+
+  const handleResolve = useCallback(() => {
+    if (onResolve && root.discussionId) {
+      onResolve(root.discussionId, !isResolved);
+      setCollapsed(!isResolved);
+    }
+  }, [onResolve, root.discussionId, isResolved]);
+
+  return (
+    <div
+      className={`annotation-thread-wrapper ${isResolved ? 'annotation-thread--resolved' : ''}`}
+      style={{ whiteSpace: 'normal', margin: '12px 16px' }}
+    >
+      <div className="activity-thread">
+        {/* Collapsed: clickable summary bar */}
+        {collapsed && (
+          <div
+            className="annotation-thread__header"
+            onClick={() => setCollapsed(false)}
+          >
+            {isResolved && <span className="annotation-thread__resolved-badge">Resolved</span>}
+            <span className="annotation-thread__header-author">{root.authorUsername}</span>
+            <span className="annotation-thread__header-body">{root.body}</span>
+            {replies.length > 0 && (
+              <span className="annotation-thread__reply-count">
+                {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
+              </span>
+            )}
+          </div>
+        )}
+        {!collapsed && (
+          /* Expanded state — full thread */
+          <>
+            <AnnotationComment comment={root} currentUser={currentUser} onDeleteComment={onDeleteComment} />
+            {replies.length > 0 && (
+              <div className="activity-thread__replies">
+                {replies.map((reply) => (
+                  <AnnotationComment key={reply.id} comment={reply} currentUser={currentUser} onDeleteComment={onDeleteComment} />
+                ))}
+              </div>
+            )}
+            <div className="activity-thread__actions">
+              {isResolved && (
+                <button
+                  className="activity-thread__reply-btn"
+                  onClick={(e) => { e.stopPropagation(); setCollapsed(true); }}
+                >
+                  Collapse
+                </button>
+              )}
+              {hasDiscussion && onResolve && (
+                <button
+                  className={`activity-thread__resolve-btn ${isResolved ? 'activity-thread__resolve-btn--resolved' : ''}`}
+                  onClick={(e) => { e.stopPropagation(); handleResolve(); }}
+                >
+                  {isResolved ? 'Unresolve' : 'Resolve'}
+                </button>
+              )}
+              {hasDiscussion && onReply && !replying && (
+                <button
+                  className="activity-thread__reply-btn"
+                  onClick={(e) => { e.stopPropagation(); setReplying(true); }}
+                >
+                  Reply
+                </button>
+              )}
+            </div>
+            {replying && (
+              <AnnotationReplyInput onSubmit={handleReplySubmit} onCancel={() => setReplying(false)} />
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -142,6 +314,8 @@ export function PierreDiffViewer({
   onLineSelected,
   currentUser,
   onDeleteComment,
+  onReply,
+  onResolve,
 }: PierreDiffViewerProps) {
   const [selectedLines, setSelectedLines] = useState<SelectedLineRange | null>(null);
 
@@ -206,10 +380,21 @@ export function PierreDiffViewer({
   currentUserRef.current = currentUser;
   const onDeleteRef = useRef(onDeleteComment);
   onDeleteRef.current = onDeleteComment;
+  const onReplyRef = useRef(onReply);
+  onReplyRef.current = onReply;
+  const onResolveRef = useRef(onResolve);
+  onResolveRef.current = onResolve;
 
   const renderAnnotation = useCallback(
-    (annotation: DiffLineAnnotation<LineComment>) =>
-      renderAnnotationBase(annotation, currentUserRef.current, onDeleteRef.current),
+    (annotation: DiffLineAnnotation<LineComment>) => (
+      <AnnotationThread
+        annotation={annotation}
+        currentUser={currentUserRef.current}
+        onDeleteComment={onDeleteRef.current}
+        onReply={onReplyRef.current}
+        onResolve={onResolveRef.current}
+      />
+    ),
     []
   );
 
