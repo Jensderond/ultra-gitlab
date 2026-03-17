@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
 import { ApprovalButton, type ApprovalButtonRef } from '../../components/Approval';
 import BackButton from '../../components/BackButton';
+import UserAvatar from '../../components/UserAvatar/UserAvatar';
 import type { MergeRequest } from '../../types';
 
 interface MRHeaderProps {
@@ -68,7 +69,10 @@ export default function MRHeader({
       <div className="mr-header-bottom">
         <h1 className="mr-title">{mr.title}</h1>
         <div className="mr-detail-meta">
-          <span className="mr-author">{mr.authorUsername}</span>
+          <span className="mr-author">
+            <UserAvatar instanceId={mr.instanceId} username={mr.authorUsername} size={20} className="mr-author-avatar" />
+            {mr.authorUsername}
+          </span>
           <span className="mr-branches">
             {mr.sourceBranch} → {mr.targetBranch}
           </span>

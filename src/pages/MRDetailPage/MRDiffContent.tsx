@@ -16,6 +16,7 @@ interface MRDiffContentProps {
   fileContentError: string | null;
   viewMode: 'unified' | 'split';
   mrIid: number;
+  instanceId?: number;
   comments?: LineComment[];
   onLineClick?: (info: DiffLineClickInfo) => void;
   onLineSelected?: (range: SelectedLineRange | null) => void;
@@ -38,6 +39,7 @@ export default function MRDiffContent({
   fileContentError,
   viewMode,
   mrIid,
+  instanceId,
   comments,
   onLineClick,
   onLineSelected,
@@ -114,6 +116,7 @@ export default function MRDiffContent({
           mrIid={mrIid}
           sha={diffRefs.headSha}
           comments={comments}
+          instanceId={instanceId}
           onLineClick={onLineClick}
           onLineSelected={onLineSelected}
           currentUser={currentUser}

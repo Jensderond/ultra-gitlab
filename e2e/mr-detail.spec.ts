@@ -11,7 +11,7 @@ test.describe('MR Detail Page', () => {
     await expect(page.locator('.mr-iid')).toHaveText('!42');
 
     // Author
-    await expect(page.locator('.mr-author')).toHaveText('alice');
+    await expect(page.locator('.mr-author')).toContainText('alice');
 
     // Branch info
     await expect(page.locator('.mr-branches')).toContainText('feature/dark-mode');

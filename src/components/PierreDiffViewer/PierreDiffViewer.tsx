@@ -3,6 +3,7 @@ import type { FileContents } from '@pierre/diffs/react';
 import type { DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { TrashIcon } from '../icons';
+import UserAvatar from '../UserAvatar/UserAvatar';
 import '../ActivityDrawer/ActivityFeed.css';
 import './PierreDiffViewer.css';
 
@@ -49,6 +50,8 @@ export interface PierreDiffViewerProps {
   onLineClick?: (info: DiffLineClickInfo) => void;
   /** Called when the user selects a line range in the diff */
   onLineSelected?: (range: SelectedLineRange | null) => void;
+  /** GitLab instance ID (for avatar resolution) */
+  instanceId?: number;
   /** Current user's username (for showing delete button on own comments) */
   currentUser?: string;
   /** Called when a comment delete button is clicked */
@@ -86,10 +89,12 @@ function formatDate(ts: number): string {
 /** Single comment entry within an annotation thread. */
 function AnnotationComment({
   comment,
+  instanceId,
   currentUser,
   onDeleteComment,
 }: {
   comment: LineComment;
+  instanceId?: number;
   currentUser?: string;
   onDeleteComment?: (commentId: number) => void;
 }) {
@@ -109,6 +114,9 @@ function AnnotationComment({
   return (
     <div className="activity-comment">
       <div className="activity-comment__meta">
+        {instanceId != null && (
+          <UserAvatar instanceId={instanceId} username={comment.authorUsername} size={18} className="activity-comment__avatar" />
+        )}
         <span className="activity-comment__author">{comment.authorUsername}</span>
         <span className="activity-comment__time">{formatDate(comment.createdAt)}</span>
         {isOwn && onDeleteComment && (
@@ -195,12 +203,14 @@ function AnnotationReplyInput({ onSubmit, onCancel }: { onSubmit: (body: string)
 /** Render a single annotation (comment thread) inline in the diff. */
 function AnnotationThread({
   annotation,
+  instanceId,
   currentUser,
   onDeleteComment,
   onReply,
   onResolve,
 }: {
   annotation: DiffLineAnnotation<LineComment>;
+  instanceId?: number;
   currentUser?: string;
   onDeleteComment?: (commentId: number) => void;
   onReply?: (discussionId: string, parentId: number, body: string) => Promise<void>;
@@ -254,11 +264,11 @@ function AnnotationThread({
         {!collapsed && (
           /* Expanded state — full thread */
           <>
-            <AnnotationComment comment={root} currentUser={currentUser} onDeleteComment={onDeleteComment} />
+            <AnnotationComment comment={root} instanceId={instanceId} currentUser={currentUser} onDeleteComment={onDeleteComment} />
             {replies.length > 0 && (
               <div className="activity-thread__replies">
                 {replies.map((reply) => (
-                  <AnnotationComment key={reply.id} comment={reply} currentUser={currentUser} onDeleteComment={onDeleteComment} />
+                  <AnnotationComment key={reply.id} comment={reply} instanceId={instanceId} currentUser={currentUser} onDeleteComment={onDeleteComment} />
                 ))}
               </div>
             )}
@@ -312,6 +322,7 @@ export function PierreDiffViewer({
   comments,
   onLineClick,
   onLineSelected,
+  instanceId,
   currentUser,
   onDeleteComment,
   onReply,
@@ -376,6 +387,8 @@ export function PierreDiffViewer({
   );
 
   // Stable refs so the render callback doesn't trigger re-renders
+  const instanceIdRef = useRef(instanceId);
+  instanceIdRef.current = instanceId;
   const currentUserRef = useRef(currentUser);
   currentUserRef.current = currentUser;
   const onDeleteRef = useRef(onDeleteComment);
@@ -389,6 +402,7 @@ export function PierreDiffViewer({
     (annotation: DiffLineAnnotation<LineComment>) => (
       <AnnotationThread
         annotation={annotation}
+        instanceId={instanceIdRef.current}
         currentUser={currentUserRef.current}
         onDeleteComment={onDeleteRef.current}
         onReply={onReplyRef.current}

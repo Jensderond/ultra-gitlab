@@ -257,6 +257,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           fileContentError={fileContentError}
           viewMode={effectiveViewMode}
           mrIid={mr.iid}
+          instanceId={mr.instanceId}
           comments={fileComments}
           onLineClick={handleLineClick}
           onLineSelected={handleLineSelected}
