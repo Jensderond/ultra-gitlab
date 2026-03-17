@@ -60,6 +60,7 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
     const classNames = ['mr-list-item'];
     if (selected) classNames.push('selected');
     if (isNew) classNames.push('is-new');
+    if (mr.userHasApproved) classNames.push('user-approved');
 
     return (
       <div
@@ -99,7 +100,10 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
       </div>
 
       <div className="mr-item-footer">
-        {mr.approvalStatus && (
+        {mr.userHasApproved && (
+          <span className="mr-approval approval-user-approved">✓ You approved</span>
+        )}
+        {mr.approvalStatus && !mr.userHasApproved && (
           <span className={`mr-approval ${getApprovalClass(mr.approvalStatus)}`}>
             {mr.approvalStatus === 'approved' && '✓ Approved'}
             {mr.approvalStatus === 'pending' && '○ Pending'}

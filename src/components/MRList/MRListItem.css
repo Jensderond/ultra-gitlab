@@ -304,6 +304,35 @@
 }
 
 /* ================================================
+   USER-APPROVED STATE — Dimmed to de-emphasize
+   ================================================ */
+
+.mr-list-item.user-approved {
+  opacity: 0.5;
+  animation-name: itemSlideInDimmed;
+}
+
+@keyframes itemSlideInDimmed {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 0.5;
+    transform: translateX(0);
+  }
+}
+
+.mr-list-item.user-approved:hover {
+  opacity: 0.75;
+}
+
+.approval-user-approved {
+  background: var(--success-light);
+  color: var(--success-color);
+}
+
+/* ================================================
    NEW ITEM STATE — Subtle wave pulse
    ================================================ */
 

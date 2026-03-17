@@ -138,6 +138,39 @@
   color: var(--text-muted);
 }
 
+/* Approved MRs hidden banner */
+.mr-list-approved-banner {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  gap: 8px;
+  margin: 16px auto;
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.mr-list-approved-banner:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--accent-color);
+}
+
+.mr-list-approved-banner svg {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.mr-list-approved-banner:hover svg {
+  opacity: 1;
+}
+
 /* Footer - Sync status bar */
 .mr-list-footer {
   padding: 10px 32px;

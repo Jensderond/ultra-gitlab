@@ -41,6 +41,8 @@ interface MRListProps {
   onFilteredCountChange?: (counts: { filtered: number; total: number }) => void;
   /** When true, show MRs the user has already approved (hidden by default) */
   showApproved?: boolean;
+  /** Callback to toggle the showApproved filter */
+  onToggleApproved?: () => void;
 }
 
 /**
@@ -56,6 +58,7 @@ export default function MRList({
   filterQuery,
   onFilteredCountChange,
   showApproved = false,
+  onToggleApproved,
 }: MRListProps) {
   const query = useMRListQuery(instanceId);
   const queryClient = useQueryClient();
@@ -72,6 +75,7 @@ export default function MRList({
   }, [query.data, showApproved]);
 
   const totalFetched = query.data?.length ?? 0;
+  const approvedCount = totalFetched - mrs.length;
 
   // Filter MRs by search query
   const filteredMrs = useMemo(() => {
@@ -211,6 +215,18 @@ export default function MRList({
               highlightQuery={filterQuery}
             />
           ))
+        )}
+        {!showApproved && approvedCount > 0 && mrs.length > 0 && (
+          <button
+            className="mr-list-approved-banner"
+            onClick={onToggleApproved}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            {approvedCount} approved {approvedCount === 1 ? 'MR' : 'MRs'} hidden
+          </button>
         )}
       </div>
 
