@@ -18,6 +18,8 @@ interface KeyboardOptions {
   navigateFile: (direction: number) => void;
   fileJumpCount?: number;
   toggleHideGenerated: () => void;
+  onMerge?: () => void;
+  onRebase?: () => void;
 }
 
 export function useMyMRKeyboard(options: KeyboardOptions) {
@@ -103,6 +105,19 @@ export function useMyMRKeyboard(options: KeyboardOptions) {
             e.preventDefault();
             trackShortcut('g', 'toggle_hide_generated', 'my_mr_detail');
             opts.toggleHideGenerated();
+          }
+          break;
+        case 'Enter':
+          if ((e.metaKey || e.ctrlKey)) {
+            if (opts.onMerge) {
+              e.preventDefault();
+              trackShortcut('cmd+enter', 'merge', 'my_mr_detail');
+              opts.onMerge();
+            } else if (opts.onRebase) {
+              e.preventDefault();
+              trackShortcut('cmd+enter', 'rebase', 'my_mr_detail');
+              opts.onRebase();
+            }
           }
           break;
       }

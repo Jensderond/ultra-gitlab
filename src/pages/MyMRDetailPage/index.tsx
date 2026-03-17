@@ -5,7 +5,7 @@
  * Tabs: Overview (default), Comments, Code
  */
 
-import { useState, useReducer, useCallback } from 'react';
+import { useState, useReducer, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCopyToast } from '../../hooks/useCopyToast';
 import BackButton from '../../components/BackButton';
@@ -18,6 +18,7 @@ import { mergeReducer, initialMergeState } from './mergeReducer';
 import { OverviewTab } from './OverviewTab';
 import { CommentsTab } from './CommentsTab';
 import { CodeTab } from './CodeTab';
+import type { MergeActions } from './MergeSection';
 import '../MyMRDetailPage.css';
 
 type TabId = 'overview' | 'comments' | 'code';
@@ -34,6 +35,7 @@ export default function MyMRDetailPage() {
   const { mr, setMr, reviewers, loading, error, threads, unresolvedCount, approvedCount, currentUser, handleDeleteComment, handleReply, handleResolve } =
     useMyMRData(mrId);
 
+  const mergeActionsRef = useRef<MergeActions>({ merge: null, rebase: null });
   const { data: settings } = useSettingsQuery();
   const codeTab = useCodeTab(mrId, mr, activeTab);
 
@@ -50,6 +52,8 @@ export default function MyMRDetailPage() {
     navigateFile: codeTab.navigateFile,
     fileJumpCount: settings?.fileJumpCount,
     toggleHideGenerated: codeTab.toggleHideGenerated,
+    onMerge: useCallback(() => mergeActionsRef.current.merge?.(), []),
+    onRebase: useCallback(() => mergeActionsRef.current.rebase?.(), []),
   });
 
   if (loading) {
@@ -101,6 +105,8 @@ export default function MyMRDetailPage() {
             mergeDispatch={mergeDispatch}
             mrId={mrId}
             setMr={setMr}
+            mergeActionsRef={mergeActionsRef}
+            onMerged={goBack}
           />
         )}
 
@@ -122,6 +128,7 @@ export default function MyMRDetailPage() {
           <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> tab &middot;{' '}
           <kbd>j</kbd>/<kbd>k</kbd> file &middot;{' '}
           <span className="shortcut-underline">g</span>enerated &middot;{' '}
+          <kbd>⌘↵</kbd> merge/rebase &middot;{' '}
           <span className="shortcut-underline">o</span>pen &middot;{' '}
           <span className="shortcut-underline">y</span>ank link &middot;{' '}
           <kbd>Esc</kbd> back

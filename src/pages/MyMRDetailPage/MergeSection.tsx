@@ -7,15 +7,22 @@ import { mergeMR, checkMergeStatus, rebaseMR } from '../../services/tauri';
 import type { MergeRequest } from '../../types';
 import type { MergeState, MergeAction } from './mergeReducer';
 
+export interface MergeActions {
+  merge: (() => void) | null;
+  rebase: (() => void) | null;
+}
+
 interface MergeSectionProps {
   mr: MergeRequest;
   mergeState: MergeState;
   mergeDispatch: React.Dispatch<MergeAction>;
   mrId: number;
   setMr: React.Dispatch<React.SetStateAction<MergeRequest | null>>;
+  actionsRef?: React.MutableRefObject<MergeActions>;
+  onMerged?: () => void;
 }
 
-export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr }: MergeSectionProps) {
+export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actionsRef, onMerged }: MergeSectionProps) {
   const { merging, mergeError, mergeConfirm, mergeStatus, mergeStatusLoading, rebasing } = mergeState;
   const rebaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -54,10 +61,11 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr }: Mer
       await mergeMR(mrId);
       mergeDispatch({ type: 'MERGE_SUCCESS' });
       setMr((prev) => prev ? { ...prev, state: 'merged' } : prev);
+      onMerged?.();
     } catch (err) {
       mergeDispatch({ type: 'MERGE_ERROR', error: err instanceof Error ? err.message : 'Merge failed' });
     }
-  }, [mrId, merging, mergeConfirm, mergeDispatch, setMr]);
+  }, [mrId, merging, mergeConfirm, mergeDispatch, setMr, onMerged]);
 
   const handleRebase = useCallback(async () => {
     if (rebasing) return;
@@ -70,6 +78,18 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr }: Mer
       mergeDispatch({ type: 'REBASE_ERROR', error: err instanceof Error ? err.message : 'Rebase failed' });
     }
   }, [mrId, rebasing, mergeDispatch, fetchMergeStatus]);
+
+  // Expose available actions to parent for keyboard shortcuts
+  const canMerge = mr.state === 'opened' && mergeStatus === 'mergeable' && mr.approvalStatus === 'approved' && !merging;
+  const canRebase = mr.state === 'opened' && mergeStatus === 'need_rebase' && !rebasing;
+  useEffect(() => {
+    if (actionsRef) {
+      actionsRef.current = {
+        merge: canMerge ? handleMerge : null,
+        rebase: canRebase ? handleRebase : null,
+      };
+    }
+  }, [actionsRef, canMerge, canRebase, handleMerge, handleRebase]);
 
   if (mr.state === 'merged') {
     return (
@@ -90,11 +110,11 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr }: Mer
       ) : mergeStatus === 'mergeable' && mr.approvalStatus === 'approved' ? (
         <div className="my-mr-merge-actions">
           <button
-            className={`my-mr-merge-button ${mergeConfirm ? 'confirm' : ''}`}
+            className={`my-mr-action-btn merge ${mergeConfirm ? 'confirm' : ''}`}
             onClick={handleMerge}
             disabled={merging}
           >
-            {merging ? 'Merging...' : mergeConfirm ? 'Click again to confirm' : 'Merge'}
+            {merging ? 'Merging...' : mergeConfirm ? <>Confirm merge <span className="shortcut-tag"><span className="shortcut-mod">⌘</span>+↵</span></> : <>Merge <span className="shortcut-tag"><span className="shortcut-mod">⌘</span>+↵</span></>}
           </button>
           {mergeConfirm && (
             <button
@@ -109,11 +129,11 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr }: Mer
         <div className="my-mr-merge-actions">
           <span className="my-mr-merge-status need-rebase">Needs rebase</span>
           <button
-            className="my-mr-rebase-button"
+            className="my-mr-action-btn rebase"
             onClick={handleRebase}
             disabled={rebasing}
           >
-            {rebasing ? 'Rebasing...' : 'Rebase'}
+            {rebasing ? 'Rebasing...' : <>Rebase <span className="shortcut-tag"><span className="shortcut-mod">⌘</span>+↵</span></>}
           </button>
         </div>
       ) : mergeStatus === 'conflict' ? (

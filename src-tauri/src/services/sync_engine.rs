@@ -1966,6 +1966,29 @@ impl SyncEngine {
 
             let result = sync_processor::process_action(&client, &self.pool, action).await;
 
+            // Clean up local comment from DB after successful sync so the
+            // frontend refetch (triggered by action-synced) won't see both
+            // the local placeholder and the GitLab version.
+            if result.success {
+                if let Some(local_id) = action.local_reference_id {
+                    let action_type = ActionType::from(action.action_type.as_str());
+                    if matches!(action_type, ActionType::Comment | ActionType::Reply) {
+                        if let Err(e) = sqlx::query(
+                            "DELETE FROM comments WHERE id = ? AND is_local = 1",
+                        )
+                        .bind(local_id)
+                        .execute(&self.pool)
+                        .await
+                        {
+                            eprintln!(
+                                "[sync] Failed to clean up local comment {}: {}",
+                                local_id, e
+                            );
+                        }
+                    }
+                }
+            }
+
             // Emit action-synced event
             self.emit_event(
                 ACTION_SYNCED_EVENT,

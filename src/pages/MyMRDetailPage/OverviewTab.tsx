@@ -4,6 +4,7 @@
 
 import { formatRelativeTime, reviewerStatusClass, reviewerStatusLabel } from './utils';
 import { MergeSection } from './MergeSection';
+import type { MergeActions } from './MergeSection';
 import UserAvatar from '../../components/UserAvatar/UserAvatar';
 import type { MergeRequest, MrReviewer } from '../../types';
 import type { MergeState, MergeAction } from './mergeReducer';
@@ -16,6 +17,8 @@ interface OverviewTabProps {
   mergeDispatch: React.Dispatch<MergeAction>;
   mrId: number;
   setMr: React.Dispatch<React.SetStateAction<MergeRequest | null>>;
+  mergeActionsRef?: React.MutableRefObject<MergeActions>;
+  onMerged?: () => void;
 }
 
 export function OverviewTab({
@@ -26,6 +29,8 @@ export function OverviewTab({
   mergeDispatch,
   mrId,
   setMr,
+  mergeActionsRef,
+  onMerged,
 }: OverviewTabProps) {
   const requiredCount = mr.approvalsRequired ?? 0;
 
@@ -100,6 +105,8 @@ export function OverviewTab({
         mergeDispatch={mergeDispatch}
         mrId={mrId}
         setMr={setMr}
+        actionsRef={mergeActionsRef}
+        onMerged={onMerged}
       />
     </div>
   );
