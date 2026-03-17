@@ -7,6 +7,7 @@
 
 import { useState, useReducer, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { openExternalUrl } from '../../services/transport';
 import { useCopyToast } from '../../hooks/useCopyToast';
 import BackButton from '../../components/BackButton';
 import TabBar from '../../components/TabBar';
@@ -32,8 +33,10 @@ export default function MyMRDetailPage() {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [mergeState, mergeDispatch] = useReducer(mergeReducer, initialMergeState);
 
-  const { mr, setMr, reviewers, loading, error, threads, unresolvedCount, approvedCount, currentUser, handleDeleteComment, handleReply, handleResolve } =
+  const { mr, setMr, reviewers, loading, error, stale, threads, unresolvedCount, approvedCount, currentUser, handleDeleteComment, handleReply, handleResolve } =
     useMyMRData(mrId);
+
+  const isMergedOrClosed = mr?.state === 'merged' || mr?.state === 'closed';
 
   const mergeActionsRef = useRef<MergeActions>({ merge: null, rebase: null });
   const { data: settings } = useSettingsQuery();
@@ -64,7 +67,7 @@ export default function MyMRDetailPage() {
     );
   }
 
-  if (error || !mr) {
+  if (!mr) {
     return (
       <div className="my-mr-detail">
         <div className="my-mr-detail-error">
@@ -77,6 +80,26 @@ export default function MyMRDetailPage() {
 
   return (
     <div className="my-mr-detail">
+      {(isMergedOrClosed || stale) && (
+        <div className={`my-mr-state-banner ${isMergedOrClosed ? mr.state : 'merged'}`}>
+          <span>
+            {stale && !isMergedOrClosed
+              ? 'This merge request is no longer available locally'
+              : `This merge request has been ${mr.state === 'closed' ? 'closed' : 'merged'}`}
+          </span>
+          <div className="my-mr-state-banner-actions">
+            {mr.webUrl && (
+              <button className="my-mr-state-banner-btn" onClick={() => openExternalUrl(mr.webUrl)}>
+                Open in GitLab
+              </button>
+            )}
+            <button className="my-mr-state-banner-btn" onClick={goBack}>
+              Go Back
+            </button>
+          </div>
+        </div>
+      )}
+
       <header className="my-mr-detail-header">
         <div className="my-mr-detail-title-row">
           <BackButton onClick={goBack} title="Back" />

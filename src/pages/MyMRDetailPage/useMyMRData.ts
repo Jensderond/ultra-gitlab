@@ -21,6 +21,8 @@ export interface MyMRData {
   currentUser: string | null;
   loading: boolean;
   error: string | null;
+  /** True when we have stale cached data but the refetch failed (MR likely purged from DB) */
+  stale: boolean;
   threads: Comment[][];
   unresolvedCount: number;
   approvedCount: number;
@@ -98,7 +100,10 @@ export function useMyMRData(mrId: number): MyMRData {
   const approvedCount = reviewers.filter(r => r.status === 'approved').length;
 
   const loading = mrQuery.isLoading || commentsQuery.isLoading;
-  const error = mrQuery.error
+  // Only report error when there's no data at all (hard 404, never loaded).
+  // When we have stale cached data + error, we show the MR with a banner instead.
+  const hasStaleData = !!mrQuery.data && !!mrQuery.error;
+  const error = mrQuery.error && !mrQuery.data
     ? (mrQuery.error instanceof Error ? mrQuery.error.message : 'Failed to load MR')
     : null;
 
@@ -110,6 +115,7 @@ export function useMyMRData(mrId: number): MyMRData {
     currentUser: currentUserQuery.data,
     loading,
     error,
+    stale: hasStaleData,
     threads,
     unresolvedCount,
     approvedCount,

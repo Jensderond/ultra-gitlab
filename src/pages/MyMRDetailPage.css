@@ -21,6 +21,53 @@
   font-size: 13px;
 }
 
+/* Merged/closed state banner */
+.my-mr-state-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 32px;
+  font-size: 13px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.my-mr-state-banner.merged {
+  color: var(--accent-color);
+  background: var(--accent-bg);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent-color) 20%, transparent);
+}
+
+.my-mr-state-banner.closed {
+  color: var(--error-color);
+  background: var(--error-bg);
+  border-bottom: 1px solid color-mix(in srgb, var(--error-color) 20%, transparent);
+}
+
+.my-mr-state-banner-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.my-mr-state-banner-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+
+.my-mr-state-banner-btn:hover {
+  opacity: 1;
+}
+
 /* Header */
 .my-mr-detail-header {
   padding: 24px 32px 16px;

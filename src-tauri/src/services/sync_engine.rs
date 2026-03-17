@@ -761,10 +761,17 @@ impl SyncEngine {
         // Sync user avatars (non-fatal)
         self.sync_user_avatars(instance, &mrs).await;
 
-        // Purge merged/closed MRs — only if at least one MR synced successfully.
-        // If all tasks failed (e.g. network outage), synced_local_mr_ids is empty
-        // and purge would delete every local MR for this instance.
-        if !synced_local_mr_ids.is_empty() {
+        // Purge merged/closed MRs.
+        //
+        // We run purge when:
+        //   a) At least one MR synced successfully (normal case), OR
+        //   b) GitLab returned zero open MRs (mrs is empty) — meaning all MRs
+        //      were merged/closed, so we still need to soft/hard-purge them.
+        //
+        // We skip purge ONLY when GitLab returned MRs but all sync tasks failed
+        // (network/auth issue) — to avoid accidentally deleting valid local data.
+        let should_purge = !synced_local_mr_ids.is_empty() || mrs.is_empty();
+        if should_purge {
             self.emit_progress(SyncPhase::Purging, "Purging merged/closed MRs");
             result.purged_count = self.purge_closed_mrs(instance.id, &synced_local_mr_ids).await?;
         } else if !mrs.is_empty() {
@@ -1792,26 +1799,39 @@ impl SyncEngine {
 
     /// Purge merged/closed MRs that are no longer open on GitLab.
     ///
-    /// Per FR-005a: "System MUST purge cached MR data immediately when an MR is merged or closed"
+    /// Two-pass purge for merged/closed MRs.
+    ///
+    /// Pass 1 (soft-purge): MRs not in the synced list that are still 'opened'
+    ///   → update state to 'merged' so the frontend can show a graceful banner.
+    /// Pass 2 (hard-purge): MRs not in the synced list that were *already* in
+    ///   'merged'/'closed' state *before* this cycle → actually delete from DB.
+    ///
+    /// Both candidate sets are collected up-front (before the UPDATE) to ensure
+    /// soft-purged MRs are not immediately hard-deleted in the same cycle.
+    /// This gives the user at least one sync cycle (~5 min) to see the "merged" state
+    /// before data is removed.
     async fn purge_closed_mrs(
         &self,
         instance_id: i64,
         synced_local_mr_ids: &[i64],
     ) -> Result<i64, AppError> {
-        // Use the local DB IDs of all successfully synced MRs
         let open_mr_ids = synced_local_mr_ids;
 
-        // Find MR IDs (and iids) that will be purged (to clean up file cache and emit events)
-        let purge_rows: Vec<(i64, i64)> = if open_mr_ids.is_empty() {
-            sqlx::query_as("SELECT id, iid FROM merge_requests WHERE instance_id = ?")
-                .bind(instance_id)
-                .fetch_all(&self.pool)
-                .await?
+        // --- Collect both candidate sets BEFORE any mutations ---
+        // This prevents Pass 2 from catching MRs that were just soft-purged in Pass 1.
+
+        let soft_purge_rows: Vec<(i64, i64)> = if open_mr_ids.is_empty() {
+            sqlx::query_as(
+                "SELECT id, iid FROM merge_requests WHERE instance_id = ? AND state = 'opened'",
+            )
+            .bind(instance_id)
+            .fetch_all(&self.pool)
+            .await?
         } else {
             let placeholders: Vec<String> =
                 (0..open_mr_ids.len()).map(|_| "?".to_string()).collect();
             let query = format!(
-                "SELECT id, iid FROM merge_requests WHERE instance_id = ? AND id NOT IN ({})",
+                "SELECT id, iid FROM merge_requests WHERE instance_id = ? AND state = 'opened' AND id NOT IN ({})",
                 placeholders.join(", ")
             );
             let mut q = sqlx::query_as(&query).bind(instance_id);
@@ -1821,8 +1841,58 @@ impl SyncEngine {
             q.fetch_all(&self.pool).await?
         };
 
-        // Delete file versions for each purged MR
-        for (mr_id, _iid) in &purge_rows {
+        let hard_purge_rows: Vec<(i64, i64)> = if open_mr_ids.is_empty() {
+            sqlx::query_as(
+                "SELECT id, iid FROM merge_requests WHERE instance_id = ? AND state != 'opened'",
+            )
+            .bind(instance_id)
+            .fetch_all(&self.pool)
+            .await?
+        } else {
+            let placeholders: Vec<String> =
+                (0..open_mr_ids.len()).map(|_| "?".to_string()).collect();
+            let query = format!(
+                "SELECT id, iid FROM merge_requests WHERE instance_id = ? AND state != 'opened' AND id NOT IN ({})",
+                placeholders.join(", ")
+            );
+            let mut q = sqlx::query_as(&query).bind(instance_id);
+            for id in open_mr_ids {
+                q = q.bind(*id);
+            }
+            q.fetch_all(&self.pool).await?
+        };
+
+        // --- Pass 1: Soft-purge — mark opened MRs as merged ---
+        if !soft_purge_rows.is_empty() {
+            let soft_ids: Vec<i64> = soft_purge_rows.iter().map(|(id, _)| *id).collect();
+            let placeholders: Vec<String> =
+                (0..soft_ids.len()).map(|_| "?".to_string()).collect();
+            let query = format!(
+                "UPDATE merge_requests SET state = 'merged' WHERE id IN ({})",
+                placeholders.join(", ")
+            );
+            let mut q = sqlx::query(&query);
+            for id in &soft_ids {
+                q = q.bind(*id);
+            }
+            q.execute(&self.pool).await?;
+
+            // Emit updated events so the frontend refetches and sees merged state
+            for (mr_id, iid) in &soft_purge_rows {
+                self.emit_mr_updated(*mr_id, instance_id, *iid, MrUpdateType::Updated);
+            }
+
+            log::info!(
+                "[sync] Soft-purged {} MRs (marked as merged) for instance {}",
+                soft_purge_rows.len(),
+                instance_id
+            );
+        }
+
+        // --- Pass 2: Hard-purge — delete MRs that were already merged/closed before this cycle ---
+
+        // Delete file versions for each hard-purged MR
+        for (mr_id, _iid) in &hard_purge_rows {
             if let Err(e) =
                 crate::db::file_cache::delete_file_versions_for_mr(&self.pool, *mr_id).await
             {
@@ -1831,45 +1901,46 @@ impl SyncEngine {
         }
 
         // Delete the MRs themselves
-        let result = if open_mr_ids.is_empty() {
-            sqlx::query("DELETE FROM merge_requests WHERE instance_id = ?")
-                .bind(instance_id)
-                .execute(&self.pool)
-                .await?
+        let purged = if hard_purge_rows.is_empty() {
+            0i64
         } else {
+            let hard_ids: Vec<i64> = hard_purge_rows.iter().map(|(id, _)| *id).collect();
             let placeholders: Vec<String> =
-                (0..open_mr_ids.len()).map(|_| "?".to_string()).collect();
+                (0..hard_ids.len()).map(|_| "?".to_string()).collect();
             let query = format!(
-                "DELETE FROM merge_requests WHERE instance_id = ? AND id NOT IN ({})",
+                "DELETE FROM merge_requests WHERE id IN ({})",
                 placeholders.join(", ")
             );
-            let mut query_builder = sqlx::query(&query).bind(instance_id);
-            for id in open_mr_ids {
-                query_builder = query_builder.bind(*id);
+            let mut q = sqlx::query(&query);
+            for id in &hard_ids {
+                q = q.bind(*id);
             }
-            query_builder.execute(&self.pool).await?
+            let result = q.execute(&self.pool).await?;
+            result.rows_affected() as i64
         };
 
-        let purged = result.rows_affected() as i64;
-
-        // Emit purged events for each removed MR
-        for (mr_id, iid) in &purge_rows {
+        // Emit purged events for each hard-deleted MR
+        for (mr_id, iid) in &hard_purge_rows {
             self.emit_mr_updated(*mr_id, instance_id, *iid, MrUpdateType::Purged);
         }
 
         // Clean up orphaned blobs after file version deletion
-        if !purge_rows.is_empty() {
+        if !hard_purge_rows.is_empty() {
             if let Err(e) = crate::db::file_cache::delete_orphaned_blobs(&self.pool).await {
                 log::warn!("Failed to delete orphaned blobs: {}", e);
             }
         }
 
-        if purged > 0 {
+        if purged > 0 || !soft_purge_rows.is_empty() {
             self.log_sync_operation(
                 "purge_mrs",
                 "success",
                 None,
-                Some(format!("Purged {} merged/closed MRs", purged)),
+                Some(format!(
+                    "Soft-purged {} MRs, hard-purged {} MRs",
+                    soft_purge_rows.len(),
+                    purged
+                )),
                 None,
             )
             .await?;
