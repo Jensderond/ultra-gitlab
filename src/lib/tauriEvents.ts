@@ -28,7 +28,7 @@ export async function setupTauriEventListeners(): Promise<() => void> {
   const unlistenMrUpdated = await tauriListen<MrUpdatedPayload>(
     'mr-updated',
     (event) => {
-      const { mr_id } = event.payload;
+      const { mr_id, update_type } = event.payload;
 
       if (debounceTimers.has(mr_id)) {
         clearTimeout(debounceTimers.get(mr_id)!);
@@ -43,6 +43,10 @@ export async function setupTauriEventListeners(): Promise<() => void> {
           queryClient.invalidateQueries({ queryKey: ['mrDiffRefs', mr_id] });
           queryClient.invalidateQueries({ queryKey: ['mrList'] });
           queryClient.invalidateQueries({ queryKey: ['myMRList'] });
+          if (update_type === 'comments_updated') {
+            queryClient.invalidateQueries({ queryKey: ['mrComments', mr_id] });
+            queryClient.invalidateQueries({ queryKey: ['mrFileComments', mr_id] });
+          }
         }, 500),
       );
     },
