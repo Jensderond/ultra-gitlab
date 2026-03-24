@@ -38,6 +38,7 @@ export default function useNotifications() {
 
   useEffect(() => {
     let unlistenMrReady: (() => void) | undefined;
+    let unlistenPipeline: (() => void) | undefined;
 
     // Listen for Tauri event: notification:mr-ready (only fires in Tauri)
     tauriListen<MrReadyPayload>('notification:mr-ready', async (event) => {
@@ -67,41 +68,39 @@ export default function useNotifications() {
       unlistenMrReady = fn;
     });
 
-    // Listen for DOM event: notification:pipeline-changed
-    function handlePipelineChanged(e: Event) {
-      const detail = (e as CustomEvent<PipelineChangedPayload>).detail;
+    // Listen for Tauri event: notification:pipeline-changed
+    // Emitted by the backend sync engine when a pinned project's pipeline status changes.
+    tauriListen<PipelineChangedPayload>('notification:pipeline-changed', async (event) => {
+      try {
+        const settings = await getNotificationSettings();
+        if (!settings.pipelineStatusPinned) return;
 
-      getNotificationSettings()
-        .then((settings) => {
-          if (!settings.pipelineStatusPinned) return;
+        const { projectName, newStatus, refName, webUrl } = event.payload;
+        const statusTitle = `Pipeline ${capitalize(newStatus)}`;
 
-          const { projectName, newStatus, refName, webUrl } = detail;
-          const statusTitle = `Pipeline ${capitalize(newStatus)}`;
-
-          addToastRef.current({
-            type: pipelineToastType(newStatus),
-            title: statusTitle,
-            body: `${projectName} (${refName})`,
-            url: webUrl,
-          });
-
-          if (isTauri && settings.nativeNotificationsEnabled) {
-            sendNativeNotification(
-              statusTitle,
-              `${projectName} (${refName})`
-            ).catch(console.error);
-          }
-        })
-        .catch((err) => {
-          console.error('Failed to handle pipeline notification:', err);
+        addToastRef.current({
+          type: pipelineToastType(newStatus),
+          title: statusTitle,
+          body: `${projectName} (${refName})`,
+          url: webUrl,
         });
-    }
 
-    window.addEventListener('notification:pipeline-changed', handlePipelineChanged);
+        if (isTauri && settings.nativeNotificationsEnabled) {
+          sendNativeNotification(
+            statusTitle,
+            `${projectName} (${refName})`
+          ).catch(console.error);
+        }
+      } catch (err) {
+        console.error('Failed to handle pipeline notification:', err);
+      }
+    }).then((fn) => {
+      unlistenPipeline = fn;
+    });
 
     return () => {
       if (unlistenMrReady) unlistenMrReady();
-      window.removeEventListener('notification:pipeline-changed', handlePipelineChanged);
+      if (unlistenPipeline) unlistenPipeline();
     };
   }, []);
 }

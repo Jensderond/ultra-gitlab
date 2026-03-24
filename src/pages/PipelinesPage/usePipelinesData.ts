@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   visitPipelineProject,
@@ -42,39 +42,6 @@ export default function usePipelinesData() {
   const lastFetched = statusesQuery.dataUpdatedAt
     ? new Date(statusesQuery.dataUpdatedAt)
     : null;
-
-  // Emit window events for pinned project status changes (skips first load)
-  const prevStatusesRef = useRef<Map<number, PipelineStatus> | null>(null);
-  useEffect(() => {
-    if (statuses.size === 0) return;
-
-    // Skip first successful load — just record the baseline
-    if (prevStatusesRef.current === null) {
-      prevStatusesRef.current = statuses;
-      return;
-    }
-
-    const pinnedIds = new Set(projects.filter((p) => p.pinned).map((p) => p.projectId));
-    for (const [projectId, newStatus] of statuses) {
-      if (!pinnedIds.has(projectId)) continue;
-      const oldStatus = prevStatusesRef.current.get(projectId);
-      if (!oldStatus || oldStatus.status === newStatus.status) continue;
-
-      const project = projects.find((p) => p.projectId === projectId);
-      window.dispatchEvent(
-        new CustomEvent('notification:pipeline-changed', {
-          detail: {
-            projectName: project?.nameWithNamespace ?? `Project ${projectId}`,
-            oldStatus: oldStatus.status,
-            newStatus: newStatus.status,
-            refName: newStatus.refName,
-            webUrl: newStatus.webUrl,
-          },
-        })
-      );
-    }
-    prevStatusesRef.current = statuses;
-  }, [statuses, projects]);
 
   const handleSelectResult = useCallback(
     async (result: ProjectSearchResult) => {
@@ -139,7 +106,6 @@ export default function usePipelinesData() {
   const handleSelectInstance = useCallback((id: number) => {
     setSelectedInstanceId(id);
     queryClient.removeQueries({ queryKey: ['pipelineStatuses'] });
-    prevStatusesRef.current = null;
   }, []);
 
   return {
