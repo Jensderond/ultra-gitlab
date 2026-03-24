@@ -37,11 +37,10 @@ export default function useNotifications() {
   addToastRef.current = addToast;
 
   useEffect(() => {
-    let unlistenMrReady: (() => void) | undefined;
-    let unlistenPipeline: (() => void) | undefined;
+    let cancelled = false;
 
-    // Listen for Tauri event: notification:mr-ready (only fires in Tauri)
-    tauriListen<MrReadyPayload>('notification:mr-ready', async (event) => {
+    const mrReadyPromise = tauriListen<MrReadyPayload>('notification:mr-ready', async (event) => {
+      if (cancelled) return;
       try {
         const settings = await getNotificationSettings();
         if (!settings.mrReadyToMerge) return;
@@ -64,13 +63,10 @@ export default function useNotifications() {
       } catch (err) {
         console.error('Failed to handle MR ready notification:', err);
       }
-    }).then((fn) => {
-      unlistenMrReady = fn;
     });
 
-    // Listen for Tauri event: notification:pipeline-changed
-    // Emitted by the backend sync engine when a pinned project's pipeline status changes.
-    tauriListen<PipelineChangedPayload>('notification:pipeline-changed', async (event) => {
+    const pipelinePromise = tauriListen<PipelineChangedPayload>('notification:pipeline-changed', async (event) => {
+      if (cancelled) return;
       try {
         const settings = await getNotificationSettings();
         if (!settings.pipelineStatusPinned) return;
@@ -94,13 +90,12 @@ export default function useNotifications() {
       } catch (err) {
         console.error('Failed to handle pipeline notification:', err);
       }
-    }).then((fn) => {
-      unlistenPipeline = fn;
     });
 
     return () => {
-      if (unlistenMrReady) unlistenMrReady();
-      if (unlistenPipeline) unlistenPipeline();
+      cancelled = true;
+      mrReadyPromise.then((unlisten) => unlisten());
+      pipelinePromise.then((unlisten) => unlisten());
     };
   }, []);
 }

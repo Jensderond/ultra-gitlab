@@ -2159,14 +2159,25 @@ impl SyncEngine {
             let results = futures::future::join_all(futures).await;
 
             for (project_id, result) in results {
+                let project_name = pinned_projects
+                    .iter()
+                    .find(|p| p.project_id == project_id)
+                    .map(|p| p.name_with_namespace.as_str())
+                    .unwrap_or("unknown");
+
                 let pipeline = match result {
                     Ok(Some(p)) => p,
-                    Ok(None) => continue,
+                    Ok(None) => {
+                        eprintln!(
+                            "[sync] No pipelines found for project {} ({})",
+                            project_name, project_id
+                        );
+                        continue;
+                    }
                     Err(e) => {
-                        log::warn!(
-                            "Failed to fetch pipeline for project {}: {}",
-                            project_id,
-                            e
+                        eprintln!(
+                            "[sync] Failed to fetch pipeline for project {} ({}): {}",
+                            project_name, project_id, e
                         );
                         continue;
                     }
@@ -2177,27 +2188,32 @@ impl SyncEngine {
 
                 if let Some(old_status) = prev_statuses.get(&key) {
                     if *old_status != pipeline.status {
-                        let project = pinned_projects
-                            .iter()
-                            .find(|p| p.project_id == project_id)
-                            .unwrap();
+                        eprintln!(
+                            "[sync] Pipeline status changed for {}: {} → {}",
+                            project_name, old_status, pipeline.status
+                        );
 
                         self.emit_event(
                             PIPELINE_STATUS_CHANGED_EVENT,
                             &PipelineStatusChangedPayload {
-                                project_name: project.name_with_namespace.clone(),
+                                project_name: project_name.to_string(),
                                 old_status: old_status.clone(),
                                 new_status: pipeline.status.clone(),
                                 ref_name: pipeline.ref_name.clone(),
                                 web_url: pipeline.web_url.clone(),
                             },
                         );
-
+                    } else {
                         eprintln!(
-                            "[sync] Pipeline status changed for {}: {} → {}",
-                            project.name_with_namespace, old_status, pipeline.status
+                            "[sync] Pipeline status unchanged for {}: {} (ref: {})",
+                            project_name, pipeline.status, pipeline.ref_name
                         );
                     }
+                } else {
+                    eprintln!(
+                        "[sync] Pipeline baseline set for {}: {} (ref: {})",
+                        project_name, pipeline.status, pipeline.ref_name
+                    );
                 }
 
                 // Store current status (first fetch establishes baseline)
