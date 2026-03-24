@@ -53,6 +53,10 @@ pub const AUTH_EXPIRED_EVENT: &str = "auth-expired";
 /// Emitted when an authored MR transitions to ready-to-merge state.
 pub const MR_READY_EVENT: &str = "notification:mr-ready";
 
+/// Event: notification:pipeline-changed
+/// Emitted when a pinned project's pipeline status changes.
+pub const PIPELINE_STATUS_CHANGED_EVENT: &str = "notification:pipeline-changed";
+
 /// Payload for sync-progress events.
 #[derive(Debug, Clone, Serialize)]
 pub struct SyncProgressPayload {
@@ -170,6 +174,26 @@ pub struct MrReadyPayload {
     pub project_name: String,
 
     /// URL to the MR in GitLab web UI.
+    pub web_url: String,
+}
+
+/// Payload for notification:pipeline-changed events.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PipelineStatusChangedPayload {
+    /// Project name (with namespace).
+    pub project_name: String,
+
+    /// Previous pipeline status.
+    pub old_status: String,
+
+    /// New pipeline status.
+    pub new_status: String,
+
+    /// Git ref (branch/tag) the pipeline ran on.
+    pub ref_name: String,
+
+    /// URL to the pipeline in GitLab web UI.
     pub web_url: String,
 }
 
