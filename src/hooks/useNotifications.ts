@@ -37,10 +37,10 @@ export default function useNotifications() {
   addToastRef.current = addToast;
 
   useEffect(() => {
-    let unlistenMrReady: (() => void) | undefined;
+    let cancelled = false;
 
-    // Listen for Tauri event: notification:mr-ready (only fires in Tauri)
-    tauriListen<MrReadyPayload>('notification:mr-ready', async (event) => {
+    const mrReadyPromise = tauriListen<MrReadyPayload>('notification:mr-ready', async (event) => {
+      if (cancelled) return;
       try {
         const settings = await getNotificationSettings();
         if (!settings.mrReadyToMerge) return;
@@ -63,45 +63,39 @@ export default function useNotifications() {
       } catch (err) {
         console.error('Failed to handle MR ready notification:', err);
       }
-    }).then((fn) => {
-      unlistenMrReady = fn;
     });
 
-    // Listen for DOM event: notification:pipeline-changed
-    function handlePipelineChanged(e: Event) {
-      const detail = (e as CustomEvent<PipelineChangedPayload>).detail;
+    const pipelinePromise = tauriListen<PipelineChangedPayload>('notification:pipeline-changed', async (event) => {
+      if (cancelled) return;
+      try {
+        const settings = await getNotificationSettings();
+        if (!settings.pipelineStatusPinned) return;
 
-      getNotificationSettings()
-        .then((settings) => {
-          if (!settings.pipelineStatusPinned) return;
+        const { projectName, newStatus, refName, webUrl } = event.payload;
+        const statusTitle = `Pipeline ${capitalize(newStatus)}`;
 
-          const { projectName, newStatus, refName, webUrl } = detail;
-          const statusTitle = `Pipeline ${capitalize(newStatus)}`;
-
-          addToastRef.current({
-            type: pipelineToastType(newStatus),
-            title: statusTitle,
-            body: `${projectName} (${refName})`,
-            url: webUrl,
-          });
-
-          if (isTauri && settings.nativeNotificationsEnabled) {
-            sendNativeNotification(
-              statusTitle,
-              `${projectName} (${refName})`
-            ).catch(console.error);
-          }
-        })
-        .catch((err) => {
-          console.error('Failed to handle pipeline notification:', err);
+        addToastRef.current({
+          type: pipelineToastType(newStatus),
+          title: statusTitle,
+          body: `${projectName} (${refName})`,
+          url: webUrl,
         });
-    }
 
-    window.addEventListener('notification:pipeline-changed', handlePipelineChanged);
+        if (isTauri && settings.nativeNotificationsEnabled) {
+          sendNativeNotification(
+            statusTitle,
+            `${projectName} (${refName})`
+          ).catch(console.error);
+        }
+      } catch (err) {
+        console.error('Failed to handle pipeline notification:', err);
+      }
+    });
 
     return () => {
-      if (unlistenMrReady) unlistenMrReady();
-      window.removeEventListener('notification:pipeline-changed', handlePipelineChanged);
+      cancelled = true;
+      mrReadyPromise.then((unlisten) => unlisten());
+      pipelinePromise.then((unlisten) => unlisten());
     };
   }, []);
 }

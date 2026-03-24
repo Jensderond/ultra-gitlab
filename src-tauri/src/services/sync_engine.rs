@@ -18,13 +18,14 @@ use crate::services::gitlab_client::{
 };
 use crate::services::sync_events::{
     ActionSyncedPayload, AuthExpiredPayload, EventEmitter, MrReadyPayload, MrUpdateType,
-    MrUpdatedPayload, SyncPhase, SyncProgressPayload, ACTION_SYNCED_EVENT, AUTH_EXPIRED_EVENT,
-    MR_READY_EVENT, MR_UPDATED_EVENT, SYNC_PROGRESS_EVENT,
+    MrUpdatedPayload, PipelineStatusChangedPayload, SyncPhase, SyncProgressPayload,
+    ACTION_SYNCED_EVENT, AUTH_EXPIRED_EVENT, MR_READY_EVENT, MR_UPDATED_EVENT,
+    PIPELINE_STATUS_CHANGED_EVENT, SYNC_PROGRESS_EVENT,
 };
 use crate::services::sync_processor::{self, ProcessResult};
 use crate::services::sync_queue;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -243,6 +244,10 @@ pub struct SyncEngine {
 
     /// MR IDs already notified as ready-to-merge this session (avoids duplicate notifications).
     notified_mr_ready: Arc<RwLock<HashSet<i64>>>,
+
+    /// Previous pipeline statuses for pinned projects, keyed by (instance_id, project_id).
+    /// Used to detect status transitions and emit notifications.
+    previous_pipeline_statuses: Arc<RwLock<HashMap<(i64, i64), String>>>,
 }
 
 impl SyncEngine {
@@ -254,6 +259,7 @@ impl SyncEngine {
             status: Arc::new(RwLock::new(SyncStatus::default())),
             emitter,
             notified_mr_ready: Arc::new(RwLock::new(HashSet::new())),
+            previous_pipeline_statuses: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -321,6 +327,7 @@ impl SyncEngine {
                 status: Arc::new(RwLock::new(SyncStatus::default())),
                 emitter,
                 notified_mr_ready: Arc::new(RwLock::new(HashSet::new())),
+                previous_pipeline_statuses: Arc::new(RwLock::new(HashMap::new())),
             };
 
             // Recover any actions stuck in 'syncing' state from a previous crash
@@ -470,6 +477,9 @@ impl SyncEngine {
                 }
             }
         }
+
+        // Check pinned pipeline statuses and emit notifications on transitions
+        self.check_pinned_pipeline_statuses().await;
 
         // Clean up completed sync queue entries to prevent unbounded table growth
         if let Err(e) = sync_queue::cleanup_synced(&self.pool).await {
@@ -2070,6 +2080,148 @@ impl SyncEngine {
         Ok(())
     }
 
+    /// Check pinned pipeline project statuses and emit notification events on transitions.
+    ///
+    /// Queries all pinned pipeline projects across all instances, fetches their
+    /// latest pipeline status from GitLab, compares with the previously stored
+    /// status, and emits `notification:pipeline-changed` for any transitions.
+    /// The first fetch per project establishes a baseline without emitting.
+    async fn check_pinned_pipeline_statuses(&self) {
+        // Check notification settings first
+        let settings =
+            match crate::db::notification_settings::get_notification_settings(&self.pool).await {
+                Ok(s) => s,
+                Err(e) => {
+                    log::warn!("Failed to read notification settings for pipeline check: {}", e);
+                    return;
+                }
+            };
+
+        if !settings.pipeline_status_pinned {
+            return;
+        }
+
+        // Get all instances
+        let instances = match self.get_gitlab_instances().await {
+            Ok(i) => i,
+            Err(e) => {
+                log::warn!("Failed to get instances for pipeline check: {}", e);
+                return;
+            }
+        };
+
+        for instance in &instances {
+            let token = match &instance.token {
+                Some(t) => t.clone(),
+                None => continue,
+            };
+
+            let client = match GitLabClient::new(GitLabClientConfig {
+                base_url: instance.url.clone(),
+                token,
+                timeout_secs: 30,
+            }) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+
+            // Query pinned pipeline projects for this instance
+            let pinned_projects: Vec<PinnedPipelineProject> = sqlx::query_as(
+                r#"
+                SELECT pp.project_id, p.name_with_namespace, p.web_url
+                FROM pipeline_projects pp
+                JOIN projects p ON p.id = pp.project_id AND p.instance_id = pp.instance_id
+                WHERE pp.instance_id = ? AND pp.pinned = 1
+                "#,
+            )
+            .bind(instance.id)
+            .fetch_all(&self.pool)
+            .await
+            .unwrap_or_default();
+
+            if pinned_projects.is_empty() {
+                continue;
+            }
+
+            eprintln!(
+                "[sync] Checking pipeline statuses for {} pinned project(s) on {}",
+                pinned_projects.len(),
+                instance.url
+            );
+
+            // Fetch latest pipeline for each pinned project
+            let futures = pinned_projects.iter().map(|project| {
+                let client = client.clone();
+                let project_id = project.project_id;
+                async move { (project_id, client.get_latest_pipeline(project_id).await) }
+            });
+
+            let results = futures::future::join_all(futures).await;
+
+            for (project_id, result) in results {
+                let project_name = pinned_projects
+                    .iter()
+                    .find(|p| p.project_id == project_id)
+                    .map(|p| p.name_with_namespace.as_str())
+                    .unwrap_or("unknown");
+
+                let pipeline = match result {
+                    Ok(Some(p)) => p,
+                    Ok(None) => {
+                        eprintln!(
+                            "[sync] No pipelines found for project {} ({})",
+                            project_name, project_id
+                        );
+                        continue;
+                    }
+                    Err(e) => {
+                        eprintln!(
+                            "[sync] Failed to fetch pipeline for project {} ({}): {}",
+                            project_name, project_id, e
+                        );
+                        continue;
+                    }
+                };
+
+                let key = (instance.id, project_id);
+                let mut prev_statuses = self.previous_pipeline_statuses.write().await;
+
+                if let Some(old_status) = prev_statuses.get(&key) {
+                    if *old_status != pipeline.status {
+                        eprintln!(
+                            "[sync] Pipeline status changed for {}: {} → {}",
+                            project_name, old_status, pipeline.status
+                        );
+
+                        self.emit_event(
+                            PIPELINE_STATUS_CHANGED_EVENT,
+                            &PipelineStatusChangedPayload {
+                                project_name: project_name.to_string(),
+                                old_status: old_status.clone(),
+                                new_status: pipeline.status.clone(),
+                                ref_name: pipeline.ref_name.clone(),
+                                web_url: pipeline.web_url.clone(),
+                            },
+                        );
+                    } else {
+                        eprintln!(
+                            "[sync] Pipeline status unchanged for {}: {} (ref: {})",
+                            project_name, pipeline.status, pipeline.ref_name
+                        );
+                    }
+                } else {
+                    eprintln!(
+                        "[sync] Pipeline baseline set for {}: {} (ref: {})",
+                        project_name, pipeline.status, pipeline.ref_name
+                    );
+                }
+
+                // Store current status (first fetch establishes baseline)
+                prev_statuses.insert(key, pipeline.status);
+            }
+        }
+    }
+
     /// Check if an MR is ready to merge based on its DB state.
     ///
     /// Ready condition: approval_status = 'approved' AND approvals_count >= approvals_required
@@ -2294,6 +2446,15 @@ struct MrReadyState {
     approvals_count: Option<i64>,
     approvals_required: Option<i64>,
     head_pipeline_status: Option<String>,
+}
+
+/// Lightweight struct for querying pinned pipeline projects from the database.
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct PinnedPipelineProject {
+    project_id: i64,
+    name_with_namespace: String,
+    #[allow(dead_code)]
+    web_url: String,
 }
 
 /// Database row for GitLab instance.
