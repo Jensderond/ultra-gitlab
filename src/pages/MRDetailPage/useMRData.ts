@@ -64,7 +64,9 @@ export function useMRData(
   }, [files, gitattributesQuery.data, collapsePatternsQuery.data]);
 
   const loading = mrQuery.isLoading || diffFilesQuery.isLoading;
-  const error = mrQuery.error
+  // Only report error when there's no data at all (hard 404, never loaded).
+  // When we have stale cached data + error, show the MR with a banner instead.
+  const error = mrQuery.error && !mrQuery.data
     ? (mrQuery.error instanceof Error ? mrQuery.error.message : 'Failed to load merge request')
     : diffFilesQuery.error
     ? (diffFilesQuery.error instanceof Error ? diffFilesQuery.error.message : 'Failed to load files')

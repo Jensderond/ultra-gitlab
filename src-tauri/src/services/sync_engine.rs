@@ -1319,14 +1319,23 @@ impl SyncEngine {
         let project_name = extract_project_path(&mr.web_url);
         let head_pipeline_status = mr.head_pipeline.as_ref().map(|p| p.status.clone());
 
+        // Set state_changed_at when MR arrives from GitLab in merged/closed state.
+        // On conflict, only update state_changed_at if the state is actually changing
+        // from opened → merged/closed (preserve existing timestamp otherwise).
+        let state_changed_at: Option<i64> = if mr.state != "opened" {
+            Some(now())
+        } else {
+            None
+        };
+
         sqlx::query(
             r#"
             INSERT INTO merge_requests (
                 id, instance_id, iid, project_id, title, description,
                 author_username, source_branch, target_branch, state, web_url,
                 created_at, updated_at, merged_at, labels, reviewers, cached_at,
-                project_name, head_pipeline_status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                project_name, head_pipeline_status, state_changed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(instance_id, project_id, iid) DO UPDATE SET
                 title = excluded.title,
                 description = excluded.description,
@@ -1337,7 +1346,14 @@ impl SyncEngine {
                 reviewers = excluded.reviewers,
                 cached_at = excluded.cached_at,
                 project_name = excluded.project_name,
-                head_pipeline_status = excluded.head_pipeline_status
+                head_pipeline_status = excluded.head_pipeline_status,
+                state_changed_at = CASE
+                    WHEN excluded.state != 'opened' AND merge_requests.state = 'opened'
+                        THEN excluded.state_changed_at
+                    WHEN excluded.state = 'opened'
+                        THEN NULL
+                    ELSE merge_requests.state_changed_at
+                END
             "#,
         )
         .bind(mr.id)
@@ -1359,6 +1375,7 @@ impl SyncEngine {
         .bind(now())
         .bind(&project_name)
         .bind(&head_pipeline_status)
+        .bind(state_changed_at)
         .execute(&self.pool)
         .await?;
 
@@ -1802,14 +1819,15 @@ impl SyncEngine {
     /// Two-pass purge for merged/closed MRs.
     ///
     /// Pass 1 (soft-purge): MRs not in the synced list that are still 'opened'
-    ///   → update state to 'merged' so the frontend can show a graceful banner.
-    /// Pass 2 (hard-purge): MRs not in the synced list that were *already* in
-    ///   'merged'/'closed' state *before* this cycle → actually delete from DB.
+    ///   → update state to 'merged' and set `state_changed_at` so the frontend
+    ///   can show a graceful banner.
+    /// Pass 2 (hard-purge): MRs in 'merged'/'closed' state whose
+    ///   `state_changed_at` is older than 24 hours → actually delete from DB.
     ///
     /// Both candidate sets are collected up-front (before the UPDATE) to ensure
     /// soft-purged MRs are not immediately hard-deleted in the same cycle.
-    /// This gives the user at least one sync cycle (~5 min) to see the "merged" state
-    /// before data is removed.
+    /// Merged/closed MRs are retained for 24 hours so the user sees a proper
+    /// status banner instead of "Not found".
     async fn purge_closed_mrs(
         &self,
         instance_id: i64,
@@ -1841,21 +1859,25 @@ impl SyncEngine {
             q.fetch_all(&self.pool).await?
         };
 
+        // Hard-purge candidates: merged/closed MRs whose state_changed_at is >24h ago.
+        // MRs without state_changed_at (legacy rows) are also eligible.
+        let cutoff = now() - 24 * 60 * 60; // 24 hours ago
         let hard_purge_rows: Vec<(i64, i64)> = if open_mr_ids.is_empty() {
             sqlx::query_as(
-                "SELECT id, iid FROM merge_requests WHERE instance_id = ? AND state != 'opened'",
+                "SELECT id, iid FROM merge_requests WHERE instance_id = ? AND state != 'opened' AND (state_changed_at IS NULL OR state_changed_at <= ?)",
             )
             .bind(instance_id)
+            .bind(cutoff)
             .fetch_all(&self.pool)
             .await?
         } else {
             let placeholders: Vec<String> =
                 (0..open_mr_ids.len()).map(|_| "?".to_string()).collect();
             let query = format!(
-                "SELECT id, iid FROM merge_requests WHERE instance_id = ? AND state != 'opened' AND id NOT IN ({})",
+                "SELECT id, iid FROM merge_requests WHERE instance_id = ? AND state != 'opened' AND (state_changed_at IS NULL OR state_changed_at <= ?) AND id NOT IN ({})",
                 placeholders.join(", ")
             );
-            let mut q = sqlx::query_as(&query).bind(instance_id);
+            let mut q = sqlx::query_as(&query).bind(instance_id).bind(cutoff);
             for id in open_mr_ids {
                 q = q.bind(*id);
             }
@@ -1868,10 +1890,10 @@ impl SyncEngine {
             let placeholders: Vec<String> =
                 (0..soft_ids.len()).map(|_| "?".to_string()).collect();
             let query = format!(
-                "UPDATE merge_requests SET state = 'merged' WHERE id IN ({})",
+                "UPDATE merge_requests SET state = 'merged', state_changed_at = ? WHERE id IN ({})",
                 placeholders.join(", ")
             );
-            let mut q = sqlx::query(&query);
+            let mut q = sqlx::query(&query).bind(now());
             for id in &soft_ids {
                 q = q.bind(*id);
             }

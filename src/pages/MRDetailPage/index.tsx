@@ -23,6 +23,7 @@ import MRHeader from './MRHeader';
 import MRDiffContent from './MRDiffContent';
 import MRFilePanel from './MRFilePanel';
 import { deleteComment } from '../../services/gitlab';
+import { openExternalUrl } from '../../services/transport';
 import { useCurrentUserQuery } from '../../hooks/queries/useCurrentUserQuery';
 import { useSettingsQuery } from '../../hooks/queries/useSettingsQuery';
 import { trackMRApproved, trackMRUnapproved, trackCommentPosted, trackReplyPosted } from '../../services/analytics';
@@ -203,7 +204,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     );
   }
 
-  if (error || !mr) {
+  if ((error && !mr) || !mr) {
     return (
       <div className="mr-detail-page">
         <div className="mr-detail-error">
@@ -214,8 +215,28 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     );
   }
 
+  const isMergedOrClosed = mr.state === 'merged' || mr.state === 'closed';
+
   return (
     <div className="mr-detail-page">
+      {isMergedOrClosed && (
+        <div className={`mr-state-banner ${mr.state}`}>
+          <span>
+            This merge request has been {mr.state === 'closed' ? 'closed' : 'merged'}
+          </span>
+          <div className="mr-state-banner-actions">
+            {mr.webUrl && (
+              <button className="mr-state-banner-btn" onClick={() => openExternalUrl(mr.webUrl)}>
+                Open in GitLab
+              </button>
+            )}
+            <button className="mr-state-banner-btn" onClick={() => navigate('/mrs')}>
+              Back to list
+            </button>
+          </div>
+        </div>
+      )}
+
       <MRHeader
         mr={mr}
         mrId={mrId}
