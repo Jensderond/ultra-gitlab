@@ -182,6 +182,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
 
   useMRKeyboard({
     selectedFile: view.selectedFile,
+    fileContent,
     isSmallScreen,
     webUrl: mr?.webUrl,
     approvalButtonRef,

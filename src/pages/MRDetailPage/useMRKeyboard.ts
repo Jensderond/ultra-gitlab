@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { openExternalUrl } from '../../services/transport';
 import { DEFAULT_FILE_JUMP_COUNT } from '../../utils/fileNavigation';
+import { buildGitLabSuggestionBlock, extractSuggestionSelectionText } from '../../utils/gitlabSuggestions';
 import { trackShortcut } from '../../services/analytics';
 import type { ApprovalButtonRef } from '../../components/Approval';
 import type { CommentOverlayRef } from '../../components/CommentOverlay';
@@ -8,6 +9,7 @@ import type { SelectedLineRange } from '../../components/PierreDiffViewer';
 
 interface UseMRKeyboardOptions {
   selectedFile: string | null;
+  fileContent: { original: string; modified: string };
   isSmallScreen: boolean;
   webUrl?: string;
   approvalButtonRef: React.RefObject<ApprovalButtonRef | null>;
@@ -24,6 +26,7 @@ interface UseMRKeyboardOptions {
 
 export function useMRKeyboard({
   selectedFile,
+  fileContent,
   isSmallScreen,
   webUrl,
   approvalButtonRef,
@@ -37,6 +40,19 @@ export function useMRKeyboard({
   onCopyLink,
   onEscapeBack,
 }: UseMRKeyboardOptions) {
+  const createSelection = (selection: SelectedLineRange) => {
+    const isOriginal = selection.side === 'deletions';
+    const startLine = Math.min(selection.start, selection.end);
+    const endLine = Math.max(selection.start, selection.end);
+    const text = extractSuggestionSelectionText(
+      isOriginal ? fileContent.original : fileContent.modified,
+      startLine,
+      endLine,
+    );
+
+    return { startLine, endLine, isOriginal, text };
+  };
+
   // Ref pattern avoids listener churn
   const handlerRef = useRef<(e: KeyboardEvent) => void>(undefined);
   handlerRef.current = (e: KeyboardEvent) => {
@@ -117,12 +133,10 @@ export function useMRKeyboard({
           trackShortcut('c', 'open_comment', 'mr_detail');
           const selC = lineSelectionRef.current;
           if (selC) {
-            const isOriginal = selC.side === 'deletions';
-            const startLine = Math.min(selC.start, selC.end);
-            const endLine = Math.max(selC.start, selC.end);
+            const selection = createSelection(selC);
             commentOverlayRef.current?.open(
-              { line: startLine, isOriginal },
-              { startLine, endLine, isOriginal, text: '' },
+              { line: selection.startLine, isOriginal: selection.isOriginal },
+              selection,
             );
           } else {
             commentOverlayRef.current?.open({ line: 1, isOriginal: false }, null);
@@ -135,14 +149,11 @@ export function useMRKeyboard({
           trackShortcut('s', 'open_suggestion', 'mr_detail');
           const selS = lineSelectionRef.current;
           if (selS) {
-            const isOriginal = selS.side === 'deletions';
-            const startLine = Math.min(selS.start, selS.end);
-            const endLine = Math.max(selS.start, selS.end);
-            const linesBelow = endLine - startLine;
-            const suggestionText = `\`\`\`suggestion:-0+${linesBelow}\n\n\`\`\`\n`;
+            const selection = createSelection(selS);
+            const suggestionText = buildGitLabSuggestionBlock(selection);
             commentOverlayRef.current?.open(
-              { line: startLine, isOriginal },
-              { startLine, endLine, isOriginal, text: '' },
+              { line: selection.endLine, isOriginal: selection.isOriginal },
+              selection,
               suggestionText,
             );
           } else {
