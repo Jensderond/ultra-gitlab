@@ -7,9 +7,7 @@
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
-  background: linear-gradient(180deg,
-    var(--overlay-backdrop-light) 0%,
-    transparent 100%);
+  background: var(--overlay-glass-light);
   border-right: 1px solid var(--border-color);
   font-family: 'Noto Sans JP', sans-serif;
 }
