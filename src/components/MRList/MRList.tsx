@@ -11,6 +11,9 @@ import type { MergeRequest } from '../../types';
 import MRListItem from './MRListItem';
 import './MRList.css';
 
+const SYNCING_INDICATOR_DELAY_MS = 350;
+const UPDATED_INDICATOR_DURATION_MS = 2000;
+
 /**
  * Format a timestamp as relative time string.
  */
@@ -67,6 +70,8 @@ export default function MRList({
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
   const [newMrIds, setNewMrIds] = useState<Set<number>>(new Set());
+  const syncingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Apply showApproved filter to query data
   const mrs = useMemo(() => {
@@ -126,16 +131,53 @@ export default function MRList({
     prevFetchingRef.current = query.isFetching;
 
     if (query.isFetching) {
-      setSyncStatus('syncing');
-    } else if (query.isError) {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = null;
+      }
+
+      if (syncingTimerRef.current) {
+        clearTimeout(syncingTimerRef.current);
+      }
+
+      syncingTimerRef.current = setTimeout(() => {
+        setSyncStatus('syncing');
+        syncingTimerRef.current = null;
+      }, SYNCING_INDICATOR_DELAY_MS);
+
+      return;
+    }
+
+    if (syncingTimerRef.current) {
+      clearTimeout(syncingTimerRef.current);
+      syncingTimerRef.current = null;
+    }
+
+    if (query.isError) {
       setSyncStatus('error');
     } else {
       setSyncStatus('success');
       setLastSyncedAt(Date.now());
-      const t = setTimeout(() => setSyncStatus('idle'), 2000);
-      return () => clearTimeout(t);
+
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+      }
+
+      idleTimerRef.current = setTimeout(() => {
+        setSyncStatus('idle');
+        idleTimerRef.current = null;
+      }, UPDATED_INDICATOR_DURATION_MS);
     }
   }, [query.isFetching, query.isError]);
+
+  useEffect(() => () => {
+    if (syncingTimerRef.current) {
+      clearTimeout(syncingTimerRef.current);
+    }
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+    }
+  }, []);
 
   // Update displayed sync time every 10 seconds
   const [, setTick] = useState(0);

@@ -127,6 +127,11 @@ pub struct MergeRequest {
 
     /// Status of the MR's head pipeline (e.g., "success", "failed", "running").
     pub head_pipeline_status: Option<String>,
+
+    /// When the MR transitioned to merged/closed (Unix timestamp).
+    /// Used to retain merged/closed MRs for 24h before hard-purge.
+    #[sqlx(default)]
+    pub state_changed_at: Option<i64>,
 }
 
 impl MergeRequest {

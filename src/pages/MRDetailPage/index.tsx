@@ -22,7 +22,9 @@ import { useMRKeyboard } from './useMRKeyboard';
 import MRHeader from './MRHeader';
 import MRDiffContent from './MRDiffContent';
 import MRFilePanel from './MRFilePanel';
+import MRFooter from './MRFooter';
 import { deleteComment } from '../../services/gitlab';
+import { openExternalUrl } from '../../services/transport';
 import { useCurrentUserQuery } from '../../hooks/queries/useCurrentUserQuery';
 import { useSettingsQuery } from '../../hooks/queries/useSettingsQuery';
 import { trackMRApproved, trackMRUnapproved, trackCommentPosted, trackReplyPosted } from '../../services/analytics';
@@ -181,6 +183,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
 
   useMRKeyboard({
     selectedFile: view.selectedFile,
+    fileContent,
     isSmallScreen,
     webUrl: mr?.webUrl,
     approvalButtonRef,
@@ -203,7 +206,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     );
   }
 
-  if (error || !mr) {
+  if ((error && !mr) || !mr) {
     return (
       <div className="mr-detail-page">
         <div className="mr-detail-error">
@@ -214,8 +217,28 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     );
   }
 
+  const isMergedOrClosed = mr.state === 'merged' || mr.state === 'closed';
+
   return (
     <div className="mr-detail-page">
+      {isMergedOrClosed && (
+        <div className={`mr-state-banner ${mr.state}`}>
+          <span>
+            This merge request has been {mr.state === 'closed' ? 'closed' : 'merged'}
+          </span>
+          <div className="mr-state-banner-actions">
+            {mr.webUrl && (
+              <button className="mr-state-banner-btn" onClick={() => openExternalUrl(mr.webUrl)}>
+                Open in GitLab
+              </button>
+            )}
+            <button className="mr-state-banner-btn" onClick={() => navigate('/mrs')}>
+              Back to list
+            </button>
+          </div>
+        </div>
+      )}
+
       <MRHeader
         mr={mr}
         mrId={mrId}
@@ -229,6 +252,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           navigate('/mrs');
         }}
         onUnapproved={(trigger) => trackMRUnapproved(mrId, trigger)}
+        hideApproval={isMergedOrClosed}
       />
 
       <div className="mr-detail-content">
@@ -302,27 +326,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         <div className="copy-toast">Link copied</div>
       )}
 
-      <footer className="mr-detail-footer">
-        <span className="keyboard-hint">
-          <span className="shortcut-underline">c</span>omment &middot;{' '}
-          <span className="shortcut-underline">s</span>uggest &middot;{' '}
-          <span className="shortcut-underline">y</span>ank link &middot;{' '}
-          <kbd>?</kbd> help
-        </span>
-        <button
-          className="activity-toggle-btn"
-          onClick={() => setActivityOpen((o) => !o)}
-          data-testid="activity-toggle"
-          title="Toggle activity drawer (⌘D)"
-        >
-          Activity
-          {unresolvedCount > 0 && (
-            <span className="activity-badge" data-testid="activity-badge">
-              {unresolvedCount}
-            </span>
-          )}
-        </button>
-      </footer>
+      <MRFooter unresolvedCount={unresolvedCount} onToggleActivity={() => setActivityOpen((o) => !o)} />
     </div>
   );
 }

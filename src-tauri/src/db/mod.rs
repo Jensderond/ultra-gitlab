@@ -126,6 +126,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0017_sync_metrics",
         include_str!("migrations/0017_sync_metrics.sql"),
     ),
+    (
+        "0018_add_state_changed_at",
+        include_str!("migrations/0018_add_state_changed_at.sql"),
+    ),
 ];
 
 /// Run all pending database migrations.

@@ -80,42 +80,32 @@ const ApprovalButton = forwardRef<ApprovalButtonRef, ApprovalButtonProps>(functi
     toggle: () => handleClick('keyboard'),
   }), [handleClick]);
 
-  // Determine button state
   const isFullyApproved = count >= approvalsRequired;
-  const buttonClass = isApproved
-    ? 'approval-button approved'
-    : 'approval-button';
+  const label = isApproved ? 'Approved' : 'Approve';
 
   return (
     <div className="approval-container">
       <button
         type="button"
-        className={buttonClass}
+        className={`approval-btn ${isApproved ? 'approved' : ''} ${isFullyApproved ? 'fully-approved' : ''}`}
         onClick={() => handleClick('button')}
         disabled={isSubmitting}
-        title={isApproved ? 'Remove your approval' : 'Approve this MR'}
+        title={isApproved ? 'Remove your approval (A)' : 'Approve this MR (A)'}
       >
         {isSubmitting ? (
-          'Updating...'
-        ) : isApproved ? (
-          <>
-            <span className="approval-icon">✓</span>
-            <span><span className="shortcut-hint">A</span>pproved</span>
-          </>
+          <span className="approval-text">Updating...</span>
         ) : (
-          <span><span className="shortcut-hint">A</span>pprove</span>
+          <>
+            {isApproved && <span className="approval-check">✓</span>}
+            <span className="approval-text">{label}</span>
+            <span className="approval-count">{count}/{approvalsRequired}</span>
+            <kbd className="approval-kbd">A</kbd>
+          </>
         )}
       </button>
-
-      <div className="approval-status">
-        <span className={`approval-count ${isFullyApproved ? 'complete' : ''}`}>
-          {count}/{approvalsRequired}
-        </span>
-        {approvalStatus === 'changes_requested' && (
-          <span className="approval-changes">Changes requested</span>
-        )}
-      </div>
-
+      {approvalStatus === 'changes_requested' && (
+        <span className="approval-changes">Changes requested</span>
+      )}
       {error && <div className="approval-error">{error}</div>}
     </div>
   );

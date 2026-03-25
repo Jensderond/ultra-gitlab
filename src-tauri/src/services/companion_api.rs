@@ -196,7 +196,7 @@ async fn get_merge_requests(
             mr.web_url, mr.created_at, mr.updated_at, mr.merged_at,
             mr.approval_status, mr.approvals_required, mr.approvals_count,
             mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved,
-            mr.head_pipeline_status
+            mr.head_pipeline_status, mr.state_changed_at
         FROM merge_requests mr
         LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
         WHERE mr.instance_id = $1
@@ -298,7 +298,7 @@ async fn get_my_merge_requests(
             mr.web_url, mr.created_at, mr.updated_at, mr.merged_at,
             mr.approval_status, mr.approvals_required, mr.approvals_count,
             mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved,
-            mr.head_pipeline_status
+            mr.head_pipeline_status, mr.state_changed_at
         FROM merge_requests mr
         LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
         WHERE mr.instance_id = $1 AND mr.state = 'opened' AND mr.author_username = $2
@@ -329,7 +329,7 @@ async fn get_merge_request_detail(
             mr.web_url, mr.created_at, mr.updated_at, mr.merged_at,
             mr.approval_status, mr.approvals_required, mr.approvals_count,
             mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved,
-            mr.head_pipeline_status
+            mr.head_pipeline_status, mr.state_changed_at
         FROM merge_requests mr
         LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
         WHERE mr.id = $1

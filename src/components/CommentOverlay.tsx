@@ -7,6 +7,7 @@
 import { useState, useCallback, useRef, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { useAddInlineCommentMutation } from '../hooks/queries/useAddInlineCommentMutation';
 import type { LineComment } from './PierreDiffViewer/PierreDiffViewer';
+import { buildGitLabSuggestionBlock } from '../utils/gitlabSuggestions';
 
 export interface CursorPosition {
   line: number;
@@ -124,16 +125,18 @@ export const CommentOverlay = forwardRef<CommentOverlayRef, CommentOverlayProps>
 
     if (!state.visible || !state.position) return null;
 
+    const displayStartLine = state.selection?.startLine ?? state.position.line;
+    const displayEndLine = state.selection?.endLine ?? state.position.line;
+    const showsLineRange = displayEndLine > displayStartLine;
+
     return (
       <div className="comment-input-overlay">
         <div className="comment-input-container">
           <div className="comment-input-header">
             <span>
               Add comment on {state.position.isOriginal ? 'old' : 'new'} line{' '}
-              {state.position.line}
-              {state.selection && state.selection.endLine > state.selection.startLine && (
-                <span> &ndash; {state.selection.endLine}</span>
-              )}
+              {displayStartLine}
+              {showsLineRange && <span> &ndash; {displayEndLine}</span>}
             </span>
             <div className="comment-input-header-actions">
               <button
@@ -142,9 +145,7 @@ export const CommentOverlay = forwardRef<CommentOverlayRef, CommentOverlayProps>
                 onClick={() => {
                   const sel = state.selection;
                   if (sel) {
-                    const linesAbove = 0;
-                    const linesBelow = sel.endLine - sel.startLine;
-                    const suggestion = `\`\`\`suggestion:-${linesAbove}+${linesBelow}\n${sel.text}\n\`\`\`\n`;
+                    const suggestion = buildGitLabSuggestionBlock(sel, state.position?.line);
                     setState((prev) => ({ ...prev, text: prev.text + suggestion }));
                   } else {
                     setState((prev) => ({ ...prev, text: prev.text + '```suggestion:-0+0\n\n```\n' }));
