@@ -252,6 +252,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           navigate('/mrs');
         }}
         onUnapproved={(trigger) => trackMRUnapproved(mrId, trigger)}
+        hideApproval={isMergedOrClosed}
       />
 
       <div className="mr-detail-content">

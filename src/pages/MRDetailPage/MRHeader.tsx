@@ -14,6 +14,8 @@ interface MRHeaderProps {
   onToggleMobileSidebar: () => void;
   onApproved: (trigger: 'button' | 'keyboard') => void;
   onUnapproved?: (trigger: 'button' | 'keyboard') => void;
+  /** Hide approval button for merged/closed MRs */
+  hideApproval?: boolean;
 }
 
 export default function MRHeader({
@@ -26,6 +28,7 @@ export default function MRHeader({
   onToggleMobileSidebar,
   onApproved,
   onUnapproved,
+  hideApproval,
 }: MRHeaderProps) {
   return (
     <header className="mr-detail-header">
@@ -52,18 +55,20 @@ export default function MRHeader({
           {updateAvailable && (
             <span className="mr-update-tag">Update available</span>
           )}
-          <ApprovalButton
-            ref={approvalButtonRef}
-            mrId={mrId}
-            approvalStatus={mr.approvalStatus}
-            approvalsCount={mr.approvalsCount ?? 0}
-            approvalsRequired={mr.approvalsRequired ?? 1}
-            hasApproved={mr.userHasApproved}
-            onApprovalChange={(approved, _count, trigger) => {
-              if (approved) onApproved(trigger);
-              else onUnapproved?.(trigger);
-            }}
-          />
+          {!hideApproval && (
+            <ApprovalButton
+              ref={approvalButtonRef}
+              mrId={mrId}
+              approvalStatus={mr.approvalStatus}
+              approvalsCount={mr.approvalsCount ?? 0}
+              approvalsRequired={mr.approvalsRequired ?? 1}
+              hasApproved={mr.userHasApproved}
+              onApprovalChange={(approved, _count, trigger) => {
+                if (approved) onApproved(trigger);
+                else onUnapproved?.(trigger);
+              }}
+            />
+          )}
         </div>
       </div>
       <div className="mr-header-bottom">
