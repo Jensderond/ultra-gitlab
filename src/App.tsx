@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { MotionConfig } from 'motion/react';
 import { useQueries } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { isTauri, tauriListen } from './services/transport';
@@ -381,6 +382,7 @@ function AppContent() {
  */
 function App() {
   return (
+    <MotionConfig reducedMotion="user">
     <ThemeProvider>
       <WorkerPoolContextProvider
         poolOptions={{ workerFactory }}
@@ -395,6 +397,7 @@ function App() {
         </ToastProvider>
       </WorkerPoolContextProvider>
     </ThemeProvider>
+    </MotionConfig>
   );
 }
 
