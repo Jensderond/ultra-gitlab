@@ -1,0 +1,44 @@
+.footer-shortcut-bar {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 4px 4px;
+}
+
+.footer-shortcut-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+}
+
+.footer-shortcut-sep {
+  width: 1px;
+  height: 14px;
+  background: var(--border-color);
+  flex-shrink: 0;
+}
+
+.footer-shortcut-item:first-child {
+  padding-left: 8px;
+}
+
+.footer-shortcut-item:last-child {
+  padding-right: 8px;
+}
+
+.footer-shortcut-kbd {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+
+.footer-shortcut-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+}

@@ -146,7 +146,7 @@ export default function FileNavigation({
   return (
     <div className="file-navigation">
       <div className="file-nav-header">
-        <span className="file-count">{files.length} files changed</span>
+        <span className="file-count">{files.length} {files.length === 1 ? 'file' : 'files'} changed</span>
         {generatedCount > 0 && onToggleHideGenerated && (
           <button
             className={`file-nav-toggle-generated ${hideGenerated ? 'active' : ''}`}

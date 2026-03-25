@@ -1,68 +1,91 @@
 .approval-container {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
-.approval-button {
-  display: flex;
+.approval-btn {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
+  gap: 7px;
+  padding: 6px 12px;
   font-size: 13px;
   font-weight: 500;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
+  line-height: 1;
 }
 
-.approval-button:hover:not(:disabled) {
-  border-color: var(--accent-color);
-  background: var(--bg-secondary);
+.approval-btn:hover:not(:disabled) {
+  border-color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
-.approval-button:disabled {
+.approval-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.approval-button.approved {
-  background: var(--success-light);
-  border-color: var(--success-color);
-  color: var(--success-color);
+.approval-btn.approved {
+  background: var(--bg-secondary);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 
-.approval-button.approved:hover:not(:disabled) {
-  background: var(--success-bg);
+.approval-btn.approved:hover:not(:disabled) {
+  background: var(--bg-tertiary);
 }
 
-.approval-icon {
-  font-size: 14px;
+.approval-check {
+  font-size: 13px;
+  font-weight: 600;
 }
 
-.approval-button .shortcut-hint {
-  color: var(--accent-warm-yellow);
-  text-decoration: underline;
-  margin-right: 1px;
-}
-
-.approval-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.approval-text {
+  letter-spacing: 0.01em;
 }
 
 .approval-count {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
+  opacity: 0.7;
 }
 
-.approval-count.complete {
-  color: var(--success-color);
+.approval-btn.fully-approved .approval-count {
+  color: var(--accent-color);
+  opacity: 1;
+}
+
+.approval-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: linear-gradient(180deg,
+    var(--bg-tertiary) 0%,
+    var(--bg-dim) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  margin-left: 2px;
+}
+
+.approval-btn.approved .approval-kbd {
+  border-color: color-mix(in srgb, var(--accent-color) 30%, var(--border-color));
 }
 
 .approval-changes {

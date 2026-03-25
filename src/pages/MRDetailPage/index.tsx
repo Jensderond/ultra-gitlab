@@ -22,6 +22,7 @@ import { useMRKeyboard } from './useMRKeyboard';
 import MRHeader from './MRHeader';
 import MRDiffContent from './MRDiffContent';
 import MRFilePanel from './MRFilePanel';
+import MRFooter from './MRFooter';
 import { deleteComment } from '../../services/gitlab';
 import { openExternalUrl } from '../../services/transport';
 import { useCurrentUserQuery } from '../../hooks/queries/useCurrentUserQuery';
@@ -324,27 +325,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         <div className="copy-toast">Link copied</div>
       )}
 
-      <footer className="mr-detail-footer">
-        <span className="keyboard-hint">
-          <span className="shortcut-underline">c</span>omment &middot;{' '}
-          <span className="shortcut-underline">s</span>uggest &middot;{' '}
-          <span className="shortcut-underline">y</span>ank link &middot;{' '}
-          <kbd>?</kbd> help
-        </span>
-        <button
-          className="activity-toggle-btn"
-          onClick={() => setActivityOpen((o) => !o)}
-          data-testid="activity-toggle"
-          title="Toggle activity drawer (⌘D)"
-        >
-          Activity
-          {unresolvedCount > 0 && (
-            <span className="activity-badge" data-testid="activity-badge">
-              {unresolvedCount}
-            </span>
-          )}
-        </button>
-      </footer>
+      <MRFooter unresolvedCount={unresolvedCount} onToggleActivity={() => setActivityOpen((o) => !o)} />
     </div>
   );
 }
