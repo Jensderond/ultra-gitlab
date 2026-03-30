@@ -1,6 +1,6 @@
 [package]
 name = "ultra-gitlab"
-version = "0.15.15"
+version = "0.15.16"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
