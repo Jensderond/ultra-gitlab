@@ -129,8 +129,9 @@ pub async fn get_merge_requests(
         "#,
     );
 
-    // Add state filter if specified and not 'all'
-    let state_filter = filter.state.as_deref();
+    // Add state filter — defaults to 'opened' so retained merged/closed MRs
+    // don't appear in the active list. Pass state='all' to include them.
+    let state_filter = Some(filter.state.as_deref().unwrap_or("opened"));
     if let Some(state) = state_filter {
         if state != "all" {
             query.push_str(" AND mr.state = $2");
