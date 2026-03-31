@@ -15,7 +15,22 @@ import SearchBar from '../components/SearchBar/SearchBar';
 import { useInstancesQuery } from '../hooks/queries/useInstancesQuery';
 import { InstanceSwitcher } from '../components/InstanceSwitcher';
 import { queryKeys } from '../lib/queryKeys';
+import { ShortcutBar } from '../components/ShortcutBar';
+import type { ShortcutDef } from '../components/ShortcutBar';
 import './MRListPage.css';
+
+const defaultShortcuts: ShortcutDef[] = [
+  { key: 'j/k', label: 'navigate' },
+  { key: 'Enter', label: 'open' },
+  { key: '⌘F', label: 'search' },
+  { key: '?', label: 'help' },
+];
+
+const searchShortcuts: ShortcutDef[] = [
+  { key: '↑/↓', label: 'navigate' },
+  { key: 'Enter', label: 'open' },
+  { key: 'Esc', label: 'close search' },
+];
 
 /**
  * Page for displaying the merge request list.
@@ -232,22 +247,7 @@ export default function MRListPage() {
       </main>
 
       <footer className="mr-list-page-footer">
-        <span className="keyboard-hint">
-          {isSearchOpen ? (
-            <>
-              <kbd>&uarr;</kbd>/<kbd>&darr;</kbd> navigate &middot;{' '}
-              <kbd>Enter</kbd> open &middot;{' '}
-              <kbd>Esc</kbd> close search
-            </>
-          ) : (
-            <>
-              <kbd>j</kbd>/<kbd>k</kbd> navigate &middot;{' '}
-              <kbd>Enter</kbd> open &middot;{' '}
-              <kbd>⌘F</kbd> search &middot;{' '}
-              <kbd>?</kbd> help
-            </>
-          )}
-        </span>
+        <ShortcutBar shortcuts={isSearchOpen ? searchShortcuts : defaultShortcuts} />
       </footer>
     </div>
   );

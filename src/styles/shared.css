@@ -1,0 +1,50 @@
+/* Shared styles used across multiple pages */
+
+/* ================================================
+   COPY-TO-CLIPBOARD TOAST
+   ================================================ */
+
+.copy-toast {
+  position: fixed;
+  bottom: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 20px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--success-color);
+  background: linear-gradient(180deg,
+    var(--overlay-glass) 0%,
+    var(--overlay-glass) 100%);
+  border: 1px solid var(--success-color);
+  border-radius: 8px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    0 0 12px var(--success-light);
+  z-index: 100;
+  animation: toastIn 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+/* ================================================
+   SHARED SPINNER
+   ================================================ */
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

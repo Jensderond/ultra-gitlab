@@ -585,13 +585,11 @@ button.pipeline-job-info--clickable {
   border: 2px solid var(--border-color);
   border-top-color: currentColor;
   border-radius: 50%;
-  animation: searchSpin 0.6s linear infinite;
+  animation: spin 0.6s linear infinite;
   flex-shrink: 0;
 }
 
-@keyframes searchSpin {
-  to { transform: rotate(360deg); }
-}
+/* Spinner keyframe 'spin' is in src/styles/shared.css */
 
 @keyframes pipelinePulse {
   0%, 100% {

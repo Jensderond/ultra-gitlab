@@ -20,9 +20,21 @@ import { OverviewTab } from './OverviewTab';
 import { CommentsTab } from './CommentsTab';
 import { CodeTab } from './CodeTab';
 import type { MergeActions } from './MergeSection';
+import { ShortcutBar } from '../../components/ShortcutBar';
+import type { ShortcutDef } from '../../components/ShortcutBar';
 import '../MyMRDetailPage.css';
 
 type TabId = 'overview' | 'comments' | 'code';
+
+const shortcuts: ShortcutDef[] = [
+  { key: '1/2/3', label: 'tab' },
+  { key: 'j/k', label: 'file' },
+  { key: 'g', label: 'generated' },
+  { key: '⌘↵', label: 'merge/rebase' },
+  { key: 'o', label: 'open' },
+  { key: 'y', label: 'yank link' },
+  { key: 'Esc', label: 'back' },
+];
 
 export default function MyMRDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -55,8 +67,7 @@ export default function MyMRDetailPage() {
     navigateFile: codeTab.navigateFile,
     fileJumpCount: settings?.fileJumpCount,
     toggleHideGenerated: codeTab.toggleHideGenerated,
-    onMerge: useCallback(() => mergeActionsRef.current.merge?.(), []),
-    onRebase: useCallback(() => mergeActionsRef.current.rebase?.(), []),
+    mergeActionsRef,
   });
 
   if (loading) {
@@ -147,15 +158,7 @@ export default function MyMRDetailPage() {
       )}
 
       <footer className="my-mr-detail-footer">
-        <span className="keyboard-hint">
-          <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> tab &middot;{' '}
-          <kbd>j</kbd>/<kbd>k</kbd> file &middot;{' '}
-          <span className="shortcut-underline">g</span>enerated &middot;{' '}
-          <kbd>⌘↵</kbd> merge/rebase &middot;{' '}
-          <span className="shortcut-underline">o</span>pen &middot;{' '}
-          <span className="shortcut-underline">y</span>ank link &middot;{' '}
-          <kbd>Esc</kbd> back
-        </span>
+        <ShortcutBar shortcuts={shortcuts} />
       </footer>
     </div>
   );

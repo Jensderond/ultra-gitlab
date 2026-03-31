@@ -476,6 +476,8 @@
    ================================================ */
 
 .mr-list-page-footer {
+  display: flex;
+  align-items: center;
   padding: 12px 32px;
   user-select: none;
   -webkit-user-select: none;
@@ -524,12 +526,6 @@
   border-bottom-color: var(--overlay-glass);
   border-radius: 5px;
   transition: all 0.15s ease;
-}
-
-.keyboard-hint kbd:hover {
-  color: var(--accent-color);
-  border-color: var(--wave-glow-strong);
-  box-shadow: 0 0 10px var(--wave-glow);
 }
 
 /* Hide keyboard hints on small screens (mobile companion, narrow browser) */

@@ -65,12 +65,10 @@
   border-top-color: var(--accent-color);
   border-right-color: var(--accent-hover);
   border-radius: 50%;
-  animation: mlSpin 1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  animation: spin 1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
 }
 
-@keyframes mlSpin {
-  to { transform: rotate(360deg); }
-}
+/* Spinner keyframe 'spin' is in src/styles/shared.css */
 
 /* Loading overlay */
 .mr-list-loading-overlay {
@@ -236,7 +234,7 @@
   border: 1.5px solid var(--wave-glow);
   border-top-color: var(--accent-color);
   border-radius: 50%;
-  animation: mlSpin 0.8s linear infinite;
+  animation: spin 0.8s linear infinite;
 }
 
 /* Sync check mark */

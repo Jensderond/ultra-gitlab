@@ -53,7 +53,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 10px 24px;
+  padding: 10px 32px;
   background: linear-gradient(180deg,
     var(--overlay-glass) 0%,
     var(--overlay-glass-light) 100%);
@@ -277,13 +277,10 @@
   border-top-color: var(--accent-color);
   border-right-color: var(--accent-hover);
   border-radius: 50%;
-  animation: waveSpinner 1s ease-in-out infinite;
+  animation: spin 1s ease-in-out infinite;
 }
 
-@keyframes waveSpinner {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
+/* Spinner keyframe 'spin' is in src/styles/shared.css */
 
 /* Error state */
 .mr-detail-error {
@@ -470,7 +467,7 @@
   border-top-color: var(--accent-color);
   border-right-color: var(--accent-hover);
   border-radius: 50%;
-  animation: waveSpinner 1s ease-in-out infinite;
+  animation: spin 1s ease-in-out infinite;
 }
 
 /* File error state */
@@ -554,7 +551,7 @@
   border-top-color: var(--accent-color);
   border-right-color: var(--accent-hover);
   border-radius: 50%;
-  animation: waveSpinner 1s ease-in-out infinite;
+  animation: spin 1s ease-in-out infinite;
 }
 
 /* Monaco diff wrapper -- always mounted, hidden when viewing images */
@@ -585,7 +582,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 24px;
+  padding: 10px 32px;
   user-select: none;
   -webkit-user-select: none;
   background: linear-gradient(180deg,
@@ -646,56 +643,12 @@
   transition: all 0.2s ease;
 }
 
-.keyboard-hint kbd:hover {
-  color: var(--accent-color);
-  border-color: var(--text-fuji);
-  box-shadow:
-    0 2px 0 rgba(0, 0, 0, 0.4),
-    0 0 12px var(--wave-glow),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
 .keyboard-hint .shortcut-underline {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-/* Copy-to-clipboard toast */
-.copy-toast {
-  position: fixed;
-  bottom: 72px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 8px 20px;
-  font-family: 'Noto Sans JP', sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--success-color);
-  background: linear-gradient(180deg,
-    var(--overlay-glass) 0%,
-    var(--overlay-glass) 100%);
-  border: 1px solid var(--success-color);
-  border-radius: 8px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.4),
-    0 0 12px var(--success-light);
-  z-index: 100;
-  animation: toastIn 0.25s cubic-bezier(0.22, 1, 0.36, 1);
-  pointer-events: none;
-}
-
-@keyframes toastIn {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(8px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0) scale(1);
-  }
-}
+/* Copy-toast styles are in src/styles/shared.css */
 
 /* Comment input overlay */
 .comment-input-overlay {
@@ -1058,7 +1011,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 16px;
+  padding: 10px 32px;
   font-size: 13px;
   font-weight: 500;
   flex-shrink: 0;

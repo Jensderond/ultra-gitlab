@@ -1,13 +1,10 @@
+import { ShortcutBar } from '../../components/ShortcutBar';
+import type { ShortcutDef } from '../../components/ShortcutBar';
 import './MRFooter.css';
 
 interface MRFooterProps {
   unresolvedCount: number;
   onToggleActivity: () => void;
-}
-
-interface ShortcutDef {
-  key: string;
-  label: string;
 }
 
 const shortcuts: ShortcutDef[] = [
@@ -20,15 +17,7 @@ const shortcuts: ShortcutDef[] = [
 export default function MRFooter({ unresolvedCount, onToggleActivity }: MRFooterProps) {
   return (
     <footer className="mr-detail-footer">
-      <div className="footer-shortcut-bar">
-        {shortcuts.map(({ key, label }, i) => (
-          <span key={key} className="footer-shortcut-item">
-            {i > 0 && <span className="footer-shortcut-sep" />}
-            <kbd className="footer-shortcut-kbd">{key}</kbd>
-            <span className="footer-shortcut-label">{label}</span>
-          </span>
-        ))}
-      </div>
+      <ShortcutBar shortcuts={shortcuts} />
       <button
         className="activity-toggle-btn"
         onClick={onToggleActivity}

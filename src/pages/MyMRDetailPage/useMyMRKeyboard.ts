@@ -6,6 +6,7 @@ import { useEffect, useRef } from 'react';
 import { openExternalUrl } from '../../services/transport';
 import { DEFAULT_FILE_JUMP_COUNT } from '../../utils/fileNavigation';
 import { trackShortcut } from '../../services/analytics';
+import type { MergeActions } from './MergeSection';
 
 type TabId = 'overview' | 'comments' | 'code';
 
@@ -18,8 +19,7 @@ interface KeyboardOptions {
   navigateFile: (direction: number) => void;
   fileJumpCount?: number;
   toggleHideGenerated: () => void;
-  onMerge?: () => void;
-  onRebase?: () => void;
+  mergeActionsRef: React.RefObject<MergeActions>;
 }
 
 export function useMyMRKeyboard(options: KeyboardOptions) {
@@ -109,14 +109,15 @@ export function useMyMRKeyboard(options: KeyboardOptions) {
           break;
         case 'Enter':
           if ((e.metaKey || e.ctrlKey)) {
-            if (opts.onMerge) {
+            const actions = opts.mergeActionsRef.current;
+            if (actions?.merge) {
               e.preventDefault();
               trackShortcut('cmd+enter', 'merge', 'my_mr_detail');
-              opts.onMerge();
-            } else if (opts.onRebase) {
+              actions.merge();
+            } else if (actions?.rebase) {
               e.preventDefault();
               trackShortcut('cmd+enter', 'rebase', 'my_mr_detail');
-              opts.onRebase();
+              actions.rebase();
             }
           }
           break;
