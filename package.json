@@ -40,7 +40,7 @@
     "@types/react-window": "^2.0.0",
     "@vitejs/plugin-react": "6",
     "husky": "^9.1.7",
-    "typescript": "~5.8.3",
+    "typescript": "^6.0.2",
     "vite": "8.0.3"
   }
 }
