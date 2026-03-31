@@ -15,8 +15,8 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
-    "@pierre/diffs": "1.1.0",
-    "@tanstack/react-query": "^5.91.2",
+    "@pierre/diffs": "1.1.7",
+    "@tanstack/react-query": "^5.96.0",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-deep-link": "~2",
     "@tauri-apps/plugin-opener": "^2",
@@ -24,15 +24,15 @@
     "@tauri-apps/plugin-store": "^2.4.2",
     "@tauri-apps/plugin-updater": "2.10.0",
     "motion": "^12.38.0",
-    "picomatch": "^4.0.3",
+    "picomatch": "^4.0.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-router-dom": "^7.13.0",
+    "react-router-dom": "^7.13.2",
     "react-window": "^2.2.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
-    "@tanstack/react-query-devtools": "^5.91.3",
+    "@tanstack/react-query-devtools": "^5.96.0",
     "@tauri-apps/cli": "^2.10.0",
     "@types/picomatch": "^4.0.2",
     "@types/react": "^19.1.8",
@@ -41,6 +41,6 @@
     "@vitejs/plugin-react": "6",
     "husky": "^9.1.7",
     "typescript": "~5.8.3",
-    "vite": "8"
+    "vite": "8.0.3"
   }
 }
