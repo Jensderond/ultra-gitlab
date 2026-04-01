@@ -99,6 +99,7 @@ test.describe('MR Detail Page', () => {
       await page.goto('/mrs/101');
 
       const sidebar = page.locator('.mr-detail-sidebar');
+      await expect(sidebar.locator('.file-nav-item.selected')).toContainText('ThemeToggle.tsx');
 
       // Move to theme.css (index 2) first
       await page.keyboard.press('ArrowRight');
