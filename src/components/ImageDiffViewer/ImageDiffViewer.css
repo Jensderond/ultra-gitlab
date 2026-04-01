@@ -132,6 +132,13 @@
   border-radius: 4px;
 }
 
+.image-diff-info {
+  font-family: "SF Mono", Menlo, Monaco, "Courier New", monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .image-diff-image-container {
   transform-origin: center center;
   transition: transform 0.15s ease;

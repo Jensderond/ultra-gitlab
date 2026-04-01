@@ -41,6 +41,43 @@ export function ImageDiffViewer({
   const [zoom, setZoom] = useState(100);
   const [isDragging, setIsDragging] = useState(false);
   const [showCode, setShowCode] = useState(false);
+  const [originalDims, setOriginalDims] = useState<{ w: number; h: number } | null>(null);
+  const [modifiedDims, setModifiedDims] = useState<{ w: number; h: number } | null>(null);
+
+  // Compute file sizes from base64
+  const originalSize = useMemo(() => {
+    if (!originalBase64) return 0;
+    const padding = originalBase64.endsWith("==") ? 2 : originalBase64.endsWith("=") ? 1 : 0;
+    return Math.floor((originalBase64.length * 3) / 4) - padding;
+  }, [originalBase64]);
+
+  const modifiedSize = useMemo(() => {
+    if (!modifiedBase64) return 0;
+    const padding = modifiedBase64.endsWith("==") ? 2 : modifiedBase64.endsWith("=") ? 1 : 0;
+    return Math.floor((modifiedBase64.length * 3) / 4) - padding;
+  }, [modifiedBase64]);
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const formatInfo = (bytes: number, dims: { w: number; h: number } | null) => {
+    const parts = [formatSize(bytes)];
+    if (dims) parts.push(`W: ${dims.w}px`, `H: ${dims.h}px`);
+    return parts.join(" | ");
+  };
+
+  const handleOriginalLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    setOriginalDims({ w: img.naturalWidth, h: img.naturalHeight });
+  }, []);
+
+  const handleModifiedLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    setModifiedDims({ w: img.naturalWidth, h: img.naturalHeight });
+  }, []);
 
   // Build data URLs - only compute when base64 content exists
   const originalDataUrl = originalBase64 ? `data:${mimeType};base64,${originalBase64}` : null;
@@ -193,8 +230,9 @@ export function ImageDiffViewer({
               className="image-diff-image-container"
               style={{ transform: `scale(${zoom / 100})` }}
             >
-              <img className={imgClass} src={modifiedDataUrl!} alt="Added file" />
+              <img className={imgClass} src={modifiedDataUrl!} alt="Added file" onLoad={handleModifiedLoad} />
             </div>
+            <div className="image-diff-info">{formatInfo(modifiedSize, modifiedDims)}</div>
           </div>
         )}
 
@@ -205,8 +243,9 @@ export function ImageDiffViewer({
               className="image-diff-image-container"
               style={{ transform: `scale(${zoom / 100})` }}
             >
-              <img className={imgClass} src={originalDataUrl!} alt="Deleted file" />
+              <img className={imgClass} src={originalDataUrl!} alt="Deleted file" onLoad={handleOriginalLoad} />
             </div>
+            <div className="image-diff-info">{formatInfo(originalSize, originalDims)}</div>
           </div>
         )}
 
@@ -218,8 +257,9 @@ export function ImageDiffViewer({
                 className="image-diff-image-container"
                 style={{ transform: `scale(${zoom / 100})` }}
               >
-                <img className={imgClass} src={originalDataUrl!} alt="Original" />
+                <img className={imgClass} src={originalDataUrl!} alt="Original" onLoad={handleOriginalLoad} />
               </div>
+              <div className="image-diff-info">{formatInfo(originalSize, originalDims)}</div>
             </div>
             <div className="image-diff-panel modified">
               <div className="image-diff-label">Modified</div>
@@ -227,8 +267,9 @@ export function ImageDiffViewer({
                 className="image-diff-image-container"
                 style={{ transform: `scale(${zoom / 100})` }}
               >
-                <img className={imgClass} src={modifiedDataUrl!} alt="Modified" />
+                <img className={imgClass} src={modifiedDataUrl!} alt="Modified" onLoad={handleModifiedLoad} />
               </div>
+              <div className="image-diff-info">{formatInfo(modifiedSize, modifiedDims)}</div>
             </div>
           </div>
         )}
@@ -256,12 +297,14 @@ export function ImageDiffViewer({
                 src={originalDataUrl!}
                 alt="Original"
                 style={{ opacity: 1 - overlayOpacity }}
+                onLoad={handleOriginalLoad}
               />
               <img
                 className={`image-diff-overlay-modified${isSvg ? " svg-image" : ""}`}
                 src={modifiedDataUrl!}
                 alt="Modified"
                 style={{ opacity: overlayOpacity }}
+                onLoad={handleModifiedLoad}
               />
             </div>
           </div>
@@ -282,6 +325,7 @@ export function ImageDiffViewer({
                 className={`image-diff-swipe-original${isSvg ? " svg-image" : ""}`}
                 src={originalDataUrl!}
                 alt="Original"
+                onLoad={handleOriginalLoad}
               />
               <div
                 className="image-diff-swipe-modified-wrapper"
@@ -291,6 +335,7 @@ export function ImageDiffViewer({
                   className={`image-diff-swipe-modified${isSvg ? " svg-image" : ""}`}
                   src={modifiedDataUrl!}
                   alt="Modified"
+                  onLoad={handleModifiedLoad}
                 />
               </div>
               <div
