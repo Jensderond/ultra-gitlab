@@ -1,6 +1,5 @@
 import { ShortcutBar } from '../../components/ShortcutBar';
 import type { ShortcutDef } from '../../components/ShortcutBar';
-import './MRFooter.css';
 
 interface MRFooterProps {
   unresolvedCount: number;
@@ -17,7 +16,7 @@ const shortcuts: ShortcutDef[] = [
 export default function MRFooter({ unresolvedCount, onToggleActivity }: MRFooterProps) {
   return (
     <footer className="mr-detail-footer">
-      <ShortcutBar shortcuts={shortcuts} />
+      <ShortcutBar shortcuts={shortcuts} variant="detail" />
       <button
         className="activity-toggle-btn"
         onClick={onToggleActivity}

@@ -486,48 +486,9 @@
     var(--overlay-glass) 40%);
   position: relative;
   z-index: 10;
-  animation: footerReveal 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.15s backwards;
-}
-
-@keyframes footerReveal {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Keyboard hints - Refined keycaps */
-.keyboard-hint {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  font-family: 'Noto Sans JP', sans-serif;
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--text-muted);
-  letter-spacing: 0.02em;
-}
-
-.keyboard-hint kbd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 7px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--text-tertiary);
-  background: linear-gradient(180deg,
-    var(--overlay-surface) 0%,
-    var(--overlay-glass) 100%);
-  border: 1px solid var(--overlay-divider);
-  border-bottom-width: 2px;
-  border-bottom-color: var(--overlay-glass);
-  border-radius: 5px;
-  transition: all 0.15s ease;
-}
-
 /* Hide keyboard hints on small screens (mobile companion, narrow browser) */
 @media (max-width: 768px) {
   .mr-list-page-footer {

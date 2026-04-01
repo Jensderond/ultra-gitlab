@@ -27,13 +27,10 @@ import '../MyMRDetailPage.css';
 type TabId = 'overview' | 'comments' | 'code';
 
 const shortcuts: ShortcutDef[] = [
-  { key: '1/2/3', label: 'tab' },
   { key: 'j/k', label: 'file' },
-  { key: 'g', label: 'generated' },
   { key: '⌘↵', label: 'merge/rebase' },
-  { key: 'o', label: 'open' },
   { key: 'y', label: 'yank link' },
-  { key: 'Esc', label: 'back' },
+  { key: '?', label: 'help' }
 ];
 
 export default function MyMRDetailPage() {
@@ -158,7 +155,7 @@ export default function MyMRDetailPage() {
       )}
 
       <footer className="my-mr-detail-footer">
-        <ShortcutBar shortcuts={shortcuts} />
+        <ShortcutBar shortcuts={shortcuts} variant="detail" />
       </footer>
     </div>
   );

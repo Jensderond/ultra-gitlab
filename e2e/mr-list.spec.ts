@@ -48,8 +48,8 @@ test.describe('MR List Page', () => {
   test('shows keyboard hints in footer', async ({ page }) => {
     await page.goto('/mrs');
 
-    await expect(page.locator('.keyboard-hint')).toBeVisible();
-    await expect(page.locator('.keyboard-hint')).toContainText('navigate');
+    await expect(page.locator('.shortcut-bar')).toBeVisible();
+    await expect(page.locator('.shortcut-bar')).toContainText('navigate');
   });
 
   test('shows refresh button', async ({ page }) => {
@@ -137,7 +137,7 @@ test.describe('MR List Page', () => {
       await page.goto('/mrs');
 
       // Default hints show j/k navigation
-      const hint = page.locator('.keyboard-hint');
+      const hint = page.locator('.shortcut-bar');
       await expect(hint).toContainText('j');
       await expect(hint).toContainText('k');
 

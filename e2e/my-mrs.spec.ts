@@ -36,7 +36,7 @@ test.describe('My MRs Page', () => {
   test('shows keyboard navigation hints', async ({ page }) => {
     await page.goto('/my-mrs');
 
-    await expect(page.locator('.keyboard-hint')).toBeVisible();
-    await expect(page.locator('.keyboard-hint')).toContainText('navigate');
+    await expect(page.locator('.shortcut-bar')).toBeVisible();
+    await expect(page.locator('.shortcut-bar')).toContainText('navigate');
   });
 });

@@ -235,7 +235,7 @@ export default function MyMRsPage() {
       </main>
 
       <footer className="mr-list-page-footer">
-        <ShortcutBar shortcuts={isSearchOpen ? searchShortcuts : defaultShortcuts} />
+        <ShortcutBar shortcuts={isSearchOpen ? searchShortcuts : defaultShortcuts} variant="list" />
       </footer>
     </div>
   );
