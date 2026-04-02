@@ -131,10 +131,7 @@ export default function ShortcutEditor() {
 
   if (loading) {
     return (
-      <>
-        <h2>Keyboard Shortcuts</h2>
-        <p className="loading">Loading shortcuts...</p>
-      </>
+      <p className="loading">Loading shortcuts...</p>
     );
   }
 
@@ -143,9 +140,8 @@ export default function ShortcutEditor() {
 
   return (
     <>
-      <div className="section-header">
-        <h2>Keyboard Shortcuts</h2>
-        {hasCustomBindings && (
+      {hasCustomBindings && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
           <button
             className="reset-all-button"
             onClick={handleResetAll}
@@ -153,9 +149,8 @@ export default function ShortcutEditor() {
           >
             Reset All
           </button>
-        )}
-      </div>
-
+        </div>
+      )}
       <div className="shortcuts-editor">
         {Array.from(groups.entries()).map(([category, categoryShortcuts]) => {
           if (categoryShortcuts.length === 0) return null;

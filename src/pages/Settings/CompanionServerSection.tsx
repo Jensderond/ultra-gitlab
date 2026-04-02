@@ -137,7 +137,6 @@ export default function CompanionServerSection() {
   if (settingsQuery.isLoading) {
     return (
       <>
-        <h2>Companion Server <span className="beta-badge">Beta</span></h2>
         <p className="loading">Loading settings...</p>
       </>
     );
@@ -146,7 +145,6 @@ export default function CompanionServerSection() {
   if (!settings) {
     return (
       <>
-        <h2>Companion Server <span className="beta-badge">Beta</span></h2>
         <p className="error-message">Failed to load companion settings</p>
       </>
     );
@@ -154,7 +152,6 @@ export default function CompanionServerSection() {
 
   return (
     <>
-      <h2>Companion Server <span className="beta-badge">Beta</span></h2>
       <p className="companion-description">
         Access MR reviews from your phone. Enable the companion server to serve the review UI on your local network.
       </p>

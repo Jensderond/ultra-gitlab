@@ -131,6 +131,13 @@ export async function setDefaultInstance(instanceId: number): Promise<void> {
 }
 
 /**
+ * Rename a GitLab instance.
+ */
+export async function renameInstance(instanceId: number, name: string): Promise<void> {
+  return invoke<void>('rename_instance', { instanceId, name });
+}
+
+/**
  * Update the personal access token for a GitLab instance.
  * Validates the token and returns the authenticated username.
  */

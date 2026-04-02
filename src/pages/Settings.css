@@ -147,6 +147,80 @@
 }
 
 /* ================================================
+   COLLAPSIBLE SECTIONS
+   ================================================ */
+
+.collapsible-section {
+  padding: 0;
+}
+
+.collapsible-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 24px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.collapsible-summary::-webkit-details-marker {
+  display: none;
+}
+
+.collapsible-summary::marker {
+  display: none;
+  content: '';
+}
+
+.collapsible-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+
+.collapsible-subtitle {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  margin-left: 4px;
+}
+
+.collapsible-section[open] > .collapsible-summary .collapsible-subtitle {
+  display: none;
+}
+
+.collapsible-chevron {
+  color: var(--text-tertiary);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.collapsible-section[open] > .collapsible-summary .collapsible-chevron {
+  transform: rotate(90deg);
+}
+
+.collapsible-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.collapsible-content {
+  padding: 0 24px 20px;
+}
+
+/* Remove extra margin from h2 inside collapsible sections */
+.collapsible-content > .section-header {
+  margin-bottom: 16px;
+}
+
+/* ================================================
    BUTTONS
    ================================================ */
 

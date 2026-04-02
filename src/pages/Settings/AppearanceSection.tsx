@@ -212,7 +212,6 @@ export default function AppearanceSection() {
 
   return (
     <>
-      <h2>Appearance</h2>
       <div className="theme-swatches">
         {PRESET_THEME_IDS.map((id) => {
           const def = THEME_PRESETS[id];

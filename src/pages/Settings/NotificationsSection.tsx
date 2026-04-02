@@ -56,17 +56,7 @@ export default function NotificationsSection() {
   }
 
   return (
-    <section className="settings-section">
-      <div className="section-header">
-        <h2>Notifications</h2>
-        <button
-          className="add-button"
-          onClick={handleTestNotification}
-        >
-          Test Notification
-        </button>
-      </div>
-
+    <>
       {loading ? (
         <p className="loading">Loading settings...</p>
       ) : notifSettings ? (
@@ -113,10 +103,16 @@ export default function NotificationsSection() {
           {saving && (
             <p className="saving-indicator">Saving...</p>
           )}
+
+          <div style={{ marginTop: 12 }}>
+            <button className="add-button" onClick={handleTestNotification}>
+              Test Notification
+            </button>
+          </div>
         </div>
       ) : (
         <p className="error-message">Failed to load notification settings</p>
       )}
-    </section>
+    </>
   );
 }

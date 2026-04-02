@@ -43,20 +43,12 @@ export default function SyncSettingsSection() {
 
   function handleIntervalChange(e: React.ChangeEvent<HTMLSelectElement>) {
     if (!syncSettings) return;
-    const newSettings = { ...syncSettings, interval_secs: parseInt(e.target.value, 10) };
-    saveSyncSettings(newSettings);
-  }
-
-  function handleScopeChange(scope: 'sync_authored' | 'sync_reviewing', checked: boolean) {
-    if (!syncSettings) return;
-    const newSettings = { ...syncSettings, [scope]: checked };
+    const newSettings = { ...syncSettings, interval_secs: parseInt(e.target.value, 10), sync_authored: true, sync_reviewing: true };
     saveSyncSettings(newSettings);
   }
 
   return (
-    <section className="settings-section">
-      <h2>Sync Settings</h2>
-
+    <>
       {loading ? (
         <p className="loading">Loading settings...</p>
       ) : syncSettings ? (
@@ -77,30 +69,6 @@ export default function SyncSettingsSection() {
             </select>
           </div>
 
-          <fieldset className="setting-row">
-            <legend>Sync Scope</legend>
-            <div className="checkbox-group">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={syncSettings.sync_authored}
-                  onChange={(e) => handleScopeChange('sync_authored', e.target.checked)}
-                  disabled={saving}
-                />
-                MRs I authored
-              </label>
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={syncSettings.sync_reviewing}
-                  onChange={(e) => handleScopeChange('sync_reviewing', e.target.checked)}
-                  disabled={saving}
-                />
-                MRs I'm reviewing
-              </label>
-            </div>
-          </fieldset>
-
           {saving && (
             <p className="saving-indicator">Saving...</p>
           )}
@@ -110,6 +78,6 @@ export default function SyncSettingsSection() {
       ) : (
         <p className="error-message">Failed to load sync settings</p>
       )}
-    </section>
+    </>
   );
 }
