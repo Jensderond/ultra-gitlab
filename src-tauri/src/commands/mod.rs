@@ -64,8 +64,9 @@ pub use pipeline::{
 pub use reviewers::get_mr_reviewers;
 pub use settings::{
     get_collapse_patterns, get_settings, get_sync_settings, update_collapse_patterns,
-    update_custom_theme_colors, update_diffs_font, update_display_font, update_settings,
-    update_sync_settings, update_theme, update_ui_font,
+    update_custom_theme_colors, update_diffs_font, update_display_font,
+    update_keyboard_shortcuts, update_settings, update_sync_settings, update_theme,
+    update_ui_font,
 };
 pub use sync::{
     discard_failed_action, get_action_counts, get_sync_config, get_sync_status,

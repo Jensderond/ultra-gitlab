@@ -6,7 +6,8 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { loadSettings, saveSettings } from '../services/storage';
+import { loadSettings } from '../services/storage';
+import { updateKeyboardShortcuts } from '../services/tauri';
 import {
   defaultShortcuts,
   type ShortcutDefinition,
@@ -68,11 +69,9 @@ export default function useCustomShortcuts(): UseCustomShortcutsResult {
   // Get the key for a specific shortcut
   const getKey = useCallback(
     (shortcutId: string): string | undefined => {
-      // First check custom bindings
       if (customBindings[shortcutId]) {
         return customBindings[shortcutId];
       }
-      // Fall back to default
       const shortcut = defaultShortcuts.find((s) => s.id === shortcutId);
       return shortcut?.defaultKey;
     },
@@ -82,16 +81,18 @@ export default function useCustomShortcuts(): UseCustomShortcutsResult {
   // Check if a key is already in use
   const isKeyInUse = useCallback(
     (key: string, excludeId?: string): boolean => {
-      for (const shortcut of shortcuts) {
+      for (const shortcut of defaultShortcuts) {
         if (shortcut.id === excludeId) continue;
         const currentKey = customBindings[shortcut.id] || shortcut.defaultKey;
-        if (currentKey.toLowerCase() === key.toLowerCase()) {
+        // Check each alias in keys like "n / j / ↓"
+        const aliases = currentKey.split(' / ').map((k) => k.trim().toLowerCase());
+        if (aliases.includes(key.toLowerCase())) {
           return true;
         }
       }
       return false;
     },
-    [shortcuts, customBindings]
+    [customBindings]
   );
 
   // Update a shortcut's key binding
@@ -101,10 +102,9 @@ export default function useCustomShortcuts(): UseCustomShortcutsResult {
       setCustomBindings(newBindings);
 
       try {
-        await saveSettings({ keyboardShortcuts: newBindings });
+        await updateKeyboardShortcuts(newBindings);
       } catch (err) {
         console.error('Failed to save shortcut:', err);
-        // Revert on error
         setCustomBindings(customBindings);
         throw err;
       }
@@ -119,10 +119,9 @@ export default function useCustomShortcuts(): UseCustomShortcutsResult {
       setCustomBindings(newBindings);
 
       try {
-        await saveSettings({ keyboardShortcuts: newBindings });
+        await updateKeyboardShortcuts(newBindings);
       } catch (err) {
         console.error('Failed to reset shortcut:', err);
-        // Revert on error
         setCustomBindings(customBindings);
         throw err;
       }
@@ -135,10 +134,9 @@ export default function useCustomShortcuts(): UseCustomShortcutsResult {
     setCustomBindings({});
 
     try {
-      await saveSettings({ keyboardShortcuts: {} });
+      await updateKeyboardShortcuts({});
     } catch (err) {
       console.error('Failed to reset all shortcuts:', err);
-      // Revert on error
       setCustomBindings(customBindings);
       throw err;
     }

@@ -439,6 +439,17 @@ export async function updateSettings(update: SettingsUpdate): Promise<Settings> 
 }
 
 // ============================================================================
+// Keyboard Shortcuts Commands
+// ============================================================================
+
+/**
+ * Update custom keyboard shortcut bindings.
+ */
+export async function updateKeyboardShortcuts(shortcuts: Record<string, string>): Promise<void> {
+  return invoke<void>('update_keyboard_shortcuts', { shortcuts });
+}
+
+// ============================================================================
 // Theme Commands
 // ============================================================================
 

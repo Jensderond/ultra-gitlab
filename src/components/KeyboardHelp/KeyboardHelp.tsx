@@ -12,6 +12,7 @@ import {
   getShortcutsByCategoryForRoute,
   getContextsForRoute,
 } from '../../config/shortcuts';
+import { useShortcuts } from '../ShortcutsProvider';
 import './KeyboardHelp.css';
 
 interface KeyboardHelpProps {
@@ -30,10 +31,13 @@ interface KeyboardHelpProps {
  * - Organized by category with context-relevant shortcuts first
  * - Shows all shortcuts with descriptions
  * - Highlights categories relevant to the current screen
+ * - Shows custom bindings when configured
  * - Escape to close
  * - Click outside to close
  */
 export default function KeyboardHelp({ isOpen, onClose, pathname }: KeyboardHelpProps) {
+  const { customBindings } = useShortcuts();
+
   // Handle keyboard events
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -87,7 +91,9 @@ export default function KeyboardHelp({ isOpen, onClose, pathname }: KeyboardHelp
                 <h3 className="category-header">{categoryLabels[category]}</h3>
                 <div className="shortcut-list">
                   {shortcuts.map((shortcut) => {
-                    const keys = shortcut.defaultKey.split(' / ');
+                    const customKey = customBindings[shortcut.id];
+                    const displayKey = customKey || shortcut.defaultKey;
+                    const keys = displayKey.split(' / ');
                     return (
                       <div key={shortcut.id} className="shortcut-item">
                         <span className="shortcut-description">
@@ -97,7 +103,7 @@ export default function KeyboardHelp({ isOpen, onClose, pathname }: KeyboardHelp
                           {keys.map((key, i) => (
                             <span key={key}>
                               {i > 0 && <span className="shortcut-separator">/</span>}
-                              <kbd className="shortcut-key">{formatKey(key)}</kbd>
+                              <kbd className={`shortcut-key${customKey ? ' shortcut-key--custom' : ''}`}>{formatKey(key)}</kbd>
                             </span>
                           ))}
                         </span>
