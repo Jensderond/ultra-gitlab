@@ -13,6 +13,7 @@ import {
   getContextsForRoute,
 } from '../../config/shortcuts';
 import { useShortcuts } from '../ShortcutsProvider';
+import { renderKeyGlyphs } from '../KeyGlyph';
 import './KeyboardHelp.css';
 
 interface KeyboardHelpProps {
@@ -103,7 +104,7 @@ export default function KeyboardHelp({ isOpen, onClose, pathname }: KeyboardHelp
                           {keys.map((key, i) => (
                             <span key={key}>
                               {i > 0 && <span className="shortcut-separator">/</span>}
-                              <kbd className={`shortcut-key${customKey ? ' shortcut-key--custom' : ''}`}>{formatKey(key)}</kbd>
+                              <kbd className={`shortcut-key${customKey ? ' shortcut-key--custom' : ''}`}>{renderKeyGlyphs(formatKey(key))}</kbd>
                             </span>
                           ))}
                         </span>

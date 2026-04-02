@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import useCustomShortcuts from '../../hooks/useCustomShortcuts';
+import { useShortcuts } from '../../components/ShortcutsProvider';
+import { renderKeyGlyphs } from '../../components/KeyGlyph';
 import {
   defaultShortcuts,
   categoryLabels,
@@ -18,7 +19,7 @@ export default function ShortcutEditor() {
     resetBinding,
     resetAllBindings,
     isKeyInUse,
-  } = useCustomShortcuts();
+  } = useShortcuts();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -62,6 +63,25 @@ export default function ShortcutEditor() {
     setError(null);
   };
 
+  const saveKey = async (id: string, key: string) => {
+    if (isKeyInUse(key, id)) {
+      setError('This key is already in use');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await setBinding(id, key);
+      setEditingId(null);
+      setEditValue('');
+      setError(null);
+    } catch (err) {
+      setError('Failed to save shortcut');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     e.preventDefault();
 
@@ -70,43 +90,18 @@ export default function ShortcutEditor() {
       return;
     }
 
-    if (e.key === 'Enter' && editValue) {
-      saveBinding();
-      return;
-    }
+    // Ignore modifier-only presses
+    if (['Meta', 'Control', 'Alt', 'Shift'].includes(e.key)) return;
 
     let key = '';
     if (e.metaKey || e.ctrlKey) key += e.metaKey ? 'Cmd+' : 'Ctrl+';
     if (e.altKey) key += 'Alt+';
     if (e.shiftKey && e.key !== 'Shift') key += 'Shift+';
+    key += e.key.length === 1 ? e.key.toUpperCase() : e.key;
 
-    if (!['Meta', 'Control', 'Alt', 'Shift'].includes(e.key)) {
-      key += e.key.length === 1 ? e.key.toUpperCase() : e.key;
-    }
-
-    if (key) {
+    if (key && editingId) {
       setEditValue(key);
-      setError(null);
-    }
-  };
-
-  const saveBinding = async () => {
-    if (!editingId || !editValue) return;
-
-    if (isKeyInUse(editValue, editingId)) {
-      setError('This key is already in use');
-      return;
-    }
-
-    try {
-      setSaving(true);
-      await setBinding(editingId, editValue);
-      setEditingId(null);
-      setEditValue('');
-    } catch (err) {
-      setError('Failed to save shortcut');
-    } finally {
-      setSaving(false);
+      saveKey(editingId, key);
     }
   };
 
@@ -194,8 +189,7 @@ export default function ShortcutEditor() {
                             onChange={() => {}}
                             onKeyDown={handleKeyDown}
                             onBlur={cancelEditing}
-                            placeholder="Press a key..."
-                            // autoFocus: user just clicked a shortcut to edit — capture keystrokes immediately
+                            placeholder="Press new shortcut…"
                             autoFocus
                           />
                           {error && (
@@ -209,7 +203,7 @@ export default function ShortcutEditor() {
                             onClick={() => startEditing(shortcut.id, currentKey)}
                             title="Click to edit"
                           >
-                            {formatKey(currentKey)}
+                            {renderKeyGlyphs(formatKey(currentKey))}
                           </kbd>
                           {isCustom && (
                             <button
@@ -233,7 +227,7 @@ export default function ShortcutEditor() {
       </div>
 
       <p className="shortcut-hint">
-        Click on a shortcut to edit. Press the new key combination, then Enter to save.
+        Click a shortcut, then press the new key combination. Escape to cancel.
       </p>
     </>
   );

@@ -1603,11 +1603,11 @@ fieldset.setting-row {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 8px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 10px;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-tertiary);
   background: linear-gradient(180deg,
@@ -1619,6 +1619,13 @@ fieldset.setting-row {
   border-radius: 5px;
   cursor: pointer;
   transition: all 0.15s ease;
+}
+
+.shortcut-key-display .key-glyph {
+  display: inline-flex;
+  align-items: center;
+  font-size: 1.4em;
+  line-height: 1;
 }
 
 .shortcut-key-display:hover {
