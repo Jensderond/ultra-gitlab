@@ -12,7 +12,6 @@ import './AppSidebar.css';
 interface AppSidebarProps {
   updateAvailable?: boolean;
   hasApprovedMRs?: boolean;
-  hasActiveToasts?: boolean;
   companionEnabled?: boolean;
   companionDeviceCount?: number;
 }
@@ -52,13 +51,6 @@ const PipelineIcon = () => (
   </svg>
 );
 
-const BellIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
-    <path d="M13.73 21a2 2 0 01-3.46 0" />
-  </svg>
-);
-
 const SmartphoneIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
@@ -82,7 +74,7 @@ const navItems: NavItem[] = [
 
 const isBottomPath = (path: string) => navItems.some(item => item.path === path && item.bottom);
 
-export function AppSidebar({ updateAvailable, hasApprovedMRs, hasActiveToasts, companionEnabled, companionDeviceCount = 0 }: AppSidebarProps) {
+export function AppSidebar({ updateAvailable, hasApprovedMRs, companionEnabled, companionDeviceCount = 0 }: AppSidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const sidebarRef = useRef<HTMLElement>(null);
@@ -203,10 +195,6 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs, hasActiveToasts, c
         ))}
       </div>
       <div className="app-sidebar-bottom">
-        <div className="app-sidebar-bell" title="Notifications">
-          <BellIcon />
-          {hasActiveToasts && <span className="notification-dot" />}
-        </div>
         {companionEnabled && (
           <div
             className="app-sidebar-companion app-sidebar-desktop-only"

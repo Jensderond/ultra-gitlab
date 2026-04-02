@@ -925,9 +925,9 @@ impl SyncEngine {
     ) -> Result<i64, AppError> {
         let start = Instant::now();
 
-        // Check if MR already exists (to determine created vs updated)
-        let existing: Option<(i64,)> = sqlx::query_as(
-            "SELECT id FROM merge_requests WHERE instance_id = ? AND project_id = ? AND iid = ?",
+        // Check if MR already exists and fetch cached updated_at for skip logic
+        let existing: Option<(i64, Option<i64>)> = sqlx::query_as(
+            "SELECT id, updated_at FROM merge_requests WHERE instance_id = ? AND project_id = ? AND iid = ?",
         )
         .bind(instance_id)
         .bind(mr.project_id)
@@ -935,6 +935,7 @@ impl SyncEngine {
         .fetch_optional(&self.pool)
         .await?;
         let is_new = existing.is_none();
+        let cached_updated_at = existing.and_then(|(_, ts)| ts);
 
         // Upsert MR metadata and get the canonical DB row id
         // (may differ from mr.id if the row already existed with a different PK)
@@ -943,7 +944,8 @@ impl SyncEngine {
             e
         })?;
 
-        // Fetch and store approval status + per-reviewer data
+        // Always fetch approvals — GitLab doesn't update updated_at on approve/unapprove,
+        // so the skip-unchanged optimization below can't cover approvals safely.
         match client.get_mr_approvals(mr.project_id, mr.iid).await {
             Ok(approvals) => {
                 // Use pre-fetched current_user_id (hoisted to sync_instance) to avoid
@@ -1031,7 +1033,39 @@ impl SyncEngine {
             },
         );
 
-        // Emit both progress events before concurrent fetch
+        // Skip expensive API calls (diff, comments) if MR hasn't changed.
+        // Approvals are always fetched above since GitLab doesn't update
+        // updated_at on approve/unapprove.
+        let fresh_updated_at = parse_iso_timestamp(&mr.updated_at);
+        let mr_unchanged = !is_new && cached_updated_at == Some(fresh_updated_at);
+
+        if mr_unchanged {
+            log::info!(
+                "[sync] MR !{}: unchanged (updated_at={}), skipping diff/comments",
+                mr.iid, mr.updated_at
+            );
+
+            let mr_duration_ms = start.elapsed().as_millis() as i64;
+            self.log_sync_operation(
+                "sync_mr",
+                "skipped",
+                Some(local_mr_id),
+                None,
+                Some(mr_duration_ms),
+            )
+            .await?;
+
+            if let Err(e) = self.record_metric(
+                sync_run_id, "mr", Some(instance_id), Some(mr.iid),
+                mr_duration_ms, 0, 0,
+            ).await {
+                log::warn!("Failed to record MR metric: {}", e);
+            }
+
+            return Ok(local_mr_id);
+        }
+
+        // Emit progress events before concurrent fetch
         self.emit_progress(
             SyncPhase::FetchingDiff,
             format!("Fetching diff for MR !{}", mr.iid),

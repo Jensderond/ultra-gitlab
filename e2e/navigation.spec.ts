@@ -87,9 +87,4 @@ test.describe('Navigation & Sidebar', () => {
     await expect(page.locator('.titlebar-drag-region')).toBeAttached();
   });
 
-  test('notifications bell is visible in sidebar', async ({ page }) => {
-    await page.goto('/mrs');
-
-    await expect(page.locator('.app-sidebar-bell')).toBeVisible();
-  });
 });
