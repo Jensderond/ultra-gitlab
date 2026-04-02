@@ -74,7 +74,6 @@ export default function CollapsePatternsEditor() {
   if (loading) {
     return (
       <>
-        <h2>Generated File Patterns</h2>
         <p className="loading">Loading patterns...</p>
       </>
     );
@@ -82,7 +81,6 @@ export default function CollapsePatternsEditor() {
 
   return (
     <>
-      <h2>Generated File Patterns</h2>
       <p className="collapse-patterns-description">
         Files matching these glob patterns will be dimmed in the file tree.
         Patterns from <code>.gitattributes</code> (linguist-generated) are also used automatically.

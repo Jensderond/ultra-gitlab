@@ -229,6 +229,21 @@ pub async fn update_instance_token(
     Ok(user.username)
 }
 
+/// Rename a GitLab instance.
+#[tauri::command]
+pub async fn rename_instance(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    name: String,
+) -> Result<(), AppError> {
+    sqlx::query("UPDATE gitlab_instances SET name = $1 WHERE id = $2")
+        .bind(name.trim())
+        .bind(instance_id)
+        .execute(pool.inner())
+        .await?;
+    Ok(())
+}
+
 /// Set an instance as the default (clears default from all others).
 #[tauri::command]
 pub async fn set_default_instance(

@@ -74,7 +74,7 @@
   transition: all 0.2s ease;
 }
 
-.shortcut-bar__glyph {
+.shortcut-bar__key .key-glyph {
   display: inline-flex;
   align-items: center;
   font-size: 1.5em;

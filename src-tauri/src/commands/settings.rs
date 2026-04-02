@@ -7,6 +7,7 @@ use crate::commands::companion_settings::CompanionServerSettings;
 use crate::error::AppError;
 use crate::services::sync_engine::{SyncConfig, SyncHandle};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::OnceLock;
 use tauri::AppHandle;
 use tauri::State;
@@ -42,6 +43,9 @@ const COMPANION_SERVER_KEY: &str = "companion_server";
 
 /// Key for file jump count in the store.
 const FILE_JUMP_COUNT_KEY: &str = "file_jump_count";
+
+/// Key for keyboard shortcuts in the store.
+const KEYBOARD_SHORTCUTS_KEY: &str = "keyboard_shortcuts";
 
 /// Default number of files to jump with arrow-left/right.
 const DEFAULT_FILE_JUMP_COUNT: u32 = 5;
@@ -106,6 +110,8 @@ pub struct AppSettings {
     pub companion_server: CompanionServerSettings,
     /// Number of files to jump when pressing arrow-left/right in file navigation.
     pub file_jump_count: u32,
+    /// Custom keyboard shortcut bindings (shortcut id -> key string).
+    pub keyboard_shortcuts: HashMap<String, String>,
 }
 
 impl Default for AppSettings {
@@ -120,6 +126,7 @@ impl Default for AppSettings {
             custom_theme_colors: None,
             companion_server: CompanionServerSettings::default(),
             file_jump_count: DEFAULT_FILE_JUMP_COUNT,
+            keyboard_shortcuts: HashMap::new(),
         }
     }
 }
@@ -200,6 +207,12 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         None => DEFAULT_FILE_JUMP_COUNT,
     };
 
+    // Try to load keyboard shortcuts
+    let keyboard_shortcuts = match store.get(KEYBOARD_SHORTCUTS_KEY) {
+        Some(value) => serde_json::from_value(value.clone()).unwrap_or_default(),
+        None => HashMap::new(),
+    };
+
     Ok(AppSettings {
         sync,
         collapse_patterns,
@@ -210,6 +223,7 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         custom_theme_colors,
         companion_server,
         file_jump_count,
+        keyboard_shortcuts,
     })
 }
 
@@ -254,6 +268,10 @@ pub(crate) async fn save_settings(app: &AppHandle, settings: &AppSettings) -> Re
     // Save file jump count
     let file_jump_count_value = serde_json::to_value(&settings.file_jump_count)?;
     store.set(FILE_JUMP_COUNT_KEY, file_jump_count_value);
+
+    // Save keyboard shortcuts
+    let keyboard_shortcuts_value = serde_json::to_value(&settings.keyboard_shortcuts)?;
+    store.set(KEYBOARD_SHORTCUTS_KEY, keyboard_shortcuts_value);
 
     // Persist to disk
     store
@@ -444,6 +462,24 @@ pub async fn update_custom_theme_colors(
     Ok(())
 }
 
+/// Update custom keyboard shortcuts.
+///
+/// Convenience method that updates just the keyboard shortcut bindings.
+///
+/// # Arguments
+/// * `shortcuts` - Map of shortcut id to key string (e.g. {"go-to-mr-list": "Cmd+K"})
+#[tauri::command]
+pub async fn update_keyboard_shortcuts(
+    app: AppHandle,
+    shortcuts: HashMap<String, String>,
+) -> Result<(), AppError> {
+    let mut settings = load_settings(&app).await?;
+    settings.keyboard_shortcuts = shortcuts;
+    save_settings(&app, &settings).await?;
+    *settings_cache().write().await = settings;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -451,7 +487,7 @@ mod tests {
     #[test]
     fn test_default_settings() {
         let settings = AppSettings::default();
-        assert!(!settings.sync.sync_authored); // Don't sync own MRs by default
+        assert!(settings.sync.sync_authored);
         assert!(settings.sync.sync_reviewing);
         assert_eq!(settings.sync.interval_secs, 300);
     }

@@ -36,6 +36,7 @@ import { listPipelineProjects, visitPipelineProject } from './services/tauri';
 import { WorkerPoolContextProvider } from '@pierre/diffs/react';
 import WorkerUrl from '@pierre/diffs/worker/worker.js?worker&url';
 import { ThemeProvider } from './components/ThemeProvider';
+import { ShortcutsProvider, useShortcuts, matchesKey } from './components/ShortcutsProvider';
 import { ToastProvider, useToast, ToastContainer } from './components/Toast';
 import type { AuthExpiredPayload } from './types';
 import './App.css';
@@ -66,6 +67,7 @@ function AppContent() {
   const updateChecker = useUpdateChecker();
   const hasApprovedMRs = useHasApprovedMRsQuery();
   const { toasts } = useToast();
+  const { getKey } = useShortcuts();
   useNotifications();
   useDeepLink();
   const companionStatusQuery = useCompanionStatusQuery();
@@ -133,7 +135,7 @@ function AppContent() {
     setAuthExpired(null);
   }, []);
 
-  // Open command palette with Cmd+P (or Ctrl+P on Windows/Linux)
+  // Global keyboard shortcuts — reads custom bindings from ShortcutsProvider
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       // Ignore if typing in an input
@@ -144,55 +146,57 @@ function AppContent() {
         return;
       }
 
+      const key = (id: string) => getKey(id);
+
       // Cmd+P or Ctrl+P to open command palette (Tauri only)
-      if (isTauri && (e.metaKey || e.ctrlKey) && e.key === 'p') {
+      if (isTauri && matchesKey(key('command-palette') || 'Cmd+P', e)) {
         e.preventDefault();
         trackShortcut('Cmd+P', 'open_command_palette', 'global');
         setCommandPaletteOpen(true);
         return;
       }
 
-      // Cmd+, or Ctrl+, to open settings (desktop only)
-      if (isTauri && (e.metaKey || e.ctrlKey) && e.key === ',') {
+      // Open settings (desktop only)
+      if (isTauri && matchesKey(key('open-settings') || 'Cmd+,', e)) {
         e.preventDefault();
         trackShortcut('Cmd+,', 'open_settings', 'global');
         navigate('/settings');
         return;
       }
 
-      // Cmd+L or Ctrl+L to go to MR list
-      if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
+      // Go to MR list
+      if (matchesKey(key('go-to-mr-list') || 'Cmd+L', e)) {
         e.preventDefault();
         trackShortcut('Cmd+L', 'navigate_mr_list', 'global');
         navigate('/mrs');
         return;
       }
 
-      // Cmd+M or Ctrl+M to go to My MRs
-      if ((e.metaKey || e.ctrlKey) && e.key === 'm') {
+      // Go to My MRs
+      if (matchesKey(key('go-to-my-mrs') || 'Cmd+M', e)) {
         e.preventDefault();
         trackShortcut('Cmd+M', 'navigate_my_mrs', 'global');
         navigate('/my-mrs');
         return;
       }
 
-      // Cmd+I or Ctrl+I to go to Pipelines
-      if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
+      // Go to Pipelines
+      if (matchesKey(key('go-to-pipelines') || 'Cmd+I', e)) {
         e.preventDefault();
         trackShortcut('Cmd+I', 'navigate_pipelines', 'global');
         navigate('/pipelines');
         return;
       }
 
-      // Cmd+R or Ctrl+R to trigger sync (only in Tauri — browser needs refresh)
-      if (isTauri && (e.metaKey || e.ctrlKey) && e.key === 'r') {
+      // Trigger sync (only in Tauri — browser needs refresh)
+      if (isTauri && matchesKey(key('trigger-sync') || 'Cmd+R', e)) {
         e.preventDefault();
         trackShortcut('Cmd+R', 'trigger_sync', 'global');
         manualSync().catch(console.error);
         return;
       }
 
-      // Cmd+1..9 to switch instance
+      // Cmd+1..9 to switch instance (not customizable — dynamic keys)
       if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '9') {
         e.preventDefault();
         const index = parseInt(e.key, 10) - 1;
@@ -203,8 +207,8 @@ function AppContent() {
         return;
       }
 
-      // '?' to show keyboard help (but not Shift+/ which is also '?')
-      if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      // Show keyboard help
+      if (matchesKey(key('keyboard-help') || '?', e)) {
         e.preventDefault();
         trackShortcut('?', 'show_keyboard_help', 'global');
         setKeyboardHelpOpen(true);
@@ -214,7 +218,7 @@ function AppContent() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [navigate]);
+  }, [navigate, getKey]);
 
   // Close command palette
   const closeCommandPalette = useCallback(() => {
@@ -392,7 +396,9 @@ function App() {
       >
         <ToastProvider>
           <BrowserRouter>
-            <AppContent />
+            <ShortcutsProvider>
+              <AppContent />
+            </ShortcutsProvider>
           </BrowserRouter>
         </ToastProvider>
       </WorkerPoolContextProvider>

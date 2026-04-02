@@ -131,6 +131,13 @@ export async function setDefaultInstance(instanceId: number): Promise<void> {
 }
 
 /**
+ * Rename a GitLab instance.
+ */
+export async function renameInstance(instanceId: number, name: string): Promise<void> {
+  return invoke<void>('rename_instance', { instanceId, name });
+}
+
+/**
  * Update the personal access token for a GitLab instance.
  * Validates the token and returns the authenticated username.
  */
@@ -436,6 +443,17 @@ export async function getSettings(): Promise<Settings> {
  */
 export async function updateSettings(update: SettingsUpdate): Promise<Settings> {
   return invoke<Settings>('update_settings', { update });
+}
+
+// ============================================================================
+// Keyboard Shortcuts Commands
+// ============================================================================
+
+/**
+ * Update custom keyboard shortcut bindings.
+ */
+export async function updateKeyboardShortcuts(shortcuts: Record<string, string>): Promise<void> {
+  return invoke<void>('update_keyboard_shortcuts', { shortcuts });
 }
 
 // ============================================================================

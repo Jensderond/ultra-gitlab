@@ -75,7 +75,7 @@ impl Default for SyncConfig {
     fn default() -> Self {
         Self {
             interval_secs: DEFAULT_SYNC_INTERVAL_SECS,
-            sync_authored: false, // Don't sync own MRs by default
+            sync_authored: true,
             sync_reviewing: true,
             max_mrs_per_sync: 100,
         }
@@ -2573,7 +2573,7 @@ mod tests {
     fn test_default_config() {
         let config = SyncConfig::default();
         assert_eq!(config.interval_secs, DEFAULT_SYNC_INTERVAL_SECS);
-        assert!(!config.sync_authored); // Don't sync own MRs by default
+        assert!(config.sync_authored);
         assert!(config.sync_reviewing);
         assert_eq!(config.max_mrs_per_sync, 100);
     }

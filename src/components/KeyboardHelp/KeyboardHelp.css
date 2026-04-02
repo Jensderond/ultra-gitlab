@@ -158,6 +158,13 @@
   color: var(--text-secondary);
 }
 
+.shortcut-key .key-glyph {
+  display: inline-flex;
+  align-items: center;
+  font-size: 1.4em;
+  line-height: 1;
+}
+
 .keyboard-help-footer {
   padding: 12px 20px;
   border-top: 1px solid var(--border-color);

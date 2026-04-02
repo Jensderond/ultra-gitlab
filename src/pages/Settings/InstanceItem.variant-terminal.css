@@ -1,0 +1,393 @@
+/* ================================================
+   VARIANT 1: TERMINAL CARD — Monospace Brutalist
+   ================================================
+   A raw terminal window aesthetic. Every element uses
+   monospace type. Status communicated via colored tags
+   reminiscent of CLI output. The card itself mimics a
+   macOS terminal window with dot controls.
+   ================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+/* ── Card shell ── */
+
+.term-card {
+  --tc-bg: #0c0c14;
+  --tc-bg-subtle: #12121e;
+  --tc-border: #1e1e2e;
+  --tc-text: #a9b1d6;
+  --tc-dim: #565f89;
+  --tc-prompt: #7aa2f7;
+  --tc-green: #9ece6a;
+  --tc-yellow: #e0af68;
+  --tc-red: #f7768e;
+  --tc-cyan: #7dcfff;
+
+  font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+  background: var(--tc-bg);
+  border: 1px solid var(--tc-border);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.term-card:hover {
+  border-color: #2a2a40;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+.term-card--default {
+  border-color: rgba(122, 162, 247, 0.25);
+  box-shadow: 0 0 0 1px rgba(122, 162, 247, 0.08);
+}
+
+.term-card--default:hover {
+  border-color: rgba(122, 162, 247, 0.4);
+  box-shadow: 0 0 20px rgba(122, 162, 247, 0.08);
+}
+
+/* ── Titlebar (macOS-style) ── */
+
+.term-card__titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--tc-bg-subtle);
+  border-bottom: 1px solid var(--tc-border);
+  user-select: none;
+  position: relative;
+}
+
+.term-card__dots {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.term-card__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.term-card__dot--red { background: var(--tc-red); opacity: 0.8; }
+.term-card__dot--yellow { background: var(--tc-yellow); opacity: 0.8; }
+.term-card__dot--green { background: var(--tc-green); opacity: 0.8; }
+
+.term-card:not(:hover) .term-card__dot {
+  opacity: 0.3;
+  background: var(--tc-dim);
+}
+
+.term-card__title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tc-dim);
+  letter-spacing: 0.02em;
+  max-width: calc(100% - 180px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.term-card__title--editing {
+  pointer-events: auto;
+}
+
+.term-card__rename-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--tc-dim);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  pointer-events: auto;
+  flex-shrink: 0;
+}
+
+.term-card:hover .term-card__rename-btn {
+  opacity: 0.6;
+}
+
+.term-card__rename-btn:hover {
+  opacity: 1 !important;
+  color: var(--tc-text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.term-card__title-input {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tc-text);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--tc-border);
+  border-radius: 4px;
+  outline: none;
+  text-align: center;
+  caret-color: var(--tc-cyan);
+  padding: 2px 8px;
+  min-width: 100px;
+  max-width: 240px;
+  letter-spacing: 0.02em;
+  transition: border-color 0.15s ease;
+}
+
+.term-card__title-input:focus {
+  border-color: rgba(122, 162, 247, 0.4);
+}
+
+.term-card__titlebar-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.term-card:hover .term-card__titlebar-actions {
+  opacity: 1;
+}
+
+/* ── Body ── */
+
+.term-card__body {
+  padding: 12px 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.term-card__line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.7;
+  min-height: 22px;
+}
+
+.term-card__prompt {
+  color: var(--tc-prompt);
+  font-weight: 700;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.term-card__prompt--input {
+  color: var(--tc-cyan);
+  animation: termBlink 1.2s step-end infinite;
+}
+
+@keyframes termBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.term-card__url {
+  color: var(--tc-cyan);
+  font-size: 11px;
+}
+
+.term-card__dim {
+  color: var(--tc-dim);
+  font-size: 11px;
+}
+
+.term-card__separator {
+  height: 1px;
+  background: var(--tc-border);
+  margin: 6px 0;
+}
+
+/* ── Tags (inline status badges) ── */
+
+.term-card__tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.term-card__tag--active {
+  background: rgba(122, 162, 247, 0.15);
+  color: var(--tc-prompt);
+  border: 1px solid rgba(122, 162, 247, 0.25);
+}
+
+.term-card__tag--ok {
+  color: var(--tc-green);
+}
+
+.term-card__tag--warn {
+  background: rgba(224, 175, 104, 0.12);
+  color: var(--tc-yellow);
+  border: 1px solid rgba(224, 175, 104, 0.2);
+}
+
+.term-card__tag--error {
+  background: rgba(247, 118, 142, 0.12);
+  color: var(--tc-red);
+  border: 1px solid rgba(247, 118, 142, 0.2);
+  animation: termPulseRed 2s ease-in-out infinite;
+}
+
+@keyframes termPulseRed {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* ── Commands (clickable actions styled as shell commands) ── */
+
+.term-card__cmds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.term-card__cmd {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--tc-green);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.term-card__cmd:hover {
+  background: rgba(158, 206, 106, 0.08);
+  border-color: rgba(158, 206, 106, 0.2);
+  color: #b9f27d;
+}
+
+.term-card__cmd:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.term-card__cmd--danger {
+  color: var(--tc-dim);
+}
+
+.term-card__cmd--danger:hover {
+  color: var(--tc-red);
+  background: rgba(247, 118, 142, 0.08);
+  border-color: rgba(247, 118, 142, 0.2);
+}
+
+/* ── Input ── */
+
+.term-card__input-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.term-card__input {
+  flex: 1;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--tc-text);
+  background: transparent;
+  border: none;
+  outline: none;
+  caret-color: var(--tc-cyan);
+  min-width: 0;
+}
+
+.term-card__input--multi {
+  resize: none;
+  line-height: 1.5;
+}
+
+.term-card__input::placeholder {
+  color: var(--tc-dim);
+  opacity: 0.5;
+}
+
+.term-card__actions {
+  display: flex;
+  gap: 6px;
+  padding-left: 16px;
+}
+
+.term-card__btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid rgba(122, 162, 247, 0.3);
+  background: rgba(122, 162, 247, 0.1);
+  color: var(--tc-prompt);
+}
+
+.term-card__btn:hover:not(:disabled) {
+  background: rgba(122, 162, 247, 0.2);
+  border-color: var(--tc-prompt);
+}
+
+.term-card__btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.term-card__btn--ghost {
+  background: none;
+  border-color: transparent;
+  color: var(--tc-dim);
+}
+
+.term-card__btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--tc-text);
+  border-color: var(--tc-border);
+}
+
+/* ── Output messages ── */
+
+.term-card__output {
+  font-size: 11px;
+  padding-left: 16px;
+  font-weight: 500;
+}
+
+.term-card__output--error {
+  color: var(--tc-red);
+}
+
+.term-card__output--ok {
+  color: var(--tc-green);
+}
+
+.term-card__hint {
+  font-size: 10px;
+  color: var(--tc-dim);
+  padding-left: 16px;
+  opacity: 0.7;
+}

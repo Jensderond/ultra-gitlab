@@ -7,7 +7,7 @@ import {
 } from '../../services/gitlab';
 import { getTokenInfo } from '../../services/tauri';
 import type { TokenInfo } from '../../types';
-import InstanceItem from './InstanceItem';
+import InstanceItem from './InstanceItem.variant-terminal';
 import { useInstancesQuery } from '../../hooks/queries/useInstancesQuery';
 import { queryKeys } from '../../lib/queryKeys';
 
@@ -70,9 +70,8 @@ export default function InstancesSection() {
   }
 
   return (
-    <section className="settings-section">
-      <div className="section-header">
-        <h2>GitLab Instances</h2>
+    <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
         <button
           className="add-button"
           onClick={() => setShowSetup(true)}
@@ -113,6 +112,6 @@ export default function InstancesSection() {
           ))}
         </ul>
       )}
-    </section>
+    </>
   );
 }

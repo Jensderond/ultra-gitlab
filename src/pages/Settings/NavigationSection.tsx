@@ -31,7 +31,6 @@ export default function NavigationSection() {
 
   return (
     <>
-      <h2>File Navigation</h2>
       <div className="sync-settings-form">
         <div className="setting-row">
           <label htmlFor="file-jump-count">Arrow key jump distance</label>

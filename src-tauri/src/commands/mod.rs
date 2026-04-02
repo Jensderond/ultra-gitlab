@@ -30,8 +30,8 @@ pub mod sync;
 // Re-export commands for registration in lib.rs
 pub use approval::{approve_mr, get_approval_status, unapprove_mr};
 pub use auth::{
-    delete_gitlab_instance, get_gitlab_instances, get_token_info, set_default_instance,
-    setup_gitlab_instance, update_instance_token,
+    delete_gitlab_instance, get_gitlab_instances, get_token_info, rename_instance,
+    set_default_instance, setup_gitlab_instance, update_instance_token,
 };
 pub use avatar::{get_avatar, get_avatars, refresh_avatars, update_session_cookie};
 pub use comments::{
@@ -64,8 +64,9 @@ pub use pipeline::{
 pub use reviewers::get_mr_reviewers;
 pub use settings::{
     get_collapse_patterns, get_settings, get_sync_settings, update_collapse_patterns,
-    update_custom_theme_colors, update_diffs_font, update_display_font, update_settings,
-    update_sync_settings, update_theme, update_ui_font,
+    update_custom_theme_colors, update_diffs_font, update_display_font,
+    update_keyboard_shortcuts, update_settings, update_sync_settings, update_theme,
+    update_ui_font,
 };
 pub use sync::{
     discard_failed_action, get_action_counts, get_sync_config, get_sync_status,
