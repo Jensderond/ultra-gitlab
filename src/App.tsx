@@ -308,7 +308,7 @@ function AppContent() {
   return (
     <div className="app">
       {isTauri && <div className="titlebar-drag-region" data-tauri-drag-region />}
-      <AppSidebar updateAvailable={updateChecker.available} hasApprovedMRs={hasApprovedMRs} hasActiveToasts={toasts.length > 0} companionEnabled={companionStatusQuery.data?.enabled ?? false} companionDeviceCount={companionStatusQuery.data?.connectedDevices ?? 0} />
+      <AppSidebar updateAvailable={updateChecker.available} hasApprovedMRs={hasApprovedMRs} companionEnabled={companionStatusQuery.data?.enabled ?? false} companionDeviceCount={companionStatusQuery.data?.connectedDevices ?? 0} />
       <div className="app-content">
         <Routes>
           {/* Redirect root to MR list */}
