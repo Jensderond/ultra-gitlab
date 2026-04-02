@@ -148,7 +148,6 @@ export function parseLog(rawTrace: string): ParsedLog {
       // Flush any open section without an end marker
       if (currentSection) {
         entries.push({ type: 'section', data: currentSection });
-        currentSection = null;
       }
 
       const sectionTimestamp = Number(startMatch[1]);

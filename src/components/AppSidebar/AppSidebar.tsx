@@ -134,7 +134,7 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs, companionEnabled, 
       animationTimeoutRef.current = setTimeout(() => {
         indicator.style.transition = 'none';
         indicator.style.transform = `translateY(${yOffset}px) scaleX(0)`;
-        indicator.offsetHeight; // force reflow
+        void indicator.offsetHeight; // force reflow
 
         // Phase 3: Expand at new position
         indicator.style.transition = 'transform 0.2s ease-out';

@@ -178,7 +178,7 @@ async function httpInvoke<T>(cmd: string, args?: Record<string, unknown>): Promi
   const extraParams = route.params?.(args);
 
   let url: string;
-  let init: RequestInit = { credentials: 'include' };
+  const init: RequestInit = { credentials: 'include' };
 
   if (route.method === 'GET') {
     const qs = extraParams ? toQueryString(extraParams) : '';

@@ -37,7 +37,7 @@ import { WorkerPoolContextProvider } from '@pierre/diffs/react';
 import WorkerUrl from '@pierre/diffs/worker/worker.js?worker&url';
 import { ThemeProvider } from './components/ThemeProvider';
 import { ShortcutsProvider, useShortcuts, matchesKey } from './components/ShortcutsProvider';
-import { ToastProvider, useToast, ToastContainer } from './components/Toast';
+import { ToastProvider, ToastContainer } from './components/Toast';
 import type { AuthExpiredPayload } from './types';
 import './App.css';
 
@@ -66,7 +66,6 @@ function AppContent() {
   const companionAuth = useCompanionAuth(isTauri || location.pathname === '/auth');
   const updateChecker = useUpdateChecker();
   const hasApprovedMRs = useHasApprovedMRsQuery();
-  const { toasts } = useToast();
   const { getKey } = useShortcuts();
   useNotifications();
   useDeepLink();

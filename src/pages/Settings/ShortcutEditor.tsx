@@ -75,7 +75,7 @@ export default function ShortcutEditor() {
       setEditingId(null);
       setEditValue('');
       setError(null);
-    } catch (err) {
+    } catch {
       setError('Failed to save shortcut');
     } finally {
       setSaving(false);
