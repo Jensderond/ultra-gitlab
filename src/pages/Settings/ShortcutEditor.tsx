@@ -70,6 +70,7 @@ export default function ShortcutEditor() {
       setEditingId(null);
       setError(null);
     },
+    ignoreInputs: false,
   });
 
   const startEditing = (shortcutId: string) => {
