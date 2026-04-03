@@ -36,7 +36,8 @@ import { listPipelineProjects, visitPipelineProject } from './services/tauri';
 import { WorkerPoolContextProvider } from '@pierre/diffs/react';
 import WorkerUrl from '@pierre/diffs/worker/worker.js?worker&url';
 import { ThemeProvider } from './components/ThemeProvider';
-import { ShortcutsProvider, useShortcuts, matchesKey } from './components/ShortcutsProvider';
+import { ShortcutsProvider, useShortcuts } from './components/ShortcutsProvider';
+import { HotkeysProvider, useHotkey, parseHotkey } from '@tanstack/react-hotkeys';
 import { ToastProvider, ToastContainer } from './components/Toast';
 import type { AuthExpiredPayload } from './types';
 import './App.css';
@@ -134,90 +135,61 @@ function AppContent() {
     setAuthExpired(null);
   }, []);
 
-  // Global keyboard shortcuts — reads custom bindings from ShortcutsProvider
+  // Global keyboard shortcuts via TanStack hotkeys
+  useHotkey(parseHotkey(getKey('command-palette') ?? 'Mod+P'), () => {
+    trackShortcut('Mod+P', 'open_command_palette', 'global');
+    setCommandPaletteOpen(true);
+  }, { enabled: isTauri });
+
+  useHotkey(parseHotkey(getKey('open-settings') ?? 'Mod+,'), () => {
+    trackShortcut('Mod+,', 'open_settings', 'global');
+    navigate('/settings');
+  }, { enabled: isTauri });
+
+  useHotkey(parseHotkey(getKey('go-to-mr-list') ?? 'Mod+L'), () => {
+    trackShortcut('Mod+L', 'navigate_mr_list', 'global');
+    navigate('/mrs');
+  });
+
+  useHotkey(parseHotkey(getKey('go-to-my-mrs') ?? 'Mod+M'), () => {
+    trackShortcut('Mod+M', 'navigate_my_mrs', 'global');
+    navigate('/my-mrs');
+  });
+
+  useHotkey(parseHotkey(getKey('go-to-pipelines') ?? 'Mod+I'), () => {
+    trackShortcut('Mod+I', 'navigate_pipelines', 'global');
+    navigate('/pipelines');
+  });
+
+  useHotkey(parseHotkey(getKey('trigger-sync') ?? 'Mod+R'), () => {
+    trackShortcut('Mod+R', 'trigger_sync', 'global');
+    manualSync().catch(console.error);
+  }, { enabled: isTauri });
+
+  useHotkey(parseHotkey(getKey('keyboard-help') ?? '?'), () => {
+    trackShortcut('?', 'show_keyboard_help', 'global');
+    setKeyboardHelpOpen(true);
+  });
+
+  // Cmd+1..9 to switch instance (dynamic keys — not customizable)
   useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      // Ignore if typing in an input
+    function handleInstanceSwitch(e: KeyboardEvent) {
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
-      ) {
-        return;
-      }
-
-      const key = (id: string) => getKey(id);
-
-      // Cmd+P or Ctrl+P to open command palette (Tauri only)
-      if (isTauri && matchesKey(key('command-palette') || 'Cmd+P', e)) {
-        e.preventDefault();
-        trackShortcut('Cmd+P', 'open_command_palette', 'global');
-        setCommandPaletteOpen(true);
-        return;
-      }
-
-      // Open settings (desktop only)
-      if (isTauri && matchesKey(key('open-settings') || 'Cmd+,', e)) {
-        e.preventDefault();
-        trackShortcut('Cmd+,', 'open_settings', 'global');
-        navigate('/settings');
-        return;
-      }
-
-      // Go to MR list
-      if (matchesKey(key('go-to-mr-list') || 'Cmd+L', e)) {
-        e.preventDefault();
-        trackShortcut('Cmd+L', 'navigate_mr_list', 'global');
-        navigate('/mrs');
-        return;
-      }
-
-      // Go to My MRs
-      if (matchesKey(key('go-to-my-mrs') || 'Cmd+M', e)) {
-        e.preventDefault();
-        trackShortcut('Cmd+M', 'navigate_my_mrs', 'global');
-        navigate('/my-mrs');
-        return;
-      }
-
-      // Go to Pipelines
-      if (matchesKey(key('go-to-pipelines') || 'Cmd+I', e)) {
-        e.preventDefault();
-        trackShortcut('Cmd+I', 'navigate_pipelines', 'global');
-        navigate('/pipelines');
-        return;
-      }
-
-      // Trigger sync (only in Tauri — browser needs refresh)
-      if (isTauri && matchesKey(key('trigger-sync') || 'Cmd+R', e)) {
-        e.preventDefault();
-        trackShortcut('Cmd+R', 'trigger_sync', 'global');
-        manualSync().catch(console.error);
-        return;
-      }
-
-      // Cmd+1..9 to switch instance (not customizable — dynamic keys)
+      ) return;
       if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '9') {
         e.preventDefault();
         const index = parseInt(e.key, 10) - 1;
-        trackShortcut(`Cmd+${e.key}`, 'switch_instance', 'global');
+        trackShortcut(`Mod+${e.key}`, 'switch_instance', 'global');
         window.dispatchEvent(
           new CustomEvent('instance-switch', { detail: { index } })
         );
-        return;
-      }
-
-      // Show keyboard help
-      if (matchesKey(key('keyboard-help') || '?', e)) {
-        e.preventDefault();
-        trackShortcut('?', 'show_keyboard_help', 'global');
-        setKeyboardHelpOpen(true);
-        return;
       }
     }
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [navigate, getKey]);
+    window.addEventListener('keydown', handleInstanceSwitch);
+    return () => window.removeEventListener('keydown', handleInstanceSwitch);
+  }, []);
 
   // Close command palette
   const closeCommandPalette = useCallback(() => {
@@ -395,9 +367,11 @@ function App() {
       >
         <ToastProvider>
           <BrowserRouter>
-            <ShortcutsProvider>
-              <AppContent />
-            </ShortcutsProvider>
+            <HotkeysProvider>
+              <ShortcutsProvider>
+                <AppContent />
+              </ShortcutsProvider>
+            </HotkeysProvider>
           </BrowserRouter>
         </ToastProvider>
       </WorkerPoolContextProvider>
