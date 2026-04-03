@@ -45,6 +45,10 @@ use tauri::{
 use tauri_plugin_aptabase::EventTracker;
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_store::StoreExt;
+use user_notify::NotificationManager;
+
+/// Wrapper around the notification manager for Tauri state management.
+pub struct NotificationManagerState(pub Arc<dyn NotificationManager>);
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -81,7 +85,6 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             // Initialize database
             let app_data_dir = app
@@ -129,6 +132,47 @@ pub fn run() {
             // Store state for use in commands
             app.manage(pool.clone());
             app.manage(sync_handle.clone());
+
+            // Initialize native notification manager (user-notify)
+            {
+                use services::sync_events::NOTIFICATION_CLICKED_EVENT;
+                let notification_manager = user_notify::get_notification_manager(
+                    "com.jens.ultra-gitlab".to_string(),
+                    None,
+                );
+
+                // Register click callback — emits a Tauri event so the frontend can navigate.
+                let click_handle = app.handle().clone();
+                if let Err(e) = notification_manager.register(
+                    Box::new(move |response| {
+                        if let Some(route) = response.user_info.get("route") {
+                            use tauri::Emitter;
+                            let payload = serde_json::json!({ "route": route });
+                            if let Err(e) = click_handle.emit(NOTIFICATION_CLICKED_EVENT, payload) {
+                                log::warn!("Failed to emit notification click event: {}", e);
+                            }
+                        }
+                    }),
+                    vec![], // no custom action categories for now
+                ) {
+                    log::error!("Failed to register notification callback: {}", e);
+                }
+
+                // Request permission and log state (macOS; no-op on other platforms)
+                let perm_manager = notification_manager.clone();
+                tauri::async_runtime::spawn(async move {
+                    match perm_manager.get_notification_permission_state().await {
+                        Ok(granted) => log::info!("[notifications] Permission state: granted={}", granted),
+                        Err(e) => log::warn!("[notifications] Failed to check permission: {}", e),
+                    }
+                    match perm_manager.first_time_ask_for_notification_permission().await {
+                        Ok(granted) => log::info!("[notifications] Permission request result: granted={}", granted),
+                        Err(e) => log::warn!("[notifications] Failed to request permission: {}", e),
+                    }
+                });
+
+                app.manage(NotificationManagerState(notification_manager));
+            }
 
             // Auto-start companion server if enabled in settings
             {

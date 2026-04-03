@@ -57,6 +57,17 @@ pub const MR_READY_EVENT: &str = "notification:mr-ready";
 /// Emitted when a pinned project's pipeline status changes.
 pub const PIPELINE_STATUS_CHANGED_EVENT: &str = "notification:pipeline-changed";
 
+/// Event: notification:clicked
+/// Emitted when the user clicks a native OS notification.
+pub const NOTIFICATION_CLICKED_EVENT: &str = "notification:clicked";
+
+/// Payload for notification:clicked events.
+#[derive(Debug, Clone, Serialize)]
+pub struct NotificationClickedPayload {
+    /// The in-app route to navigate to.
+    pub route: String,
+}
+
 /// Payload for sync-progress events.
 #[derive(Debug, Clone, Serialize)]
 pub struct SyncProgressPayload {
@@ -175,6 +186,9 @@ pub struct MrReadyPayload {
 
     /// URL to the MR in GitLab web UI.
     pub web_url: String,
+
+    /// Local database ID for in-app navigation.
+    pub mr_id: i64,
 }
 
 /// Payload for notification:pipeline-changed events.
@@ -195,6 +209,15 @@ pub struct PipelineStatusChangedPayload {
 
     /// URL to the pipeline in GitLab web UI.
     pub web_url: String,
+
+    /// Instance ID for in-app navigation.
+    pub instance_id: i64,
+
+    /// GitLab project ID for in-app navigation.
+    pub project_id: i64,
+
+    /// GitLab pipeline ID for in-app navigation.
+    pub pipeline_id: i64,
 }
 
 /// Payload for auth-expired events.

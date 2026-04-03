@@ -601,6 +601,14 @@ export async function searchProjects(instanceId: number, query: string): Promise
 }
 
 /**
+ * Resolve a project by its path (e.g. "group/subgroup/project").
+ * Returns the numeric project ID and display name.
+ */
+export async function resolveProjectByPath(instanceId: number, projectPath: string): Promise<{ id: number; nameWithNamespace: string }> {
+  return invoke<{ id: number; nameWithNamespace: string }>('resolve_project_by_path', { instanceId, projectPath });
+}
+
+/**
  * Get latest pipeline statuses for multiple projects.
  */
 export async function getPipelineStatuses(instanceId: number, projectIds: number[]): Promise<PipelineStatus[]> {
@@ -692,8 +700,8 @@ export async function updateNotificationSettings(settings: NotificationSettings)
 /**
  * Send a native OS notification.
  */
-export async function sendNativeNotification(title: string, body: string): Promise<void> {
-  return invoke<void>('send_native_notification', { title, body });
+export async function sendNativeNotification(title: string, body: string, route?: string): Promise<void> {
+  return invoke<void>('send_native_notification', { title, body, route: route ?? null });
 }
 
 // ============================================================================

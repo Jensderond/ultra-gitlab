@@ -1,21 +1,38 @@
-//! Native notification commands.
+//! Native notification commands using user-notify.
 
 use crate::error::AppError;
-use tauri_plugin_notification::NotificationExt;
+use crate::NotificationManagerState;
+use std::collections::HashMap;
+use user_notify::NotificationBuilder;
 
-/// Send a native OS notification.
+/// Send a native OS notification with an optional in-app route for click navigation.
 #[tauri::command]
 pub async fn send_native_notification(
-    app: tauri::AppHandle,
+    manager: tauri::State<'_, NotificationManagerState>,
     title: String,
     body: String,
+    route: Option<String>,
 ) -> Result<(), AppError> {
-    app.notification()
-        .builder()
+    log::info!("[notifications] Sending native notification: title={:?}, route={:?}", title, route);
+
+    let mut builder = NotificationBuilder::new()
         .title(&title)
-        .body(&body)
-        .sound("default")
-        .show()
-        .map_err(|e| AppError::internal(format!("Failed to send notification: {}", e)))?;
-    Ok(())
+        .body(&body);
+
+    if let Some(ref route) = route {
+        let mut info = HashMap::new();
+        info.insert("route".to_string(), route.clone());
+        builder = builder.set_user_info(info);
+    }
+
+    match manager.0.send_notification(builder).await {
+        Ok(handle) => {
+            log::info!("[notifications] Notification sent successfully, id={}", handle.get_id());
+            Ok(())
+        }
+        Err(e) => {
+            log::error!("[notifications] Failed to send notification: {}", e);
+            Err(AppError::internal(format!("Failed to send notification: {}", e)))
+        }
+    }
 }
