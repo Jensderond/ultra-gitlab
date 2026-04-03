@@ -23,7 +23,7 @@ use commands::{
     get_token_info, list_my_merge_requests, list_pipeline_projects, merge_mr, play_pipeline_job,
     resolve_mr_by_web_url, fetch_mr_by_web_url,
     rebase_mr, refresh_avatars, refresh_gitattributes, regenerate_companion_pin, rename_instance, set_companion_pin,
-    remove_pipeline_project, reply_to_comment, resolve_discussion, retry_failed_actions,
+    remove_pipeline_project, reply_to_comment, resolve_discussion, resolve_project_by_path, retry_failed_actions,
     retry_pipeline_job, revoke_companion_device, search_projects, send_native_notification,
     set_default_instance, setup_gitlab_instance, start_companion_server_cmd, stop_companion_server_cmd,
     toggle_pin_pipeline_project, trigger_sync, unapprove_mr, update_collapse_patterns,
@@ -43,6 +43,7 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
 use tauri_plugin_aptabase::EventTracker;
+use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_store::StoreExt;
 
 #[tauri::command]
@@ -65,6 +66,15 @@ pub fn run() {
     let _rt_guard = rt.enter();
 
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .targets([
+                    Target::new(TargetKind::Stdout),
+                    Target::new(TargetKind::LogDir { file_name: None }),
+                    Target::new(TargetKind::Webview),
+                ])
+                .build(),
+        )
         .plugin(tauri_plugin_aptabase::Builder::new("A-EU-7406096367").build())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
@@ -81,7 +91,7 @@ pub fn run() {
 
             let db_path = db::get_db_path(&app_data_dir);
 
-            println!("Database path: {}", db_path.display());
+            log::info!("Database path: {}", db_path.display());
 
             // Async initialization via spawn + channel.
             // Cannot use tauri::async_runtime::block_on here because the main thread
@@ -96,7 +106,7 @@ pub fn run() {
                 .and_then(|store| store.get("sync_config"))
                 .and_then(|v| serde_json::from_value(v.clone()).ok())
                 .unwrap_or_default();
-            eprintln!(
+            log::info!(
                 "[sync] Loaded sync config: sync_authored={}, sync_reviewing={}",
                 sync_config.sync_authored, sync_config.sync_reviewing
             );
@@ -110,7 +120,7 @@ pub fn run() {
                 // Start background sync engine (needs active Tokio runtime for tokio::spawn)
                 let sync_handle =
                     SyncEngine::start_background(pool.clone(), sync_config, Arc::new(TauriEmitter(app_handle)));
-                eprintln!("[sync] Background sync engine started");
+                log::info!("[sync] Background sync engine started");
 
                 let _ = init_tx.send((pool, sync_handle));
             });
@@ -159,12 +169,12 @@ pub fn run() {
                             )
                             .await
                             {
-                                Ok(()) => eprintln!("[companion] Auto-started on port {}", port),
-                                Err(e) => eprintln!("[companion] Auto-start failed: {}", e),
+                                Ok(()) => log::info!("[companion] Auto-started on port {}", port),
+                                Err(e) => log::error!("[companion] Auto-start failed: {}", e),
                             }
                         });
                     } else {
-                        eprintln!("[companion] Auto-start skipped: frontend dist not found");
+                        log::warn!("[companion] Auto-start skipped: frontend dist not found");
                     }
                 }
             }
@@ -324,6 +334,7 @@ pub fn run() {
             retry_pipeline_job,
             cancel_pipeline_job,
             cancel_pipeline,
+            resolve_project_by_path,
             // Theme & Font
             list_system_fonts,
             update_theme,

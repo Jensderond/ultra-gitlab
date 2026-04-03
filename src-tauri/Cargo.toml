@@ -41,7 +41,8 @@ thiserror = "2"
 
 # Logging
 log = "0.4"
-env_logger = "0.11"
+tauri-plugin-log = "2"
+env_logger = "0.11"  # used by bench_sync binary
 
 # System Information (memory, CPU)
 sysinfo = "0.32"
