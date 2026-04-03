@@ -376,8 +376,8 @@ export async function unapproveMR(mrId: number): Promise<void> {
 /**
  * Trigger a manual sync.
  */
-export async function triggerSync(): Promise<void> {
-  return invoke<void>('trigger_sync');
+export async function triggerSync(force = false): Promise<void> {
+  return invoke<void>('trigger_sync', { force });
 }
 
 /**

@@ -68,8 +68,11 @@ pub async fn get_action_counts(pool: State<'_, DbPool>) -> Result<ActionCountsRe
 /// Sends a trigger command to the background sync engine.
 /// The sync runs asynchronously; poll get_sync_status for results.
 #[tauri::command]
-pub async fn trigger_sync(sync_handle: State<'_, SyncHandle>) -> Result<(), AppError> {
-    sync_handle.trigger_sync().await
+pub async fn trigger_sync(
+    sync_handle: State<'_, SyncHandle>,
+    force: Option<bool>,
+) -> Result<(), AppError> {
+    sync_handle.trigger_sync_force(force.unwrap_or(false)).await
 }
 
 /// Get the current sync status.

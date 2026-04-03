@@ -163,7 +163,7 @@ function AppContent() {
 
   useHotkey(parseHotkey(getKey('trigger-sync') ?? 'Mod+R'), () => {
     trackShortcut('Mod+R', 'trigger_sync', 'global');
-    manualSync().catch(console.error);
+    manualSync(true).catch(console.error);
   }, { enabled: isTauri });
 
   useHotkey(parseHotkey(getKey('keyboard-help') ?? '?'), () => {
@@ -219,7 +219,7 @@ function AppContent() {
 
       // Sync commands always available
       [CommandId.TriggerSync]: () => {
-        manualSync().catch(console.error);
+        manualSync(true).catch(console.error);
       },
 
       // Go back - context dependent

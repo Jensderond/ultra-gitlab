@@ -147,8 +147,9 @@ pub struct SyncResult {
 /// Commands that can be sent to the sync engine.
 #[derive(Debug)]
 pub enum SyncCommand {
-    /// Trigger an immediate sync.
-    TriggerSync,
+    /// Trigger an immediate sync. If `force` is true, skip the
+    /// "MR unchanged" optimisation so diffs/files are always re-fetched.
+    TriggerSync { force: bool },
 
     /// Flush pending actions of the given types immediately.
     FlushActions(Vec<ActionType>),
@@ -175,11 +176,18 @@ pub struct SyncHandle {
 
 impl SyncHandle {
     /// Trigger an immediate sync.
-    pub async fn trigger_sync(&self) -> Result<(), AppError> {
+    /// When `force` is true the "MR unchanged" optimisation is bypassed
+    /// so diffs and files are always re-fetched.
+    pub async fn trigger_sync_force(&self, force: bool) -> Result<(), AppError> {
         self.command_tx
-            .send(SyncCommand::TriggerSync)
+            .send(SyncCommand::TriggerSync { force })
             .await
             .map_err(|_| AppError::internal("Sync engine not running"))
+    }
+
+    /// Trigger an immediate (non-force) sync.
+    pub async fn trigger_sync(&self) -> Result<(), AppError> {
+        self.trigger_sync_force(false).await
     }
 
     /// Flush pending actions of the given types immediately.
@@ -367,9 +375,9 @@ impl SyncEngine {
                     }
                     Some(cmd) = rx.recv() => {
                         match cmd {
-                            SyncCommand::TriggerSync => {
-                                eprintln!("[sync] Manual sync triggered");
-                                if let Err(e) = engine.run_sync().await {
+                            SyncCommand::TriggerSync { force } => {
+                                eprintln!("[sync] Manual sync triggered (force={})", force);
+                                if let Err(e) = engine.run_sync_with_force(force).await {
                                     eprintln!("[sync] Manual sync error: {}", e);
                                 }
                             }
@@ -409,6 +417,10 @@ impl SyncEngine {
     /// 3. Pushes pending local actions to GitLab
     /// 4. Purges merged/closed MRs
     pub async fn run_sync(&self) -> Result<SyncResult, AppError> {
+        self.run_sync_with_force(false).await
+    }
+
+    pub async fn run_sync_with_force(&self, force: bool) -> Result<SyncResult, AppError> {
         let start = Instant::now();
         let sync_run_id = uuid::Uuid::new_v4().to_string();
 
@@ -445,7 +457,7 @@ impl SyncEngine {
         let mut total_api_calls: u64 = 0;
 
         for instance in instances {
-            match self.sync_instance(&instance, &sync_run_id).await {
+            match self.sync_instance(&instance, &sync_run_id, force).await {
                 Ok(instance_result) => {
                     result.mr_count += instance_result.mr_count;
                     result.purged_count += instance_result.purged_count;
@@ -600,6 +612,7 @@ impl SyncEngine {
         &self,
         instance: &GitLabInstanceRow,
         sync_run_id: &str,
+        force: bool,
     ) -> Result<SyncResult, AppError> {
         let instance_start = Instant::now();
         let config = self.config.read().await;
@@ -715,7 +728,7 @@ impl SyncEngine {
             join_set.spawn(async move {
                 let mr_iid = mr.iid;
                 let res = engine
-                    .sync_mr(instance_id, &client, &mr, current_user_id, &sync_run_id)
+                    .sync_mr(instance_id, &client, &mr, current_user_id, &sync_run_id, force)
                     .await;
                 drop(permit);
                 (mr_iid, res)
@@ -922,6 +935,7 @@ impl SyncEngine {
         mr: &GitLabMergeRequest,
         current_user_id: Option<i64>,
         sync_run_id: &str,
+        force: bool,
     ) -> Result<i64, AppError> {
         let start = Instant::now();
 
@@ -1037,7 +1051,27 @@ impl SyncEngine {
         // Approvals are always fetched above since GitLab doesn't update
         // updated_at on approve/unapprove.
         let fresh_updated_at = parse_iso_timestamp(&mr.updated_at);
-        let mr_unchanged = !is_new && cached_updated_at == Some(fresh_updated_at);
+        let mut mr_unchanged = !force && !is_new && cached_updated_at == Some(fresh_updated_at);
+
+        // Even if the MR looks unchanged, re-fetch if it has no cached files.
+        // This handles MRs that were synced before file caching completed.
+        if mr_unchanged {
+            let cached_file_count: (i64,) = sqlx::query_as(
+                "SELECT COUNT(*) FROM file_versions WHERE mr_id = ?"
+            )
+            .bind(local_mr_id)
+            .fetch_one(&self.pool)
+            .await
+            .unwrap_or((0,));
+
+            if cached_file_count.0 == 0 {
+                log::info!(
+                    "[sync] MR !{}: unchanged but has 0 cached files, re-fetching",
+                    mr.iid
+                );
+                mr_unchanged = false;
+            }
+        }
 
         if mr_unchanged {
             log::info!(

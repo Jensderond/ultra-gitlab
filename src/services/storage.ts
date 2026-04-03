@@ -31,8 +31,8 @@ import type {
  * 1. Fetch new/updated MRs from GitLab
  * 2. Push any pending local actions (comments, approvals)
  */
-export async function manualSync(): Promise<void> {
-  return triggerSync();
+export async function manualSync(force = false): Promise<void> {
+  return triggerSync(force);
 }
 
 /**
