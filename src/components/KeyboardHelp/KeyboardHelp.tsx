@@ -12,21 +12,25 @@ import {
   getContextsForRoute,
 } from '../../config/shortcuts';
 
-// TODO(task-7): replace with TanStack display helper
-function formatKey(key: string): string {
-  return key
-    .replace(/Mod\+/g, '⌘')
-    .replace(/Cmd\+/g, '⌘')
-    .replace(/Command\+/g, '⌘')
-    .replace(/Ctrl\+/g, '⌃')
-    .replace(/Control\+/g, '⌃')
-    .replace(/Alt\+/g, '⌥')
-    .replace(/Option\+/g, '⌥')
-    .replace(/Shift\+/g, '⇧')
-    .replace(/Enter/g, '↵')
-    .replace(/Escape/g, 'Esc');
-}
+import { formatForDisplay } from '@tanstack/react-hotkeys';
 import { useShortcuts } from '../ShortcutsProvider';
+
+const arrowSymbolMap: Record<string, string> = {
+  '↓': 'ArrowDown',
+  '↑': 'ArrowUp',
+  '→': 'ArrowRight',
+  '←': 'ArrowLeft',
+};
+
+function formatKeyDisplay(key: string): string {
+  return key
+    .split(' / ')
+    .map((part) => {
+      const mapped = arrowSymbolMap[part] ?? part;
+      return formatForDisplay(mapped);
+    })
+    .join(' / ');
+}
 import { renderKeyGlyphs } from '../KeyGlyph';
 import './KeyboardHelp.css';
 
@@ -118,7 +122,7 @@ export default function KeyboardHelp({ isOpen, onClose, pathname }: KeyboardHelp
                           {keys.map((key, i) => (
                             <span key={key}>
                               {i > 0 && <span className="shortcut-separator">/</span>}
-                              <kbd className={`shortcut-key${customKey ? ' shortcut-key--custom' : ''}`}>{renderKeyGlyphs(formatKey(key))}</kbd>
+                              <kbd className={`shortcut-key${customKey ? ' shortcut-key--custom' : ''}`}>{renderKeyGlyphs(formatKeyDisplay(key))}</kbd>
                             </span>
                           ))}
                         </span>

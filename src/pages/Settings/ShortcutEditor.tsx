@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useHotkeyRecorder, formatForDisplay } from '@tanstack/react-hotkeys';
 import { useShortcuts } from '../../components/ShortcutsProvider';
 import { renderKeyGlyphs } from '../../components/KeyGlyph';
 import {
@@ -7,19 +8,21 @@ import {
   type ShortcutCategory,
 } from '../../config/shortcuts';
 
-// TODO(task-7): replace with TanStack display helper
-function formatKey(key: string): string {
+const arrowSymbolMap: Record<string, string> = {
+  '↓': 'ArrowDown',
+  '↑': 'ArrowUp',
+  '→': 'ArrowRight',
+  '←': 'ArrowLeft',
+};
+
+function formatKeyDisplay(key: string): string {
   return key
-    .replace(/Mod\+/g, '⌘')
-    .replace(/Cmd\+/g, '⌘')
-    .replace(/Command\+/g, '⌘')
-    .replace(/Ctrl\+/g, '⌃')
-    .replace(/Control\+/g, '⌃')
-    .replace(/Alt\+/g, '⌥')
-    .replace(/Option\+/g, '⌥')
-    .replace(/Shift\+/g, '⇧')
-    .replace(/Enter/g, '↵')
-    .replace(/Escape/g, 'Esc');
+    .split(' / ')
+    .map((part) => {
+      const mapped = arrowSymbolMap[part] ?? part;
+      return formatForDisplay(mapped);
+    })
+    .join(' / ');
 }
 
 /**
@@ -36,9 +39,50 @@ export default function ShortcutEditor() {
   } = useShortcuts();
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const saveKey = async (id: string, key: string) => {
+    if (isKeyInUse(key, id)) {
+      setError('This key is already in use');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await setBinding(id, key);
+      setEditingId(null);
+      setError(null);
+    } catch {
+      setError('Failed to save shortcut');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const { isRecording, startRecording, cancelRecording } = useHotkeyRecorder({
+    onRecord: (hotkey) => {
+      if (editingId) {
+        saveKey(editingId, hotkey);
+      }
+    },
+    onCancel: () => {
+      setEditingId(null);
+      setError(null);
+    },
+  });
+
+  const startEditing = (shortcutId: string) => {
+    setEditingId(shortcutId);
+    setError(null);
+    startRecording();
+  };
+
+  const cancelEditing = () => {
+    cancelRecording();
+    setEditingId(null);
+    setError(null);
+  };
 
   const groupedShortcuts = useCallback(() => {
     const groups = new Map<ShortcutCategory, typeof defaultShortcuts>();
@@ -64,60 +108,6 @@ export default function ShortcutEditor() {
 
     return groups;
   }, []);
-
-  const startEditing = (shortcutId: string, currentKey: string) => {
-    setEditingId(shortcutId);
-    setEditValue(currentKey);
-    setError(null);
-  };
-
-  const cancelEditing = () => {
-    setEditingId(null);
-    setEditValue('');
-    setError(null);
-  };
-
-  const saveKey = async (id: string, key: string) => {
-    if (isKeyInUse(key, id)) {
-      setError('This key is already in use');
-      return;
-    }
-
-    try {
-      setSaving(true);
-      await setBinding(id, key);
-      setEditingId(null);
-      setEditValue('');
-      setError(null);
-    } catch {
-      setError('Failed to save shortcut');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    e.preventDefault();
-
-    if (e.key === 'Escape') {
-      cancelEditing();
-      return;
-    }
-
-    // Ignore modifier-only presses
-    if (['Meta', 'Control', 'Alt', 'Shift'].includes(e.key)) return;
-
-    let key = '';
-    if (e.metaKey || e.ctrlKey) key += e.metaKey ? 'Cmd+' : 'Ctrl+';
-    if (e.altKey) key += 'Alt+';
-    if (e.shiftKey && e.key !== 'Shift') key += 'Shift+';
-    key += e.key.length === 1 ? e.key.toUpperCase() : e.key;
-
-    if (key && editingId) {
-      setEditValue(key);
-      saveKey(editingId, key);
-    }
-  };
 
   const handleReset = async (shortcutId: string) => {
     try {
@@ -194,9 +184,8 @@ export default function ShortcutEditor() {
                           <input
                             type="text"
                             className="shortcut-input"
-                            value={editValue}
-                            onChange={() => {}}
-                            onKeyDown={handleKeyDown}
+                            value={isRecording ? 'Recording…' : ''}
+                            readOnly
                             onBlur={cancelEditing}
                             placeholder="Press new shortcut…"
                             autoFocus
@@ -209,17 +198,17 @@ export default function ShortcutEditor() {
                         <div className="shortcut-display-controls">
                           <kbd
                             className={`shortcut-key-display ${isCustom ? 'custom' : ''}`}
-                            onClick={() => startEditing(shortcut.id, currentKey)}
+                            onClick={() => startEditing(shortcut.id)}
                             title="Click to edit"
                           >
-                            {renderKeyGlyphs(formatKey(currentKey))}
+                            {renderKeyGlyphs(formatKeyDisplay(currentKey))}
                           </kbd>
                           {isCustom && (
                             <button
                               className="shortcut-reset-button"
                               onClick={() => handleReset(shortcut.id)}
                               disabled={saving}
-                              title={`Reset to ${formatKey(shortcut.defaultKey)}`}
+                              title={`Reset to ${formatKeyDisplay(shortcut.defaultKey)}`}
                             >
                               ↺
                             </button>

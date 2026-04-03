@@ -5,6 +5,7 @@
  * and keyboard shortcut display.
  */
 
+import { formatForDisplay } from '@tanstack/react-hotkeys';
 import type { Command } from './CommandPalette';
 import './CommandItem.css';
 
@@ -24,44 +25,16 @@ interface CommandItemProps {
  * Converts "Cmd+P" to separate kbd elements for each part.
  */
 function formatShortcut(shortcut: string): React.ReactNode {
-  const parts = shortcut.split('+');
+  const display = formatForDisplay(shortcut);
+  // Split on '+' for non-mac, or on space for mac symbol output
+  const parts = display.includes('+') ? display.split('+') : display.split(' ').filter(Boolean);
   return (
     <span className="command-item-shortcut">
-      {parts.map((part) => (
-        <kbd key={part}>{formatKeyPart(part)}</kbd>
+      {parts.map((part, i) => (
+        <kbd key={`${part}-${i}`}>{part}</kbd>
       ))}
     </span>
   );
-}
-
-/**
- * Format a single key part for display.
- * Converts common names to symbols.
- */
-function formatKeyPart(part: string): string {
-  const keyMap: Record<string, string> = {
-    Cmd: '⌘',
-    Command: '⌘',
-    Ctrl: '⌃',
-    Control: '⌃',
-    Alt: '⌥',
-    Option: '⌥',
-    Shift: '⇧',
-    Enter: '↵',
-    Return: '↵',
-    Escape: '⎋',
-    Esc: '⎋',
-    Tab: '⇥',
-    Backspace: '⌫',
-    Delete: '⌦',
-    Up: '↑',
-    Down: '↓',
-    Left: '←',
-    Right: '→',
-    Space: '␣',
-  };
-
-  return keyMap[part] || part.toUpperCase();
 }
 
 /**
