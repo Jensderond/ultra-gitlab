@@ -8,7 +8,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { parseDeepLinkUrl, type DeepLinkData } from '../utils/deepLinkParser';
+import { parseDeepLinkUrl } from '../utils/deepLinkParser';
 import { fetchMrByWebUrl } from '../services';
 import './MRLoadingPage.css';
 
@@ -24,9 +24,10 @@ export default function MRLoadingPage() {
   const webUrl = searchParams.get('url') || '';
 
   // Parse display info from the URL
-  const parsed: DeepLinkData | null = webUrl
+  const deepLink = webUrl
     ? parseDeepLinkUrl(`ultra-gitlab://open?url=${encodeURIComponent(webUrl)}`)
     : null;
+  const parsed = deepLink?.type === 'mr' ? deepLink : null;
 
   useEffect(() => {
     if (!webUrl || webUrl === lastProcessedUrl.current) return;

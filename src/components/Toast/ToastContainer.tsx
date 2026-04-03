@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { openExternalUrl } from '../../services/transport';
 import { useToast, type Toast } from './ToastContext';
 import './Toast.css';
@@ -42,15 +43,17 @@ function ToastIcon({ type }: { type: Toast['type'] }) {
   }
 }
 
-function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string) => void }) {
+function ToastItem({ toast, onDismiss, onNavigate }: { toast: Toast; onDismiss: (id: string) => void; onNavigate: (route: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
 
   const handleView = useCallback(() => {
-    if (toast.url) {
+    if (toast.route) {
+      onNavigate(toast.route);
+    } else if (toast.url) {
       openExternalUrl(toast.url).catch(console.error);
     }
     onDismiss(toast.id);
-  }, [toast.url, toast.id, onDismiss]);
+  }, [toast.route, toast.url, toast.id, onDismiss, onNavigate]);
 
   // Fade-out animation before removal
   useEffect(() => {
@@ -74,7 +77,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
         <div className="toast-body">{toast.body}</div>
       </div>
       <div className="toast-actions">
-        {toast.url && (
+        {(toast.route || toast.url) && (
           <button className="toast-view-btn" onClick={handleView}>
             View
           </button>
@@ -91,13 +94,18 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
 
 export default function ToastContainer() {
   const { toasts, removeToast } = useToast();
+  const navigate = useNavigate();
+
+  const handleNavigate = useCallback((route: string) => {
+    navigate(route);
+  }, [navigate]);
 
   if (toasts.length === 0) return null;
 
   return (
     <div className="toast-container">
       {toasts.map((toast) => (
-        <ToastItem key={toast.id} toast={toast} onDismiss={removeToast} />
+        <ToastItem key={toast.id} toast={toast} onDismiss={removeToast} onNavigate={handleNavigate} />
       ))}
     </div>
   );

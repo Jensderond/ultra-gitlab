@@ -771,7 +771,7 @@ impl SyncEngine {
         }
 
         // Detect MR ready-to-merge transitions and emit notifications
-        self.check_mr_ready_transitions(&mr_ids, &pre_sync_ready, &mrs)
+        self.check_mr_ready_transitions(&mr_ids, &pre_sync_ready, &mrs, current_username.as_deref())
             .await;
 
         // Fetch and cache project titles for any new project IDs
@@ -960,7 +960,43 @@ impl SyncEngine {
 
         // Always fetch approvals — GitLab doesn't update updated_at on approve/unapprove,
         // so the skip-unchanged optimization below can't cover approvals safely.
-        match client.get_mr_approvals(mr.project_id, mr.iid).await {
+        //
+        // Also fetch individual MR when head_pipeline is missing from list endpoint
+        // (GitLab 14.5+ no longer includes it in list responses). This is needed for
+        // the "MR ready to merge" notification which checks head_pipeline_status.
+        let needs_pipeline_fetch = mr.head_pipeline.is_none();
+        let (approvals_result, pipeline_status) = tokio::join!(
+            client.get_mr_approvals(mr.project_id, mr.iid),
+            async {
+                if needs_pipeline_fetch {
+                    match client.get_merge_request(mr.project_id, mr.iid).await {
+                        Ok(detail) => detail.head_pipeline.map(|p| p.status),
+                        Err(e) => {
+                            log::warn!("Failed to fetch MR detail for pipeline status (MR !{}): {}", mr.iid, e);
+                            None
+                        }
+                    }
+                } else {
+                    None
+                }
+            }
+        );
+
+        // Update head_pipeline_status from individual MR fetch if list didn't include it
+        if let Some(status) = &pipeline_status {
+            if let Err(e) = sqlx::query(
+                "UPDATE merge_requests SET head_pipeline_status = ? WHERE id = ?",
+            )
+            .bind(status)
+            .bind(local_mr_id)
+            .execute(&self.pool)
+            .await
+            {
+                log::warn!("Failed to update head_pipeline_status for MR !{}: {}", mr.iid, e);
+            }
+        }
+
+        match approvals_result {
             Ok(approvals) => {
                 // Use pre-fetched current_user_id (hoisted to sync_instance) to avoid
                 // per-MR validate_token() calls and transient-failure false negatives
@@ -1424,7 +1460,7 @@ impl SyncEngine {
                 reviewers = excluded.reviewers,
                 cached_at = excluded.cached_at,
                 project_name = excluded.project_name,
-                head_pipeline_status = excluded.head_pipeline_status,
+                head_pipeline_status = COALESCE(excluded.head_pipeline_status, merge_requests.head_pipeline_status),
                 state_changed_at = CASE
                     WHEN excluded.state != 'opened' AND merge_requests.state = 'opened'
                         THEN excluded.state_changed_at
@@ -2291,6 +2327,9 @@ impl SyncEngine {
                                 new_status: pipeline.status.clone(),
                                 ref_name: pipeline.ref_name.clone(),
                                 web_url: pipeline.web_url.clone(),
+                                instance_id: instance.id,
+                                project_id,
+                                pipeline_id: pipeline.id,
                             },
                         );
                     } else {
@@ -2359,15 +2398,25 @@ impl SyncEngine {
 
     /// Check for MR ready-to-merge transitions and emit notification events.
     ///
-    /// Compares pre-sync state with post-sync state. Only emits for MRs that
-    /// transitioned from not-ready to ready, and only if notification settings
-    /// have mr_ready_to_merge enabled.
+    /// Compares pre-sync state with post-sync state. Only emits for MRs where
+    /// the current user is an assignee and the MR transitioned from not-ready
+    /// to ready, and only if notification settings have mr_ready_to_merge enabled.
     async fn check_mr_ready_transitions(
         &self,
         mr_ids: &[i64],
         pre_sync_ready: &std::collections::HashMap<i64, bool>,
         mrs: &[GitLabMergeRequest],
+        current_username: Option<&str>,
     ) {
+        // Need the current username to check assignee status
+        let username = match current_username {
+            Some(u) => u,
+            None => {
+                log::warn!("No current username available, skipping MR ready check");
+                return;
+            }
+        };
+
         // Check notification settings first
         let settings =
             match crate::db::notification_settings::get_notification_settings(&self.pool).await {
@@ -2388,6 +2437,15 @@ impl SyncEngine {
         for mr in mrs {
             let mr_id = mr.id;
 
+            // Only notify for MRs where the current user is an assignee
+            let is_assignee = mr
+                .assignees
+                .as_ref()
+                .is_some_and(|a| a.iter().any(|u| u.username == username));
+            if !is_assignee {
+                continue;
+            }
+
             // Skip if already notified this session
             if self.notified_mr_ready.read().await.contains(&mr_id) {
                 continue;
@@ -2406,6 +2464,7 @@ impl SyncEngine {
                         title: mr.title.clone(),
                         project_name,
                         web_url: mr.web_url.clone(),
+                        mr_id: mr.id,
                     },
                 );
 

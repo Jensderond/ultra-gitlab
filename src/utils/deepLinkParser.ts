@@ -1,9 +1,20 @@
-export interface DeepLinkData {
+export interface MrDeepLinkData {
+  type: 'mr';
   instanceHost: string;
   projectPath: string;
   mrIid: number;
   webUrl: string;
 }
+
+export interface PipelineDeepLinkData {
+  type: 'pipeline';
+  instanceHost: string;
+  projectPath: string;
+  pipelineId: number;
+  webUrl: string;
+}
+
+export type DeepLinkData = MrDeepLinkData | PipelineDeepLinkData;
 
 export function parseDeepLinkUrl(deepLinkUrl: string): DeepLinkData | null {
   try {
@@ -22,25 +33,33 @@ export function parseDeepLinkUrl(deepLinkUrl: string): DeepLinkData | null {
 
     const gitlabUrl = new URL(webUrl);
     const instanceHost = gitlabUrl.host;
-
-    const mrDelimiter = '/-/merge_requests/';
     const pathStr = gitlabUrl.pathname;
-    const delimiterIndex = pathStr.indexOf(mrDelimiter);
 
-    if (delimiterIndex === -1) {
-      return null;
+    // Try MR URL: /group/project/-/merge_requests/123
+    const mrDelimiter = '/-/merge_requests/';
+    const mrIndex = pathStr.indexOf(mrDelimiter);
+    if (mrIndex !== -1) {
+      const projectPath = pathStr.substring(1, mrIndex);
+      const mrIidStr = pathStr.substring(mrIndex + mrDelimiter.length).replace(/\/+$/, '');
+      const mrIid = parseInt(mrIidStr, 10);
+
+      if (!projectPath || isNaN(mrIid) || mrIid <= 0) return null;
+      return { type: 'mr', instanceHost, projectPath, mrIid, webUrl };
     }
 
-    const projectPath = pathStr.substring(1, delimiterIndex);
-    const afterDelimiter = pathStr.substring(delimiterIndex + mrDelimiter.length);
-    const mrIidStr = afterDelimiter.replace(/\/+$/, '');
-    const mrIid = parseInt(mrIidStr, 10);
+    // Try pipeline URL: /group/project/-/pipelines/309881
+    const pipelineDelimiter = '/-/pipelines/';
+    const pipelineIndex = pathStr.indexOf(pipelineDelimiter);
+    if (pipelineIndex !== -1) {
+      const projectPath = pathStr.substring(1, pipelineIndex);
+      const pipelineIdStr = pathStr.substring(pipelineIndex + pipelineDelimiter.length).replace(/\/+$/, '');
+      const pipelineId = parseInt(pipelineIdStr, 10);
 
-    if (!projectPath || isNaN(mrIid) || mrIid <= 0) {
-      return null;
+      if (!projectPath || isNaN(pipelineId) || pipelineId <= 0) return null;
+      return { type: 'pipeline', instanceHost, projectPath, pipelineId, webUrl };
     }
 
-    return { instanceHost, projectPath, mrIid, webUrl };
+    return null;
   } catch {
     return null;
   }

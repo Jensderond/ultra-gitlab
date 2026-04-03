@@ -6,6 +6,8 @@ export interface Toast {
   title: string;
   body: string;
   url?: string;
+  /** In-app route to navigate to when clicking the toast */
+  route?: string;
 }
 
 interface ToastContextValue {

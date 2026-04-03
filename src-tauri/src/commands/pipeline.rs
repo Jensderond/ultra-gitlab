@@ -439,6 +439,64 @@ pub async fn get_job_trace(
     client.get_job_trace(project_id, job_id).await
 }
 
+/// Resolve a project by its path (e.g. "group/subgroup/project") and return its numeric ID and name.
+/// Used by deep links to resolve pipeline URLs to in-app routes.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResolvedProject {
+    pub id: i64,
+    pub name_with_namespace: String,
+}
+
+#[tauri::command]
+pub async fn resolve_project_by_path(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_path: String,
+) -> Result<ResolvedProject, AppError> {
+    // Check local cache first
+    let cached: Option<Project> = sqlx::query_as(
+        r#"
+        SELECT id, instance_id, name, name_with_namespace, path_with_namespace, web_url, created_at, updated_at
+        FROM projects
+        WHERE instance_id = ? AND path_with_namespace = ?
+        "#,
+    )
+    .bind(instance_id)
+    .bind(&project_path)
+    .fetch_optional(pool.inner())
+    .await?;
+
+    if let Some(p) = cached {
+        return Ok(ResolvedProject {
+            id: p.id,
+            name_with_namespace: p.name_with_namespace,
+        });
+    }
+
+    // Fetch from GitLab API
+    let client = create_gitlab_client(&pool, instance_id).await?;
+    let gitlab_project = client.get_project_by_path(&project_path).await?;
+
+    // Cache it
+    let project = Project {
+        id: gitlab_project.id,
+        instance_id,
+        name: gitlab_project.name.clone(),
+        name_with_namespace: gitlab_project.name_with_namespace.clone(),
+        path_with_namespace: gitlab_project.path_with_namespace,
+        web_url: gitlab_project.web_url,
+        created_at: gitlab_project.created_at,
+        updated_at: gitlab_project.updated_at,
+    };
+    let _ = project::upsert_project(pool.inner(), &project).await;
+
+    Ok(ResolvedProject {
+        id: gitlab_project.id,
+        name_with_namespace: gitlab_project.name_with_namespace,
+    })
+}
+
 /// Helper to create a GitLab API client from an instance ID.
 async fn create_gitlab_client(
     pool: &State<'_, DbPool>,

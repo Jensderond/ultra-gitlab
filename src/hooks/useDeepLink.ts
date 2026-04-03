@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useToast } from '../components/Toast';
 import { parseDeepLinkUrl } from '../utils/deepLinkParser';
-import { isTauri, resolveMrByWebUrl, listInstances } from '../services';
+import { isTauri, resolveMrByWebUrl, listInstances, resolveProjectByPath, getProjectPipelines } from '../services';
 
 // Module-level flag so the cold-start URL is only processed once,
 // even if the hook effect re-runs (React strict mode, HMR, etc.)
@@ -60,7 +60,32 @@ export default function useDeepLink() {
           return;
         }
 
-        // Try to resolve the MR locally
+        if (data.type === 'pipeline') {
+          // Resolve project path to numeric ID, then navigate to pipeline detail
+          try {
+            const project = await resolveProjectByPath(matchingInstance.id, data.projectPath);
+            // Fetch the specific pipeline to get ref and webUrl for the detail page
+            const pipelines = await getProjectPipelines(matchingInstance.id, project.id, 50);
+            const pipeline = pipelines.find((p) => p.id === data.pipelineId);
+            const params = new URLSearchParams({
+              instance: String(matchingInstance.id),
+              project: project.nameWithNamespace,
+              ref: pipeline?.refName ?? '',
+              url: pipeline?.webUrl ?? data.webUrl,
+            });
+            navigate(`/pipelines/${project.id}/${data.pipelineId}?${params.toString()}`);
+          } catch (err) {
+            addToast({
+              type: 'info',
+              title: 'Pipeline not found',
+              body: err instanceof Error ? err.message : 'Could not resolve pipeline',
+            });
+            navigate('/pipelines');
+          }
+          return;
+        }
+
+        // MR deep link
         const resolved = await resolveMrByWebUrl(data.webUrl);
 
         if (!resolved) {

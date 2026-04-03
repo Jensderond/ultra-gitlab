@@ -7,6 +7,7 @@
 
 import { useState, useReducer, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { openExternalUrl } from '../../services/transport';
 import { useCopyToast } from '../../hooks/useCopyToast';
 import BackButton from '../../components/BackButton';
@@ -15,11 +16,13 @@ import { useMyMRData } from './useMyMRData';
 import { useCodeTab } from './useCodeTab';
 import { useMyMRKeyboard } from './useMyMRKeyboard';
 import { useSettingsQuery } from '../../hooks/queries/useSettingsQuery';
+import { queryKeys } from '../../lib/queryKeys';
 import { mergeReducer, initialMergeState } from './mergeReducer';
 import { OverviewTab } from './OverviewTab';
 import { CommentsTab } from './CommentsTab';
 import { CodeTab } from './CodeTab';
 import type { MergeActions } from './MergeSection';
+import type { MergeRequest } from '../../types';
 import { ShortcutBar } from '../../components/ShortcutBar';
 import type { ShortcutDef } from '../../components/ShortcutBar';
 import '../MyMRDetailPage.css';
@@ -36,6 +39,7 @@ const shortcuts: ShortcutDef[] = [
 export default function MyMRDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const mrId = parseInt(id || '0', 10);
 
   const [showCopyToast, copyToClipboard] = useCopyToast();
@@ -54,6 +58,17 @@ export default function MyMRDetailPage() {
   const goBack = useCallback(() => {
     navigate('/my-mrs');
   }, [navigate]);
+
+  const handleMerged = useCallback(() => {
+    // Optimistically remove the merged MR from the list cache
+    if (mr?.instanceId) {
+      queryClient.setQueryData<MergeRequest[]>(
+        queryKeys.myMRList(String(mr.instanceId)),
+        (prev) => prev?.filter((item) => item.id !== mrId),
+      );
+    }
+    goBack();
+  }, [mr?.instanceId, mrId, queryClient, goBack]);
 
   useMyMRKeyboard({
     goBack,
@@ -137,7 +152,7 @@ export default function MyMRDetailPage() {
             mrId={mrId}
             setMr={setMr}
             mergeActionsRef={mergeActionsRef}
-            onMerged={goBack}
+            onMerged={handleMerged}
           />
         )}
 

@@ -148,6 +148,7 @@ pub struct GitLabMergeRequest {
     pub author: GitLabUser,
     pub labels: Vec<String>,
     pub reviewers: Option<Vec<GitLabUser>>,
+    pub assignees: Option<Vec<GitLabUser>>,
     pub detailed_merge_status: Option<String>,
     pub head_pipeline: Option<GitLabHeadPipeline>,
 }
@@ -571,6 +572,15 @@ impl GitLabClient {
     /// Get a single project by ID.
     pub async fn get_project(&self, project_id: i64) -> Result<GitLabProject, AppError> {
         let endpoint = format!("/projects/{}", project_id);
+        let url = self.api_url(&endpoint);
+        let response = self.send_with_retry(self.client.get(&url)).await?;
+        self.handle_response(response, &endpoint).await
+    }
+
+    /// Get a single project by URL-encoded path (e.g. "group%2Fproject").
+    pub async fn get_project_by_path(&self, path: &str) -> Result<GitLabProject, AppError> {
+        let encoded = urlencoding::encode(path);
+        let endpoint = format!("/projects/{}", encoded);
         let url = self.api_url(&endpoint);
         let response = self.send_with_retry(self.client.get(&url)).await?;
         self.handle_response(response, &endpoint).await

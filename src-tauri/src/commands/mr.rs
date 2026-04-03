@@ -1102,7 +1102,7 @@ pub async fn fetch_mr_by_web_url(
             reviewers = excluded.reviewers,
             cached_at = excluded.cached_at,
             project_name = excluded.project_name,
-            head_pipeline_status = excluded.head_pipeline_status
+            head_pipeline_status = COALESCE(excluded.head_pipeline_status, merge_requests.head_pipeline_status)
         "#,
     )
     .bind(gitlab_mr.id)
