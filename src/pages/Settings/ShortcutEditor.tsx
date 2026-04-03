@@ -4,9 +4,23 @@ import { renderKeyGlyphs } from '../../components/KeyGlyph';
 import {
   defaultShortcuts,
   categoryLabels,
-  formatKey,
   type ShortcutCategory,
 } from '../../config/shortcuts';
+
+// TODO(task-7): replace with TanStack display helper
+function formatKey(key: string): string {
+  return key
+    .replace(/Mod\+/g, '⌘')
+    .replace(/Cmd\+/g, '⌘')
+    .replace(/Command\+/g, '⌘')
+    .replace(/Ctrl\+/g, '⌃')
+    .replace(/Control\+/g, '⌃')
+    .replace(/Alt\+/g, '⌥')
+    .replace(/Option\+/g, '⌥')
+    .replace(/Shift\+/g, '⇧')
+    .replace(/Enter/g, '↵')
+    .replace(/Escape/g, 'Esc');
+}
 
 /**
  * Shortcut editor component for customizing keyboard shortcuts.

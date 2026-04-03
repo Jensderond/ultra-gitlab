@@ -64,7 +64,7 @@ export const defaultShortcuts: ShortcutDefinition[] = [
   {
     id: 'command-palette',
     description: 'Open command palette',
-    defaultKey: 'Cmd+P',
+    defaultKey: 'Mod+P',
     category: 'global',
     context: 'global',
   },
@@ -78,42 +78,42 @@ export const defaultShortcuts: ShortcutDefinition[] = [
   {
     id: 'open-settings',
     description: 'Open settings',
-    defaultKey: 'Cmd+,',
+    defaultKey: 'Mod+,',
     category: 'global',
     context: 'global',
   },
   {
     id: 'go-to-mr-list',
     description: 'Go to MR list',
-    defaultKey: 'Cmd+L',
+    defaultKey: 'Mod+L',
     category: 'navigation',
     context: 'global',
   },
   {
     id: 'go-to-my-mrs',
     description: 'Go to My MRs',
-    defaultKey: 'Cmd+M',
+    defaultKey: 'Mod+M',
     category: 'navigation',
     context: 'global',
   },
   {
     id: 'go-to-pipelines',
     description: 'Go to Pipelines',
-    defaultKey: 'Cmd+I',
+    defaultKey: 'Mod+I',
     category: 'navigation',
     context: 'global',
   },
   {
     id: 'trigger-sync',
     description: 'Sync with GitLab',
-    defaultKey: 'Cmd+R',
+    defaultKey: 'Mod+R',
     category: 'sync',
     context: 'global',
   },
   {
     id: 'switch-instance',
     description: 'Switch GitLab instance',
-    defaultKey: 'Cmd+1..9',
+    defaultKey: 'Mod+1..9',
     category: 'navigation',
     context: 'global',
   },
@@ -150,7 +150,7 @@ export const defaultShortcuts: ShortcutDefinition[] = [
   {
     id: 'search-filter',
     description: 'Search / Filter',
-    defaultKey: 'Cmd+F',
+    defaultKey: 'Mod+F',
     category: 'list',
     context: 'mr-list',
   },
@@ -379,21 +379,4 @@ export function getShortcutsByCategoryForRoute(
     result.set(cat, sc);
   }
   return result;
-}
-
-/**
- * Format a key for display.
- * Converts modifier keys to symbols.
- */
-export function formatKey(key: string): string {
-  return key
-    .replace(/Cmd\+/g, '⌘')
-    .replace(/Command\+/g, '⌘')
-    .replace(/Ctrl\+/g, '⌃')
-    .replace(/Control\+/g, '⌃')
-    .replace(/Alt\+/g, '⌥')
-    .replace(/Option\+/g, '⌥')
-    .replace(/Shift\+/g, '⇧')
-    .replace(/Enter/g, '↵')
-    .replace(/Escape/g, 'Esc');
 }

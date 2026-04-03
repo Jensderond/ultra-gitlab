@@ -8,10 +8,24 @@
 import { useEffect, useCallback } from 'react';
 import {
   categoryLabels,
-  formatKey,
   getShortcutsByCategoryForRoute,
   getContextsForRoute,
 } from '../../config/shortcuts';
+
+// TODO(task-7): replace with TanStack display helper
+function formatKey(key: string): string {
+  return key
+    .replace(/Mod\+/g, '⌘')
+    .replace(/Cmd\+/g, '⌘')
+    .replace(/Command\+/g, '⌘')
+    .replace(/Ctrl\+/g, '⌃')
+    .replace(/Control\+/g, '⌃')
+    .replace(/Alt\+/g, '⌥')
+    .replace(/Option\+/g, '⌥')
+    .replace(/Shift\+/g, '⇧')
+    .replace(/Enter/g, '↵')
+    .replace(/Escape/g, 'Esc');
+}
 import { useShortcuts } from '../ShortcutsProvider';
 import { renderKeyGlyphs } from '../KeyGlyph';
 import './KeyboardHelp.css';
