@@ -24,7 +24,8 @@ use commands::{
     resolve_mr_by_web_url, fetch_mr_by_web_url,
     rebase_mr, refresh_avatars, refresh_gitattributes, regenerate_companion_pin, rename_instance, set_companion_pin,
     remove_pipeline_project, reply_to_comment, resolve_discussion, resolve_project_by_path, retry_failed_actions,
-    retry_pipeline_job, revoke_companion_device, search_projects, send_native_notification,
+    retry_pipeline_job, revoke_companion_device, search_projects,
+    check_notification_permission, request_notification_permission, send_native_notification,
     set_default_instance, setup_gitlab_instance, start_companion_server_cmd, stop_companion_server_cmd,
     toggle_pin_pipeline_project, trigger_sync, unapprove_mr, update_collapse_patterns,
     update_companion_settings, update_custom_theme_colors, update_diffs_font,
@@ -363,6 +364,8 @@ pub fn run() {
             // Notifications
             get_notification_settings,
             update_notification_settings,
+            check_notification_permission,
+            request_notification_permission,
             send_native_notification,
             // Pipeline dashboard
             list_pipeline_projects,

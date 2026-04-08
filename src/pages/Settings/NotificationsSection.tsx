@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getNotificationSettings, updateNotificationSettings, sendNativeNotification } from '../../services/tauri';
+import { getNotificationSettings, updateNotificationSettings, sendNativeNotification, checkNotificationPermission, requestNotificationPermission } from '../../services/tauri';
 import type { NotificationSettings } from '../../types';
 import { useToast } from '../../components/Toast';
 
@@ -11,9 +11,14 @@ export default function NotificationsSection() {
   const [notifSettings, setNotifSettings] = useState<NotificationSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
+  const [requestingPermission, setRequestingPermission] = useState(false);
 
   useEffect(() => {
     loadNotificationSettings();
+    checkNotificationPermission()
+      .then(setPermissionGranted)
+      .catch(() => setPermissionGranted(null));
   }, []);
 
   async function loadNotificationSettings() {
@@ -43,6 +48,23 @@ export default function NotificationsSection() {
     }
   }
 
+  async function handleRequestPermission() {
+    setRequestingPermission(true);
+    try {
+      const granted = await requestNotificationPermission();
+      setPermissionGranted(granted);
+      if (granted) {
+        addToast({ type: 'info', title: 'Permissions granted', body: 'Native notifications are now enabled' });
+      } else {
+        addToast({ type: 'info', title: 'Permissions denied', body: 'Enable notifications in System Settings → Notifications → Ultra GitLab' });
+      }
+    } catch (err) {
+      console.error('Failed to request notification permission:', err);
+    } finally {
+      setRequestingPermission(false);
+    }
+  }
+
   function handleTestNotification() {
     addToast({
       type: 'mr-ready',
@@ -61,6 +83,21 @@ export default function NotificationsSection() {
         <p className="loading">Loading settings...</p>
       ) : notifSettings ? (
         <div className="sync-settings-form">
+          {permissionGranted === false && (
+            <div className="permission-banner" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', marginBottom: 12, borderRadius: 6, background: 'var(--color-warning-bg, #fef3cd)', color: 'var(--color-warning-text, #856404)' }}>
+              <span style={{ flex: 1, fontSize: 13 }}>
+                Native notification permission not granted. Enable it to receive OS notifications.
+              </span>
+              <button
+                className="add-button"
+                onClick={handleRequestPermission}
+                disabled={requestingPermission}
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                {requestingPermission ? 'Requesting…' : 'Request Permission'}
+              </button>
+            </div>
+          )}
           <div className="checkbox-group">
             <label className="checkbox-label">
               <input
