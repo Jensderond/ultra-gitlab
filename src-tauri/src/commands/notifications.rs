@@ -60,11 +60,27 @@ pub async fn get_notification_permission_status() -> Result<String, AppError> {
 }
 
 /// Request notification permission from the OS. Returns whether permission was granted.
+///
+/// On macOS, the system only shows the permission dialog once per app. If the user
+/// already denied, this returns an error indicating they must enable it via System Settings.
 #[tauri::command]
 pub async fn request_notification_permission(
     manager: tauri::State<'_, NotificationManagerState>,
 ) -> Result<bool, AppError> {
-    log::info!("[notifications] Requesting notification permission from user");
+    // Check current status first — if already denied, don't attempt (macOS won't re-prompt).
+    let status = get_notification_permission_status().await?;
+    if status == "denied" {
+        log::warn!("[notifications] Permission already denied — user must enable via System Settings");
+        return Err(AppError::internal(
+            "Notification permission was denied. Please enable it in System Settings → Notifications → Ultra Gitlab".to_string(),
+        ));
+    }
+    if status == "granted" {
+        log::info!("[notifications] Permission already granted");
+        return Ok(true);
+    }
+
+    log::info!("[notifications] Requesting notification permission from user (status={})", status);
     match manager.0.first_time_ask_for_notification_permission().await {
         Ok(granted) => {
             log::info!("[notifications] Permission request result: granted={}", granted);
