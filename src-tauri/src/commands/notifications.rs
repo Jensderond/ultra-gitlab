@@ -1,4 +1,10 @@
-//! Native notification commands using user-notify.
+//! Native notification commands using user-notify with notify-rust fallback.
+//!
+//! `user-notify` uses macOS `UNUserNotificationCenter` which requires proper code signing.
+//! When the app is ad-hoc signed (e.g. CI builds without a Developer ID certificate),
+//! UNUserNotificationCenter rejects requests with `UNErrorDomain error 1`.
+//! In that case we fall back to `notify-rust` which uses the older notification API
+//! that works without signing (but doesn't support click callbacks).
 
 use crate::error::AppError;
 use crate::NotificationManagerState;
@@ -87,6 +93,13 @@ pub async fn request_notification_permission(
             Ok(granted)
         }
         Err(e) => {
+            // UNErrorDomain error 1 = ad-hoc signed app can't use UNUserNotificationCenter.
+            // Return Ok(true) so the UI enables notifications — the fallback sender will handle delivery.
+            let err_str = format!("{}", e);
+            if err_str.contains("UNErrorDomain error 1") {
+                log::warn!("[notifications] App is ad-hoc signed — UNUserNotificationCenter unavailable, using notify-rust fallback");
+                return Ok(true);
+            }
             log::error!("[notifications] Failed to request permission: {}", e);
             Err(AppError::internal(format!("Failed to request notification permission: {}", e)))
         }
@@ -94,9 +107,13 @@ pub async fn request_notification_permission(
 }
 
 /// Send a native OS notification with an optional in-app route for click navigation.
+///
+/// Tries `user-notify` (UNUserNotificationCenter) first for click callback support.
+/// Falls back to `notify-rust` if that fails (ad-hoc signed builds).
 #[tauri::command]
 pub async fn send_native_notification(
     manager: tauri::State<'_, NotificationManagerState>,
+    app_handle: tauri::AppHandle,
     title: String,
     body: String,
     route: Option<String>,
@@ -119,8 +136,46 @@ pub async fn send_native_notification(
             Ok(())
         }
         Err(e) => {
-            log::error!("[notifications] Failed to send notification: {}", e);
-            Err(AppError::internal(format!("Failed to send notification: {}", e)))
+            log::warn!("[notifications] user-notify failed ({}), falling back to notify-rust", e);
+            send_notification_fallback(&app_handle, &title, &body)
         }
     }
+}
+
+/// Fallback notification sender using `notify-rust` (works with ad-hoc signed builds).
+/// No click callback support, but notifications are delivered.
+#[cfg(target_os = "macos")]
+fn send_notification_fallback(
+    app_handle: &tauri::AppHandle,
+    title: &str,
+    body: &str,
+) -> Result<(), AppError> {
+    let identifier = &app_handle.config().identifier;
+    let _ = notify_rust::set_application(if tauri::is_dev() {
+        "com.apple.Terminal"
+    } else {
+        identifier
+    });
+    notify_rust::Notification::new()
+        .summary(title)
+        .body(body)
+        .show()
+        .map_err(|e| AppError::internal(format!("Fallback notification failed: {}", e)))?;
+    log::info!("[notifications] Fallback notification sent via notify-rust");
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn send_notification_fallback(
+    _app_handle: &tauri::AppHandle,
+    title: &str,
+    body: &str,
+) -> Result<(), AppError> {
+    notify_rust::Notification::new()
+        .summary(title)
+        .body(body)
+        .show()
+        .map_err(|e| AppError::internal(format!("Fallback notification failed: {}", e)))?;
+    log::info!("[notifications] Fallback notification sent via notify-rust");
+    Ok(())
 }

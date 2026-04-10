@@ -93,6 +93,7 @@ cocoa = "0.26"
 block2 = "0.6"
 objc2-user-notifications = "0.3"
 objc2-foundation = "0.3"
+notify-rust = "4"
 
 [[bin]]
 name = "bench_sync"

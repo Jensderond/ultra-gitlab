@@ -7095,6 +7095,7 @@ dependencies = [
  "keyring",
  "local-ip-address",
  "log",
+ "notify-rust",
  "objc2-foundation",
  "objc2-user-notifications",
  "qrcode",
