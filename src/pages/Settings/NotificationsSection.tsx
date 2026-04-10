@@ -84,15 +84,14 @@ export default function NotificationsSection() {
       ) : notifSettings ? (
         <div className="sync-settings-form">
           {permissionGranted === false && (
-            <div className="permission-banner" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', marginBottom: 12, borderRadius: 6, background: 'var(--color-warning-bg, #fef3cd)', color: 'var(--color-warning-text, #856404)' }}>
-              <span style={{ flex: 1, fontSize: 13 }}>
+            <div className="permission-banner" style={{ marginBottom: 12 }}>
+              <span>
                 Native notification permission not granted. Enable it to receive OS notifications.
               </span>
               <button
                 className="add-button"
                 onClick={handleRequestPermission}
                 disabled={requestingPermission}
-                style={{ whiteSpace: 'nowrap' }}
               >
                 {requestingPermission ? 'Requesting…' : 'Request Permission'}
               </button>

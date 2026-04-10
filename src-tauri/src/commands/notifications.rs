@@ -19,6 +19,46 @@ pub async fn check_notification_permission(
     }
 }
 
+/// Return the detailed notification permission status: "granted", "denied", or "not_determined".
+#[tauri::command]
+pub async fn get_notification_permission_status() -> Result<String, AppError> {
+    #[cfg(target_os = "macos")]
+    {
+        use std::cell::RefCell;
+        use std::ptr::NonNull;
+        use objc2_user_notifications::{
+            UNAuthorizationStatus, UNNotificationSettings, UNUserNotificationCenter,
+        };
+
+        let (tx, rx) = tokio::sync::oneshot::channel::<String>();
+        // Scope the block so it's dropped before the .await
+        {
+            let cb = RefCell::new(Some(tx));
+            let block = block2::RcBlock::new(move |settings: NonNull<UNNotificationSettings>| {
+                if let Some(tx) = cb.take() {
+                    let status = unsafe { settings.as_ref().authorizationStatus() };
+                    let label = match status {
+                        UNAuthorizationStatus::Authorized
+                        | UNAuthorizationStatus::Provisional
+                        | UNAuthorizationStatus::Ephemeral => "granted",
+                        UNAuthorizationStatus::Denied => "denied",
+                        UNAuthorizationStatus::NotDetermined => "not_determined",
+                        _ => "not_determined",
+                    };
+                    let _ = tx.send(label.to_string());
+                }
+            });
+            UNUserNotificationCenter::currentNotificationCenter()
+                .getNotificationSettingsWithCompletionHandler(&block);
+        }
+        Ok(rx.await.map_err(|e| AppError::internal(format!("Failed to receive permission status: {}", e)))?)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok("granted".to_string())
+    }
+}
+
 /// Request notification permission from the OS. Returns whether permission was granted.
 #[tauri::command]
 pub async fn request_notification_permission(

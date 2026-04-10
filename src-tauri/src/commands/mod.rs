@@ -55,7 +55,7 @@ pub use mr::{
     merge_mr, rebase_mr, resolve_mr_by_web_url, fetch_mr_by_web_url,
 };
 pub use notification_settings::{get_notification_settings, update_notification_settings};
-pub use notifications::{check_notification_permission, request_notification_permission, send_native_notification};
+pub use notifications::{check_notification_permission, get_notification_permission_status, request_notification_permission, send_native_notification};
 pub use pipeline::{
     cancel_pipeline, cancel_pipeline_job, get_job_trace, get_pipeline_jobs, get_pipeline_statuses,
     get_project_pipelines, list_pipeline_projects, play_pipeline_job, remove_pipeline_project,

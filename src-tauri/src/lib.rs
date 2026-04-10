@@ -25,7 +25,7 @@ use commands::{
     rebase_mr, refresh_avatars, refresh_gitattributes, regenerate_companion_pin, rename_instance, set_companion_pin,
     remove_pipeline_project, reply_to_comment, resolve_discussion, resolve_project_by_path, retry_failed_actions,
     retry_pipeline_job, revoke_companion_device, search_projects,
-    check_notification_permission, request_notification_permission, send_native_notification,
+    check_notification_permission, get_notification_permission_status, request_notification_permission, send_native_notification,
     set_default_instance, setup_gitlab_instance, start_companion_server_cmd, stop_companion_server_cmd,
     toggle_pin_pipeline_project, trigger_sync, unapprove_mr, update_collapse_patterns,
     update_companion_settings, update_custom_theme_colors, update_diffs_font,
@@ -159,16 +159,12 @@ pub fn run() {
                     log::error!("Failed to register notification callback: {}", e);
                 }
 
-                // Request permission and log state (macOS; no-op on other platforms)
+                // Log current permission state at startup (don't request — let the user trigger that from Settings)
                 let perm_manager = notification_manager.clone();
                 tauri::async_runtime::spawn(async move {
                     match perm_manager.get_notification_permission_state().await {
                         Ok(granted) => log::info!("[notifications] Permission state: granted={}", granted),
                         Err(e) => log::warn!("[notifications] Failed to check permission: {}", e),
-                    }
-                    match perm_manager.first_time_ask_for_notification_permission().await {
-                        Ok(granted) => log::info!("[notifications] Permission request result: granted={}", granted),
-                        Err(e) => log::warn!("[notifications] Failed to request permission: {}", e),
                     }
                 });
 
@@ -365,6 +361,7 @@ pub fn run() {
             get_notification_settings,
             update_notification_settings,
             check_notification_permission,
+            get_notification_permission_status,
             request_notification_permission,
             send_native_notification,
             // Pipeline dashboard

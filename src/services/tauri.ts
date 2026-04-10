@@ -705,6 +705,13 @@ export async function checkNotificationPermission(): Promise<boolean> {
 }
 
 /**
+ * Get the detailed notification permission status: "granted", "denied", or "not_determined".
+ */
+export async function getNotificationPermissionStatus(): Promise<'granted' | 'denied' | 'not_determined'> {
+  return invoke<'granted' | 'denied' | 'not_determined'>('get_notification_permission_status');
+}
+
+/**
  * Request notification permission from the OS. Returns whether permission was granted.
  */
 export async function requestNotificationPermission(): Promise<boolean> {

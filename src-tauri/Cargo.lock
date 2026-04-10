@@ -3832,6 +3832,7 @@ dependencies = [
  "bitflags 2.11.0",
  "block2",
  "objc2",
+ "objc2-core-location",
  "objc2-foundation",
 ]
 
@@ -7085,6 +7086,7 @@ version = "0.16.4"
 dependencies = [
  "axum",
  "base64 0.22.1",
+ "block2",
  "chrono",
  "cocoa",
  "env_logger",
@@ -7093,6 +7095,8 @@ dependencies = [
  "keyring",
  "local-ip-address",
  "log",
+ "objc2-foundation",
+ "objc2-user-notifications",
  "qrcode",
  "rand 0.8.5",
  "reqwest 0.12.28",

@@ -29,6 +29,9 @@ export default function PipelinesPage() {
     handleRemoveProject,
     handleOpenDetail,
     handleSelectInstance,
+    permissionPrompt,
+    handlePermissionPromptAllow,
+    handlePermissionPromptSkip,
   } = usePipelinesData();
 
   if (loading && instances.length === 0) {
@@ -78,6 +81,21 @@ export default function PipelinesPage() {
         selectedInstanceId={selectedInstanceId}
         onSelectResult={handleSelectResult}
       />
+
+      {permissionPrompt && (
+        <div className="permission-banner" style={{ margin: '0 0 12px' }}>
+          <span>
+            Enable notifications to get alerted when pinned pipeline statuses change.
+          </span>
+          <button className="add-button" onClick={handlePermissionPromptAllow}>
+            Enable Notifications
+          </button>
+          <button className="add-button" onClick={handlePermissionPromptSkip}
+            style={{ background: 'transparent', color: 'inherit', border: '1px solid currentColor' }}>
+            Skip
+          </button>
+        </div>
+      )}
 
       <main className="pipelines-content">
         {loading ? (
