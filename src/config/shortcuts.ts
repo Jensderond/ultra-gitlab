@@ -71,7 +71,7 @@ export const defaultShortcuts: ShortcutDefinition[] = [
   {
     id: 'keyboard-help',
     description: 'Show keyboard shortcuts',
-    defaultKey: '?',
+    defaultKey: 'Shift+/',
     category: 'global',
     context: 'global',
   },

@@ -1,11 +1,9 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   visitPipelineProject,
   togglePinPipelineProject,
   removePipelineProject,
-  getNotificationPermissionStatus,
-  requestNotificationPermission,
 } from '../../services/tauri';
 import type { PipelineProject, PipelineStatus, ProjectSearchResult } from '../../types';
 import { useInstancesQuery } from '../../hooks/queries/useInstancesQuery';
@@ -61,76 +59,20 @@ export default function usePipelinesData() {
     [selectedInstanceId]
   );
 
-  const [permissionPrompt, setPermissionPrompt] = useState(false);
-  const pendingPinRef = useRef<{ instanceId: number; projectId: number } | null>(null);
-  const permissionStatusRef = useRef<string | null>(null);
-  const projectsRef = useRef(projects);
-  useEffect(() => { projectsRef.current = projects; }, [projects]);
-
-  const executePin = useCallback(
-    async (instanceId: number, projectId: number) => {
+  const handleTogglePin = useCallback(
+    async (projectId: number) => {
+      if (!selectedInstanceId) return;
       try {
-        await togglePinPipelineProject(instanceId, projectId);
+        await togglePinPipelineProject(selectedInstanceId, projectId);
         queryClient.invalidateQueries({
-          queryKey: queryKeys.pipelineProjects(String(instanceId)),
+          queryKey: queryKeys.pipelineProjects(String(selectedInstanceId)),
         });
       } catch (error) {
         console.error('Failed to toggle pin:', error);
       }
     },
-    []
+    [selectedInstanceId]
   );
-
-  const handleTogglePin = useCallback(
-    async (projectId: number) => {
-      if (!selectedInstanceId) return;
-
-      const project = projectsRef.current.find((p) => p.projectId === projectId);
-      if (project?.pinned) {
-        return executePin(selectedInstanceId, projectId);
-      }
-
-      try {
-        if (permissionStatusRef.current === null) {
-          permissionStatusRef.current = await getNotificationPermissionStatus();
-        }
-        if (permissionStatusRef.current === 'not_determined') {
-          pendingPinRef.current = { instanceId: selectedInstanceId, projectId };
-          setPermissionPrompt(true);
-          return;
-        }
-      } catch {
-        // If permission check fails, just pin anyway
-      }
-
-      return executePin(selectedInstanceId, projectId);
-    },
-    [selectedInstanceId, executePin]
-  );
-
-  const handlePermissionPromptAllow = useCallback(async () => {
-    const pending = pendingPinRef.current;
-    setPermissionPrompt(false);
-    pendingPinRef.current = null;
-    try {
-      await requestNotificationPermission();
-      permissionStatusRef.current = 'granted';
-    } catch {
-      // permission request failed, still pin
-    }
-    if (pending) {
-      await executePin(pending.instanceId, pending.projectId);
-    }
-  }, [executePin]);
-
-  const handlePermissionPromptSkip = useCallback(async () => {
-    const pending = pendingPinRef.current;
-    setPermissionPrompt(false);
-    pendingPinRef.current = null;
-    if (pending) {
-      await executePin(pending.instanceId, pending.projectId);
-    }
-  }, [executePin]);
 
   const handleRemoveProject = useCallback(
     async (projectId: number) => {
@@ -179,8 +121,5 @@ export default function usePipelinesData() {
     handleRemoveProject,
     handleOpenDetail,
     handleSelectInstance,
-    permissionPrompt,
-    handlePermissionPromptAllow,
-    handlePermissionPromptSkip,
   };
 }

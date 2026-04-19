@@ -166,7 +166,7 @@ function AppContent() {
     manualSync(true).catch(console.error);
   }, { enabled: isTauri });
 
-  useHotkey(parseHotkey(getKey('keyboard-help') ?? '?'), () => {
+  useHotkey(parseHotkey(getKey('keyboard-help') ?? 'Shift+/'), () => {
     trackShortcut('?', 'show_keyboard_help', 'global');
     setKeyboardHelpOpen(true);
   });

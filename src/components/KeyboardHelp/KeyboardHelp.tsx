@@ -22,10 +22,16 @@ const arrowSymbolMap: Record<string, string> = {
   '←': 'ArrowLeft',
 };
 
+/** Keys stored as modifier combos that should display as their typed character */
+const displayOverrides: Record<string, string> = {
+  'Shift+/': '?',
+};
+
 function formatKeyDisplay(key: string): string {
   return key
     .split(' / ')
     .map((part) => {
+      if (displayOverrides[part]) return displayOverrides[part];
       const mapped = arrowSymbolMap[part] ?? part;
       return formatForDisplay(mapped);
     })
@@ -69,12 +75,13 @@ export default function KeyboardHelp({ isOpen, onClose, pathname }: KeyboardHelp
     [onClose]
   );
 
-  // Add keyboard listener when open
+  // Add keyboard listener when open — use capture phase on document
+  // so it fires before TanStack hotkeys can stopPropagation
   useEffect(() => {
     if (!isOpen) return;
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
   }, [isOpen, handleKeyDown]);
 
   if (!isOpen) {

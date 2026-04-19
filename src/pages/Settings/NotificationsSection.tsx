@@ -1,10 +1,7 @@
 import { useState, useEffect } from 'react';
-import { getNotificationSettings, updateNotificationSettings, sendNativeNotification, getNotificationPermissionStatus, requestNotificationPermission } from '../../services/tauri';
-import { openExternalUrl } from '../../services/transport';
+import { getNotificationSettings, updateNotificationSettings, sendNativeNotification } from '../../services/tauri';
 import type { NotificationSettings } from '../../types';
 import { useToast } from '../../components/Toast';
-
-type PermissionStatus = 'granted' | 'denied' | 'not_determined' | 'unknown';
 
 /**
  * Notification settings section.
@@ -14,14 +11,9 @@ export default function NotificationsSection() {
   const [notifSettings, setNotifSettings] = useState<NotificationSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [permissionStatus, setPermissionStatus] = useState<PermissionStatus>('unknown');
-  const [requestingPermission, setRequestingPermission] = useState(false);
 
   useEffect(() => {
     loadNotificationSettings();
-    getNotificationPermissionStatus()
-      .then(setPermissionStatus)
-      .catch(() => setPermissionStatus('unknown'));
   }, []);
 
   async function loadNotificationSettings() {
@@ -51,33 +43,6 @@ export default function NotificationsSection() {
     }
   }
 
-  async function handleRequestPermission() {
-    setRequestingPermission(true);
-    try {
-      const granted = await requestNotificationPermission();
-      setPermissionStatus(granted ? 'granted' : 'denied');
-      if (granted) {
-        addToast({ type: 'info', title: 'Permissions granted', body: 'Native notifications are now enabled' });
-      } else {
-        addToast({ type: 'info', title: 'Permissions denied', body: 'Enable notifications in System Settings → Notifications → Ultra Gitlab' });
-      }
-    } catch (err) {
-      console.error('Failed to request notification permission:', err);
-      // Re-check actual status after failure
-      const status = await getNotificationPermissionStatus().catch(() => 'unknown' as PermissionStatus);
-      setPermissionStatus(status);
-      if (status === 'denied') {
-        addToast({ type: 'info', title: 'Permission denied', body: 'Enable notifications in System Settings → Notifications → Ultra Gitlab' });
-      }
-    } finally {
-      setRequestingPermission(false);
-    }
-  }
-
-  function handleOpenSystemSettings() {
-    openExternalUrl('x-apple.systempreferences:com.apple.Notifications-Settings');
-  }
-
   function handleTestNotification() {
     addToast({
       type: 'mr-ready',
@@ -96,33 +61,6 @@ export default function NotificationsSection() {
         <p className="loading">Loading settings...</p>
       ) : notifSettings ? (
         <div className="sync-settings-form">
-          {permissionStatus === 'denied' && (
-            <div className="permission-banner" style={{ marginBottom: 12 }}>
-              <span>
-                Notification permission was denied. Enable it in System Settings to receive OS notifications.
-              </span>
-              <button
-                className="add-button"
-                onClick={handleOpenSystemSettings}
-              >
-                Open System Settings
-              </button>
-            </div>
-          )}
-          {permissionStatus === 'not_determined' && (
-            <div className="permission-banner" style={{ marginBottom: 12 }}>
-              <span>
-                Native notification permission not granted. Enable it to receive OS notifications.
-              </span>
-              <button
-                className="add-button"
-                onClick={handleRequestPermission}
-                disabled={requestingPermission}
-              >
-                {requestingPermission ? 'Requesting…' : 'Request Permission'}
-              </button>
-            </div>
-          )}
           <div className="checkbox-group">
             <label className="checkbox-label">
               <input

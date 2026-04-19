@@ -7,6 +7,7 @@
 
 pub mod file_cache;
 pub mod notification_settings;
+pub mod pipeline_cache;
 pub mod pool;
 
 use std::path::{Path, PathBuf};
@@ -129,6 +130,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0018_add_state_changed_at",
         include_str!("migrations/0018_add_state_changed_at.sql"),
+    ),
+    (
+        "0019_pipeline_status_cache",
+        include_str!("migrations/0019_pipeline_status_cache.sql"),
     ),
 ];
 

@@ -616,6 +616,13 @@ export async function getPipelineStatuses(instanceId: number, projectIds: number
 }
 
 /**
+ * Get cached pipeline statuses from local DB for instant display.
+ */
+export async function getCachedPipelineStatuses(instanceId: number, projectIds: number[]): Promise<PipelineStatus[]> {
+  return invoke<PipelineStatus[]>('get_cached_pipeline_statuses', { instanceId, projectIds });
+}
+
+/**
  * Get recent pipelines for a project.
  */
 export async function getProjectPipelines(instanceId: number, projectId: number, limit?: number): Promise<PipelineStatus[]> {
@@ -695,27 +702,6 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
  */
 export async function updateNotificationSettings(settings: NotificationSettings): Promise<void> {
   return invoke<void>('update_notification_settings', { settings });
-}
-
-/**
- * Check whether macOS notification permission is currently granted.
- */
-export async function checkNotificationPermission(): Promise<boolean> {
-  return invoke<boolean>('check_notification_permission');
-}
-
-/**
- * Get the detailed notification permission status: "granted", "denied", or "not_determined".
- */
-export async function getNotificationPermissionStatus(): Promise<'granted' | 'denied' | 'not_determined'> {
-  return invoke<'granted' | 'denied' | 'not_determined'>('get_notification_permission_status');
-}
-
-/**
- * Request notification permission from the OS. Returns whether permission was granted.
- */
-export async function requestNotificationPermission(): Promise<boolean> {
-  return invoke<boolean>('request_notification_permission');
 }
 
 /**

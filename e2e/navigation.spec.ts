@@ -74,7 +74,7 @@ test.describe('Navigation & Sidebar', () => {
   test('keyboard shortcut ? opens keyboard help', async ({ page }) => {
     await page.goto('/mrs');
 
-    await page.keyboard.press('?');
+    await page.keyboard.press('Shift+/');
 
     // Keyboard help modal should be visible
     await expect(page.locator('.keyboard-help-modal')).toBeVisible();

@@ -213,7 +213,55 @@ pub async fn get_pipeline_statuses(
         })
         .collect();
 
+    // Cache the fetched statuses for instant display on next page load
+    for s in &statuses {
+        let _ = crate::db::pipeline_cache::upsert_pipeline_status(
+            pool.inner(),
+            instance_id,
+            s.project_id,
+            s.id,
+            &s.status,
+            &s.ref_name,
+            &s.sha,
+            &s.web_url,
+            &s.created_at,
+            s.updated_at.as_deref(),
+            s.duration,
+        )
+        .await;
+    }
+
     Ok(statuses)
+}
+
+/// Load cached pipeline statuses from the local DB for instant display.
+#[tauri::command]
+pub async fn get_cached_pipeline_statuses(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_ids: Vec<i64>,
+) -> Result<Vec<PipelineStatus>, AppError> {
+    let cached = crate::db::pipeline_cache::get_cached_pipeline_statuses(
+        pool.inner(),
+        instance_id,
+        &project_ids,
+    )
+    .await?;
+
+    Ok(cached
+        .into_iter()
+        .map(|c| PipelineStatus {
+            id: c.pipeline_id,
+            project_id: c.project_id,
+            status: c.status,
+            ref_name: c.ref_name,
+            sha: c.sha,
+            web_url: c.web_url,
+            created_at: c.created_at,
+            updated_at: c.updated_at,
+            duration: c.duration,
+        })
+        .collect())
 }
 
 /// Pipeline job DTO returned to the frontend.

@@ -1,14 +1,9 @@
 /**
  * Hook that wires notification events (Tauri + DOM) to in-app toasts
  * and native OS notifications, respecting user settings.
- *
- * Native notification clicks are handled via user-notify's callback:
- * Rust emits a "notification:clicked" event with the target route,
- * and we navigate to it here.
  */
 
 import { useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/Toast';
 import { isTauri, tauriListen, getNotificationSettings, sendNativeNotification } from '../services';
 
@@ -30,10 +25,6 @@ interface PipelineChangedPayload {
   pipelineId: number;
 }
 
-interface NotificationClickedPayload {
-  route: string;
-}
-
 function pipelineToastType(status: string): 'pipeline-success' | 'pipeline-failed' | 'pipeline-running' {
   if (status === 'success') return 'pipeline-success';
   if (status === 'failed') return 'pipeline-failed';
@@ -46,22 +37,8 @@ function capitalize(s: string): string {
 
 export default function useNotifications() {
   const { addToast } = useToast();
-  const navigate = useNavigate();
   const addToastRef = useRef(addToast);
   addToastRef.current = addToast;
-  const navigateRef = useRef(navigate);
-  navigateRef.current = navigate;
-
-  // Navigate when the user clicks a native notification
-  useEffect(() => {
-    const promise = tauriListen<NotificationClickedPayload>('notification:clicked', (event) => {
-      navigateRef.current(event.payload.route);
-    });
-
-    return () => {
-      promise.then((unlisten) => unlisten());
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;

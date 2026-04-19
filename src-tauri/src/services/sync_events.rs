@@ -57,17 +57,6 @@ pub const MR_READY_EVENT: &str = "notification:mr-ready";
 /// Emitted when a pinned project's pipeline status changes.
 pub const PIPELINE_STATUS_CHANGED_EVENT: &str = "notification:pipeline-changed";
 
-/// Event: notification:clicked
-/// Emitted when the user clicks a native OS notification.
-pub const NOTIFICATION_CLICKED_EVENT: &str = "notification:clicked";
-
-/// Payload for notification:clicked events.
-#[derive(Debug, Clone, Serialize)]
-pub struct NotificationClickedPayload {
-    /// The in-app route to navigate to.
-    pub route: String,
-}
-
 /// Payload for sync-progress events.
 #[derive(Debug, Clone, Serialize)]
 pub struct SyncProgressPayload {

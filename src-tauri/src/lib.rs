@@ -17,7 +17,7 @@ use commands::{
     get_companion_status, get_diagnostics_report, get_diff_content, get_diff_file,
     get_diff_file_metadata, get_diff_files, get_diff_hunks, get_diff_refs, get_file_comments,
     get_file_content, get_file_content_base64, get_gitattributes, get_gitlab_instances,
-    get_job_trace, get_memory_stats, get_merge_request_detail, get_merge_requests, list_system_fonts,
+    get_cached_pipeline_statuses, get_job_trace, get_memory_stats, get_merge_request_detail, get_merge_requests, list_system_fonts,
     get_mr_reviewers, get_notification_settings, get_pipeline_jobs, get_pipeline_statuses,
     get_project_pipelines, get_settings, get_sync_config, get_sync_settings, get_sync_status,
     get_token_info, list_my_merge_requests, list_pipeline_projects, merge_mr, play_pipeline_job,
@@ -25,7 +25,7 @@ use commands::{
     rebase_mr, refresh_avatars, refresh_gitattributes, regenerate_companion_pin, rename_instance, set_companion_pin,
     remove_pipeline_project, reply_to_comment, resolve_discussion, resolve_project_by_path, retry_failed_actions,
     retry_pipeline_job, revoke_companion_device, search_projects,
-    check_notification_permission, get_notification_permission_status, request_notification_permission, send_native_notification,
+    send_native_notification,
     set_default_instance, setup_gitlab_instance, start_companion_server_cmd, stop_companion_server_cmd,
     toggle_pin_pipeline_project, trigger_sync, unapprove_mr, update_collapse_patterns,
     update_companion_settings, update_custom_theme_colors, update_diffs_font,
@@ -46,10 +46,6 @@ use tauri::{
 use tauri_plugin_aptabase::EventTracker;
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_store::StoreExt;
-use user_notify::NotificationManager;
-
-/// Wrapper around the notification manager for Tauri state management.
-pub struct NotificationManagerState(pub Arc<dyn NotificationManager>);
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -133,43 +129,6 @@ pub fn run() {
             // Store state for use in commands
             app.manage(pool.clone());
             app.manage(sync_handle.clone());
-
-            // Initialize native notification manager (user-notify)
-            {
-                use services::sync_events::NOTIFICATION_CLICKED_EVENT;
-                let notification_manager = user_notify::get_notification_manager(
-                    "com.jens.ultra-gitlab".to_string(),
-                    None,
-                );
-
-                // Register click callback — emits a Tauri event so the frontend can navigate.
-                let click_handle = app.handle().clone();
-                if let Err(e) = notification_manager.register(
-                    Box::new(move |response| {
-                        if let Some(route) = response.user_info.get("route") {
-                            use tauri::Emitter;
-                            let payload = serde_json::json!({ "route": route });
-                            if let Err(e) = click_handle.emit(NOTIFICATION_CLICKED_EVENT, payload) {
-                                log::warn!("Failed to emit notification click event: {}", e);
-                            }
-                        }
-                    }),
-                    vec![], // no custom action categories for now
-                ) {
-                    log::error!("Failed to register notification callback: {}", e);
-                }
-
-                // Log current permission state at startup (don't request — let the user trigger that from Settings)
-                let perm_manager = notification_manager.clone();
-                tauri::async_runtime::spawn(async move {
-                    match perm_manager.get_notification_permission_state().await {
-                        Ok(granted) => log::info!("[notifications] Permission state: granted={}", granted),
-                        Err(e) => log::warn!("[notifications] Failed to check permission: {}", e),
-                    }
-                });
-
-                app.manage(NotificationManagerState(notification_manager));
-            }
 
             // Auto-start companion server if enabled in settings
             {
@@ -360,9 +319,6 @@ pub fn run() {
             // Notifications
             get_notification_settings,
             update_notification_settings,
-            check_notification_permission,
-            get_notification_permission_status,
-            request_notification_permission,
             send_native_notification,
             // Pipeline dashboard
             list_pipeline_projects,
@@ -371,6 +327,7 @@ pub fn run() {
             remove_pipeline_project,
             search_projects,
             get_pipeline_statuses,
+            get_cached_pipeline_statuses,
             get_project_pipelines,
             get_pipeline_jobs,
             get_job_trace,
