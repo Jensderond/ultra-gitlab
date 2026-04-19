@@ -17,6 +17,7 @@ import MyMRDetailPage from './pages/MyMRDetailPage';
 import PipelinesPage from './pages/PipelinesPage';
 import PipelineDetailPage from './pages/PipelineDetailPage';
 import IssuesPage from './pages/IssuesPage';
+import IssueDetailPage from './pages/IssueDetailPage';
 import JobLogPage from './pages/JobLogPage';
 import AuthPage from './pages/AuthPage';
 import { AppSidebar } from './components/AppSidebar';
@@ -316,6 +317,10 @@ function AppContent() {
 
           {/* Issues dashboard */}
           <Route path="/issues" element={<IssuesPage />} />
+          <Route
+            path="/issues/:instanceId/:projectId/:issueIid"
+            element={<IssueDetailPage />}
+          />
 
           {/* Settings page (desktop only) */}
           {isTauri && (

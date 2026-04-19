@@ -349,6 +349,17 @@ pub struct IssuesQuery {
     pub per_page: Option<u32>,
 }
 
+/// Body for PUT /projects/:id/issues/:iid when editing assignees or state.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct IssueUpdate {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assignee_ids: Option<Vec<i64>>,
+
+    /// `"close"` or `"reopen"`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state_event: Option<String>,
+}
+
 /// Personal access token info from GET /personal_access_tokens/self.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersonalAccessTokenInfo {
@@ -758,6 +769,85 @@ impl GitLabClient {
     ) -> Result<Vec<GitLabIssue>, AppError> {
         let endpoint = format!("/projects/{}/issues", project_id);
         self.get_all_pages(&endpoint, Some(query)).await
+    }
+
+    /// Get a single issue by project and IID.
+    pub async fn get_issue(
+        &self,
+        project_id: i64,
+        issue_iid: i64,
+    ) -> Result<GitLabIssue, AppError> {
+        let endpoint = format!("/projects/{}/issues/{}", project_id, issue_iid);
+        let url = self.api_url(&endpoint);
+        let response = self.send_with_retry(self.client.get(&url)).await?;
+        self.handle_response(response, &endpoint).await
+    }
+
+    /// List notes (comments) on an issue, oldest first.
+    pub async fn list_issue_notes(
+        &self,
+        project_id: i64,
+        issue_iid: i64,
+    ) -> Result<Vec<GitLabNote>, AppError> {
+        let endpoint = format!("/projects/{}/issues/{}/notes", project_id, issue_iid);
+        #[derive(Serialize)]
+        struct NotesQuery {
+            sort: &'static str,
+            order_by: &'static str,
+        }
+        let query = NotesQuery {
+            sort: "asc",
+            order_by: "created_at",
+        };
+        self.get_all_pages(&endpoint, Some(&query)).await
+    }
+
+    /// Add a note (comment) to an issue.
+    pub async fn add_issue_note(
+        &self,
+        project_id: i64,
+        issue_iid: i64,
+        body: &str,
+    ) -> Result<GitLabNote, AppError> {
+        let endpoint = format!("/projects/{}/issues/{}/notes", project_id, issue_iid);
+        let url = self.api_url(&endpoint);
+        let response = self
+            .send_with_retry(
+                self.client
+                    .post(&url)
+                    .json(&serde_json::json!({ "body": body })),
+            )
+            .await?;
+        self.handle_response(response, &endpoint).await
+    }
+
+    /// Update an issue's assignees and/or state.
+    pub async fn update_issue(
+        &self,
+        project_id: i64,
+        issue_iid: i64,
+        body: &IssueUpdate,
+    ) -> Result<GitLabIssue, AppError> {
+        let endpoint = format!("/projects/{}/issues/{}", project_id, issue_iid);
+        let url = self.api_url(&endpoint);
+        let response = self
+            .send_with_retry(self.client.put(&url).json(body))
+            .await?;
+        self.handle_response(response, &endpoint).await
+    }
+
+    /// List all members of a project (direct + inherited) for an assignee picker.
+    pub async fn list_project_members(
+        &self,
+        project_id: i64,
+    ) -> Result<Vec<GitLabUser>, AppError> {
+        let endpoint = format!("/projects/{}/members/all", project_id);
+        #[derive(Serialize)]
+        struct MembersQuery {
+            per_page: u32,
+        }
+        let query = MembersQuery { per_page: 100 };
+        self.get_all_pages(&endpoint, Some(&query)).await
     }
 
     /// Get a single merge request by project and IID.

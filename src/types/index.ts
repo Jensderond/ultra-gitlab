@@ -441,6 +441,32 @@ export interface IssueProject {
   customName: string | null;
 }
 
+/**
+ * A single note (comment) on a GitLab issue. `system` notes are
+ * activity records (assignee changes, closures, etc.) and are rendered
+ * differently than user-authored comments.
+ */
+export interface IssueNote {
+  id: number;
+  body: string;
+  authorUsername: string;
+  authorName: string;
+  authorAvatarUrl: string | null;
+  createdAt: number;
+  updatedAt: number;
+  system: boolean;
+}
+
+/**
+ * A project member that can be picked as an issue assignee.
+ */
+export interface IssueAssigneeCandidate {
+  id: number;
+  username: string;
+  name: string;
+  avatarUrl: string | null;
+}
+
 // ============================================================================
 // Pipeline Dashboard
 // ============================================================================

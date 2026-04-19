@@ -112,6 +112,10 @@
   font-weight: 400;
   color: var(--text-secondary);
   flex-shrink: 0;
+  max-width: clamp(180px, 17vw, 300px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mr-header-bottom .mr-title {

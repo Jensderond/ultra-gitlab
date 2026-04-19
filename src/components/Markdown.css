@@ -1,0 +1,130 @@
+.md-body {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  word-wrap: break-word;
+}
+
+.md-body > *:first-child {
+  margin-top: 0;
+}
+
+.md-body > *:last-child {
+  margin-bottom: 0;
+}
+
+.md-body h1,
+.md-body h2,
+.md-body h3,
+.md-body h4,
+.md-body h5,
+.md-body h6 {
+  margin: 18px 0 8px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.md-body h1 { font-size: 20px; }
+.md-body h2 { font-size: 17px; }
+.md-body h3 { font-size: 15px; }
+.md-body h4,
+.md-body h5,
+.md-body h6 { font-size: 13px; }
+
+.md-body p {
+  margin: 0 0 10px;
+}
+
+.md-body ul,
+.md-body ol {
+  margin: 0 0 10px;
+  padding-left: 24px;
+}
+
+.md-body li {
+  margin: 2px 0;
+}
+
+.md-body li > p {
+  margin: 0;
+}
+
+.md-body input[type='checkbox'] {
+  margin: 0 6px 0 -20px;
+  vertical-align: middle;
+}
+
+.md-body a {
+  color: var(--accent-color);
+  text-decoration: none;
+}
+
+.md-body a:hover {
+  text-decoration: underline;
+}
+
+.md-body code {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.md-body pre {
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.md-body pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+.md-body blockquote {
+  margin: 0 0 10px;
+  padding: 2px 12px;
+  border-left: 3px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.md-body table {
+  border-collapse: collapse;
+  margin: 0 0 10px;
+  font-size: 12px;
+}
+
+.md-body th,
+.md-body td {
+  border: 1px solid var(--border-color);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.md-body th {
+  background: var(--bg-secondary);
+  font-weight: 600;
+}
+
+.md-body hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 16px 0;
+}
+
+.md-body img {
+  max-width: 100%;
+  border-radius: 4px;
+}
+
+.md-body del {
+  color: var(--text-tertiary);
+}

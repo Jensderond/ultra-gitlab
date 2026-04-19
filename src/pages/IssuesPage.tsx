@@ -36,7 +36,8 @@ import './IssuesPage.css';
 
 const listShortcuts: ShortcutDef[] = [
   { key: 'j/k', label: 'navigate' },
-  { key: 'Enter', label: 'open in GitLab' },
+  { key: 'Enter', label: 'open' },
+  { key: 'o', label: 'open in GitLab' },
   { key: 's', label: 'star' },
   { key: '?', label: 'help' },
 ];
@@ -107,16 +108,21 @@ export default function IssuesPage() {
   const filteredIssuesRef = useRef(filteredIssues);
   filteredIssuesRef.current = filteredIssues;
 
-  const openInGitLab = useCallback((index: number) => {
-    const issue = filteredIssuesRef.current[index];
-    if (issue) {
-      window.open(issue.webUrl, '_blank', 'noopener');
-    }
-  }, []);
+  const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  const openIssueDetail = useCallback(
+    (index: number) => {
+      const issue = filteredIssuesRef.current[index];
+      if (issue && selectedInstanceId != null) {
+        navigate(`/issues/${selectedInstanceId}/${issue.projectId}/${issue.iid}`);
+      }
+    },
+    [navigate, selectedInstanceId],
+  );
 
   const { focusIndex, setFocusIndex, moveNext, movePrev, selectFocused } = useKeyboardNav({
     itemCount: filteredIssues.length,
-    onSelect: openInGitLab,
+    onSelect: openIssueDetail,
     enabled: filteredIssues.length > 0,
   });
 
@@ -124,11 +130,18 @@ export default function IssuesPage() {
     if (isSearchOpen) setFocusIndex(0);
   }, [query, isSearchOpen, setFocusIndex]);
 
-  // 's' toggles star on the focused row
+  // Keep the focused row visible when navigating with j/k.
+  useEffect(() => {
+    const el = itemRefs.current.get(focusIndex);
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }, [focusIndex]);
+
+  // 's' toggles star on the focused row; 'o' opens in GitLab
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === 's' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      if (e.key === 's') {
         const issue = filteredIssuesRef.current[focusIndex];
         if (!issue || selectedInstanceId == null) return;
         e.preventDefault();
@@ -139,6 +152,11 @@ export default function IssuesPage() {
             }),
           )
           .catch(console.error);
+      } else if (e.key === 'o') {
+        const issue = filteredIssuesRef.current[focusIndex];
+        if (!issue) return;
+        e.preventDefault();
+        window.open(issue.webUrl, '_blank', 'noopener');
       }
     }
     window.addEventListener('keydown', handler);
@@ -208,7 +226,7 @@ export default function IssuesPage() {
   if (instancesQuery.isLoading) {
     return (
       <div className="issues-page">
-        <div className="issues-page-loading">Loading\u2026</div>
+        <div className="issues-page-loading">Loading…</div>
       </div>
     );
   }
@@ -338,7 +356,7 @@ export default function IssuesPage() {
           )}
 
           {issuesQuery.isLoading ? (
-            <div className="issues-main-loading">Loading issues\u2026</div>
+            <div className="issues-main-loading">Loading issues…</div>
           ) : issues.length === 0 ? (
             <div className="issues-main-empty">
               <p>
@@ -349,7 +367,7 @@ export default function IssuesPage() {
                     : 'No issues cached for this scope.'}
               </p>
               <button type="button" className="primary-button" onClick={handleSync} disabled={syncing}>
-                {syncing ? 'Syncing\u2026' : 'Sync from GitLab'}
+                {syncing ? 'Syncing…' : 'Sync from GitLab'}
               </button>
             </div>
           ) : filteredIssues.length === 0 ? (
@@ -361,9 +379,19 @@ export default function IssuesPage() {
               {filteredIssues.map((issue, index) => (
                 <IssueListItem
                   key={issue.id}
+                  ref={(el) => {
+                    if (el) itemRefs.current.set(index, el);
+                    else itemRefs.current.delete(index);
+                  }}
                   issue={issue}
                   selected={index === focusIndex}
-                  onClick={() => window.open(issue.webUrl, '_blank', 'noopener')}
+                  onClick={() => {
+                    if (selectedInstanceId != null) {
+                      navigate(
+                        `/issues/${selectedInstanceId}/${issue.projectId}/${issue.iid}`,
+                      );
+                    }
+                  }}
                   onToggleStar={() => handleStarIssue(issue.id)}
                   highlightQuery={isSearchOpen ? query : undefined}
                 />
@@ -374,7 +402,7 @@ export default function IssuesPage() {
       </div>
 
       <footer className="issues-page-footer">
-        <ShortcutBar shortcuts={isSearchOpen ? searchShortcuts : listShortcuts} variant="list" />
+        <ShortcutBar shortcuts={isSearchOpen ? searchShortcuts : listShortcuts} variant="detail" />
       </footer>
 
       {renameTarget && (

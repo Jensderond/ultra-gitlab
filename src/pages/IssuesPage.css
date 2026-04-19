@@ -297,10 +297,25 @@
 /* ===== Footer ===== */
 
 .issues-page-footer {
+  display: flex;
+  align-items: center;
+  padding: 10px 32px;
+  user-select: none;
+  -webkit-user-select: none;
+  background: linear-gradient(180deg,
+    var(--overlay-glass-light) 0%,
+    var(--overlay-glass) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid var(--border-color);
-  padding: 8px 32px;
   position: relative;
   z-index: 10;
+}
+
+@media (max-width: 768px) {
+  .issues-page-footer {
+    display: none;
+  }
 }
 
 /* ===== Rename dialog ===== */

@@ -9,7 +9,9 @@ use crate::error::AppError;
 use crate::models::issue::{self, Issue, UpsertIssue};
 use crate::models::project::{self, Project};
 use crate::models::GitLabInstance;
-use crate::services::gitlab_client::{GitLabClient, GitLabClientConfig, GitLabIssue, IssuesQuery};
+use crate::services::gitlab_client::{
+    GitLabClient, GitLabClientConfig, GitLabIssue, GitLabNote, IssueUpdate, IssuesQuery,
+};
 use chrono::DateTime;
 use futures::future::join_all;
 use serde::{Deserialize, Serialize};
@@ -304,6 +306,186 @@ pub async fn rename_project(
 ) -> Result<(), AppError> {
     project::set_project_custom_name(pool.inner(), instance_id, project_id, custom_name).await?;
     Ok(())
+}
+
+/// DTO for a note returned to the frontend.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueNoteDto {
+    pub id: i64,
+    pub body: String,
+    pub author_username: String,
+    pub author_name: String,
+    pub author_avatar_url: Option<String>,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub system: bool,
+}
+
+impl From<GitLabNote> for IssueNoteDto {
+    fn from(n: GitLabNote) -> Self {
+        IssueNoteDto {
+            id: n.id,
+            body: n.body,
+            author_username: n.author.username,
+            author_name: n.author.name,
+            author_avatar_url: n.author.avatar_url,
+            created_at: parse_ts(&n.created_at),
+            updated_at: parse_ts(&n.updated_at),
+            system: n.system,
+        }
+    }
+}
+
+/// DTO for an assignee candidate (project member).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitLabUserDto {
+    pub id: i64,
+    pub username: String,
+    pub name: String,
+    pub avatar_url: Option<String>,
+}
+
+/// Upsert a freshly fetched GitLab issue into the cache and return the
+/// joined row that the frontend expects.
+async fn upsert_and_join(
+    pool: &sqlx::SqlitePool,
+    client: &GitLabClient,
+    instance_id: i64,
+    gi: GitLabIssue,
+    username: &str,
+) -> Result<IssueWithProject, AppError> {
+    let project_id = gi.project_id;
+    ensure_projects_cached(client, pool, instance_id, &[project_id]).await?;
+
+    let assignees: Vec<String> = gi
+        .assignees
+        .as_ref()
+        .map(|a| a.iter().map(|u| u.username.clone()).collect())
+        .unwrap_or_default();
+    let assigned_to_me = assignees.iter().any(|u| u == username);
+
+    let upsert = to_upsert(gi, instance_id, assigned_to_me);
+    issue::upsert_issue(pool, &upsert).await?;
+
+    // Re-read from DB to get the canonical row (starred flag, etc.).
+    let rows = issue::list_issues(pool, instance_id, Some(project_id), false, false).await?;
+    let row = rows
+        .into_iter()
+        .find(|i| i.iid == upsert.iid)
+        .ok_or_else(|| AppError::internal("Failed to reload issue after upsert"))?;
+
+    let project = project::get_project(pool, instance_id, project_id).await?;
+    Ok(IssueWithProject {
+        project_name: project.as_ref().map(|p| p.name.clone()),
+        project_name_with_namespace: project.as_ref().map(|p| p.name_with_namespace.clone()),
+        project_path_with_namespace: project.as_ref().map(|p| p.path_with_namespace.clone()),
+        project_custom_name: project.as_ref().and_then(|p| p.custom_name.clone()),
+        project_starred: project.as_ref().map(|p| p.starred).unwrap_or(false),
+        issue: row,
+    })
+}
+
+/// Fetch a single issue from GitLab, refresh the cache, and return the joined row.
+#[tauri::command]
+pub async fn get_issue_detail(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+    issue_iid: i64,
+) -> Result<IssueWithProject, AppError> {
+    let (client, username) = create_client_with_username(&pool, instance_id).await?;
+    let gi = client.get_issue(project_id, issue_iid).await?;
+    upsert_and_join(pool.inner(), &client, instance_id, gi, &username).await
+}
+
+/// Fetch notes (comments) for an issue straight from GitLab.
+#[tauri::command]
+pub async fn list_issue_notes(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+    issue_iid: i64,
+) -> Result<Vec<IssueNoteDto>, AppError> {
+    let (client, _username) = create_client_with_username(&pool, instance_id).await?;
+    let notes = client.list_issue_notes(project_id, issue_iid).await?;
+    Ok(notes.into_iter().map(IssueNoteDto::from).collect())
+}
+
+/// Post a new note on an issue.
+#[tauri::command]
+pub async fn add_issue_note(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+    issue_iid: i64,
+    body: String,
+) -> Result<IssueNoteDto, AppError> {
+    let (client, _username) = create_client_with_username(&pool, instance_id).await?;
+    let note = client.add_issue_note(project_id, issue_iid, &body).await?;
+    Ok(IssueNoteDto::from(note))
+}
+
+/// Replace the assignees on an issue. Empty vec clears assignees.
+#[tauri::command]
+pub async fn set_issue_assignees(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+    issue_iid: i64,
+    assignee_ids: Vec<i64>,
+) -> Result<IssueWithProject, AppError> {
+    let (client, username) = create_client_with_username(&pool, instance_id).await?;
+    let update = IssueUpdate {
+        assignee_ids: Some(assignee_ids),
+        state_event: None,
+    };
+    let gi = client.update_issue(project_id, issue_iid, &update).await?;
+    upsert_and_join(pool.inner(), &client, instance_id, gi, &username).await
+}
+
+/// Close or reopen an issue. `state_event` must be `"close"` or `"reopen"`.
+#[tauri::command]
+pub async fn set_issue_state(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+    issue_iid: i64,
+    state_event: String,
+) -> Result<IssueWithProject, AppError> {
+    if state_event != "close" && state_event != "reopen" {
+        return Err(AppError::invalid_input(
+            "state_event must be 'close' or 'reopen'",
+        ));
+    }
+    let (client, username) = create_client_with_username(&pool, instance_id).await?;
+    let update = IssueUpdate {
+        assignee_ids: None,
+        state_event: Some(state_event),
+    };
+    let gi = client.update_issue(project_id, issue_iid, &update).await?;
+    upsert_and_join(pool.inner(), &client, instance_id, gi, &username).await
+}
+
+/// List project members usable as issue assignees.
+#[tauri::command]
+pub async fn list_issue_assignee_candidates(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+) -> Result<Vec<GitLabUserDto>, AppError> {
+    let (client, _username) = create_client_with_username(&pool, instance_id).await?;
+    let members = client.list_project_members(project_id).await?;
+    Ok(members
+        .into_iter()
+        .map(|u| GitLabUserDto {
+            id: u.id,
+            username: u.username,
+            name: u.name,
+            avatar_url: u.avatar_url,
+        })
+        .collect())
 }
 
 /// Load both the client and the authenticated username for an instance.

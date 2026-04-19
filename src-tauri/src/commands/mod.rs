@@ -50,8 +50,9 @@ pub use diagnostics::{
 };
 pub use gitattributes::{get_gitattributes, refresh_gitattributes};
 pub use issues::{
-    list_cached_issues, list_issue_projects, rename_project, sync_my_issues, sync_project_issues,
-    toggle_issue_star, toggle_project_star,
+    add_issue_note, get_issue_detail, list_cached_issues, list_issue_assignee_candidates,
+    list_issue_notes, list_issue_projects, rename_project, set_issue_assignees, set_issue_state,
+    sync_my_issues, sync_project_issues, toggle_issue_star, toggle_project_star,
 };
 pub use mr::{
     check_merge_status, get_cached_file_pair, get_diff_content, get_diff_file,

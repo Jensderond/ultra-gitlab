@@ -42,6 +42,8 @@ import type {
   IssueWithProject,
   IssueFilter,
   IssueProject,
+  IssueNote,
+  IssueAssigneeCandidate,
 } from '../types';
 
 // ============================================================================
@@ -627,6 +629,87 @@ export async function renameProject(
   customName: string | null,
 ): Promise<void> {
   return invoke<void>('rename_project', { instanceId, projectId, customName });
+}
+
+/**
+ * Fetch a single issue from GitLab (with cache refresh) joined with project metadata.
+ */
+export async function getIssueDetail(
+  instanceId: number,
+  projectId: number,
+  issueIid: number,
+): Promise<IssueWithProject> {
+  return invoke<IssueWithProject>('get_issue_detail', { instanceId, projectId, issueIid });
+}
+
+/**
+ * List notes (comments) on an issue, oldest first.
+ */
+export async function listIssueNotes(
+  instanceId: number,
+  projectId: number,
+  issueIid: number,
+): Promise<IssueNote[]> {
+  return invoke<IssueNote[]>('list_issue_notes', { instanceId, projectId, issueIid });
+}
+
+/**
+ * Post a new note on an issue.
+ */
+export async function addIssueNote(
+  instanceId: number,
+  projectId: number,
+  issueIid: number,
+  body: string,
+): Promise<IssueNote> {
+  return invoke<IssueNote>('add_issue_note', { instanceId, projectId, issueIid, body });
+}
+
+/**
+ * Replace the assignees on an issue. Empty array clears assignees.
+ */
+export async function setIssueAssignees(
+  instanceId: number,
+  projectId: number,
+  issueIid: number,
+  assigneeIds: number[],
+): Promise<IssueWithProject> {
+  return invoke<IssueWithProject>('set_issue_assignees', {
+    instanceId,
+    projectId,
+    issueIid,
+    assigneeIds,
+  });
+}
+
+/**
+ * Close or reopen an issue.
+ */
+export async function setIssueState(
+  instanceId: number,
+  projectId: number,
+  issueIid: number,
+  stateEvent: 'close' | 'reopen',
+): Promise<IssueWithProject> {
+  return invoke<IssueWithProject>('set_issue_state', {
+    instanceId,
+    projectId,
+    issueIid,
+    stateEvent,
+  });
+}
+
+/**
+ * List users who can be assigned to an issue on the given project.
+ */
+export async function listIssueAssigneeCandidates(
+  instanceId: number,
+  projectId: number,
+): Promise<IssueAssigneeCandidate[]> {
+  return invoke<IssueAssigneeCandidate[]>('list_issue_assignee_candidates', {
+    instanceId,
+    projectId,
+  });
 }
 
 // ============================================================================
