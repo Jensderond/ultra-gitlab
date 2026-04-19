@@ -8,6 +8,7 @@
 pub mod comment;
 pub mod diff;
 pub mod gitlab_instance;
+pub mod issue;
 pub mod merge_request;
 pub mod mr_reviewer;
 pub mod notification_settings;
@@ -19,6 +20,7 @@ pub mod sync_action;
 pub use comment::{Comment, LineType, NewComment};
 pub use diff::{ChangeType, Diff, DiffFile};
 pub use gitlab_instance::{GitLabInstance, NewGitLabInstance};
+pub use issue::{Issue, IssueState, UpsertIssue};
 pub use merge_request::{ApprovalStatus, MergeRequest, MergeRequestState};
 pub use mr_reviewer::MrReviewer;
 pub use notification_settings::NotificationSettings;

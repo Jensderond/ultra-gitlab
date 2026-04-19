@@ -57,6 +57,8 @@ pub async fn visit_pipeline_project(
             web_url: gitlab_project.web_url,
             created_at: gitlab_project.created_at,
             updated_at: gitlab_project.updated_at,
+            starred: false,
+            custom_name: None,
         };
         project::upsert_project(pool.inner(), &project).await?;
     }
@@ -101,7 +103,7 @@ pub async fn search_projects(
     let like_pattern = format!("%{}%", query);
     let local_projects: Vec<Project> = sqlx::query_as(
         r#"
-        SELECT id, instance_id, name, name_with_namespace, path_with_namespace, web_url, created_at, updated_at
+        SELECT id, instance_id, name, name_with_namespace, path_with_namespace, web_url, created_at, updated_at, starred, custom_name
         FROM projects
         WHERE instance_id = ? AND name_with_namespace LIKE ?
         LIMIT 10
@@ -140,6 +142,8 @@ pub async fn search_projects(
                     web_url: gp.web_url.clone(),
                     created_at: gp.created_at.clone(),
                     updated_at: gp.updated_at.clone(),
+                    starred: false,
+                    custom_name: None,
                 };
                 let _ = project::upsert_project(pool.inner(), &project).await;
             }
@@ -505,7 +509,7 @@ pub async fn resolve_project_by_path(
     // Check local cache first
     let cached: Option<Project> = sqlx::query_as(
         r#"
-        SELECT id, instance_id, name, name_with_namespace, path_with_namespace, web_url, created_at, updated_at
+        SELECT id, instance_id, name, name_with_namespace, path_with_namespace, web_url, created_at, updated_at, starred, custom_name
         FROM projects
         WHERE instance_id = ? AND path_with_namespace = ?
         "#,
@@ -536,6 +540,8 @@ pub async fn resolve_project_by_path(
         web_url: gitlab_project.web_url,
         created_at: gitlab_project.created_at,
         updated_at: gitlab_project.updated_at,
+        starred: false,
+        custom_name: None,
     };
     let _ = project::upsert_project(pool.inner(), &project).await;
 

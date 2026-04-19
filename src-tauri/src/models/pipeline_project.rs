@@ -33,6 +33,14 @@ pub struct PipelineProject {
 
     /// Web URL for the project (from projects table).
     pub web_url: String,
+
+    /// Whether the user has starred the project (local-only).
+    #[sqlx(default)]
+    pub starred: bool,
+
+    /// User-chosen project display name (null/empty → use `name`).
+    #[sqlx(default)]
+    pub custom_name: Option<String>,
 }
 
 /// List all pipeline projects for an instance, joined with project metadata.
@@ -44,7 +52,8 @@ pub async fn list_pipeline_projects(
     sqlx::query_as::<_, PipelineProject>(
         r#"
         SELECT pp.project_id, pp.instance_id, pp.pinned, pp.last_visited_at, pp.sort_order,
-               p.name, p.name_with_namespace, p.path_with_namespace, p.web_url
+               p.name, p.name_with_namespace, p.path_with_namespace, p.web_url,
+               p.starred, p.custom_name
         FROM pipeline_projects pp
         JOIN projects p ON p.id = pp.project_id AND p.instance_id = pp.instance_id
         WHERE pp.instance_id = ?

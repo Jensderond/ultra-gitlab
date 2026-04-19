@@ -1318,6 +1318,8 @@ impl SyncEngine {
                         web_url: gitlab_project.web_url,
                         created_at: gitlab_project.created_at,
                         updated_at: gitlab_project.updated_at,
+                        starred: false,
+                        custom_name: None,
                     };
                     if let Err(e) = project::upsert_project(&self.pool, &project).await {
                         log::warn!("Failed to cache project {}: {}", project_id, e);

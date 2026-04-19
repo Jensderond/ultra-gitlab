@@ -19,6 +19,7 @@ pub mod companion_settings;
 pub mod diagnostics;
 pub mod fonts;
 pub mod gitattributes;
+pub mod issues;
 pub mod mr;
 pub mod notification_settings;
 pub mod notifications;
@@ -48,6 +49,10 @@ pub use diagnostics::{
     clear_test_data, generate_test_data, get_cache_stats, get_diagnostics_report, get_memory_stats,
 };
 pub use gitattributes::{get_gitattributes, refresh_gitattributes};
+pub use issues::{
+    list_cached_issues, list_issue_projects, rename_project, sync_my_issues, sync_project_issues,
+    toggle_issue_star, toggle_project_star,
+};
 pub use mr::{
     check_merge_status, get_cached_file_pair, get_diff_content, get_diff_file,
     get_diff_file_metadata, get_diff_files, get_diff_hunks, get_diff_refs, get_file_content,

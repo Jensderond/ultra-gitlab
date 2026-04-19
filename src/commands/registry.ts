@@ -31,6 +31,7 @@ export const CommandId = {
   GoToMRList: 'navigation.go-to-mr-list',
   GoToMyMRs: 'navigation.go-to-my-mrs',
   GoToPipelines: 'navigation.go-to-pipelines',
+  GoToIssues: 'navigation.go-to-issues',
   GoToSettings: 'navigation.go-to-settings',
   GoBack: 'navigation.go-back',
   NextFile: 'navigation.next-file',
@@ -112,6 +113,13 @@ export const commandDefinitions: CommandDefinition[] = [
     label: 'Go to Pipelines',
     description: 'View pipeline status dashboard',
     shortcut: 'Cmd+I',
+    category: CommandCategory.Navigation,
+  },
+  {
+    id: CommandId.GoToIssues,
+    label: 'Go to Issues',
+    description: 'View and triage GitLab issues',
+    shortcut: 'Cmd+U',
     category: CommandCategory.Navigation,
   },
   {

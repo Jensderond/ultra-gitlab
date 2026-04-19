@@ -26,6 +26,12 @@ export const queryKeys = {
   ) => ["fileContentBase64", instanceId, projectId, filePath, sha] as const,
   gitattributes: (instanceId: string, projectId: number) =>
     ["gitattributes", instanceId, projectId] as const,
+  issues: (
+    instanceId: string,
+    scope: "all" | "assigned" | "starred",
+    projectId: number | "all",
+  ) => ["issues", instanceId, scope, projectId] as const,
+  issueProjects: (instanceId: string) => ["issueProjects", instanceId] as const,
   pipelineProjects: (instanceId: string) =>
     ["pipelineProjects", instanceId] as const,
   pipelineStatuses: (instanceId: string, projectIds: number[]) =>

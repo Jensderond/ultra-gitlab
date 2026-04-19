@@ -381,6 +381,67 @@ export interface CachedFilePair {
 }
 
 // ============================================================================
+// Issues
+// ============================================================================
+
+export type IssueState = 'opened' | 'closed';
+
+export interface Issue {
+  id: number;
+  instanceId: number;
+  iid: number;
+  projectId: number;
+  title: string;
+  description: string | null;
+  state: IssueState;
+  webUrl: string;
+  authorUsername: string;
+  assigneeUsernames: string;
+  labels: string;
+  createdAt: number;
+  updatedAt: number;
+  closedAt: number | null;
+  dueDate: string | null;
+  confidential: boolean;
+  userNotesCount: number;
+  starred: boolean;
+  assignedToMe: boolean;
+  cachedAt: number;
+}
+
+/**
+ * Issue enriched with project metadata. The project fields are joined in
+ * by the backend so the UI can render namespace-aware titles without an
+ * extra roundtrip.
+ */
+export interface IssueWithProject extends Issue {
+  projectName: string | null;
+  projectNameWithNamespace: string | null;
+  projectPathWithNamespace: string | null;
+  projectCustomName: string | null;
+  projectStarred: boolean;
+}
+
+export interface IssueFilter {
+  projectId?: number;
+  onlyAssignedToMe?: boolean;
+  onlyStarred?: boolean;
+}
+
+export interface IssueProject {
+  id: number;
+  instanceId: number;
+  name: string;
+  nameWithNamespace: string;
+  pathWithNamespace: string;
+  webUrl: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+  starred: boolean;
+  customName: string | null;
+}
+
+// ============================================================================
 // Pipeline Dashboard
 // ============================================================================
 
@@ -394,6 +455,8 @@ export interface PipelineProject {
   nameWithNamespace: string;
   pathWithNamespace: string;
   webUrl: string;
+  starred: boolean;
+  customName: string | null;
 }
 
 export interface PipelineStatus {

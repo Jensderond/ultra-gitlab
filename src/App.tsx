@@ -16,6 +16,7 @@ import MyMRsPage from './pages/MyMRsPage';
 import MyMRDetailPage from './pages/MyMRDetailPage';
 import PipelinesPage from './pages/PipelinesPage';
 import PipelineDetailPage from './pages/PipelineDetailPage';
+import IssuesPage from './pages/IssuesPage';
 import JobLogPage from './pages/JobLogPage';
 import AuthPage from './pages/AuthPage';
 import { AppSidebar } from './components/AppSidebar';
@@ -161,6 +162,11 @@ function AppContent() {
     navigate('/pipelines');
   });
 
+  useHotkey(parseHotkey(getKey('go-to-issues') ?? 'Mod+U'), () => {
+    trackShortcut('Mod+U', 'navigate_issues', 'global');
+    navigate('/issues');
+  });
+
   useHotkey(parseHotkey(getKey('trigger-sync') ?? 'Mod+R'), () => {
     trackShortcut('Mod+R', 'trigger_sync', 'global');
     manualSync(true).catch(console.error);
@@ -212,6 +218,7 @@ function AppContent() {
       [CommandId.GoToMRList]: () => navigate('/mrs'),
       [CommandId.GoToMyMRs]: () => navigate('/my-mrs'),
       [CommandId.GoToPipelines]: () => navigate('/pipelines'),
+      [CommandId.GoToIssues]: () => navigate('/issues'),
       [CommandId.GoToSettings]: () => navigate('/settings'),
       [CommandId.OpenSettings]: () => navigate('/settings'),
       [CommandId.OpenCommandPalette]: () => setCommandPaletteOpen(true),
@@ -306,6 +313,9 @@ function AppContent() {
           <Route path="/pipelines" element={<PipelinesPage />} />
           <Route path="/pipelines/:projectId/:pipelineId" element={<PipelineDetailPage />} />
           <Route path="/pipelines/:projectId/:pipelineId/jobs/:jobId" element={<JobLogPage />} />
+
+          {/* Issues dashboard */}
+          <Route path="/issues" element={<IssuesPage />} />
 
           {/* Settings page (desktop only) */}
           {isTauri && (

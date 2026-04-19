@@ -135,6 +135,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0019_pipeline_status_cache",
         include_str!("migrations/0019_pipeline_status_cache.sql"),
     ),
+    (
+        "0020_create_issues_and_starring",
+        include_str!("migrations/0020_create_issues_and_starring.sql"),
+    ),
 ];
 
 /// Run all pending database migrations.

@@ -303,6 +303,52 @@ pub struct GitLabJobRunner {
     pub description: Option<String>,
 }
 
+/// GitLab issue from API.
+#[derive(Debug, Clone, Deserialize)]
+pub struct GitLabIssue {
+    pub id: i64,
+    pub iid: i64,
+    pub project_id: i64,
+    pub title: String,
+    pub description: Option<String>,
+    pub state: String,
+    pub web_url: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub closed_at: Option<String>,
+    pub due_date: Option<String>,
+    pub confidential: Option<bool>,
+    pub user_notes_count: Option<i64>,
+    pub author: GitLabUser,
+    pub assignees: Option<Vec<GitLabUser>>,
+    pub labels: Vec<String>,
+}
+
+/// Query parameters for listing issues.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct IssuesQuery {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assignee_username: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub author_username: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub search: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page: Option<u32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub per_page: Option<u32>,
+}
+
 /// Personal access token info from GET /personal_access_tokens/self.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersonalAccessTokenInfo {
@@ -694,6 +740,24 @@ impl GitLabClient {
         query: &MergeRequestsQuery,
     ) -> Result<PaginatedResponse<GitLabMergeRequest>, AppError> {
         self.get_paginated("/merge_requests", Some(query)).await
+    }
+
+    /// List issues across all projects visible to the current user.
+    ///
+    /// Uses the `/issues` top-level endpoint; combined with a `scope=assigned_to_me`
+    /// filter this is how the "my issues" view is populated.
+    pub async fn list_issues(&self, query: &IssuesQuery) -> Result<Vec<GitLabIssue>, AppError> {
+        self.get_all_pages("/issues", Some(query)).await
+    }
+
+    /// List issues inside a specific project.
+    pub async fn list_project_issues(
+        &self,
+        project_id: i64,
+        query: &IssuesQuery,
+    ) -> Result<Vec<GitLabIssue>, AppError> {
+        let endpoint = format!("/projects/{}/issues", project_id);
+        self.get_all_pages(&endpoint, Some(query)).await
     }
 
     /// Get a single merge request by project and IID.

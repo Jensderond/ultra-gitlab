@@ -1,0 +1,410 @@
+/* Issues page — mirrors the MR list page aesthetic with a left rail for
+   scope tabs + project list and a main column for the list itself. */
+
+.issues-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-primary);
+  font-family: 'Noto Sans JP', -apple-system, sans-serif;
+  color: var(--text-primary);
+  overflow: hidden;
+  position: relative;
+}
+
+.issues-page-loading,
+.issues-page-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--text-secondary);
+  padding: 40px;
+  text-align: center;
+}
+
+.issues-page-empty h2 {
+  margin: 0;
+  font-family: var(--font-display, 'Cormorant Garamond', serif);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.issues-page-empty p {
+  margin: 0;
+  max-width: 360px;
+}
+
+/* ===== Header ===== */
+
+.issues-page-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 24px 32px 20px;
+  user-select: none;
+  -webkit-user-select: none;
+  position: relative;
+  z-index: 100;
+}
+
+.issues-page-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 32px;
+  right: 32px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--border-color) 15%,
+    var(--text-fuji, var(--text-muted)) 50%,
+    var(--border-color) 85%,
+    transparent 100%
+  );
+  opacity: 0.6;
+}
+
+.issues-page-header .header-title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.issues-page-header h1 {
+  margin: 0;
+  font-family: var(--font-display, 'Cormorant Garamond', serif);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--text-primary);
+}
+
+.issues-page-header .refresh-button {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.issues-page-header .refresh-button:hover:not(:disabled) {
+  color: var(--accent-color);
+  background: var(--overlay-hover);
+}
+
+.issues-page-header .refresh-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.issues-page-header .header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* ===== Body layout ===== */
+
+.issues-page-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.issues-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border-color);
+  overflow-y: auto;
+  padding: 16px 12px 24px;
+  background: transparent;
+}
+
+.issues-scope-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+
+.issues-scope-tab {
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.issues-scope-tab:hover {
+  background: var(--overlay-hover);
+  color: var(--text-primary);
+}
+
+.issues-scope-tab.active {
+  background: var(--wave-glow);
+  color: var(--accent-color);
+}
+
+.issues-project-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.issues-project-section-header {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 10px 12px 6px;
+}
+
+.issues-project-subheader {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 10px 12px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.issues-project-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.issues-project-item:hover {
+  background: var(--overlay-hover);
+  color: var(--text-primary);
+}
+
+.issues-project-item.active {
+  background: var(--wave-glow);
+  color: var(--accent-color);
+}
+
+.issues-project-name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.issues-project-rename-badge {
+  font-size: 10px;
+  color: var(--accent-color);
+}
+
+.issues-project-count {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--overlay-hover);
+}
+
+.issues-project-star,
+.issues-project-rename {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.issues-project-star:hover,
+.issues-project-rename:hover {
+  color: var(--accent-color);
+  background: var(--overlay-hover);
+}
+
+.issues-project-star.is-starred {
+  color: var(--warning-color, #e6c07b);
+}
+
+/* ===== Main column ===== */
+
+.issues-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.issues-main-loading,
+.issues-main-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  height: 100%;
+  color: var(--text-secondary);
+  font-family: 'Noto Sans JP', sans-serif;
+  padding: 32px;
+  text-align: center;
+}
+
+.issues-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ===== Footer ===== */
+
+.issues-page-footer {
+  border-top: 1px solid var(--border-color);
+  padding: 8px 32px;
+  position: relative;
+  z-index: 10;
+}
+
+/* ===== Rename dialog ===== */
+
+.issues-rename-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.issues-rename-dialog {
+  width: min(420px, 90vw);
+  background: var(--bg-secondary, var(--bg-primary));
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 20px 22px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  font-family: 'Noto Sans JP', sans-serif;
+  color: var(--text-primary);
+}
+
+.issues-rename-dialog h3 {
+  margin: 0 0 8px 0;
+  font-family: var(--font-display, 'Cormorant Garamond', serif);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.issues-rename-original {
+  margin: 0 0 4px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.issues-rename-original code {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--accent-hover);
+}
+
+.issues-rename-hint {
+  margin: 0 0 12px 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.issues-rename-input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 13px;
+  margin-bottom: 16px;
+  box-sizing: border-box;
+}
+
+.issues-rename-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px var(--wave-glow);
+}
+
+.issues-rename-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.issues-rename-dialog .primary-button,
+.issues-rename-dialog .secondary-button {
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.issues-rename-dialog .primary-button {
+  background: var(--accent-color);
+  color: var(--bg-primary);
+}
+
+.issues-rename-dialog .primary-button:hover {
+  background: var(--accent-hover);
+}
+
+.issues-rename-dialog .secondary-button {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: var(--border-color);
+}
+
+.issues-rename-dialog .secondary-button:hover {
+  background: var(--overlay-hover);
+  color: var(--text-primary);
+}

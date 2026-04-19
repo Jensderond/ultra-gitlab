@@ -30,6 +30,16 @@ pub struct Project {
 
     /// ISO 8601 update timestamp from GitLab.
     pub updated_at: Option<String>,
+
+    /// Whether the user has starred this project (local-only).
+    #[sqlx(default)]
+    pub starred: bool,
+
+    /// User-chosen display name (overrides `name` in the UI when set).
+    /// The original `name` / `name_with_namespace` stay intact so the UI
+    /// can surface them as a tooltip.
+    #[sqlx(default)]
+    pub custom_name: Option<String>,
 }
 
 /// Look up a project by (instance_id, project_id).
@@ -39,13 +49,63 @@ pub async fn get_project(
     project_id: i64,
 ) -> Result<Option<Project>, sqlx::Error> {
     sqlx::query_as::<_, Project>(
-        "SELECT id, instance_id, name, name_with_namespace, path_with_namespace, web_url, created_at, updated_at
+        "SELECT id, instance_id, name, name_with_namespace, path_with_namespace, web_url, created_at, updated_at, starred, custom_name
          FROM projects WHERE instance_id = ? AND id = ?",
     )
     .bind(instance_id)
     .bind(project_id)
     .fetch_optional(pool)
     .await
+}
+
+/// Toggle the starred flag for a project (local preference).
+pub async fn toggle_project_star(
+    pool: &sqlx::SqlitePool,
+    instance_id: i64,
+    project_id: i64,
+) -> Result<bool, sqlx::Error> {
+    sqlx::query(
+        "UPDATE projects
+         SET starred = CASE WHEN starred = 0 THEN 1 ELSE 0 END
+         WHERE instance_id = ? AND id = ?",
+    )
+    .bind(instance_id)
+    .bind(project_id)
+    .execute(pool)
+    .await?;
+
+    let row: Option<(i64,)> = sqlx::query_as(
+        "SELECT starred FROM projects WHERE instance_id = ? AND id = ?",
+    )
+    .bind(instance_id)
+    .bind(project_id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row.map(|(s,)| s != 0).unwrap_or(false))
+}
+
+/// Set a user-chosen display name for a project. Pass `None` / empty to clear.
+pub async fn set_project_custom_name(
+    pool: &sqlx::SqlitePool,
+    instance_id: i64,
+    project_id: i64,
+    custom_name: Option<String>,
+) -> Result<(), sqlx::Error> {
+    let trimmed = custom_name
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    sqlx::query(
+        "UPDATE projects SET custom_name = ? WHERE instance_id = ? AND id = ?",
+    )
+    .bind(trimmed)
+    .bind(instance_id)
+    .bind(project_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
 }
 
 /// Upsert a project (insert or update on conflict).
@@ -145,6 +205,8 @@ mod tests {
             web_url: "https://gitlab.com/my-group/my-project".to_string(),
             created_at: Some("2026-01-01T00:00:00Z".to_string()),
             updated_at: Some("2026-01-02T00:00:00Z".to_string()),
+            starred: false,
+            custom_name: None,
         };
 
         upsert_project(&pool, &project).await.unwrap();
@@ -168,6 +230,8 @@ mod tests {
             web_url: "https://gitlab.com/group/old-name".to_string(),
             created_at: None,
             updated_at: None,
+            starred: false,
+            custom_name: None,
         };
 
         upsert_project(&pool, &project).await.unwrap();
@@ -194,6 +258,8 @@ mod tests {
             web_url: "https://gitlab.com/group/cached".to_string(),
             created_at: None,
             updated_at: None,
+            starred: false,
+            custom_name: None,
         };
         upsert_project(&pool, &project).await.unwrap();
 

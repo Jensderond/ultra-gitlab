@@ -39,6 +39,9 @@ import type {
   CompanionServerSettings,
   CompanionStatus,
   ResolvedMr,
+  IssueWithProject,
+  IssueFilter,
+  IssueProject,
 } from '../types';
 
 // ============================================================================
@@ -559,6 +562,71 @@ export async function generateTestData(mrCount?: number): Promise<TestDataResult
  */
 export async function clearTestData(): Promise<number> {
   return invoke<number>('clear_test_data');
+}
+
+// ============================================================================
+// Issues Commands
+// ============================================================================
+
+/**
+ * Fetch cached issues for an instance, optionally filtered by project or
+ * assignee. Results are joined with project metadata on the backend.
+ */
+export async function listCachedIssues(
+  instanceId: number,
+  filter?: IssueFilter,
+): Promise<IssueWithProject[]> {
+  return invoke<IssueWithProject[]>('list_cached_issues', { instanceId, filter: filter ?? null });
+}
+
+/**
+ * Refresh the "issues assigned to me" cache for an instance.
+ * Returns the number of issues retrieved.
+ */
+export async function syncMyIssues(instanceId: number): Promise<number> {
+  return invoke<number>('sync_my_issues', { instanceId });
+}
+
+/**
+ * Refresh the issues cache for a specific project.
+ * Returns the number of issues retrieved.
+ */
+export async function syncProjectIssues(instanceId: number, projectId: number): Promise<number> {
+  return invoke<number>('sync_project_issues', { instanceId, projectId });
+}
+
+/**
+ * List projects that appear on the issues dashboard (starred projects +
+ * every project with at least one cached issue).
+ */
+export async function listIssueProjects(instanceId: number): Promise<IssueProject[]> {
+  return invoke<IssueProject[]>('list_issue_projects', { instanceId });
+}
+
+/**
+ * Toggle the starred flag on a single issue. Returns the new value.
+ */
+export async function toggleIssueStar(instanceId: number, issueId: number): Promise<boolean> {
+  return invoke<boolean>('toggle_issue_star', { instanceId, issueId });
+}
+
+/**
+ * Toggle the starred flag on a project. Returns the new value.
+ */
+export async function toggleProjectStar(instanceId: number, projectId: number): Promise<boolean> {
+  return invoke<boolean>('toggle_project_star', { instanceId, projectId });
+}
+
+/**
+ * Set (or clear, via empty string / null) the user-chosen display name of
+ * a project. The original name/namespace stay intact for tooltips.
+ */
+export async function renameProject(
+  instanceId: number,
+  projectId: number,
+  customName: string | null,
+): Promise<void> {
+  return invoke<void>('rename_project', { instanceId, projectId, customName });
 }
 
 // ============================================================================
