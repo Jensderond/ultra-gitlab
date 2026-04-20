@@ -205,11 +205,13 @@ export default function IssueDetailView({
               {isClosed ? 'Closed' : 'Open'}
             </span>
           </div>
-            {isRefreshing && (
-              <span className="issue-refresh-indicator" aria-live="polite">
-                Updating…
-              </span>
-            )}
+          <span
+            className="issue-refresh-indicator"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {isRefreshing ? 'Updating…' : ''}
+          </span>
         </div>
         <div className="mr-header-bottom">
           <h1 className="mr-title">{issue.title}</h1>
