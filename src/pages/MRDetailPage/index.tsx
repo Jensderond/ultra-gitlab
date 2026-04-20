@@ -27,6 +27,7 @@ import {
   deleteComment,
   getApprovalCheckpoint,
   getFilesChangedSince,
+  setApprovalCheckpoint,
 } from '../../services/gitlab';
 import { openExternalUrl } from '../../services/transport';
 import { useCurrentUserQuery } from '../../hooks/queries/useCurrentUserQuery';
@@ -273,6 +274,11 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         onToggleMobileSidebar={() => dispatch({ type: 'TOGGLE_MOBILE_SIDEBAR' })}
         onApproved={(trigger) => {
           trackMRApproved(mrId, Math.round((Date.now() - mrEnteredAtRef.current) / 1000), trigger);
+          // Fire-and-forget: stamp the checkpoint so a future push shows delta.
+          setApprovalCheckpoint(mrId).catch((err) =>
+            console.error('[mr-detail] failed to set approval checkpoint', err),
+          );
+          dispatch({ type: 'RESET_CHANGED_SET' });
           navigate('/mrs');
         }}
         onUnapproved={(trigger) => trackMRUnapproved(mrId, trigger)}
