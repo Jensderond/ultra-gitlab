@@ -8,6 +8,9 @@ export interface ViewState {
   mobileSidebarOpen: boolean;
   viewedPaths: Set<string>;
   hideGenerated: boolean;
+  changedSinceApprovalPaths: Set<string>;
+  filterToChangedOnly: boolean;
+  bannerDismissed: boolean;
 }
 
 type ViewAction =
@@ -17,7 +20,11 @@ type ViewAction =
   | { type: 'TOGGLE_MOBILE_SIDEBAR' }
   | { type: 'CLOSE_MOBILE_SIDEBAR' }
   | { type: 'MARK_VIEWED'; path: string }
-  | { type: 'TOGGLE_HIDE_GENERATED' };
+  | { type: 'TOGGLE_HIDE_GENERATED' }
+  | { type: 'SET_CHANGED_SET'; paths: string[] }
+  | { type: 'TOGGLE_CHANGED_FILTER' }
+  | { type: 'DISMISS_BANNER' }
+  | { type: 'RESET_CHANGED_SET' };
 
 export const initialViewState: ViewState = {
   selectedFile: null,
@@ -27,6 +34,9 @@ export const initialViewState: ViewState = {
   mobileSidebarOpen: false,
   viewedPaths: new Set(),
   hideGenerated: true,
+  changedSinceApprovalPaths: new Set(),
+  filterToChangedOnly: false,
+  bannerDismissed: false,
 };
 
 function viewReducer(state: ViewState, action: ViewAction): ViewState {
@@ -51,8 +61,23 @@ function viewReducer(state: ViewState, action: ViewAction): ViewState {
       return { ...state, viewedPaths: new Set(state.viewedPaths).add(action.path) };
     case 'TOGGLE_HIDE_GENERATED':
       return { ...state, hideGenerated: !state.hideGenerated };
+    case 'SET_CHANGED_SET':
+      return { ...state, changedSinceApprovalPaths: new Set(action.paths) };
+    case 'TOGGLE_CHANGED_FILTER':
+      return { ...state, filterToChangedOnly: !state.filterToChangedOnly };
+    case 'DISMISS_BANNER':
+      return { ...state, bannerDismissed: true };
+    case 'RESET_CHANGED_SET':
+      return {
+        ...state,
+        changedSinceApprovalPaths: new Set(),
+        filterToChangedOnly: false,
+        bannerDismissed: false,
+      };
   }
 }
+
+export const viewReducerForTest = viewReducer;
 
 export function useViewReducer() {
   return useReducer(viewReducer, initialViewState);
