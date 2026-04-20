@@ -80,6 +80,17 @@ pub async fn toggle_pin_pipeline_project(
     Ok(())
 }
 
+/// Persist a new ordering for pinned pipeline projects.
+#[tauri::command]
+pub async fn reorder_pinned_pipeline_projects(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_ids: Vec<i64>,
+) -> Result<(), AppError> {
+    pipeline_project::reorder_pinned(pool.inner(), instance_id, &project_ids).await?;
+    Ok(())
+}
+
 /// Remove a pipeline project from the dashboard.
 #[tauri::command]
 pub async fn remove_pipeline_project(

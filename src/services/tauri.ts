@@ -791,6 +791,16 @@ export async function removePipelineProject(instanceId: number, projectId: numbe
 }
 
 /**
+ * Persist a new ordering for pinned pipeline projects.
+ */
+export async function reorderPinnedPipelineProjects(
+  instanceId: number,
+  projectIds: number[],
+): Promise<void> {
+  return invoke<void>('reorder_pinned_pipeline_projects', { instanceId, projectIds });
+}
+
+/**
  * Search for projects with local cache + GitLab API fallback.
  */
 export async function searchProjects(instanceId: number, query: string): Promise<ProjectSearchResult[]> {

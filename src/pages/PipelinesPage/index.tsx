@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import usePipelinesData from './usePipelinesData';
 import ProjectSearch from './ProjectSearch';
 import ProjectCard from './ProjectCard';
+import PinnedGrid from './PinnedGrid';
 import { InstanceSwitcher } from '../../components/InstanceSwitcher';
 import { formatRelativeTime } from './utils';
 import '../PipelinesPage.css';
@@ -27,6 +28,7 @@ export default function PipelinesPage() {
     handleSelectResult,
     handleTogglePin,
     handleRemoveProject,
+    handleReorderPinned,
     handleOpenDetail,
     handleSelectInstance,
   } = usePipelinesData();
@@ -94,19 +96,15 @@ export default function PipelinesPage() {
             {pinnedProjects.length > 0 && (
               <section className="pipelines-section">
                 <h2 className="pipelines-section-title">Pinned</h2>
-                <div className="pipelines-grid">
-                  {pinnedProjects.map((project) => (
-                    <ProjectCard
-                      key={project.projectId}
-                      project={project}
-                      status={statuses.get(project.projectId)}
-                      statusLoading={statusesLoading}
-                      onTogglePin={handleTogglePin}
-                      onRemove={handleRemoveProject}
-                      onOpenDetail={handleOpenDetail}
-                    />
-                  ))}
-                </div>
+                <PinnedGrid
+                  projects={pinnedProjects}
+                  statuses={statuses}
+                  statusesLoading={statusesLoading}
+                  onTogglePin={handleTogglePin}
+                  onRemove={handleRemoveProject}
+                  onOpenDetail={handleOpenDetail}
+                  onReorder={handleReorderPinned}
+                />
               </section>
             )}
             {recentProjects.length > 0 && (

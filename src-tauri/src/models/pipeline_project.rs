@@ -44,7 +44,7 @@ pub struct PipelineProject {
 }
 
 /// List all pipeline projects for an instance, joined with project metadata.
-/// Returns pinned projects first, then by last_visited_at descending.
+/// Pinned projects sort by sort_order (nulls last), then last_visited_at; unpinned by last_visited_at.
 pub async fn list_pipeline_projects(
     pool: &sqlx::SqlitePool,
     instance_id: i64,
@@ -57,12 +57,41 @@ pub async fn list_pipeline_projects(
         FROM pipeline_projects pp
         JOIN projects p ON p.id = pp.project_id AND p.instance_id = pp.instance_id
         WHERE pp.instance_id = ?
-        ORDER BY pp.pinned DESC, pp.last_visited_at DESC
+        ORDER BY pp.pinned DESC,
+                 CASE WHEN pp.sort_order IS NULL THEN 1 ELSE 0 END,
+                 pp.sort_order ASC,
+                 pp.last_visited_at DESC
         "#,
     )
     .bind(instance_id)
     .fetch_all(pool)
     .await
+}
+
+/// Persist a new ordering for pinned pipeline projects.
+/// Sets sort_order to the index in the provided list.
+pub async fn reorder_pinned(
+    pool: &sqlx::SqlitePool,
+    instance_id: i64,
+    project_ids: &[i64],
+) -> Result<(), sqlx::Error> {
+    let mut tx = pool.begin().await?;
+    for (idx, project_id) in project_ids.iter().enumerate() {
+        sqlx::query(
+            r#"
+            UPDATE pipeline_projects
+            SET sort_order = ?
+            WHERE project_id = ? AND instance_id = ?
+            "#,
+        )
+        .bind(idx as i64)
+        .bind(project_id)
+        .bind(instance_id)
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
+    Ok(())
 }
 
 /// Upsert a pipeline project: insert or update last_visited_at on conflict.

@@ -56,6 +56,7 @@ export {
   visitPipelineProject,
   togglePinPipelineProject,
   removePipelineProject,
+  reorderPinnedPipelineProjects,
   searchProjects,
   resolveProjectByPath,
   getPipelineStatuses,

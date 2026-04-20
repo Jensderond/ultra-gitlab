@@ -69,7 +69,8 @@ pub use notifications::send_native_notification;
 pub use pipeline::{
     cancel_pipeline, cancel_pipeline_job, get_cached_pipeline_statuses, get_job_trace,
     get_pipeline_jobs, get_pipeline_statuses, get_project_pipelines, list_pipeline_projects,
-    play_pipeline_job, remove_pipeline_project, resolve_project_by_path, retry_pipeline_job,
+    play_pipeline_job, remove_pipeline_project, reorder_pinned_pipeline_projects,
+    resolve_project_by_path, retry_pipeline_job,
     search_projects, toggle_pin_pipeline_project, visit_pipeline_project,
 };
 pub use reviewers::get_mr_reviewers;

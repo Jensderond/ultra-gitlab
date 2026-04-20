@@ -288,6 +288,21 @@
   gap: 12px;
 }
 
+.pipelines-grid-item {
+  display: flex;
+  cursor: grab;
+  touch-action: none;
+}
+
+.pipelines-grid-item:active {
+  cursor: grabbing;
+}
+
+.pipelines-grid-item > .pipeline-card {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ============================================================================
    Project Card
    ============================================================================ */

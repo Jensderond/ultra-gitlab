@@ -4,6 +4,7 @@ import {
   visitPipelineProject,
   togglePinPipelineProject,
   removePipelineProject,
+  reorderPinnedPipelineProjects,
 } from '../../services/tauri';
 import type { PipelineProject, PipelineStatus, ProjectSearchResult } from '../../types';
 import { useInstancesQuery } from '../../hooks/queries/useInstancesQuery';
@@ -90,6 +91,31 @@ export default function usePipelinesData() {
     [selectedInstanceId]
   );
 
+  const handleReorderPinned = useCallback(
+    async (orderedPinnedIds: number[]) => {
+      if (!selectedInstanceId) return;
+      const key = queryKeys.pipelineProjects(String(selectedInstanceId));
+      const previous = queryClient.getQueryData<PipelineProject[]>(key);
+      if (previous) {
+        const byId = new Map(previous.map((p) => [p.projectId, p]));
+        const reorderedPinned = orderedPinnedIds
+          .map((id) => byId.get(id))
+          .filter((p): p is PipelineProject => !!p);
+        const unpinned = previous.filter((p) => !p.pinned);
+        queryClient.setQueryData<PipelineProject[]>(key, [...reorderedPinned, ...unpinned]);
+      }
+      try {
+        await reorderPinnedPipelineProjects(selectedInstanceId, orderedPinnedIds);
+      } catch (error) {
+        console.error('Failed to reorder pinned projects:', error);
+        if (previous) queryClient.setQueryData(key, previous);
+      } finally {
+        queryClient.invalidateQueries({ queryKey: key });
+      }
+    },
+    [selectedInstanceId]
+  );
+
   const handleOpenDetail = useCallback(
     (project: PipelineProject, status: PipelineStatus) => {
       const params = new URLSearchParams({
@@ -119,6 +145,7 @@ export default function usePipelinesData() {
     handleSelectResult,
     handleTogglePin,
     handleRemoveProject,
+    handleReorderPinned,
     handleOpenDetail,
     handleSelectInstance,
   };
