@@ -117,7 +117,11 @@ export function useAddIssueNote(
   return useMutation({
     mutationFn: (body: string) => addIssueNote(instanceId, projectId, issueIid, body),
     onSuccess: async () => {
-      await refreshIssueDetail(instanceId, projectId, issueIid);
+      try {
+        await refreshIssueDetail(instanceId, projectId, issueIid);
+      } catch (err) {
+        console.warn('[issue] post-mutation refresh failed', err);
+      }
       qc.invalidateQueries({
         queryKey: queryKeys.issueNotes(instanceId, projectId, issueIid),
       });
@@ -138,7 +142,11 @@ export function useSetIssueAssignees(
     mutationFn: (assigneeIds: number[]) =>
       setIssueAssignees(instanceId, projectId, issueIid, assigneeIds),
     onSuccess: async () => {
-      await refreshIssueDetail(instanceId, projectId, issueIid);
+      try {
+        await refreshIssueDetail(instanceId, projectId, issueIid);
+      } catch (err) {
+        console.warn('[issue] post-mutation refresh failed', err);
+      }
       qc.invalidateQueries({
         queryKey: queryKeys.issue(instanceId, projectId, issueIid),
       });
@@ -157,7 +165,11 @@ export function useSetIssueState(
     mutationFn: (stateEvent: 'close' | 'reopen') =>
       setIssueState(instanceId, projectId, issueIid, stateEvent),
     onSuccess: async () => {
-      await refreshIssueDetail(instanceId, projectId, issueIid);
+      try {
+        await refreshIssueDetail(instanceId, projectId, issueIid);
+      } catch (err) {
+        console.warn('[issue] post-mutation refresh failed', err);
+      }
       qc.invalidateQueries({
         queryKey: queryKeys.issue(instanceId, projectId, issueIid),
       });
