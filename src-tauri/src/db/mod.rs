@@ -7,6 +7,7 @@
 
 pub mod file_cache;
 pub mod issue_notes;
+pub mod mr_approval;
 pub mod notification_settings;
 pub mod pipeline_cache;
 pub mod pool;
