@@ -139,6 +139,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0020_create_issues_and_starring",
         include_str!("migrations/0020_create_issues_and_starring.sql"),
     ),
+    (
+        "0021_create_issue_notes",
+        include_str!("migrations/0021_create_issue_notes.sql"),
+    ),
 ];
 
 /// Run all pending database migrations.
@@ -302,6 +306,7 @@ mod tests {
         assert!(table_names.contains(&"comments"));
         assert!(table_names.contains(&"sync_queue"));
         assert!(table_names.contains(&"sync_log"));
+        assert!(table_names.contains(&"issue_notes"));
     }
 
     #[tokio::test]
