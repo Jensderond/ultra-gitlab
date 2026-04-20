@@ -216,8 +216,7 @@ pub async fn get_cached_issue_detail(
     project_id: i64,
     issue_iid: i64,
 ) -> Result<Option<IssueWithProject>, AppError> {
-    let rows = issue::list_issues(pool.inner(), instance_id, Some(project_id), false, false).await?;
-    let Some(row) = rows.into_iter().find(|i| i.iid == issue_iid) else {
+    let Some(row) = issue::get_issue_by_iid(pool.inner(), instance_id, project_id, issue_iid).await? else {
         return Ok(None);
     };
     let project = project::get_project(pool.inner(), instance_id, project_id).await?;

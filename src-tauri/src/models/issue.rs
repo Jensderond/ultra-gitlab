@@ -261,3 +261,25 @@ pub async fn list_issues(
     }
     q.fetch_all(pool).await
 }
+
+/// Look up a single cached issue by (instance_id, project_id, iid).
+pub async fn get_issue_by_iid(
+    pool: &sqlx::SqlitePool,
+    instance_id: i64,
+    project_id: i64,
+    iid: i64,
+) -> Result<Option<Issue>, sqlx::Error> {
+    sqlx::query_as::<_, Issue>(
+        "SELECT id, instance_id, iid, project_id, title, description, state, web_url,
+                author_username, assignee_usernames, labels, created_at, updated_at,
+                closed_at, due_date, confidential, user_notes_count, starred,
+                assigned_to_me, cached_at
+         FROM issues
+         WHERE instance_id = ? AND project_id = ? AND iid = ?"
+    )
+    .bind(instance_id)
+    .bind(project_id)
+    .bind(iid)
+    .fetch_optional(pool)
+    .await
+}
