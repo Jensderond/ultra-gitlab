@@ -402,10 +402,8 @@ async fn upsert_and_join(
     issue::upsert_issue(pool, &upsert).await?;
 
     // Re-read from DB to get the canonical row (starred flag, etc.).
-    let rows = issue::list_issues(pool, instance_id, Some(project_id), false, false).await?;
-    let row = rows
-        .into_iter()
-        .find(|i| i.iid == upsert.iid)
+    let row = issue::get_issue_by_iid(pool, instance_id, project_id, upsert.iid)
+        .await?
         .ok_or_else(|| AppError::internal("Failed to reload issue after upsert"))?;
 
     let project = project::get_project(pool, instance_id, project_id).await?;
