@@ -374,6 +374,27 @@ export async function unapproveMR(mrId: number): Promise<void> {
   return invoke<void>('unapprove_mr', { mrId });
 }
 
+/**
+ * Record an approval checkpoint for a merge request at the current time.
+ */
+export async function setApprovalCheckpoint(mrId: number): Promise<void> {
+  return invoke<void>('set_approval_checkpoint', { mrId });
+}
+
+/**
+ * Fetch the approval checkpoint timestamp for a merge request, if any.
+ */
+export async function getApprovalCheckpoint(mrId: number): Promise<number | null> {
+  return invoke<number | null>('get_approval_checkpoint', { mrId });
+}
+
+/**
+ * List file paths that changed in the MR since the given checkpoint timestamp.
+ */
+export async function getFilesChangedSince(mrId: number, sinceTs: number): Promise<string[]> {
+  return invoke<string[]>('get_files_changed_since', { mrId, sinceTs });
+}
+
 // ============================================================================
 // Sync Commands
 // ============================================================================
