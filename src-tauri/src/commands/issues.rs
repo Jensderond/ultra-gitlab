@@ -132,12 +132,13 @@ async fn ensure_projects_cached(
 }
 
 /// Refresh issues assigned to the authenticated user across all projects.
-#[tauri::command]
-pub async fn sync_my_issues(
-    pool: State<'_, DbPool>,
+/// Callable outside the Tauri command boundary so the background sync engine
+/// can drive it on a timer in addition to the manual button.
+pub(crate) async fn sync_assigned_issues(
+    pool: &DbPool,
     instance_id: i64,
 ) -> Result<i64, AppError> {
-    let (client, username) = create_client_with_username(&pool, instance_id).await?;
+    let (client, username) = create_client_with_username(pool, instance_id).await?;
 
     let query = IssuesQuery {
         state: Some("opened".to_string()),
@@ -153,15 +154,23 @@ pub async fn sync_my_issues(
         let set: HashSet<i64> = issues.iter().map(|i| i.project_id).collect();
         set.into_iter().collect()
     };
-    ensure_projects_cached(&client, pool.inner(), instance_id, &project_ids).await?;
+    ensure_projects_cached(&client, pool, instance_id, &project_ids).await?;
 
     let count = issues.len() as i64;
     for gi in issues {
         let upsert = to_upsert(gi, instance_id, true);
-        issue::upsert_issue(pool.inner(), &upsert).await?;
+        issue::upsert_issue(pool, &upsert).await?;
     }
 
     Ok(count)
+}
+
+#[tauri::command]
+pub async fn sync_my_issues(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+) -> Result<i64, AppError> {
+    sync_assigned_issues(pool.inner(), instance_id).await
 }
 
 /// Refresh issues for a specific project.
@@ -171,7 +180,7 @@ pub async fn sync_project_issues(
     instance_id: i64,
     project_id: i64,
 ) -> Result<i64, AppError> {
-    let (client, username) = create_client_with_username(&pool, instance_id).await?;
+    let (client, username) = create_client_with_username(pool.inner(), instance_id).await?;
 
     // Make sure the project row exists so later joins work.
     ensure_projects_cached(&client, pool.inner(), instance_id, &[project_id]).await?;
@@ -395,7 +404,7 @@ pub async fn get_issue_detail(
     project_id: i64,
     issue_iid: i64,
 ) -> Result<IssueWithProject, AppError> {
-    let (client, username) = create_client_with_username(&pool, instance_id).await?;
+    let (client, username) = create_client_with_username(pool.inner(), instance_id).await?;
     let gi = client.get_issue(project_id, issue_iid).await?;
     upsert_and_join(pool.inner(), &client, instance_id, gi, &username).await
 }
@@ -408,7 +417,7 @@ pub async fn list_issue_notes(
     project_id: i64,
     issue_iid: i64,
 ) -> Result<Vec<IssueNoteDto>, AppError> {
-    let (client, _username) = create_client_with_username(&pool, instance_id).await?;
+    let (client, _username) = create_client_with_username(pool.inner(), instance_id).await?;
     let notes = client.list_issue_notes(project_id, issue_iid).await?;
     Ok(notes.into_iter().map(IssueNoteDto::from).collect())
 }
@@ -422,7 +431,7 @@ pub async fn add_issue_note(
     issue_iid: i64,
     body: String,
 ) -> Result<IssueNoteDto, AppError> {
-    let (client, _username) = create_client_with_username(&pool, instance_id).await?;
+    let (client, _username) = create_client_with_username(pool.inner(), instance_id).await?;
     let note = client.add_issue_note(project_id, issue_iid, &body).await?;
     Ok(IssueNoteDto::from(note))
 }
@@ -436,7 +445,7 @@ pub async fn set_issue_assignees(
     issue_iid: i64,
     assignee_ids: Vec<i64>,
 ) -> Result<IssueWithProject, AppError> {
-    let (client, username) = create_client_with_username(&pool, instance_id).await?;
+    let (client, username) = create_client_with_username(pool.inner(), instance_id).await?;
     let update = IssueUpdate {
         assignee_ids: Some(assignee_ids),
         state_event: None,
@@ -459,7 +468,7 @@ pub async fn set_issue_state(
             "state_event must be 'close' or 'reopen'",
         ));
     }
-    let (client, username) = create_client_with_username(&pool, instance_id).await?;
+    let (client, username) = create_client_with_username(pool.inner(), instance_id).await?;
     let update = IssueUpdate {
         assignee_ids: None,
         state_event: Some(state_event),
@@ -475,7 +484,7 @@ pub async fn list_issue_assignee_candidates(
     instance_id: i64,
     project_id: i64,
 ) -> Result<Vec<GitLabUserDto>, AppError> {
-    let (client, _username) = create_client_with_username(&pool, instance_id).await?;
+    let (client, _username) = create_client_with_username(pool.inner(), instance_id).await?;
     let members = client.list_project_members(project_id).await?;
     Ok(members
         .into_iter()
@@ -490,7 +499,7 @@ pub async fn list_issue_assignee_candidates(
 
 /// Load both the client and the authenticated username for an instance.
 async fn create_client_with_username(
-    pool: &State<'_, DbPool>,
+    pool: &DbPool,
     instance_id: i64,
 ) -> Result<(GitLabClient, String), AppError> {
     let instance: Option<GitLabInstance> = sqlx::query_as(
@@ -501,7 +510,7 @@ async fn create_client_with_username(
         "#,
     )
     .bind(instance_id)
-    .fetch_optional(pool.inner())
+    .fetch_optional(pool)
     .await?;
 
     let instance = instance

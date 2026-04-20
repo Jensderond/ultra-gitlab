@@ -112,14 +112,14 @@ export const commandDefinitions: CommandDefinition[] = [
     id: CommandId.GoToPipelines,
     label: 'Go to Pipelines',
     description: 'View pipeline status dashboard',
-    shortcut: 'Cmd+I',
+    shortcut: 'Cmd+P',
     category: CommandCategory.Navigation,
   },
   {
     id: CommandId.GoToIssues,
     label: 'Go to Issues',
     description: 'View and triage GitLab issues',
-    shortcut: 'Cmd+U',
+    shortcut: 'Cmd+I',
     category: CommandCategory.Navigation,
   },
   {
@@ -310,7 +310,7 @@ export const commandDefinitions: CommandDefinition[] = [
     id: CommandId.OpenCommandPalette,
     label: 'Open Command Palette',
     description: 'Open the command palette',
-    shortcut: 'Cmd+P',
+    shortcut: 'Cmd+K',
     category: CommandCategory.Navigation,
   },
 ];

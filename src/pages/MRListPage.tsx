@@ -17,6 +17,7 @@ import { InstanceSwitcher } from '../components/InstanceSwitcher';
 import { queryKeys } from '../lib/queryKeys';
 import { ShortcutBar } from '../components/ShortcutBar';
 import type { ShortcutDef } from '../components/ShortcutBar';
+import { PageHeader } from '../components/PageHeader';
 import './MRListPage.css';
 
 const defaultShortcuts: ShortcutDef[] = [
@@ -179,44 +180,36 @@ export default function MRListPage() {
 
   return (
     <div className="mr-list-page">
-      <header className="mr-list-page-header">
-        <div className="header-title-group">
-          <h1>Merge Requests</h1>
-          <button
-            className="refresh-button"
-            onClick={() => selectedInstanceId != null && queryClient.invalidateQueries({ queryKey: queryKeys.mrList(String(selectedInstanceId)) })}
-            aria-label="Refresh merge requests"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-              <path d="M21 3v5h-5" />
-            </svg>
-          </button>
-        </div>
-        <div className="header-actions">
-          <InstanceSwitcher
-            instances={instances}
-            selectedId={selectedInstanceId}
-            onSelect={setSelectedInstanceId}
-          />
-          <div className="approved-toggle-wrapper">
-            <button
-              className={`approved-toggle-button${showApproved ? ' approved-toggle-button--active' : ''}`}
-              onClick={() => setShowApproved(v => !v)}
-              aria-label={showApproved ? 'Hide approved merge requests' : 'Show approved merge requests'}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                <polyline points="22 4 12 14.01 9 11.01" />
-              </svg>
-              <span className="approved-toggle-popover">
-                <span className="approved-toggle-popover-shortcut"><kbd>Shift</kbd>+<kbd>H</kbd></span>
-                <span>{showApproved ? 'Hide approved' : 'Show approved'}</span>
-              </span>
-            </button>
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        title="Merge Requests"
+        onRefresh={() => selectedInstanceId != null && queryClient.invalidateQueries({ queryKey: queryKeys.mrList(String(selectedInstanceId)) })}
+        refreshAriaLabel="Refresh merge requests"
+        actions={
+          <>
+            <InstanceSwitcher
+              instances={instances}
+              selectedId={selectedInstanceId}
+              onSelect={setSelectedInstanceId}
+            />
+            <div className="approved-toggle-wrapper">
+              <button
+                className={`approved-toggle-button${showApproved ? ' approved-toggle-button--active' : ''}`}
+                onClick={() => setShowApproved(v => !v)}
+                aria-label={showApproved ? 'Hide approved merge requests' : 'Show approved merge requests'}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+                <span className="approved-toggle-popover">
+                  <span className="approved-toggle-popover-shortcut"><kbd>Shift</kbd>+<kbd>H</kbd></span>
+                  <span>{showApproved ? 'Hide approved' : 'Show approved'}</span>
+                </span>
+              </button>
+            </div>
+          </>
+        }
+      />
 
       <main className="mr-list-page-content">
         {isSearchOpen && (

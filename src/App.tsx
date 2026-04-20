@@ -138,8 +138,8 @@ function AppContent() {
   }, []);
 
   // Global keyboard shortcuts via TanStack hotkeys
-  useHotkey(parseHotkey(getKey('command-palette') ?? 'Mod+P'), () => {
-    trackShortcut('Mod+P', 'open_command_palette', 'global');
+  useHotkey(parseHotkey(getKey('command-palette') ?? 'Mod+K'), () => {
+    trackShortcut('Mod+K', 'open_command_palette', 'global');
     setCommandPaletteOpen(true);
   }, { enabled: isTauri });
 
@@ -158,13 +158,13 @@ function AppContent() {
     navigate('/my-mrs');
   });
 
-  useHotkey(parseHotkey(getKey('go-to-pipelines') ?? 'Mod+I'), () => {
-    trackShortcut('Mod+I', 'navigate_pipelines', 'global');
+  useHotkey(parseHotkey(getKey('go-to-pipelines') ?? 'Mod+P'), () => {
+    trackShortcut('Mod+P', 'navigate_pipelines', 'global');
     navigate('/pipelines');
   });
 
-  useHotkey(parseHotkey(getKey('go-to-issues') ?? 'Mod+U'), () => {
-    trackShortcut('Mod+U', 'navigate_issues', 'global');
+  useHotkey(parseHotkey(getKey('go-to-issues') ?? 'Mod+I'), () => {
+    trackShortcut('Mod+I', 'navigate_issues', 'global');
     navigate('/issues');
   });
 

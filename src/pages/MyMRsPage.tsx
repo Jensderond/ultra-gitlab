@@ -18,6 +18,7 @@ import { useMyMRListQuery } from '../hooks/queries/useMyMRListQuery';
 import { queryKeys } from '../lib/queryKeys';
 import { ShortcutBar } from '../components/ShortcutBar';
 import type { ShortcutDef } from '../components/ShortcutBar';
+import { PageHeader } from '../components/PageHeader';
 import './MRListPage.css';
 import './MyMRsPage.css';
 
@@ -160,26 +161,18 @@ export default function MyMRsPage() {
 
   return (
     <div className="mr-list-page">
-      <header className="mr-list-page-header">
-        <div className="header-title-group">
-          <h1>My Merge Requests</h1>
-          <button
-            className="refresh-button"
-            onClick={() => selectedInstanceId != null && queryClient.invalidateQueries({ queryKey: queryKeys.myMRList(String(selectedInstanceId)) })}
-            aria-label="Refresh merge requests"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-              <path d="M21 3v5h-5" />
-            </svg>
-          </button>
-        </div>
-        <InstanceSwitcher
-          instances={instances}
-          selectedId={selectedInstanceId}
-          onSelect={setSelectedInstanceId}
-        />
-      </header>
+      <PageHeader
+        title="My Merge Requests"
+        onRefresh={() => selectedInstanceId != null && queryClient.invalidateQueries({ queryKey: queryKeys.myMRList(String(selectedInstanceId)) })}
+        refreshAriaLabel="Refresh merge requests"
+        actions={
+          <InstanceSwitcher
+            instances={instances}
+            selectedId={selectedInstanceId}
+            onSelect={setSelectedInstanceId}
+          />
+        }
+      />
 
       <main className="mr-list-page-content">
         {isSearchOpen && (

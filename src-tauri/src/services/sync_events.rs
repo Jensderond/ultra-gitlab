@@ -57,6 +57,21 @@ pub const MR_READY_EVENT: &str = "notification:mr-ready";
 /// Emitted when a pinned project's pipeline status changes.
 pub const PIPELINE_STATUS_CHANGED_EVENT: &str = "notification:pipeline-changed";
 
+/// Event: issues-updated
+/// Emitted when the background sync refreshes cached issues for an instance.
+pub const ISSUES_UPDATED_EVENT: &str = "issues-updated";
+
+/// Payload for issues-updated events.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IssuesUpdatedPayload {
+    /// Instance whose issue cache was refreshed.
+    pub instance_id: i64,
+
+    /// Number of issues fetched in this run.
+    pub count: i64,
+}
+
 /// Payload for sync-progress events.
 #[derive(Debug, Clone, Serialize)]
 pub struct SyncProgressPayload {

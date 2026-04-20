@@ -32,6 +32,8 @@ import {
   renameProject,
 } from '../services/tauri';
 import type { IssueProject, IssueWithProject } from '../types';
+import { PageHeader } from '../components/PageHeader';
+import { CmdIcon } from '../components/icons';
 import './IssuesPage.css';
 
 const listShortcuts: ShortcutDef[] = [
@@ -135,6 +137,22 @@ export default function IssuesPage() {
     const el = itemRefs.current.get(focusIndex);
     if (el) el.scrollIntoView({ block: 'nearest' });
   }, [focusIndex]);
+
+  // Mod+1/2/3 switches scope tab
+  useEffect(() => {
+    function handler(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
+      const idx = ['1', '2', '3'].indexOf(e.key);
+      if (idx === -1) return;
+      const tab = SCOPE_TABS[idx];
+      if (!tab) return;
+      e.preventDefault();
+      setScope(tab.id);
+    }
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   // 's' toggles star on the focused row; 'o' opens in GitLab
   useEffect(() => {
@@ -247,43 +265,24 @@ export default function IssuesPage() {
 
   return (
     <div className="issues-page">
-      <header className="issues-page-header">
-        <div className="header-title-group">
-          <h1>Issues</h1>
-          <button
-            className="refresh-button"
-            onClick={handleSync}
-            aria-label="Sync issues from GitLab"
-            disabled={syncing}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-              <path d="M21 3v5h-5" />
-            </svg>
-          </button>
-        </div>
-        <div className="header-actions">
+      <PageHeader
+        title="Issues"
+        onRefresh={handleSync}
+        refreshDisabled={syncing}
+        refreshAriaLabel="Sync issues from GitLab"
+        actions={
           <InstanceSwitcher
             instances={instances}
             selectedId={selectedInstanceId}
             onSelect={setSelectedInstanceId}
           />
-        </div>
-      </header>
+        }
+      />
 
       <div className="issues-page-body">
         <aside className="issues-sidebar">
           <nav className="issues-scope-nav" aria-label="Issue scope">
-            {SCOPE_TABS.map((tab) => (
+            {SCOPE_TABS.map((tab, idx) => (
               <button
                 key={tab.id}
                 type="button"
@@ -291,7 +290,11 @@ export default function IssuesPage() {
                 onClick={() => setScope(tab.id)}
                 title={tab.hint}
               >
-                {tab.label}
+                <span>{tab.label}</span>
+                <kbd className="issues-scope-tab-kbd">
+                  <CmdIcon size={10} />
+                  {idx + 1}
+                </kbd>
               </button>
             ))}
           </nav>
@@ -358,18 +361,26 @@ export default function IssuesPage() {
           {issuesQuery.isLoading ? (
             <div className="issues-main-loading">Loading issues…</div>
           ) : issues.length === 0 ? (
-            <div className="issues-main-empty">
-              <p>
-                {scope === 'assigned'
-                  ? 'No open issues assigned to you.'
-                  : scope === 'starred'
-                    ? 'No starred issues yet.'
+            scope === 'starred' ? (
+              <div className="issues-main-empty">
+                <p>No starred issues yet.</p>
+                <p className="issues-main-empty-hint">
+                  Star an issue by pressing <kbd>s</kbd> on the focused row, or by clicking the
+                  star icon. Starred issues appear here across all your projects.
+                </p>
+              </div>
+            ) : (
+              <div className="issues-main-empty">
+                <p>
+                  {scope === 'assigned'
+                    ? 'No open issues assigned to you.'
                     : 'No issues cached for this scope.'}
-              </p>
-              <button type="button" className="primary-button" onClick={handleSync} disabled={syncing}>
-                {syncing ? 'Syncing…' : 'Sync from GitLab'}
-              </button>
-            </div>
+                </p>
+                <button type="button" className="primary-button" onClick={handleSync} disabled={syncing}>
+                  {syncing ? 'Syncing…' : 'Sync from GitLab'}
+                </button>
+              </div>
+            )
           ) : filteredIssues.length === 0 ? (
             <div className="issues-main-empty">
               <p>No issues match your search.</p>

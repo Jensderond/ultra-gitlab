@@ -64,7 +64,7 @@ export const defaultShortcuts: ShortcutDefinition[] = [
   {
     id: 'command-palette',
     description: 'Open command palette',
-    defaultKey: 'Mod+P',
+    defaultKey: 'Mod+K',
     category: 'global',
     context: 'global',
   },
@@ -99,6 +99,13 @@ export const defaultShortcuts: ShortcutDefinition[] = [
   {
     id: 'go-to-pipelines',
     description: 'Go to Pipelines',
+    defaultKey: 'Mod+P',
+    category: 'navigation',
+    context: 'global',
+  },
+  {
+    id: 'go-to-issues',
+    description: 'Go to Issues',
     defaultKey: 'Mod+I',
     category: 'navigation',
     context: 'global',

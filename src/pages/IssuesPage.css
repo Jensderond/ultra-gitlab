@@ -37,80 +37,7 @@
   max-width: 360px;
 }
 
-/* ===== Header ===== */
-
-.issues-page-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  padding: 24px 32px 20px;
-  user-select: none;
-  -webkit-user-select: none;
-  position: relative;
-  z-index: 100;
-}
-
-.issues-page-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 32px;
-  right: 32px;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--border-color) 15%,
-    var(--text-fuji, var(--text-muted)) 50%,
-    var(--border-color) 85%,
-    transparent 100%
-  );
-  opacity: 0.6;
-}
-
-.issues-page-header .header-title-group {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-}
-
-.issues-page-header h1 {
-  margin: 0;
-  font-family: var(--font-display, 'Cormorant Garamond', serif);
-  font-size: 28px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  color: var(--text-primary);
-}
-
-.issues-page-header .refresh-button {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.15s ease, background 0.15s ease;
-}
-
-.issues-page-header .refresh-button:hover:not(:disabled) {
-  color: var(--accent-color);
-  background: var(--overlay-hover);
-}
-
-.issues-page-header .refresh-button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.issues-page-header .header-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
+/* Header styling lives in components/PageHeader/PageHeader.css */
 
 /* ===== Body layout ===== */
 
@@ -139,6 +66,10 @@
 }
 
 .issues-scope-tab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 13px;
   font-weight: 500;
@@ -150,6 +81,27 @@
   color: var(--text-secondary);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
+}
+
+.issues-scope-tab-kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--overlay-glass);
+  border: 1px solid var(--overlay-divider);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 1px 5px;
+  line-height: 1;
+}
+
+.issues-scope-tab.active .issues-scope-tab-kbd {
+  color: var(--accent-color);
+  border-color: var(--wave-glow-strong);
 }
 
 .issues-scope-tab:hover {
@@ -287,6 +239,24 @@
   font-family: 'Noto Sans JP', sans-serif;
   padding: 32px;
   text-align: center;
+}
+
+.issues-main-empty-hint {
+  max-width: 360px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.issues-main-empty-hint kbd {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  background: var(--overlay-glass);
+  border: 1px solid var(--overlay-divider);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 1px 5px;
 }
 
 .issues-list {

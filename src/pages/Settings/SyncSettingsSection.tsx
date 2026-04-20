@@ -8,6 +8,7 @@ interface SyncConfig {
   sync_authored: boolean;
   sync_reviewing: boolean;
   max_mrs_per_sync: number;
+  issue_interval_secs: number;
 }
 
 /** Predefined sync interval options */
@@ -18,6 +19,15 @@ const SYNC_INTERVALS = [
   { value: 600, label: '10 minutes' },
   { value: 900, label: '15 minutes' },
   { value: 1800, label: '30 minutes' },
+];
+
+/** Predefined issue-sync interval options (issues change slower than MRs). */
+const ISSUE_SYNC_INTERVALS = [
+  { value: 300, label: '5 minutes' },
+  { value: 900, label: '15 minutes' },
+  { value: 1800, label: '30 minutes' },
+  { value: 3600, label: '1 hour' },
+  { value: 7200, label: '2 hours' },
 ];
 
 /**
@@ -47,6 +57,17 @@ export default function SyncSettingsSection() {
     saveSyncSettings(newSettings);
   }
 
+  function handleIssueIntervalChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    if (!syncSettings) return;
+    const newSettings = {
+      ...syncSettings,
+      issue_interval_secs: parseInt(e.target.value, 10),
+      sync_authored: true,
+      sync_reviewing: true,
+    };
+    saveSyncSettings(newSettings);
+  }
+
   return (
     <>
       {loading ? (
@@ -62,6 +83,22 @@ export default function SyncSettingsSection() {
               disabled={saving}
             >
               {SYNC_INTERVALS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="setting-row">
+            <label htmlFor="issue-sync-interval">Issue Sync Interval</label>
+            <select
+              id="issue-sync-interval"
+              value={syncSettings.issue_interval_secs}
+              onChange={handleIssueIntervalChange}
+              disabled={saving}
+            >
+              {ISSUE_SYNC_INTERVALS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>

@@ -19,6 +19,11 @@ interface ActionSyncedPayload {
   local_reference_id: number | null;
 }
 
+interface IssuesUpdatedPayload {
+  instanceId: number;
+  count: number;
+}
+
 export async function setupTauriEventListeners(): Promise<() => void> {
   if (initialized) return () => {};
   initialized = true;
@@ -74,9 +79,20 @@ export async function setupTauriEventListeners(): Promise<() => void> {
     },
   );
 
+  const unlistenIssuesUpdated = await tauriListen<IssuesUpdatedPayload>(
+    'issues-updated',
+    (event) => {
+      const { instanceId } = event.payload;
+      const key = String(instanceId);
+      queryClient.invalidateQueries({ queryKey: ['issues', key] });
+      queryClient.invalidateQueries({ queryKey: ['issueProjects', key] });
+    },
+  );
+
   return () => {
     unlistenMrUpdated();
     unlistenActionSynced();
+    unlistenIssuesUpdated();
     for (const timer of debounceTimers.values()) {
       clearTimeout(timer);
     }

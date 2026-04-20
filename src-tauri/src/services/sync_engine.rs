@@ -17,10 +17,10 @@ use crate::services::gitlab_client::{
     MergeRequestsQuery,
 };
 use crate::services::sync_events::{
-    ActionSyncedPayload, AuthExpiredPayload, EventEmitter, MrReadyPayload, MrUpdateType,
-    MrUpdatedPayload, PipelineStatusChangedPayload, SyncPhase, SyncProgressPayload,
-    ACTION_SYNCED_EVENT, AUTH_EXPIRED_EVENT, MR_READY_EVENT, MR_UPDATED_EVENT,
-    PIPELINE_STATUS_CHANGED_EVENT, SYNC_PROGRESS_EVENT,
+    ActionSyncedPayload, AuthExpiredPayload, EventEmitter, IssuesUpdatedPayload, MrReadyPayload,
+    MrUpdateType, MrUpdatedPayload, PipelineStatusChangedPayload, SyncPhase, SyncProgressPayload,
+    ACTION_SYNCED_EVENT, AUTH_EXPIRED_EVENT, ISSUES_UPDATED_EVENT, MR_READY_EVENT,
+    MR_UPDATED_EVENT, PIPELINE_STATUS_CHANGED_EVENT, SYNC_PROGRESS_EVENT,
 };
 use crate::services::sync_processor::{self, ProcessResult};
 use crate::services::sync_queue;
@@ -34,6 +34,11 @@ use tokio::time;
 
 /// Default sync interval in seconds (5 minutes per spec).
 pub const DEFAULT_SYNC_INTERVAL_SECS: u64 = 300;
+
+/// Default interval for refreshing the issue cache (30 minutes).
+/// Issues change less often than MRs, so we don't need to hit the API
+/// every MR sync tick.
+pub const DEFAULT_ISSUE_SYNC_INTERVAL_SECS: u64 = 1800;
 
 /// Maximum number of log entries to keep.
 const MAX_LOG_ENTRIES: i64 = 50;
@@ -69,6 +74,15 @@ pub struct SyncConfig {
 
     /// Maximum number of MRs to sync per interval.
     pub max_mrs_per_sync: usize,
+
+    /// How often to refresh cached issues, in seconds. Issues change more
+    /// slowly than MRs so this is typically a multiple of `interval_secs`.
+    #[serde(default = "default_issue_interval_secs")]
+    pub issue_interval_secs: u64,
+}
+
+fn default_issue_interval_secs() -> u64 {
+    DEFAULT_ISSUE_SYNC_INTERVAL_SECS
 }
 
 impl Default for SyncConfig {
@@ -78,6 +92,7 @@ impl Default for SyncConfig {
             sync_authored: true,
             sync_reviewing: true,
             max_mrs_per_sync: 100,
+            issue_interval_secs: DEFAULT_ISSUE_SYNC_INTERVAL_SECS,
         }
     }
 }
@@ -256,6 +271,10 @@ pub struct SyncEngine {
     /// Previous pipeline statuses for pinned projects, keyed by (instance_id, project_id).
     /// Used to detect status transitions and emit notifications.
     previous_pipeline_statuses: Arc<RwLock<HashMap<(i64, i64), String>>>,
+
+    /// Last time the issue cache was refreshed, keyed by instance id.
+    /// Empty key means "never synced this session" so the next run will fetch.
+    last_issue_sync: Arc<RwLock<HashMap<i64, Instant>>>,
 }
 
 impl SyncEngine {
@@ -268,6 +287,7 @@ impl SyncEngine {
             emitter,
             notified_mr_ready: Arc::new(RwLock::new(HashSet::new())),
             previous_pipeline_statuses: Arc::new(RwLock::new(HashMap::new())),
+            last_issue_sync: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -336,6 +356,7 @@ impl SyncEngine {
                 emitter,
                 notified_mr_ready: Arc::new(RwLock::new(HashSet::new())),
                 previous_pipeline_statuses: Arc::new(RwLock::new(HashMap::new())),
+                last_issue_sync: Arc::new(RwLock::new(HashMap::new())),
             };
 
             // Recover any actions stuck in 'syncing' state from a previous crash
@@ -835,6 +856,9 @@ impl SyncEngine {
             }
         }
 
+        // Refresh cached issues on a slower cadence than MRs.
+        self.maybe_sync_issues(instance, &mut result).await;
+
         // Capture API call count from this instance's client
         result.api_calls = client.call_count();
 
@@ -852,6 +876,48 @@ impl SyncEngine {
         }
 
         Ok(result)
+    }
+
+    /// Refresh the issue cache for `instance` if enough time has passed since
+    /// the last refresh (controlled by `SyncConfig::issue_interval_secs`).
+    /// Errors are collected into `result` but do not fail the MR sync.
+    async fn maybe_sync_issues(&self, instance: &GitLabInstanceRow, result: &mut SyncResult) {
+        let interval_secs = { self.config.read().await.issue_interval_secs };
+        let due = {
+            let last = self.last_issue_sync.read().await;
+            last.get(&instance.id)
+                .map(|t| t.elapsed() >= Duration::from_secs(interval_secs))
+                .unwrap_or(true)
+        };
+        if !due {
+            return;
+        }
+
+        match crate::commands::issues::sync_assigned_issues(&self.pool, instance.id).await {
+            Ok(count) => {
+                eprintln!(
+                    "[sync] Refreshed {} issues for instance {}",
+                    count, instance.url
+                );
+                self.last_issue_sync
+                    .write()
+                    .await
+                    .insert(instance.id, Instant::now());
+                self.emit_event(
+                    ISSUES_UPDATED_EVENT,
+                    &IssuesUpdatedPayload {
+                        instance_id: instance.id,
+                        count,
+                    },
+                );
+            }
+            Err(e) => {
+                log::warn!("Failed to sync issues for {}: {}", instance.url, e);
+                result
+                    .errors
+                    .push(format!("Issues sync failed ({}): {}", instance.url, e));
+            }
+        }
     }
 
     /// Fetch MRs for an instance based on scope configuration.
