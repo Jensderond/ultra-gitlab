@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
@@ -9,6 +10,11 @@ export default defineConfig(async () => ({
   plugins: [
     react(),
   ],
+
+  test: {
+    include: ["src/**/*.test.{ts,tsx}"],
+    exclude: ["node_modules", "e2e", "src-tauri"],
+  },
 
   // Use ES module format for workers so @pierre/diffs worker (which uses dynamic imports) can be bundled
   worker: {
