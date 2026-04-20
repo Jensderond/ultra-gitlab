@@ -362,3 +362,33 @@
   font-size: 12px;
   font-weight: 600;
 }
+
+.file-nav-delta-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  background: var(--accent, #8a7fff);
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.file-nav-filter-btn {
+  background: transparent;
+  border: 1px solid var(--border-color, #3a3a4a);
+  color: var(--text-primary, #e8e8f0);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.file-nav-filter-btn.active {
+  background: var(--accent, #8a7fff);
+  border-color: transparent;
+  color: #fff;
+}

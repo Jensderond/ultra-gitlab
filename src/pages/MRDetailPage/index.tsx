@@ -304,8 +304,11 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           hideGenerated={view.hideGenerated}
           mobileSidebarOpen={view.mobileSidebarOpen}
           isSmallScreen={isSmallScreen}
+          changedSinceApprovalPaths={view.changedSinceApprovalPaths}
+          filterToChangedOnly={view.filterToChangedOnly}
           onSelect={handleFileSelect}
           onToggleHideGenerated={() => dispatch({ type: 'TOGGLE_HIDE_GENERATED' })}
+          onToggleChangedFilter={() => dispatch({ type: 'TOGGLE_CHANGED_FILTER' })}
           onCloseMobileSidebar={() => dispatch({ type: 'CLOSE_MOBILE_SIDEBAR' })}
         />
 
