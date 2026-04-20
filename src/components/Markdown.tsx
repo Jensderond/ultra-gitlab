@@ -5,11 +5,19 @@ import type { MouseEvent } from 'react';
 import { resolveProjectByPath } from '../services';
 import './Markdown.css';
 
+export interface IssueRef {
+  instanceId: number;
+  projectId: number;
+  issueIid: number;
+}
+
 export interface IssueLinkContext {
   instanceId: number;
   projectId: number;
   instanceOrigin: string;
   projectPath: string;
+  /** If provided, in-app issue links call this instead of navigating the router. */
+  onOpenIssue?: (ref: IssueRef) => void;
 }
 
 interface Props {
@@ -27,24 +35,66 @@ interface IssueLinkMatch {
   iid: number;
 }
 
+const issueLinkRegexCache = new Map<string, RegExp>();
+
+function getIssueLinkRegex(normalizedOrigin: string): RegExp {
+  let re = issueLinkRegexCache.get(normalizedOrigin);
+  if (!re) {
+    re = new RegExp(
+      `^${escapeRegex(normalizedOrigin)}/(.+?)/-/issues/(\\d+)(?:[/?#].*)?$`,
+    );
+    issueLinkRegexCache.set(normalizedOrigin, re);
+  }
+  return re;
+}
+
 function matchInstanceIssue(
   href: string | undefined,
   origin: string,
 ): IssueLinkMatch | null {
   if (!href) return null;
   const normalizedOrigin = origin.replace(/\/+$/, '');
-  const re = new RegExp(
-    `^${escapeRegex(normalizedOrigin)}/(.+?)/-/issues/(\\d+)(?:[/?#].*)?$`,
-  );
-  const m = href.match(re);
+  const m = href.match(getIssueLinkRegex(normalizedOrigin));
   if (!m) return null;
   return { projectPath: m[1], iid: Number(m[2]) };
+}
+
+function normalizePath(p: string): string {
+  return p.replace(/^\/+|\/+$/g, '');
 }
 
 export default function Markdown({ content, className, issueLinkContext }: Props) {
   const navigate = useNavigate();
 
-  const handleCrossProjectClick = async (
+  const openIssue = async (
+    ctx: IssueLinkContext,
+    match: IssueLinkMatch,
+    href: string,
+  ) => {
+    const sameProject = normalizePath(match.projectPath) === normalizePath(ctx.projectPath);
+    let resolvedProjectId = ctx.projectId;
+    if (!sameProject) {
+      try {
+        const project = await resolveProjectByPath(ctx.instanceId, match.projectPath);
+        resolvedProjectId = project.id;
+      } catch {
+        window.open(href, '_blank', 'noopener,noreferrer');
+        return;
+      }
+    }
+    const ref: IssueRef = {
+      instanceId: ctx.instanceId,
+      projectId: resolvedProjectId,
+      issueIid: match.iid,
+    };
+    if (ctx.onOpenIssue) {
+      ctx.onOpenIssue(ref);
+    } else {
+      navigate(`/issues/${ref.instanceId}/${ref.projectId}/${ref.issueIid}`);
+    }
+  };
+
+  const handleIssueLinkClick = (
     e: MouseEvent<HTMLAnchorElement>,
     ctx: IssueLinkContext,
     match: IssueLinkMatch,
@@ -52,12 +102,7 @@ export default function Markdown({ content, className, issueLinkContext }: Props
   ) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
     e.preventDefault();
-    try {
-      const project = await resolveProjectByPath(ctx.instanceId, match.projectPath);
-      navigate(`/issues/${ctx.instanceId}/${project.id}/${match.iid}`);
-    } catch {
-      window.open(href, '_blank', 'noopener,noreferrer');
-    }
+    void openIssue(ctx, match, href);
   };
 
   return (
@@ -69,12 +114,12 @@ export default function Markdown({ content, className, issueLinkContext }: Props
             if (issueLinkContext && href) {
               const match = matchInstanceIssue(href, issueLinkContext.instanceOrigin);
               if (match) {
-                const normalizedPath = match.projectPath.replace(/^\/+|\/+$/g, '');
-                const sameProjectPath = issueLinkContext.projectPath.replace(
-                  /^\/+|\/+$/g,
-                  '',
-                );
-                if (normalizedPath === sameProjectPath) {
+                const sameProject =
+                  normalizePath(match.projectPath) ===
+                  normalizePath(issueLinkContext.projectPath);
+                // Same-project with no onOpenIssue callback: plain Link keeps
+                // native prefetch/accessibility semantics.
+                if (sameProject && !issueLinkContext.onOpenIssue) {
                   return (
                     <Link
                       to={`/issues/${issueLinkContext.instanceId}/${issueLinkContext.projectId}/${match.iid}`}
@@ -89,7 +134,7 @@ export default function Markdown({ content, className, issueLinkContext }: Props
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) =>
-                      handleCrossProjectClick(e, issueLinkContext, match, href)
+                      handleIssueLinkClick(e, issueLinkContext, match, href)
                     }
                     {...rest}
                   >

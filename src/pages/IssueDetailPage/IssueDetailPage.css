@@ -445,3 +445,83 @@
   display: flex;
   gap: 8px;
 }
+
+/* Stacked issue detail dialog */
+
+.issue-detail-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 24px;
+  animation: issue-detail-overlay-in 180ms ease-out both;
+}
+
+.issue-detail-dialog {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  width: 100%;
+  max-width: 1100px;
+  height: 100%;
+  max-height: 900px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  transform-origin: center;
+  animation: issue-detail-dialog-in 220ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+.issue-detail-dialog-overlay.is-closing {
+  animation: issue-detail-overlay-out 160ms ease-in both;
+}
+
+.issue-detail-dialog-overlay.is-closing .issue-detail-dialog {
+  animation: issue-detail-dialog-out 160ms cubic-bezier(0.4, 0, 0.6, 1) both;
+  pointer-events: none;
+}
+
+@keyframes issue-detail-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes issue-detail-overlay-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes issue-detail-dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes issue-detail-dialog-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .issue-detail-dialog-overlay,
+  .issue-detail-dialog,
+  .issue-detail-dialog-overlay.is-closing,
+  .issue-detail-dialog-overlay.is-closing .issue-detail-dialog {
+    animation: none;
+  }
+}
