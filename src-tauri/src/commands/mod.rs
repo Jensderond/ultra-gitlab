@@ -21,6 +21,7 @@ pub mod fonts;
 pub mod gitattributes;
 pub mod issues;
 pub mod mr;
+pub mod mr_approval;
 pub mod notification_settings;
 pub mod notifications;
 pub mod pipeline;
@@ -62,6 +63,7 @@ pub use mr::{
     get_file_content_base64, get_merge_request_detail, get_merge_requests, list_my_merge_requests,
     merge_mr, rebase_mr, resolve_mr_by_web_url, fetch_mr_by_web_url,
 };
+pub use mr_approval::{get_approval_checkpoint, get_files_changed_since, set_approval_checkpoint};
 pub use notification_settings::{get_notification_settings, update_notification_settings};
 pub use notifications::send_native_notification;
 pub use pipeline::{
