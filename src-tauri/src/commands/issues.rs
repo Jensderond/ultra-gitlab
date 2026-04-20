@@ -419,6 +419,63 @@ async fn upsert_and_join(
     })
 }
 
+/// Fetch and cache all notes for an issue. Prunes any locally-cached notes
+/// whose GitLab ids are no longer present (i.e. deleted upstream).
+async fn fetch_and_cache_notes(
+    client: &GitLabClient,
+    pool: &sqlx::SqlitePool,
+    instance_id: i64,
+    project_id: i64,
+    issue_iid: i64,
+) -> Result<(), AppError> {
+    let notes = client.list_issue_notes(project_id, issue_iid).await?;
+    let keep_ids: Vec<i64> = notes.iter().map(|n| n.id).collect();
+
+    for n in notes {
+        let upsert = crate::db::issue_notes::UpsertIssueNote {
+            id: n.id,
+            instance_id,
+            project_id,
+            issue_iid,
+            body: n.body,
+            author_username: n.author.username,
+            author_name: n.author.name,
+            author_avatar_url: n.author.avatar_url,
+            created_at: parse_ts(&n.created_at),
+            updated_at: parse_ts(&n.updated_at),
+            system: n.system,
+        };
+        crate::db::issue_notes::upsert_issue_note(pool, &upsert).await?;
+    }
+
+    crate::db::issue_notes::prune_missing_notes(
+        pool,
+        instance_id,
+        project_id,
+        issue_iid,
+        &keep_ids,
+    )
+    .await?;
+    Ok(())
+}
+
+/// Fetch a single issue and its notes from GitLab, write both to the cache,
+/// and return the joined row. The frontend calls this in the background after
+/// rendering cached data so the view updates silently with fresh values.
+#[tauri::command]
+pub async fn refresh_issue_detail(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+    issue_iid: i64,
+) -> Result<IssueWithProject, AppError> {
+    let (client, username) = create_client_with_username(pool.inner(), instance_id).await?;
+    let gi = client.get_issue(project_id, issue_iid).await?;
+    let joined = upsert_and_join(pool.inner(), &client, instance_id, gi, &username).await?;
+    fetch_and_cache_notes(&client, pool.inner(), instance_id, project_id, issue_iid).await?;
+    Ok(joined)
+}
+
 /// Fetch a single issue from GitLab, refresh the cache, and return the joined row.
 #[tauri::command]
 pub async fn get_issue_detail(
