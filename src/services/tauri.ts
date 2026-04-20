@@ -654,6 +654,53 @@ export async function listIssueNotes(
 }
 
 /**
+ * Read a cached issue from SQLite, joined with project metadata.
+ * Returns null if the issue has never been synced locally.
+ */
+export async function getCachedIssueDetail(
+  instanceId: number,
+  projectId: number,
+  issueIid: number,
+): Promise<IssueWithProject | null> {
+  return invoke<IssueWithProject | null>('get_cached_issue_detail', {
+    instanceId,
+    projectId,
+    issueIid,
+  });
+}
+
+/**
+ * Read cached notes for an issue from SQLite, oldest first.
+ */
+export async function listCachedIssueNotes(
+  instanceId: number,
+  projectId: number,
+  issueIid: number,
+): Promise<IssueNote[]> {
+  return invoke<IssueNote[]>('list_cached_issue_notes', {
+    instanceId,
+    projectId,
+    issueIid,
+  });
+}
+
+/**
+ * Fetch a single issue and its notes from GitLab, write both to the cache,
+ * and return the refreshed joined row.
+ */
+export async function refreshIssueDetail(
+  instanceId: number,
+  projectId: number,
+  issueIid: number,
+): Promise<IssueWithProject> {
+  return invoke<IssueWithProject>('refresh_issue_detail', {
+    instanceId,
+    projectId,
+    issueIid,
+  });
+}
+
+/**
  * Post a new note on an issue.
  */
 export async function addIssueNote(
