@@ -207,6 +207,30 @@ pub async fn sync_project_issues(
     Ok(count)
 }
 
+/// Read a single cached issue by (instance_id, project_id, issue_iid) without
+/// hitting GitLab. Returns None if the issue has never been synced locally.
+#[tauri::command]
+pub async fn get_cached_issue_detail(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+    issue_iid: i64,
+) -> Result<Option<IssueWithProject>, AppError> {
+    let rows = issue::list_issues(pool.inner(), instance_id, Some(project_id), false, false).await?;
+    let Some(row) = rows.into_iter().find(|i| i.iid == issue_iid) else {
+        return Ok(None);
+    };
+    let project = project::get_project(pool.inner(), instance_id, project_id).await?;
+    Ok(Some(IssueWithProject {
+        project_name: project.as_ref().map(|p| p.name.clone()),
+        project_name_with_namespace: project.as_ref().map(|p| p.name_with_namespace.clone()),
+        project_path_with_namespace: project.as_ref().map(|p| p.path_with_namespace.clone()),
+        project_custom_name: project.as_ref().and_then(|p| p.custom_name.clone()),
+        project_starred: project.as_ref().map(|p| p.starred).unwrap_or(false),
+        issue: row,
+    }))
+}
+
 /// List cached issues joined with project metadata.
 #[tauri::command]
 pub async fn list_cached_issues(
@@ -420,6 +444,38 @@ pub async fn list_issue_notes(
     let (client, _username) = create_client_with_username(pool.inner(), instance_id).await?;
     let notes = client.list_issue_notes(project_id, issue_iid).await?;
     Ok(notes.into_iter().map(IssueNoteDto::from).collect())
+}
+
+/// Read cached issue notes without hitting GitLab. Empty list means either
+/// "no notes" or "never refreshed" — the caller should trigger a refresh on
+/// first visit to distinguish.
+#[tauri::command]
+pub async fn list_cached_issue_notes(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+    issue_iid: i64,
+) -> Result<Vec<IssueNoteDto>, AppError> {
+    let rows = crate::db::issue_notes::list_cached_notes(
+        pool.inner(),
+        instance_id,
+        project_id,
+        issue_iid,
+    )
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|r| IssueNoteDto {
+            id: r.id,
+            body: r.body,
+            author_username: r.author_username,
+            author_name: r.author_name,
+            author_avatar_url: r.author_avatar_url,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+            system: r.system,
+        })
+        .collect())
 }
 
 /// Post a new note on an issue.
