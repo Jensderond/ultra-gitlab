@@ -474,32 +474,6 @@ pub async fn refresh_issue_detail(
     Ok(joined)
 }
 
-/// Fetch a single issue from GitLab, refresh the cache, and return the joined row.
-#[tauri::command]
-pub async fn get_issue_detail(
-    pool: State<'_, DbPool>,
-    instance_id: i64,
-    project_id: i64,
-    issue_iid: i64,
-) -> Result<IssueWithProject, AppError> {
-    let (client, username) = create_client_with_username(pool.inner(), instance_id).await?;
-    let gi = client.get_issue(project_id, issue_iid).await?;
-    upsert_and_join(pool.inner(), &client, instance_id, gi, &username).await
-}
-
-/// Fetch notes (comments) for an issue straight from GitLab.
-#[tauri::command]
-pub async fn list_issue_notes(
-    pool: State<'_, DbPool>,
-    instance_id: i64,
-    project_id: i64,
-    issue_iid: i64,
-) -> Result<Vec<IssueNoteDto>, AppError> {
-    let (client, _username) = create_client_with_username(pool.inner(), instance_id).await?;
-    let notes = client.list_issue_notes(project_id, issue_iid).await?;
-    Ok(notes.into_iter().map(IssueNoteDto::from).collect())
-}
-
 /// Read cached issue notes without hitting GitLab. Empty list means either
 /// "no notes" or "never refreshed" — the caller should trigger a refresh on
 /// first visit to distinguish.

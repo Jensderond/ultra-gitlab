@@ -632,28 +632,6 @@ export async function renameProject(
 }
 
 /**
- * Fetch a single issue from GitLab (with cache refresh) joined with project metadata.
- */
-export async function getIssueDetail(
-  instanceId: number,
-  projectId: number,
-  issueIid: number,
-): Promise<IssueWithProject> {
-  return invoke<IssueWithProject>('get_issue_detail', { instanceId, projectId, issueIid });
-}
-
-/**
- * List notes (comments) on an issue, oldest first.
- */
-export async function listIssueNotes(
-  instanceId: number,
-  projectId: number,
-  issueIid: number,
-): Promise<IssueNote[]> {
-  return invoke<IssueNote[]>('list_issue_notes', { instanceId, projectId, issueIid });
-}
-
-/**
  * Read a cached issue from SQLite, joined with project metadata.
  * Returns null if the issue has never been synced locally.
  */
