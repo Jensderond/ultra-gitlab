@@ -20,6 +20,7 @@ import { useFileComments } from './useFileComments';
 import { useViewReducer } from './viewReducer';
 import { useMRKeyboard } from './useMRKeyboard';
 import MRHeader from './MRHeader';
+import ApprovalDeltaBanner from './ApprovalDeltaBanner';
 import MRDiffContent from './MRDiffContent';
 import MRFilePanel from './MRFilePanel';
 import MRFooter from './MRFooter';
@@ -262,6 +263,14 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
             </button>
           </div>
         </div>
+      )}
+
+      {view.changedSinceApprovalPaths.size > 0 && !view.bannerDismissed && (
+        <ApprovalDeltaBanner
+          count={view.changedSinceApprovalPaths.size}
+          onReviewChanges={() => dispatch({ type: 'TOGGLE_CHANGED_FILTER' })}
+          onDismiss={() => dispatch({ type: 'DISMISS_BANNER' })}
+        />
       )}
 
       <MRHeader
