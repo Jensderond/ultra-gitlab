@@ -18,6 +18,7 @@ import {
   useAddIssueNote,
   useSetIssueAssignees,
   useSetIssueState,
+  useIssueBackgroundRefresh,
 } from './useIssueData';
 
 const shortcuts: ShortcutDef[] = [
@@ -75,6 +76,7 @@ export default function IssueDetailView({
   const addNote = useAddIssueNote(instanceId, projectId, issueIid);
   const setAssignees = useSetIssueAssignees(instanceId, projectId, issueIid);
   const setState = useSetIssueState(instanceId, projectId, issueIid);
+  const { isRefreshing } = useIssueBackgroundRefresh(instanceId, projectId, issueIid);
 
   const issue = issueQuery.data;
   const notes = notesQuery.data;
@@ -156,7 +158,10 @@ export default function IssueDetailView({
     handleYank,
   ]);
 
-  if (issueQuery.isLoading) {
+  // Show the loading state only on a first-ever visit (no cached row AND query
+  // is still resolving). After that, the cached row renders instantly and the
+  // background refresh updates it in place.
+  if (issueQuery.isLoading || (issue === null && isRefreshing)) {
     return (
       <div className="issue-detail">
         <div className="issue-detail-loading">Loading issue…</div>
@@ -164,7 +169,7 @@ export default function IssueDetailView({
     );
   }
 
-  if (issueQuery.isError || !issue) {
+  if (issueQuery.isError || issue == null) {
     return (
       <div className="issue-detail">
         <div className="issue-detail-error">
@@ -200,6 +205,11 @@ export default function IssueDetailView({
               {isClosed ? 'Closed' : 'Open'}
             </span>
           </div>
+            {isRefreshing && (
+              <span className="issue-refresh-indicator" aria-live="polite">
+                Updating…
+              </span>
+            )}
         </div>
         <div className="mr-header-bottom">
           <h1 className="mr-title">{issue.title}</h1>

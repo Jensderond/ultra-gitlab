@@ -525,3 +525,11 @@
     animation: none;
   }
 }
+
+.issue-refresh-indicator {
+  font-size: 0.75rem;
+  color: var(--text-tertiary, #888);
+  opacity: 0.8;
+  margin-left: 0.5rem;
+  font-style: italic;
+}
