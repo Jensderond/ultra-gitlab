@@ -167,15 +167,22 @@ export const CommentOverlay = forwardRef<CommentOverlayRef, CommentOverlayProps>
               ref={textareaRef}
               className="comment-textarea"
               value={state.text}
-              onChange={(e) => setState((prev) => ({ ...prev, text: e.target.value }))}
+              autoCorrect="off"
+              autoCapitalize="off"
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(e) => {
+                // macOS WKWebView applies system-level smart-quote substitution that
+                // ignores autoCorrect="off"; normalize back to ASCII so code suggestions parse.
+                const normalized = e.target.value
+                  .replace(/[\u2018\u2019\u201B]/g, "'")
+                  .replace(/[\u201C\u201D\u201F]/g, '"');
+                setState((prev) => ({ ...prev, text: normalized }));
+              }}
               onKeyDown={(e) => {
                 if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
                   e.preventDefault();
                   submitRef.current();
-                }
-                if (e.key === 'Escape') {
-                  e.preventDefault();
-                  close();
                 }
               }}
               placeholder="Write a comment... (Markdown supported)"
