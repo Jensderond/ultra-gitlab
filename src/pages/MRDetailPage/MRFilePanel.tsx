@@ -10,11 +10,8 @@ interface MRFilePanelProps {
   hideGenerated: boolean;
   mobileSidebarOpen: boolean;
   isSmallScreen: boolean;
-  changedSinceApprovalPaths: Set<string>;
-  filterToChangedOnly: boolean;
   onSelect: (path: string) => void;
   onToggleHideGenerated: () => void;
-  onToggleChangedFilter: () => void;
   onCloseMobileSidebar: () => void;
 }
 
@@ -27,26 +24,14 @@ export default function MRFilePanel({
   hideGenerated,
   mobileSidebarOpen,
   isSmallScreen,
-  changedSinceApprovalPaths,
-  filterToChangedOnly,
   onSelect,
   onToggleHideGenerated,
-  onToggleChangedFilter,
   onCloseMobileSidebar,
 }: MRFilePanelProps) {
   return (
     <>
       {mobileSidebarOpen && isSmallScreen && (
-        <div
-          className="mobile-sidebar-backdrop"
-          onClick={onCloseMobileSidebar}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') onCloseMobileSidebar();
-          }}
-          role="button"
-          tabIndex={0}
-          aria-label="Close sidebar"
-        />
+        <div className="mobile-sidebar-backdrop" onClick={onCloseMobileSidebar} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onCloseMobileSidebar(); }} role="button" tabIndex={0} aria-label="Close sidebar" />
       )}
       <aside className={`mr-detail-sidebar${mobileSidebarOpen ? ' mobile-open' : ''}`}>
         <FileNavigation
@@ -58,11 +43,6 @@ export default function MRFilePanel({
           generatedPaths={generatedPaths}
           hideGenerated={hideGenerated}
           onToggleHideGenerated={onToggleHideGenerated}
-          changedSinceApprovalPaths={changedSinceApprovalPaths}
-          filterToChangedOnly={filterToChangedOnly}
-          onToggleChangedFilter={
-            changedSinceApprovalPaths.size > 0 ? onToggleChangedFilter : undefined
-          }
         />
       </aside>
     </>

@@ -26,9 +26,6 @@ interface FileNavigationProps {
   hideGenerated?: boolean;
   /** Callback to toggle hiding generated files */
   onToggleHideGenerated?: () => void;
-  changedSinceApprovalPaths?: Set<string>;
-  filterToChangedOnly?: boolean;
-  onToggleChangedFilter?: () => void;
 }
 
 /**
@@ -76,9 +73,6 @@ export default function FileNavigation({
   generatedPaths,
   hideGenerated,
   onToggleHideGenerated,
-  changedSinceApprovalPaths,
-  filterToChangedOnly,
-  onToggleChangedFilter,
 }: FileNavigationProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -95,17 +89,13 @@ export default function FileNavigation({
       ? files.filter((f) => !generatedPaths?.has(f.newPath))
       : files;
 
-    if (filterToChangedOnly && changedSinceApprovalPaths) {
-      result = result.filter((f) => changedSinceApprovalPaths.has(f.newPath));
-    }
-
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter((f) => f.newPath.toLowerCase().includes(query));
     }
 
     return result;
-  }, [files, hideGenerated, generatedPaths, searchQuery, filterToChangedOnly, changedSinceApprovalPaths]);
+  }, [files, hideGenerated, generatedPaths, searchQuery]);
 
   const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -166,16 +156,6 @@ export default function FileNavigation({
             {hideGenerated ? `+${generatedCount} hidden` : `${generatedCount} generated`}
           </button>
         )}
-        {onToggleChangedFilter && (
-          <button
-            type="button"
-            className={`file-nav-filter-btn${filterToChangedOnly ? ' active' : ''}`}
-            onClick={onToggleChangedFilter}
-            title="Show only files changed since your approval"
-          >
-            Changes since approval
-          </button>
-        )}
       </div>
       <div className="file-nav-search">
         <div className="file-nav-search-field">
@@ -208,7 +188,6 @@ export default function FileNavigation({
           const isFocused = index === focusIndex;
           const isViewed = viewedPaths?.has(file.newPath) ?? false;
           const isGenerated = generatedPaths?.has(file.newPath) ?? false;
-          const isChangedSinceApproval = changedSinceApprovalPaths?.has(file.newPath) ?? false;
 
           return (
             <div
@@ -238,11 +217,6 @@ export default function FileNavigation({
                 <span className="file-name">
                   {getFileName(file.newPath)}
                   {isGenerated && <span className="file-generated-label">generated</span>}
-                  {isChangedSinceApproval && (
-                    <span className="file-nav-delta-badge" title="Changed since your approval">
-                      new
-                    </span>
-                  )}
                 </span>
                 <span className="file-dir">{getDirectory(file.newPath)}</span>
               </div>
