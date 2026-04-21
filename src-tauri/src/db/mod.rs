@@ -144,10 +144,6 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0021_create_issue_notes",
         include_str!("migrations/0021_create_issue_notes.sql"),
     ),
-    (
-        "0022_mr_approval_tracking",
-        include_str!("migrations/0022_mr_approval_tracking.sql"),
-    ),
 ];
 
 /// Run all pending database migrations.
