@@ -29,9 +29,6 @@ import {
   deleteComment as tauriDeleteComment,
   approveMR,
   unapproveMR,
-  setApprovalCheckpoint as tauriSetApprovalCheckpoint,
-  getApprovalCheckpoint as tauriGetApprovalCheckpoint,
-  getFilesChangedSince as tauriGetFilesChangedSince,
   mergeMR,
   type SetupInstanceResponse,
   type GitLabInstanceWithStatus,
@@ -411,35 +408,6 @@ export async function approve(mrId: number): Promise<void> {
  */
 export async function unapprove(mrId: number): Promise<void> {
   return unapproveMR(mrId);
-}
-
-/**
- * Record an approval checkpoint for a merge request at the current time.
- *
- * @param mrId - The merge request ID
- */
-export async function setApprovalCheckpoint(mrId: number): Promise<void> {
-  return tauriSetApprovalCheckpoint(mrId);
-}
-
-/**
- * Fetch the approval checkpoint timestamp for a merge request, if any.
- *
- * @param mrId - The merge request ID
- * @returns The checkpoint unix timestamp, or null if none has been set
- */
-export async function getApprovalCheckpoint(mrId: number): Promise<number | null> {
-  return tauriGetApprovalCheckpoint(mrId);
-}
-
-/**
- * List file paths that changed in the MR since the given checkpoint timestamp.
- *
- * @param mrId - The merge request ID
- * @param sinceTs - The checkpoint unix timestamp
- */
-export async function getFilesChangedSince(mrId: number, sinceTs: number): Promise<string[]> {
-  return tauriGetFilesChangedSince(mrId, sinceTs);
 }
 
 /**
