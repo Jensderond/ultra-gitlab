@@ -30,9 +30,8 @@ pub async fn upsert_file_version(
 ) -> Result<(), AppError> {
     sqlx::query(
         r#"
-        INSERT OR REPLACE INTO file_versions
-          (mr_id, file_path, version_type, sha, instance_id, project_id, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, strftime('%s', 'now'))
+        INSERT OR REPLACE INTO file_versions (mr_id, file_path, version_type, sha, instance_id, project_id)
+        VALUES (?, ?, ?, ?, ?, ?)
         "#,
     )
     .bind(mr_id)
@@ -132,75 +131,4 @@ pub async fn delete_orphaned_blobs(pool: &DbPool) -> Result<(), AppError> {
         .await?;
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::tempdir;
-
-    async fn setup_pool() -> crate::db::pool::DbPool {
-        let dir = tempdir().unwrap();
-        let db_path = dir.path().join("test.db");
-        let pool = crate::db::initialize(&db_path).await.unwrap();
-        std::mem::forget(dir); // keep dir alive for pool lifetime
-        pool
-    }
-
-    #[tokio::test]
-    async fn upsert_file_version_sets_updated_at_to_now() {
-        let pool = setup_pool().await;
-
-        upsert_file_blob(&pool, "sha1", "hello", 5).await.unwrap();
-        upsert_file_version(&pool, 1, "foo.txt", "head", "sha1", "inst", 42)
-            .await
-            .unwrap();
-
-        let (ts,): (i64,) = sqlx::query_as(
-            "SELECT updated_at FROM file_versions WHERE mr_id = 1 AND file_path = 'foo.txt' AND version_type = 'head'"
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64;
-        assert!(ts > 0, "updated_at should be set (got {})", ts);
-        assert!(ts <= now && ts >= now - 5, "updated_at should be ~now (got {}, now {})", ts, now);
-    }
-
-    #[tokio::test]
-    async fn upsert_file_version_bumps_updated_at_on_replace() {
-        let pool = setup_pool().await;
-
-        upsert_file_blob(&pool, "sha1", "hello", 5).await.unwrap();
-        upsert_file_version(&pool, 1, "foo.txt", "head", "sha1", "inst", 42)
-            .await
-            .unwrap();
-
-        let (ts1,): (i64,) = sqlx::query_as(
-            "SELECT updated_at FROM file_versions WHERE mr_id = 1 AND file_path = 'foo.txt' AND version_type = 'head'"
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-
-        tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
-
-        upsert_file_blob(&pool, "sha2", "world", 5).await.unwrap();
-        upsert_file_version(&pool, 1, "foo.txt", "head", "sha2", "inst", 42)
-            .await
-            .unwrap();
-
-        let (ts2,): (i64,) = sqlx::query_as(
-            "SELECT updated_at FROM file_versions WHERE mr_id = 1 AND file_path = 'foo.txt' AND version_type = 'head'"
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-
-        assert!(ts2 > ts1, "updated_at should be bumped on replace (ts1={}, ts2={})", ts1, ts2);
-    }
 }
