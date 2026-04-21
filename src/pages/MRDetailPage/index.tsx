@@ -23,11 +23,7 @@ import MRHeader from './MRHeader';
 import MRDiffContent from './MRDiffContent';
 import MRFilePanel from './MRFilePanel';
 import MRFooter from './MRFooter';
-import {
-  deleteComment,
-  getApprovalCheckpoint,
-  getFilesChangedSince,
-} from '../../services/gitlab';
+import { deleteComment } from '../../services/gitlab';
 import { openExternalUrl } from '../../services/transport';
 import { useCurrentUserQuery } from '../../hooks/queries/useCurrentUserQuery';
 import { useSettingsQuery } from '../../hooks/queries/useSettingsQuery';
@@ -121,26 +117,6 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     previousFileRef.current = null;
     clearFileCache();
   }, [mrId, clearFileCache]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const approvedAt = await getApprovalCheckpoint(mrId);
-        if (cancelled) return;
-        if (approvedAt == null) {
-          dispatch({ type: 'RESET_CHANGED_SET' });
-          return;
-        }
-        const paths = await getFilesChangedSince(mrId, approvedAt);
-        if (cancelled) return;
-        dispatch({ type: 'SET_CHANGED_SET', paths });
-      } catch (err) {
-        console.error('[mr-detail] failed to load approval delta', err);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [mrId, dispatch]);
 
   const handleFileSelect = useCallback((filePath: string) => {
     const index = files.findIndex((f) => f.newPath === filePath);
