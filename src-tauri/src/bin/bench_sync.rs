@@ -82,15 +82,9 @@ async fn main() {
     }
     eprintln!();
 
-    // Create engine with no-op emitter and configure to sync both authored + reviewing
+    // Create engine with no-op emitter
     let engine = SyncEngine::new(pool.clone(), Arc::new(NoopEmitter));
-    engine
-        .set_config(SyncConfig {
-            sync_authored: true,
-            sync_reviewing: true,
-            ..SyncConfig::default()
-        })
-        .await;
+    engine.set_config(SyncConfig::default()).await;
 
     // Warm-up run (populates cache, establishes connections)
     eprint!("Warm-up run... ");

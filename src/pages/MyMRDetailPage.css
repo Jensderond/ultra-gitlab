@@ -87,6 +87,18 @@
   flex-shrink: 0;
 }
 
+.my-mr-detail-project {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  max-width: clamp(180px, 17vw, 300px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .my-mr-detail-header h1 {
   margin: 0;
   font-size: 18px;

@@ -487,8 +487,6 @@ mod tests {
     #[test]
     fn test_default_settings() {
         let settings = AppSettings::default();
-        assert!(settings.sync.sync_authored);
-        assert!(settings.sync.sync_reviewing);
         assert_eq!(settings.sync.interval_secs, 300);
     }
 

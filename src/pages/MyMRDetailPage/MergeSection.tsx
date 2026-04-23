@@ -3,7 +3,11 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { mergeMR, checkMergeStatus, rebaseMR } from '../../services/tauri';
+import { useToast } from '../../components/Toast/ToastContext';
+import { queryKeys } from '../../lib/queryKeys';
+import { pendingMerges } from '../../lib/pendingMerges';
 import type { MergeRequest } from '../../types';
 import type { MergeState, MergeAction } from './mergeReducer';
 
@@ -25,6 +29,11 @@ interface MergeSectionProps {
 export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actionsRef, onMerged }: MergeSectionProps) {
   const { merging, mergeError, mergeConfirm, mergeStatus, mergeStatusLoading, rebasing } = mergeState;
   const rebaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queryClient = useQueryClient();
+  const { addToast } = useToast();
+  const instanceId = mr.instanceId;
+  const mrTitle = mr.title;
+  const mrIid = mr.iid;
 
   useEffect(() => {
     return () => {
@@ -50,22 +59,35 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
     fetchMergeStatus();
   }, [fetchMergeStatus]);
 
-  const handleMerge = useCallback(async () => {
+  const handleMerge = useCallback(() => {
     if (merging) return;
     if (!mergeConfirm) {
       mergeDispatch({ type: 'REQUEST_MERGE' });
       return;
     }
     mergeDispatch({ type: 'CONFIRM_MERGE' });
-    try {
-      await mergeMR(mrId);
-      mergeDispatch({ type: 'MERGE_SUCCESS' });
-      setMr((prev) => prev ? { ...prev, state: 'merged' } : prev);
-      onMerged?.();
-    } catch (err) {
-      mergeDispatch({ type: 'MERGE_ERROR', error: err instanceof Error ? err.message : 'Merge failed' });
-    }
-  }, [mrId, merging, mergeConfirm, mergeDispatch, setMr, onMerged]);
+    setMr((prev) => prev ? { ...prev, state: 'merged' } : prev);
+    pendingMerges.add(mrId);
+    onMerged?.();
+
+    mergeMR(mrId).then(
+      () => {
+        pendingMerges.remove(mrId);
+      },
+      (err) => {
+        pendingMerges.remove(mrId);
+        const message = err instanceof Error ? err.message : 'Merge failed';
+        if (instanceId) {
+          queryClient.invalidateQueries({ queryKey: queryKeys.myMRList(String(instanceId)) });
+        }
+        addToast({
+          type: 'info',
+          title: `Failed to merge !${mrIid}`,
+          body: `${mrTitle} — ${message}`,
+        });
+      },
+    );
+  }, [mrId, merging, mergeConfirm, mergeDispatch, setMr, onMerged, instanceId, mrIid, mrTitle, queryClient, addToast]);
 
   const handleRebase = useCallback(async () => {
     if (rebasing) return;
@@ -79,8 +101,14 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
     }
   }, [mrId, rebasing, mergeDispatch, fetchMergeStatus]);
 
+  // Treat an unresolved merge status (still loading or not yet fetched) as
+  // optimistically mergeable when the MR is approved, so the user does not
+  // wait on GitLab before clicking Merge. A failed merge surfaces via toast.
+  const optimisticallyMergeable =
+    mergeStatus === 'mergeable' || (mergeStatus === null && mr.approvalStatus === 'approved');
+
   // Expose available actions to parent for keyboard shortcuts
-  const canMerge = mr.state === 'opened' && mergeStatus === 'mergeable' && mr.approvalStatus === 'approved' && !merging;
+  const canMerge = mr.state === 'opened' && optimisticallyMergeable && mr.approvalStatus === 'approved' && !merging;
   const canRebase = mr.state === 'opened' && mergeStatus === 'need_rebase' && !rebasing;
   useEffect(() => {
     if (actionsRef) {
@@ -105,9 +133,7 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
   return (
     <section className="my-mr-merge-section">
       <h3>Merge</h3>
-      {mergeStatusLoading ? (
-        <p className="my-mr-merge-status-text">Checking merge status...</p>
-      ) : mergeStatus === 'mergeable' && mr.approvalStatus === 'approved' ? (
+      {optimisticallyMergeable && mr.approvalStatus === 'approved' ? (
         <div className="my-mr-merge-actions">
           <button
             className={`my-mr-action-btn merge ${mergeConfirm ? 'confirm' : ''}`}
@@ -166,6 +192,8 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
         <div className="my-mr-merge-actions">
           <span className="my-mr-merge-status">{mergeStatus.replace(/_/g, ' ')}</span>
         </div>
+      ) : mergeStatusLoading ? (
+        <p className="my-mr-merge-status-text">Checking merge status...</p>
       ) : null}
       {mergeError && (
         <p className="my-mr-merge-error">{mergeError}</p>

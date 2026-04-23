@@ -114,8 +114,8 @@ pub fn run() {
                 .and_then(|v| serde_json::from_value(v.clone()).ok())
                 .unwrap_or_default();
             log::info!(
-                "[sync] Loaded sync config: sync_authored={}, sync_reviewing={}",
-                sync_config.sync_authored, sync_config.sync_reviewing
+                "[sync] Loaded sync config: interval_secs={}, max_mrs_per_sync={}",
+                sync_config.interval_secs, sync_config.max_mrs_per_sync
             );
 
             let (init_tx, init_rx) = std::sync::mpsc::sync_channel(1);

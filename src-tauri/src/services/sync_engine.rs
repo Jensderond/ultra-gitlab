@@ -66,12 +66,6 @@ pub struct SyncConfig {
     /// Sync interval in seconds.
     pub interval_secs: u64,
 
-    /// Whether to sync MRs where user is author.
-    pub sync_authored: bool,
-
-    /// Whether to sync MRs where user is reviewer.
-    pub sync_reviewing: bool,
-
     /// Maximum number of MRs to sync per interval.
     pub max_mrs_per_sync: usize,
 
@@ -89,8 +83,6 @@ impl Default for SyncConfig {
     fn default() -> Self {
         Self {
             interval_secs: DEFAULT_SYNC_INTERVAL_SECS,
-            sync_authored: true,
-            sync_reviewing: true,
             max_mrs_per_sync: 100,
             issue_interval_secs: DEFAULT_ISSUE_SYNC_INTERVAL_SECS,
         }
@@ -638,11 +630,9 @@ impl SyncEngine {
         let instance_start = Instant::now();
         let config = self.config.read().await;
         eprintln!(
-            "[sync] sync_instance: url={}, has_token={}, sync_authored={}, sync_reviewing={}",
+            "[sync] sync_instance: url={}, has_token={}",
             instance.url,
             instance.token.is_some(),
-            config.sync_authored,
-            config.sync_reviewing
         );
 
         // Get token from DB
@@ -929,8 +919,8 @@ impl SyncEngine {
     ) -> Result<Vec<GitLabMergeRequest>, AppError> {
         let mut all_mrs = Vec::new();
 
-        // Fetch authored MRs if enabled
-        if config.sync_authored {
+        // Fetch authored MRs
+        {
             let query = MergeRequestsQuery {
                 state: Some("opened".to_string()),
                 scope: Some("created_by_me".to_string()),
@@ -952,8 +942,8 @@ impl SyncEngine {
             all_mrs.extend(response.data);
         }
 
-        // Fetch reviewing MRs if enabled
-        if config.sync_reviewing {
+        // Fetch reviewing MRs
+        {
             let query = MergeRequestsQuery {
                 state: Some("opened".to_string()),
                 scope: Some("all".to_string()),
@@ -965,7 +955,6 @@ impl SyncEngine {
                 ..Default::default()
             };
 
-            // Log the query parameters so we can verify the username and filters
             eprintln!(
                 "[sync] Fetching reviewing MRs for user '{}', query: {}",
                 username,
@@ -2734,8 +2723,6 @@ mod tests {
     fn test_default_config() {
         let config = SyncConfig::default();
         assert_eq!(config.interval_secs, DEFAULT_SYNC_INTERVAL_SECS);
-        assert!(config.sync_authored);
-        assert!(config.sync_reviewing);
         assert_eq!(config.max_mrs_per_sync, 100);
     }
 

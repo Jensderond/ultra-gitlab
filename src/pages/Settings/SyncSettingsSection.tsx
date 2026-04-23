@@ -5,8 +5,6 @@ import { useUpdateSyncSettingsMutation } from '../../hooks/queries/useUpdateSync
 /** Sync configuration */
 interface SyncConfig {
   interval_secs: number;
-  sync_authored: boolean;
-  sync_reviewing: boolean;
   max_mrs_per_sync: number;
   issue_interval_secs: number;
 }
@@ -53,7 +51,7 @@ export default function SyncSettingsSection() {
 
   function handleIntervalChange(e: React.ChangeEvent<HTMLSelectElement>) {
     if (!syncSettings) return;
-    const newSettings = { ...syncSettings, interval_secs: parseInt(e.target.value, 10), sync_authored: true, sync_reviewing: true };
+    const newSettings = { ...syncSettings, interval_secs: parseInt(e.target.value, 10) };
     saveSyncSettings(newSettings);
   }
 
@@ -62,8 +60,6 @@ export default function SyncSettingsSection() {
     const newSettings = {
       ...syncSettings,
       issue_interval_secs: parseInt(e.target.value, 10),
-      sync_authored: true,
-      sync_reviewing: true,
     };
     saveSyncSettings(newSettings);
   }

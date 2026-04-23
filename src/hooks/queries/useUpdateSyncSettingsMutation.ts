@@ -4,8 +4,6 @@ import { invoke } from '../../services/tauri';
 
 interface SyncConfig {
   interval_secs: number;
-  sync_authored: boolean;
-  sync_reviewing: boolean;
   max_mrs_per_sync: number;
   issue_interval_secs: number;
 }
