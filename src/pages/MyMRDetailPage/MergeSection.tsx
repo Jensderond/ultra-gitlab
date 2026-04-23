@@ -71,15 +71,26 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
     onMerged?.();
 
     mergeMR(mrId).then(
-      () => {
+      async () => {
+        if (instanceId) {
+          try {
+            await queryClient.refetchQueries({ queryKey: queryKeys.myMRList(String(instanceId)) });
+          } catch {
+            // ignore — we still want to clear the pending flag below
+          }
+        }
         pendingMerges.remove(mrId);
       },
-      (err) => {
-        pendingMerges.remove(mrId);
+      async (err) => {
         const message = err instanceof Error ? err.message : 'Merge failed';
         if (instanceId) {
-          queryClient.invalidateQueries({ queryKey: queryKeys.myMRList(String(instanceId)) });
+          try {
+            await queryClient.refetchQueries({ queryKey: queryKeys.myMRList(String(instanceId)) });
+          } catch {
+            // ignore
+          }
         }
+        pendingMerges.remove(mrId);
         addToast({
           type: 'info',
           title: `Failed to merge !${mrIid}`,
