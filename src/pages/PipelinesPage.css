@@ -76,12 +76,6 @@
   border-radius: 1.5px;
   box-shadow: 0 0 14px var(--wave-glow-strong);
   flex-shrink: 0;
-  animation: pipelinesBarBreath 4s ease-in-out infinite;
-}
-
-@keyframes pipelinesBarBreath {
-  0%, 100% { opacity: 1; transform: scaleY(1); }
-  50% { opacity: 0.6; transform: scaleY(0.82); }
 }
 
 .pipelines-freshness {
