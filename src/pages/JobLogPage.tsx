@@ -20,6 +20,7 @@ import type { AnsiSegment } from '../utils/ansiParser';
 import type { PipelineJobStatus } from '../types';
 import { useJobTraceQuery } from '../hooks/queries/useJobTraceQuery';
 import { usePipelineJobsQuery } from '../hooks/queries/usePipelineJobsQuery';
+import { useCopyToast } from '../hooks/useCopyToast';
 import './JobLogPage.css';
 
 /** Statuses that indicate a job is still active and should be polled. */
@@ -143,6 +144,7 @@ export default function JobLogPage() {
   const [currentStatus, setCurrentStatus] = useState<PipelineJobStatus>(initialStatus);
   const [followMode, setFollowMode] = useState(ACTIVE_STATUSES.has(initialStatus));
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [showCopyToast, copyToClipboard] = useCopyToast();
 
   const isActive = ACTIVE_STATUSES.has(currentStatus);
 
@@ -237,11 +239,15 @@ export default function JobLogPage() {
         e.preventDefault();
         trackShortcut('o', 'open_in_browser', 'job_log');
         openExternalUrl(jobWebUrl);
+      } else if ((e.key === 'y' || e.key === 'Y') && jobWebUrl) {
+        e.preventDefault();
+        trackShortcut('y', 'copy_link', 'job_log');
+        copyToClipboard(jobWebUrl);
       }
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [navigate, backUrl, jobWebUrl]);
+  }, [navigate, backUrl, jobWebUrl, copyToClipboard]);
 
   const loading = traceQuery.isLoading;
   const error = traceQuery.error ? 'Failed to load job trace' : null;
@@ -317,6 +323,10 @@ export default function JobLogPage() {
           </div>
         )}
       </main>
+
+      {showCopyToast && (
+        <div className="copy-toast">Link copied</div>
+      )}
     </div>
   );
 }

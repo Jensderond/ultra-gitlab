@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import TabBar from '../../components/TabBar';
 import { openExternalUrl } from '../../services/transport';
+import { useCopyToast } from '../../hooks/useCopyToast';
 import type { PipelineStatus } from '../../types';
 import PipelineHeader from './PipelineHeader';
 import JobsTab from './JobsTab';
@@ -33,6 +34,7 @@ export default function PipelineDetailPage() {
   const plid = Number(pipelineId);
 
   const [activeTab, setActiveTab] = useState<TabId>('jobs');
+  const [showCopyToast, copyToClipboard] = useCopyToast();
 
   const {
     jobs,
@@ -94,11 +96,15 @@ export default function PipelineDetailPage() {
         e.preventDefault();
         trackShortcut('o', 'open_in_browser', 'pipeline_detail');
         openExternalUrl(pipelineWebUrl);
+      } else if ((e.key === 'y' || e.key === 'Y') && pipelineWebUrl) {
+        e.preventDefault();
+        trackShortcut('y', 'copy_link', 'pipeline_detail');
+        copyToClipboard(pipelineWebUrl);
       }
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [navigate, pipelineWebUrl]);
+  }, [navigate, pipelineWebUrl, copyToClipboard]);
 
   const handleOpenPipeline = useCallback(
     (pipeline: PipelineStatus) => {
@@ -170,6 +176,10 @@ export default function PipelineDetailPage() {
           onCancelPipeline={handleCancelPipeline}
           pipelineActionLoading={pipelineActionLoading}
         />
+      )}
+
+      {showCopyToast && (
+        <div className="copy-toast">Link copied</div>
       )}
     </div>
   );
