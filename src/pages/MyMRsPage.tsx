@@ -66,6 +66,7 @@ export default function MyMRsPage() {
   const instances = instancesQuery.data ?? [];
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
   const mrsRef = useRef<MergeRequest[]>([]);
+  const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   // Auto-select default or first instance when instances load
   useEffect(() => {
@@ -115,6 +116,12 @@ export default function MyMRsPage() {
       setFocusIndex(0);
     }
   }, [query, isSearchOpen, setFocusIndex]);
+
+  // Keep the focused row visible when navigating with j/k.
+  useEffect(() => {
+    const el = itemRefs.current.get(focusIndex);
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }, [focusIndex]);
 
   const handleSelectMR = useCallback(
     (mr: MergeRequest, index: number) => {
@@ -204,6 +211,10 @@ export default function MyMRsPage() {
               {filteredItems.map((mr, index) => (
                 <div
                   key={mr.id}
+                  ref={(el) => {
+                    if (el) itemRefs.current.set(index, el);
+                    else itemRefs.current.delete(index);
+                  }}
                   className={['my-mr-item-wrapper', isDraft(mr) && 'is-draft', isFullyApproved(mr) && 'is-approved'].filter(Boolean).join(' ')}
                 >
                   <MRListItem
