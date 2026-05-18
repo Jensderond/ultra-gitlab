@@ -317,6 +317,48 @@ export async function getMRPipelines(mrId: number): Promise<PipelineStatus[]> {
   return invoke<PipelineStatus[]>('get_mr_pipelines', { mrId });
 }
 
+/**
+ * Auto-merge claim payload from the backend.
+ */
+export interface AutoMergeClaim {
+  mrId: number;
+  claimedAt: number;
+  lastStatus: string | null;
+  lastError: string | null;
+  lastAttemptAt: number | null;
+  attempts: number;
+}
+
+/**
+ * Claim an MR for auto-merge. The sync engine will poll and merge when ready.
+ */
+export async function claimAutoMerge(mrId: number): Promise<AutoMergeClaim> {
+  return invoke<AutoMergeClaim>('claim_auto_merge', { mrId });
+}
+
+/**
+ * Remove the auto-merge claim for an MR.
+ */
+export async function unclaimAutoMerge(mrId: number): Promise<void> {
+  return invoke<void>('unclaim_auto_merge', { mrId });
+}
+
+/**
+ * Read the current auto-merge claim for an MR, if any.
+ */
+export async function getAutoMergeClaim(mrId: number): Promise<AutoMergeClaim | null> {
+  return invoke<AutoMergeClaim | null>('get_auto_merge_claim', { mrId });
+}
+
+/**
+ * Run the auto-merge processor immediately for all active claims.
+ * Useful to trigger right after claiming so the user does not wait for the
+ * next periodic sync tick.
+ */
+export async function processAutoMergeNow(): Promise<void> {
+  return invoke<void>('process_auto_merge_now');
+}
+
 // ============================================================================
 // Comment Commands
 // ============================================================================

@@ -61,6 +61,24 @@ pub const PIPELINE_STATUS_CHANGED_EVENT: &str = "notification:pipeline-changed";
 /// Emitted when the background sync refreshes cached issues for an instance.
 pub const ISSUES_UPDATED_EVENT: &str = "issues-updated";
 
+/// Event: auto-merge-updated
+/// Emitted when the sync engine processes an auto-merge claim — status changed,
+/// rebase triggered, or claim removed (merged / conflict / MR closed).
+pub const AUTO_MERGE_UPDATED_EVENT: &str = "auto-merge-updated";
+
+/// Payload for auto-merge-updated events.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutoMergeUpdatedPayload {
+    pub mr_id: i64,
+    /// True if the claim was just removed (merged, conflict, MR closed).
+    pub removed: bool,
+    /// Last `detailed_merge_status` observed, if known.
+    pub last_status: Option<String>,
+    /// Last error string, if any.
+    pub last_error: Option<String>,
+}
+
 /// Payload for issues-updated events.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

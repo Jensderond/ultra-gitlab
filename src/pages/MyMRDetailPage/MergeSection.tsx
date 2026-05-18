@@ -8,8 +8,37 @@ import { mergeMR, checkMergeStatus, rebaseMR } from '../../services/tauri';
 import { useToast } from '../../components/Toast/ToastContext';
 import { queryKeys } from '../../lib/queryKeys';
 import { pendingMerges } from '../../lib/pendingMerges';
+import { useAutoMerge } from '../../hooks/useAutoMerge';
 import type { MergeRequest } from '../../types';
 import type { MergeState, MergeAction } from './mergeReducer';
+
+function autoMergeStatusLabel(status: string | null): string {
+  switch (status) {
+    case null:
+      return 'Waiting for first status check...';
+    case 'mergeable':
+      return 'Mergeable — merging on next sync';
+    case 'need_rebase':
+      return 'Needs rebase — rebasing on next sync';
+    case 'ci_must_pass':
+      return 'Waiting for pipeline';
+    case 'checking':
+    case 'unchecked':
+      return 'GitLab is checking mergeability';
+    case 'discussions_not_resolved':
+      return 'Waiting for discussions to resolve';
+    case 'draft_status':
+      return 'Waiting — MR is draft';
+    case 'not_approved':
+      return 'Waiting for approval';
+    case 'requested_changes':
+      return 'Waiting — changes requested';
+    case 'conflict':
+      return 'Has conflicts — cannot auto-merge';
+    default:
+      return `Waiting — ${status.replace(/_/g, ' ')}`;
+  }
+}
 
 export interface MergeActions {
   merge: (() => void) | null;
@@ -34,6 +63,8 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
   const instanceId = mr.instanceId;
   const mrTitle = mr.title;
   const mrIid = mr.iid;
+
+  const { claim: autoMergeClaim, isClaimed: autoMergeOn, toggle: toggleAutoMerge } = useAutoMerge(mrId);
 
   useEffect(() => {
     return () => {
@@ -144,10 +175,30 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
 
   if (mr.state !== 'opened') return null;
 
+  const autoMergeLabel = autoMergeClaim
+    ? autoMergeStatusLabel(autoMergeClaim.lastStatus)
+    : null;
+
   return (
     <section className="my-mr-merge-section">
       <h3>Merge</h3>
-      {optimisticallyMergeable && mr.approvalStatus === 'approved' ? (
+      {autoMergeOn ? (
+        <div className="my-mr-auto-merge-active">
+          <div className="my-mr-auto-merge-status">
+            <span className="my-mr-auto-merge-dot" />
+            <div className="my-mr-auto-merge-text">
+              <strong>Auto-merge enabled</strong>
+              <span className="my-mr-auto-merge-detail">{autoMergeLabel}</span>
+              {autoMergeClaim?.lastError && (
+                <span className="my-mr-auto-merge-error">{autoMergeClaim.lastError}</span>
+              )}
+            </div>
+          </div>
+          <button className="my-mr-merge-cancel" onClick={toggleAutoMerge}>
+            Cancel auto-merge
+          </button>
+        </div>
+      ) : optimisticallyMergeable && mr.approvalStatus === 'approved' ? (
         <div className="my-mr-merge-actions">
           <button
             className={`my-mr-action-btn merge ${mergeConfirm ? 'confirm' : ''}`}
@@ -211,6 +262,15 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
       ) : null}
       {mergeError && (
         <p className="my-mr-merge-error">{mergeError}</p>
+      )}
+      {!autoMergeOn && (
+        <label className="my-mr-auto-merge-toggle">
+          <input type="checkbox" checked={false} onChange={toggleAutoMerge} />
+          <span>Auto-merge when ready</span>
+          <span className="my-mr-auto-merge-hint">
+            Background sync rebases if needed and merges once GitLab reports the MR as mergeable.
+          </span>
+        </label>
       )}
     </section>
   );

@@ -5,6 +5,7 @@
 //! - Schema migrations
 //! - Query helpers
 
+pub mod auto_merge;
 pub mod file_cache;
 pub mod issue_notes;
 pub mod notification_settings;
@@ -143,6 +144,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0021_create_issue_notes",
         include_str!("migrations/0021_create_issue_notes.sql"),
+    ),
+    (
+        "0022_auto_merge_claims",
+        include_str!("migrations/0022_auto_merge_claims.sql"),
     ),
 ];
 

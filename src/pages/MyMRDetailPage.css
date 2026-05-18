@@ -556,6 +556,85 @@
   color: var(--error-color);
 }
 
+/* Auto-merge toggle (shown when claim is OFF) */
+.my-mr-auto-merge-toggle {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.my-mr-auto-merge-toggle input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.my-mr-auto-merge-toggle .my-mr-auto-merge-hint {
+  flex-basis: 100%;
+  margin-left: 22px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* Auto-merge active panel (shown when claim is ON) */
+.my-mr-auto-merge-active {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--accent-color, #4d7eff);
+  border-radius: 8px;
+  background: var(--accent-bg, rgba(77, 126, 255, 0.08));
+}
+
+.my-mr-auto-merge-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.my-mr-auto-merge-dot {
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--accent-color, #4d7eff);
+  animation: auto-merge-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes auto-merge-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.my-mr-auto-merge-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.my-mr-auto-merge-text strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.my-mr-auto-merge-detail {
+  color: var(--text-secondary);
+}
+
+.my-mr-auto-merge-error {
+  margin-top: 4px;
+  color: var(--error-color);
+  font-size: 12px;
+}
+
 /* Comments tab */
 .my-mr-comments {
   display: flex;

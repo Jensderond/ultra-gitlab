@@ -8,6 +8,7 @@
 //! - Sync logging for status display
 //! - MR purge on merge/close per FR-005a
 
+use crate::db::auto_merge;
 use crate::db::pool::DbPool;
 use crate::error::AppError;
 use crate::models::project::{self, Project};
@@ -17,9 +18,10 @@ use crate::services::gitlab_client::{
     MergeRequestsQuery,
 };
 use crate::services::sync_events::{
-    ActionSyncedPayload, AuthExpiredPayload, EventEmitter, IssuesUpdatedPayload, MrReadyPayload,
-    MrUpdateType, MrUpdatedPayload, PipelineStatusChangedPayload, SyncPhase, SyncProgressPayload,
-    ACTION_SYNCED_EVENT, AUTH_EXPIRED_EVENT, ISSUES_UPDATED_EVENT, MR_READY_EVENT,
+    ActionSyncedPayload, AuthExpiredPayload, AutoMergeUpdatedPayload, EventEmitter,
+    IssuesUpdatedPayload, MrReadyPayload, MrUpdateType, MrUpdatedPayload,
+    PipelineStatusChangedPayload, SyncPhase, SyncProgressPayload, ACTION_SYNCED_EVENT,
+    AUTH_EXPIRED_EVENT, AUTO_MERGE_UPDATED_EVENT, ISSUES_UPDATED_EVENT, MR_READY_EVENT,
     MR_UPDATED_EVENT, PIPELINE_STATUS_CHANGED_EVENT, SYNC_PROGRESS_EVENT,
 };
 use crate::services::sync_processor::{self, ProcessResult};
@@ -161,6 +163,9 @@ pub enum SyncCommand {
     /// Flush pending actions of the given types immediately.
     FlushActions(Vec<ActionType>),
 
+    /// Run the auto-merge processor immediately, without doing a full MR sync.
+    ProcessAutoMerge,
+
     /// Update the sync configuration.
     UpdateConfig(SyncConfig),
 
@@ -208,6 +213,15 @@ impl SyncHandle {
     /// Flush only pending approval actions immediately.
     pub async fn flush_approvals(&self) -> Result<(), AppError> {
         self.flush_actions(vec![ActionType::Approve]).await
+    }
+
+    /// Process the auto-merge queue immediately. Useful right after the user
+    /// claims an MR so they don't wait for the next periodic sync tick.
+    pub async fn process_auto_merge_now(&self) -> Result<(), AppError> {
+        self.command_tx
+            .send(SyncCommand::ProcessAutoMerge)
+            .await
+            .map_err(|_| AppError::internal("Sync engine not running"))
     }
 
     /// Flush pending comment-related actions (comment, reply, resolve, unresolve) immediately.
@@ -400,6 +414,10 @@ impl SyncEngine {
                                     eprintln!("[sync] Flush actions error: {}", e);
                                 }
                             }
+                            SyncCommand::ProcessAutoMerge => {
+                                eprintln!("[sync] Processing auto-merge claims (on-demand)");
+                                engine.process_auto_merge_claims().await;
+                            }
                         SyncCommand::UpdateConfig(new_config) => {
                                 eprintln!("[sync] Config updated, interval={}s", new_config.interval_secs);
                                 interval = time::interval(Duration::from_secs(new_config.interval_secs));
@@ -505,6 +523,10 @@ impl SyncEngine {
 
         // Check pinned pipeline statuses and emit notifications on transitions
         self.check_pinned_pipeline_statuses().await;
+
+        // Process any auto-merge claims the user has set on their own MRs.
+        // Runs after MR sync so we have the freshest data to check against.
+        self.process_auto_merge_claims().await;
 
         // Clean up completed sync queue entries to prevent unbounded table growth
         if let Err(e) = sync_queue::cleanup_synced(&self.pool).await {
@@ -2534,6 +2556,443 @@ impl SyncEngine {
         }
     }
 
+    /// Process all open auto-merge claims.
+    ///
+    /// For each claim we fetch the MR's `detailed_merge_status` from GitLab and:
+    /// - `mergeable` → call merge, mark merged locally, drop the claim
+    /// - `need_rebase` → trigger a rebase; next tick will re-check
+    /// - `conflict` → drop the claim (cannot recover automatically)
+    /// - anything else (ci_must_pass, checking, not_approved, ...) → wait
+    ///
+    /// MR state changes are reflected in the local DB so the frontend can see
+    /// the merge land via the existing `mr-updated` event flow.
+    pub async fn process_auto_merge_claims(&self) {
+        let claims = match auto_merge::list_active_claims_with_mr(&self.pool).await {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("[auto-merge] Failed to list claims: {}", e);
+                log::warn!("[auto-merge] Failed to list claims: {}", e);
+                return;
+            }
+        };
+
+        eprintln!(
+            "[auto-merge] Processor running — {} active claim(s)",
+            claims.len()
+        );
+
+        if claims.is_empty() {
+            return;
+        }
+
+        let _ = self
+            .log_sync_operation(
+                "auto_merge",
+                "info",
+                None,
+                Some(format!("Processing {} auto-merge claim(s)", claims.len())),
+                None,
+            )
+            .await;
+
+        // Build one GitLab client per instance and reuse across claims.
+        let instances = match self.get_gitlab_instances().await {
+            Ok(v) => v,
+            Err(e) => {
+                log::warn!("[auto-merge] Failed to load instances: {}", e);
+                let _ = self
+                    .log_sync_operation(
+                        "auto_merge",
+                        "error",
+                        None,
+                        Some(format!("Failed to load GitLab instances: {}", e)),
+                        None,
+                    )
+                    .await;
+                return;
+            }
+        };
+
+        let mut clients: HashMap<i64, GitLabClient> = HashMap::new();
+        for inst in instances {
+            let Some(token) = inst.token else { continue };
+            if let Ok(client) = GitLabClient::new(GitLabClientConfig {
+                base_url: inst.url,
+                token,
+                timeout_secs: 30,
+            }) {
+                clients.insert(inst.id, client);
+            }
+        }
+
+        for claim in claims {
+            // If the MR is no longer open, drop the claim — nothing to do.
+            if claim.state != "opened" {
+                if let Err(e) = auto_merge::delete_claim(&self.pool, claim.mr_id).await {
+                    log::warn!(
+                        "[auto-merge] Failed to drop claim for !{} (state={}): {}",
+                        claim.iid, claim.state, e
+                    );
+                }
+                let _ = self
+                    .log_sync_operation(
+                        "auto_merge",
+                        "info",
+                        Some(claim.mr_id),
+                        Some(format!(
+                            "!{} {} — auto-merge claim removed (no longer open)",
+                            claim.iid, claim.state
+                        )),
+                        None,
+                    )
+                    .await;
+                self.emit_event(
+                    AUTO_MERGE_UPDATED_EVENT,
+                    &AutoMergeUpdatedPayload {
+                        mr_id: claim.mr_id,
+                        removed: true,
+                        last_status: claim.last_status.clone(),
+                        last_error: None,
+                    },
+                );
+                continue;
+            }
+
+            let Some(client) = clients.get(&claim.instance_id) else {
+                log::warn!(
+                    "[auto-merge] No client for instance {} (mr !{})",
+                    claim.instance_id, claim.iid
+                );
+                let _ = self
+                    .log_sync_operation(
+                        "auto_merge",
+                        "error",
+                        Some(claim.mr_id),
+                        Some(format!(
+                            "!{}: no GitLab client for instance {} (token missing?)",
+                            claim.iid, claim.instance_id
+                        )),
+                        None,
+                    )
+                    .await;
+                continue;
+            };
+
+            self.process_one_auto_merge_claim(&claim, client).await;
+        }
+    }
+
+    /// Run a single tick of the auto-merge state machine for one claim.
+    async fn process_one_auto_merge_claim(
+        &self,
+        claim: &auto_merge::AutoMergeClaimWithMr,
+        client: &GitLabClient,
+    ) {
+        // Fetch the freshest detailed_merge_status from GitLab.
+        let status = match client.get_merge_request(claim.project_id, claim.iid).await {
+            Ok(gl) => gl
+                .detailed_merge_status
+                .unwrap_or_else(|| "unknown".into()),
+            Err(e) => {
+                let msg = e.to_string();
+                let _ = auto_merge::record_attempt(
+                    &self.pool, claim.mr_id, now(), None, Some(&msg),
+                ).await;
+                let _ = self
+                    .log_sync_operation(
+                        "auto_merge",
+                        "error",
+                        Some(claim.mr_id),
+                        Some(format!("!{}: status check failed — {}", claim.iid, msg)),
+                        None,
+                    )
+                    .await;
+                log::warn!(
+                    "[auto-merge] check_merge_status failed for !{}: {}",
+                    claim.iid, msg
+                );
+                self.emit_event(
+                    AUTO_MERGE_UPDATED_EVENT,
+                    &AutoMergeUpdatedPayload {
+                        mr_id: claim.mr_id,
+                        removed: false,
+                        last_status: claim.last_status.clone(),
+                        last_error: Some(msg),
+                    },
+                );
+                return;
+            }
+        };
+
+        // Record the observed status before deciding what to do — useful even
+        // when we then drop the claim, so the UI can show why.
+        let _ = auto_merge::record_attempt(
+            &self.pool, claim.mr_id, now(), Some(&status), None,
+        ).await;
+
+        match status.as_str() {
+            "mergeable" => {
+                let _ = self
+                    .log_sync_operation(
+                        "auto_merge",
+                        "info",
+                        Some(claim.mr_id),
+                        Some(format!("!{}: mergeable — calling merge API", claim.iid)),
+                        None,
+                    )
+                    .await;
+                eprintln!("[auto-merge] !{} is mergeable, calling merge API", claim.iid);
+                log::info!("[auto-merge] !{} is mergeable, merging", claim.iid);
+                match client.merge_merge_request(claim.project_id, claim.iid).await {
+                    Ok(()) => {
+                        // Reflect merged state in the local DB.
+                        let now_ts = now();
+                        if let Err(e) = sqlx::query(
+                            "UPDATE merge_requests SET state = 'merged', merged_at = ? WHERE id = ?",
+                        )
+                        .bind(now_ts)
+                        .bind(claim.mr_id)
+                        .execute(&self.pool)
+                        .await
+                        {
+                            log::warn!(
+                                "[auto-merge] Failed to mark MR !{} merged locally: {}",
+                                claim.iid, e
+                            );
+                        }
+                        if let Err(e) = auto_merge::delete_claim(&self.pool, claim.mr_id).await {
+                            log::warn!(
+                                "[auto-merge] Failed to drop claim after merge for !{}: {}",
+                                claim.iid, e
+                            );
+                        }
+                        let _ = self
+                            .log_sync_operation(
+                                "auto_merge",
+                                "success",
+                                Some(claim.mr_id),
+                                Some(format!("!{}: merged via auto-merge", claim.iid)),
+                                None,
+                            )
+                            .await;
+                        self.emit_mr_updated(
+                            claim.mr_id,
+                            claim.instance_id,
+                            claim.iid,
+                            MrUpdateType::Updated,
+                        );
+                        self.emit_event(
+                            AUTO_MERGE_UPDATED_EVENT,
+                            &AutoMergeUpdatedPayload {
+                                mr_id: claim.mr_id,
+                                removed: true,
+                                last_status: Some("mergeable".into()),
+                                last_error: None,
+                            },
+                        );
+                    }
+                    Err(e) => {
+                        let msg = e.to_string();
+                        // If GitLab rejected the merge because a fast-forward
+                        // is required, fall back to triggering a rebase. The
+                        // /merge_requests/:iid endpoint can still report
+                        // `mergeable` even when project settings require FF
+                        // and the source branch is not ahead — only the
+                        // /merge call fails.
+                        if is_fast_forward_required(&msg) {
+                            log::info!(
+                                "[auto-merge] !{} merge failed (FF required) — triggering rebase",
+                                claim.iid
+                            );
+                            self.trigger_rebase_for_claim(claim, client, &status, "merge rejected — fast-forward required")
+                                .await;
+                            return;
+                        }
+                        let _ = auto_merge::record_attempt(
+                            &self.pool, claim.mr_id, now(), Some(&status), Some(&msg),
+                        ).await;
+                        let _ = self
+                            .log_sync_operation(
+                                "auto_merge",
+                                "error",
+                                Some(claim.mr_id),
+                                Some(format!("!{}: merge failed — {}", claim.iid, msg)),
+                                None,
+                            )
+                            .await;
+                        log::warn!("[auto-merge] Merge failed for !{}: {}", claim.iid, msg);
+                        self.emit_event(
+                            AUTO_MERGE_UPDATED_EVENT,
+                            &AutoMergeUpdatedPayload {
+                                mr_id: claim.mr_id,
+                                removed: false,
+                                last_status: Some(status),
+                                last_error: Some(msg),
+                            },
+                        );
+                    }
+                }
+            }
+            "need_rebase" => {
+                self.trigger_rebase_for_claim(claim, client, &status, "need_rebase reported")
+                    .await;
+            }
+            "conflict" => {
+                let _ = self
+                    .log_sync_operation(
+                        "auto_merge",
+                        "error",
+                        Some(claim.mr_id),
+                        Some(format!(
+                            "!{}: has conflicts — auto-merge claim removed",
+                            claim.iid
+                        )),
+                        None,
+                    )
+                    .await;
+                eprintln!(
+                    "[auto-merge] !{} has conflicts, dropping claim",
+                    claim.iid
+                );
+                log::info!(
+                    "[auto-merge] !{} has conflicts, dropping claim",
+                    claim.iid
+                );
+                if let Err(e) = auto_merge::delete_claim(&self.pool, claim.mr_id).await {
+                    log::warn!(
+                        "[auto-merge] Failed to drop claim after conflict for !{}: {}",
+                        claim.iid, e
+                    );
+                }
+                self.emit_event(
+                    AUTO_MERGE_UPDATED_EVENT,
+                    &AutoMergeUpdatedPayload {
+                        mr_id: claim.mr_id,
+                        removed: true,
+                        last_status: Some(status),
+                        last_error: None,
+                    },
+                );
+            }
+            other => {
+                // Waiting state — just update the recorded status and try again next tick.
+                eprintln!(
+                    "[auto-merge] !{} status={} — waiting (no merge or rebase needed yet)",
+                    claim.iid, other
+                );
+                let _ = self
+                    .log_sync_operation(
+                        "auto_merge",
+                        "info",
+                        Some(claim.mr_id),
+                        Some(format!(
+                            "!{}: waiting — status {} (no merge or rebase needed yet)",
+                            claim.iid, other
+                        )),
+                        None,
+                    )
+                    .await;
+                self.emit_event(
+                    AUTO_MERGE_UPDATED_EVENT,
+                    &AutoMergeUpdatedPayload {
+                        mr_id: claim.mr_id,
+                        removed: false,
+                        last_status: Some(status),
+                        last_error: None,
+                    },
+                );
+            }
+        }
+    }
+
+    /// Trigger a rebase for an auto-merge claim and log/emit appropriately.
+    /// `reason` is appended to the log line so a reader can tell whether the
+    /// rebase was triggered because GitLab said `need_rebase` or because a
+    /// merge attempt was rejected with a fast-forward error.
+    async fn trigger_rebase_for_claim(
+        &self,
+        claim: &auto_merge::AutoMergeClaimWithMr,
+        client: &GitLabClient,
+        status: &str,
+        reason: &str,
+    ) {
+        let _ = self
+            .log_sync_operation(
+                "auto_merge",
+                "info",
+                Some(claim.mr_id),
+                Some(format!(
+                    "!{}: triggering rebase ({})",
+                    claim.iid, reason
+                )),
+                None,
+            )
+            .await;
+        eprintln!(
+            "[auto-merge] !{} triggering rebase ({})",
+            claim.iid, reason
+        );
+        log::info!(
+            "[auto-merge] !{} triggering rebase ({})",
+            claim.iid, reason
+        );
+        if let Err(e) = client
+            .rebase_merge_request(claim.project_id, claim.iid)
+            .await
+        {
+            let msg = e.to_string();
+            let _ = auto_merge::record_attempt(
+                &self.pool,
+                claim.mr_id,
+                now(),
+                Some(status),
+                Some(&msg),
+            )
+            .await;
+            let _ = self
+                .log_sync_operation(
+                    "auto_merge",
+                    "error",
+                    Some(claim.mr_id),
+                    Some(format!("!{}: rebase failed — {}", claim.iid, msg)),
+                    None,
+                )
+                .await;
+            log::warn!("[auto-merge] Rebase failed for !{}: {}", claim.iid, msg);
+            self.emit_event(
+                AUTO_MERGE_UPDATED_EVENT,
+                &AutoMergeUpdatedPayload {
+                    mr_id: claim.mr_id,
+                    removed: false,
+                    last_status: Some(status.to_string()),
+                    last_error: Some(msg),
+                },
+            );
+        } else {
+            let _ = self
+                .log_sync_operation(
+                    "auto_merge",
+                    "success",
+                    Some(claim.mr_id),
+                    Some(format!(
+                        "!{}: rebase triggered — will re-check next sync",
+                        claim.iid
+                    )),
+                    None,
+                )
+                .await;
+            self.emit_event(
+                AUTO_MERGE_UPDATED_EVENT,
+                &AutoMergeUpdatedPayload {
+                    mr_id: claim.mr_id,
+                    removed: false,
+                    last_status: Some(status.to_string()),
+                    last_error: None,
+                },
+            );
+        }
+    }
+
     /// Get all GitLab instances from the database.
     async fn get_gitlab_instances(&self) -> Result<Vec<GitLabInstanceRow>, AppError> {
         let instances = sqlx::query_as::<_, GitLabInstanceRow>(
@@ -2672,6 +3131,15 @@ struct GitLabInstanceRow {
     name: Option<String>,
     token: Option<String>,
     session_cookie: Option<String>,
+}
+
+/// Returns true if the GitLab error message indicates that a fast-forward
+/// merge is required but not possible — meaning a rebase will likely unblock
+/// the merge. GitLab uses different phrasings across versions so we match
+/// substrings rather than the exact string.
+fn is_fast_forward_required(message: &str) -> bool {
+    let lower = message.to_lowercase();
+    lower.contains("fast forward") || lower.contains("fast-forward") || lower.contains("ff merge")
 }
 
 /// Extract the project path with namespace from a GitLab MR web URL.

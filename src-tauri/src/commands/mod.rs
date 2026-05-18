@@ -12,6 +12,7 @@
 
 pub mod approval;
 pub mod auth;
+pub mod auto_merge;
 pub mod avatar;
 pub mod comments;
 pub mod companion_server;
@@ -30,6 +31,9 @@ pub mod sync;
 
 // Re-export commands for registration in lib.rs
 pub use approval::{approve_mr, get_approval_status, unapprove_mr};
+pub use auto_merge::{
+    claim_auto_merge, get_auto_merge_claim, process_auto_merge_now, unclaim_auto_merge,
+};
 pub use auth::{
     delete_gitlab_instance, get_gitlab_instances, get_token_info, rename_instance,
     set_default_instance, setup_gitlab_instance, update_instance_token,

@@ -24,6 +24,13 @@ interface IssuesUpdatedPayload {
   count: number;
 }
 
+interface AutoMergeUpdatedPayload {
+  mrId: number;
+  removed: boolean;
+  lastStatus: string | null;
+  lastError: string | null;
+}
+
 export async function setupTauriEventListeners(): Promise<() => void> {
   if (initialized) return () => {};
   initialized = true;
@@ -89,10 +96,20 @@ export async function setupTauriEventListeners(): Promise<() => void> {
     },
   );
 
+  const unlistenAutoMergeUpdated = await tauriListen<AutoMergeUpdatedPayload>(
+    'auto-merge-updated',
+    (event) => {
+      queryClient.invalidateQueries({
+        queryKey: ['autoMergeClaim', event.payload.mrId],
+      });
+    },
+  );
+
   return () => {
     unlistenMrUpdated();
     unlistenActionSynced();
     unlistenIssuesUpdated();
+    unlistenAutoMergeUpdated();
     for (const timer of debounceTimers.values()) {
       clearTimeout(timer);
     }
