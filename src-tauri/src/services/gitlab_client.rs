@@ -675,6 +675,24 @@ impl GitLabClient {
         Ok(pipelines.into_iter().next())
     }
 
+    /// Get pipelines associated with a merge request.
+    ///
+    /// Returns both MR-context pipelines and source-branch pipelines that
+    /// GitLab attaches to this MR, newest first.
+    pub async fn get_mr_pipelines(
+        &self,
+        project_id: i64,
+        mr_iid: i64,
+    ) -> Result<Vec<GitLabPipeline>, AppError> {
+        let endpoint = format!(
+            "/projects/{}/merge_requests/{}/pipelines",
+            project_id, mr_iid
+        );
+        let url = self.api_url(&endpoint);
+        let response = self.send_with_retry(self.client.get(&url)).await?;
+        self.handle_response(response, &endpoint).await
+    }
+
     /// Get recent pipelines for a project (up to `limit`).
     pub async fn get_project_pipelines(
         &self,

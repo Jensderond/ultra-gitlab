@@ -259,6 +259,7 @@ export async function mockTauriIPC(page: Page) {
       search_projects: () => [],
       get_pipeline_statuses: () => data.pipelineStatuses,
       get_project_pipelines: () => data.pipelineStatuses,
+      get_mr_pipelines: () => data.pipelineStatuses,
       get_pipeline_jobs: () => data.pipelineJobs,
       get_job_trace: () => 'Job log output mock\nLine 2\nLine 3',
       play_pipeline_job: () => data.pipelineJobs[0],

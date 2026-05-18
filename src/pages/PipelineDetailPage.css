@@ -611,3 +611,88 @@ button.pipeline-job-info--clickable {
   color: var(--text-primary);
   border-radius: 4px;
 }
+
+/* Pipeline detail dialog (used from MR detail) */
+.pipeline-detail-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Above the app sidebar (z-index 100) so the backdrop covers the full app. */
+  z-index: 200;
+  padding: 24px;
+  animation: pipeline-detail-overlay-in 180ms ease-out both;
+}
+
+.pipeline-detail-dialog {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  width: 100%;
+  max-width: 1100px;
+  height: 100%;
+  max-height: 900px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  transform-origin: center;
+  animation: pipeline-detail-dialog-in 220ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+.pipeline-detail-dialog .pipeline-detail-page {
+  height: 100%;
+  min-height: 0;
+}
+
+.pipeline-detail-dialog-overlay.is-closing {
+  animation: pipeline-detail-overlay-out 160ms ease-in both;
+}
+
+.pipeline-detail-dialog-overlay.is-closing .pipeline-detail-dialog {
+  animation: pipeline-detail-dialog-out 160ms cubic-bezier(0.4, 0, 0.6, 1) both;
+  pointer-events: none;
+}
+
+@keyframes pipeline-detail-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes pipeline-detail-overlay-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes pipeline-detail-dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes pipeline-detail-dialog-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pipeline-detail-dialog-overlay,
+  .pipeline-detail-dialog,
+  .pipeline-detail-dialog-overlay.is-closing,
+  .pipeline-detail-dialog-overlay.is-closing .pipeline-detail-dialog {
+    animation: none;
+  }
+}

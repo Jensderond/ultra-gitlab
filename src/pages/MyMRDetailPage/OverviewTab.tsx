@@ -2,10 +2,13 @@
  * Overview tab for MyMRDetailPage — details, description, approvals, merge.
  */
 
+import { useMemo } from 'react';
 import { formatRelativeTime, reviewerStatusClass, reviewerStatusLabel } from './utils';
 import { MergeSection } from './MergeSection';
+import { PipelinesSection } from './PipelinesSection';
 import type { MergeActions } from './MergeSection';
 import UserAvatar from '../../components/UserAvatar/UserAvatar';
+import Markdown, { type IssueLinkContext } from '../../components/Markdown';
 import type { MergeRequest, MrReviewer } from '../../types';
 import type { MergeState, MergeAction } from './mergeReducer';
 
@@ -33,6 +36,23 @@ export function OverviewTab({
   onMerged,
 }: OverviewTabProps) {
   const requiredCount = mr.approvalsRequired ?? 0;
+
+  const issueLinkContext = useMemo<IssueLinkContext | undefined>(() => {
+    if (!mr.webUrl) return undefined;
+    try {
+      const url = new URL(mr.webUrl);
+      const m = url.pathname.match(/^\/(.+?)\/-\/merge_requests\//);
+      if (!m) return undefined;
+      return {
+        instanceId: mr.instanceId,
+        projectId: mr.projectId,
+        instanceOrigin: url.origin,
+        projectPath: m[1],
+      };
+    } catch {
+      return undefined;
+    }
+  }, [mr.webUrl, mr.instanceId, mr.projectId]);
 
   return (
     <div className="my-mr-overview">
@@ -69,7 +89,11 @@ export function OverviewTab({
       {mr.description && (
         <section className="my-mr-overview-section">
           <h3>Description</h3>
-          <div className="my-mr-description">{mr.description}</div>
+          <Markdown
+            content={mr.description}
+            className="my-mr-description"
+            issueLinkContext={issueLinkContext}
+          />
         </section>
       )}
 
@@ -98,6 +122,8 @@ export function OverviewTab({
           </div>
         )}
       </section>
+
+      <PipelinesSection mrId={mrId} instanceId={mr.instanceId} projectName={mr.projectName} />
 
       <MergeSection
         mr={mr}

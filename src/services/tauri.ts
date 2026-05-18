@@ -310,6 +310,13 @@ export async function rebaseMR(mrId: number): Promise<void> {
   return invoke<void>('rebase_mr', { mrId });
 }
 
+/**
+ * Get pipelines associated with a merge request, newest first.
+ */
+export async function getMRPipelines(mrId: number): Promise<PipelineStatus[]> {
+  return invoke<PipelineStatus[]>('get_mr_pipelines', { mrId });
+}
+
 // ============================================================================
 // Comment Commands
 // ============================================================================

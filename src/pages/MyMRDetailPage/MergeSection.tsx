@@ -118,7 +118,10 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
   const optimisticallyMergeable =
     mergeStatus === 'mergeable' || (mergeStatus === null && mr.approvalStatus === 'approved');
 
-  // Expose available actions to parent for keyboard shortcuts
+  // Expose available actions to parent for keyboard shortcuts.
+  // Rebase is only offered when GitLab's `detailed_merge_status` is
+  // `need_rebase` — matches the GitLab web UI, which hides the button when
+  // the source branch is already up to date with target.
   const canMerge = mr.state === 'opened' && optimisticallyMergeable && mr.approvalStatus === 'approved' && !merging;
   const canRebase = mr.state === 'opened' && mergeStatus === 'need_rebase' && !rebasing;
   useEffect(() => {
@@ -197,7 +200,7 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
         <p className="my-mr-merge-status-text">GitLab is checking mergeability...</p>
       ) : mergeStatus === 'mergeable' ? (
         <div className="my-mr-merge-actions">
-          <span className="my-mr-merge-status not-approved">Not yet approved</span>
+          <span className="my-mr-merge-status mergeable">Mergeable</span>
         </div>
       ) : mergeStatus ? (
         <div className="my-mr-merge-actions">

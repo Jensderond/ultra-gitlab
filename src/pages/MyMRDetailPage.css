@@ -202,6 +202,54 @@
   color: var(--text-tertiary);
 }
 
+.my-mr-section-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.my-mr-section-refresh:hover:not(:disabled) {
+  color: var(--accent-color);
+  border-color: var(--border-color);
+  background: var(--overlay-glass);
+}
+
+.my-mr-section-refresh:focus-visible {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px var(--wave-glow);
+}
+
+.my-mr-section-refresh:disabled {
+  cursor: default;
+}
+
+.my-mr-section-refresh svg {
+  transition: transform 0.3s ease;
+}
+
+.my-mr-section-refresh:active:not(:disabled) svg {
+  transform: rotate(180deg);
+}
+
+.my-mr-section-refresh.is-fetching svg {
+  animation: my-mr-section-refresh-spin 0.8s linear infinite;
+}
+
+@keyframes my-mr-section-refresh-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* Detail list */
 .my-mr-detail-list {
   display: grid;
@@ -280,7 +328,6 @@
   font-size: 13px;
   line-height: 1.6;
   color: var(--text-secondary);
-  white-space: pre-wrap;
   word-break: break-word;
   max-height: 300px;
   overflow-y: auto;
@@ -622,6 +669,132 @@
   border-top: 1px solid var(--border-color);
   position: relative;
   z-index: 10;
+}
+
+/* Pipelines section — embedded list of MR pipelines */
+.my-mr-pipeline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.my-mr-pipeline-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 80px 64px 1fr 72px 88px 64px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.my-mr-pipeline-row:hover {
+  background: var(--overlay-hover);
+  color: var(--text-primary);
+}
+
+.my-mr-pipeline-row:focus-visible {
+  outline: 2px solid var(--accent-color, var(--success-color));
+  outline-offset: 1px;
+}
+
+.my-mr-pipeline-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+}
+
+.my-mr-pipeline-row.pipeline-card--success::before {
+  background: linear-gradient(180deg, var(--success-color) 0%, var(--accent-green) 100%);
+}
+.my-mr-pipeline-row.pipeline-card--failed::before {
+  background: linear-gradient(180deg, var(--error-color) 0%, var(--accent-peach) 100%);
+}
+.my-mr-pipeline-row.pipeline-card--running::before {
+  background: linear-gradient(180deg, var(--accent-color, var(--accent-blue)) 0%, var(--accent-hover, var(--accent-blue)) 100%);
+}
+.my-mr-pipeline-row.pipeline-card--pending::before {
+  background: linear-gradient(180deg, var(--warning-color) 0%, var(--accent-warm-yellow, var(--warning-color)) 100%);
+}
+.my-mr-pipeline-row.pipeline-card--canceled::before,
+.my-mr-pipeline-row.pipeline-card--skipped::before {
+  background: var(--text-tertiary);
+}
+
+.my-mr-pipeline-status-chip {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-align: center;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.my-mr-pipeline-row.pipeline-card--success .my-mr-pipeline-status-chip {
+  background: var(--success-light);
+  color: var(--success-color);
+}
+.my-mr-pipeline-row.pipeline-card--failed .my-mr-pipeline-status-chip {
+  background: var(--error-bg);
+  color: var(--error-color);
+}
+.my-mr-pipeline-row.pipeline-card--running .my-mr-pipeline-status-chip {
+  background: var(--wave-glow, var(--bg-tertiary));
+  color: var(--accent-color, var(--text-primary));
+}
+.my-mr-pipeline-row.pipeline-card--pending .my-mr-pipeline-status-chip {
+  background: var(--warning-light);
+  color: var(--warning-color);
+}
+
+.my-mr-pipeline-id {
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--text-tertiary);
+}
+
+.my-mr-pipeline-ref {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: transparent;
+  padding: 0;
+}
+
+.my-mr-pipeline-sha {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.my-mr-pipeline-time {
+  color: var(--text-tertiary);
+  text-align: right;
+}
+
+.my-mr-pipeline-duration {
+  color: var(--text-tertiary);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Copy-toast styles are in src/styles/shared.css */

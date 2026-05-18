@@ -1237,6 +1237,40 @@ pub async fn check_merge_status(pool: State<'_, DbPool>, mr_id: i64) -> Result<S
         .unwrap_or_else(|| "unknown".into()))
 }
 
+/// Fetch pipelines associated with a merge request.
+///
+/// Returns up to ~20 pipelines newest-first (MR pipelines + branch pipelines
+/// that GitLab attaches to this MR).
+#[tauri::command]
+pub async fn get_mr_pipelines(
+    pool: State<'_, DbPool>,
+    mr_id: i64,
+) -> Result<Vec<crate::commands::pipeline::PipelineStatus>, AppError> {
+    use crate::commands::pipeline::PipelineStatus;
+    let (instance_id, project_id, mr_iid) = get_mr_api_ids(pool.inner(), mr_id).await?;
+    let client = create_gitlab_client(&pool, instance_id).await?;
+    let pipelines = client.get_mr_pipelines(project_id, mr_iid).await?;
+
+    Ok(pipelines
+        .into_iter()
+        .map(|p| PipelineStatus {
+            id: p.id,
+            project_id: p.project_id,
+            status: p.status,
+            ref_name: p.ref_name,
+            sha: if p.sha.len() > 8 {
+                p.sha[..8].to_string()
+            } else {
+                p.sha
+            },
+            web_url: p.web_url,
+            created_at: p.created_at,
+            updated_at: p.updated_at,
+            duration: p.duration,
+        })
+        .collect())
+}
+
 /// Rebase a merge request's source branch via the GitLab API.
 ///
 /// # Arguments

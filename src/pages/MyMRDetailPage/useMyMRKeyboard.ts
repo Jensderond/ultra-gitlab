@@ -42,10 +42,13 @@ export function useMyMRKeyboard(options: KeyboardOptions) {
 
   // --- Navigation ---
   useHotkey(parseHotkey(getKey('go-back') ?? 'Escape'), () => {
-    if (!document.querySelector('.keyboard-help-overlay')) {
-      trackShortcut('Escape', 'go_back', 'my_mr_detail');
-      goBack();
-    }
+    // Don't navigate back if a modal overlay is on top — it owns Escape.
+    if (
+      document.querySelector('.keyboard-help-overlay') ||
+      document.querySelector('.pipeline-detail-dialog-overlay')
+    ) return;
+    trackShortcut('Escape', 'go_back', 'my_mr_detail');
+    goBack();
   }, { ignoreInputs: false });
 
   // Tab switching

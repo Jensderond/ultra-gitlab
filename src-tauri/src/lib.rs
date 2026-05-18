@@ -17,7 +17,7 @@ use commands::{
     get_companion_status, get_diagnostics_report, get_diff_content, get_diff_file,
     get_diff_file_metadata, get_diff_files, get_diff_hunks, get_diff_refs, get_file_comments,
     get_file_content, get_file_content_base64, get_gitattributes, get_gitlab_instances,
-    get_cached_pipeline_statuses, get_job_trace, get_memory_stats, get_merge_request_detail, get_merge_requests, list_system_fonts,
+    get_cached_pipeline_statuses, get_job_trace, get_memory_stats, get_merge_request_detail, get_merge_requests, get_mr_pipelines, list_system_fonts,
     get_mr_reviewers, get_notification_settings, get_pipeline_jobs, get_pipeline_statuses,
     get_project_pipelines, get_settings, get_sync_config, get_sync_settings, get_sync_status,
     add_issue_note, get_cached_issue_detail, get_token_info,
@@ -321,6 +321,7 @@ pub fn run() {
             merge_mr,
             check_merge_status,
             rebase_mr,
+            get_mr_pipelines,
             // Reviewers
             get_mr_reviewers,
             // Notifications

@@ -9,6 +9,9 @@ interface PipelineHeaderProps {
   pipelineRef: string;
   pipelineWebUrl: string;
   onRefresh: () => void;
+  /** Click handler for the back button. If undefined, the back button is hidden. */
+  onBack?: () => void;
+  backTitle?: string;
 }
 
 export default function PipelineHeader({
@@ -18,11 +21,13 @@ export default function PipelineHeader({
   pipelineRef,
   pipelineWebUrl,
   onRefresh,
+  onBack,
+  backTitle = 'Back to pipelines',
 }: PipelineHeaderProps) {
   return (
     <header className="pipeline-detail-header">
       <div className="pipeline-detail-header-left">
-        <BackButton to="/pipelines" title="Back to pipelines" />
+        {onBack && <BackButton onClick={onBack} title={backTitle} />}
         <div className="pipeline-detail-title-group">
           <h1>
             Pipeline #{pipelineId}
