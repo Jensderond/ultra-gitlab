@@ -19,11 +19,12 @@ use crate::services::gitlab_client::{
 };
 use crate::services::sync_events::{
     ActionSyncedPayload, AuthExpiredPayload, AutoMergeUpdatedPayload, EventEmitter,
-    IssuesUpdatedPayload, MrReadyPayload, MrUpdateType, MrUpdatedPayload,
-    PipelineStatusChangedPayload, SyncPhase, SyncProgressPayload, ACTION_SYNCED_EVENT,
-    AUTH_EXPIRED_EVENT, AUTO_MERGE_UPDATED_EVENT, ISSUES_UPDATED_EVENT, MR_READY_EVENT,
-    MR_UPDATED_EVENT, PIPELINE_STATUS_CHANGED_EVENT, SYNC_PROGRESS_EVENT,
+    MrReadyPayload, MrUpdateType, MrUpdatedPayload, PipelineStatusChangedPayload, SyncPhase,
+    SyncProgressPayload, ACTION_SYNCED_EVENT, AUTH_EXPIRED_EVENT, AUTO_MERGE_UPDATED_EVENT,
+    MR_READY_EVENT, MR_UPDATED_EVENT, PIPELINE_STATUS_CHANGED_EVENT, SYNC_PROGRESS_EVENT,
 };
+#[cfg(feature = "tauri-app")]
+use crate::services::sync_events::{IssuesUpdatedPayload, ISSUES_UPDATED_EVENT};
 use crate::services::sync_processor::{self, ProcessResult};
 use crate::services::sync_queue;
 use serde::{Deserialize, Serialize};
@@ -905,6 +906,10 @@ impl SyncEngine {
             return;
         }
 
+        // Issue sync lives in `commands::issues` which is part of the Tauri-only
+        // surface. When the crate is built without `tauri-app` (e.g. the GPUI
+        // experiment) this step is a no-op; the MR sync path remains active.
+        #[cfg(feature = "tauri-app")]
         match crate::commands::issues::sync_assigned_issues(&self.pool, instance.id).await {
             Ok(count) => {
                 eprintln!(
@@ -929,6 +934,10 @@ impl SyncEngine {
                     .errors
                     .push(format!("Issues sync failed ({}): {}", instance.url, e));
             }
+        }
+        #[cfg(not(feature = "tauri-app"))]
+        {
+            let _ = (instance, result); // suppress unused warnings
         }
     }
 
@@ -1423,6 +1432,10 @@ impl SyncEngine {
         project_ids.sort_unstable();
         project_ids.dedup();
 
+        // Gitattributes refresh lives in `commands::gitattributes` (Tauri-only).
+        // The GPUI experiment skips this step; MR diffs still render, they just
+        // don't benefit from generated/binary masking from `.gitattributes`.
+        #[cfg(feature = "tauri-app")]
         for project_id in project_ids {
             match crate::commands::gitattributes::refresh_gitattributes_if_stale(
                 &self.pool,
@@ -1447,6 +1460,10 @@ impl SyncEngine {
                     );
                 }
             }
+        }
+        #[cfg(not(feature = "tauri-app"))]
+        {
+            let _ = (instance_id, project_ids);
         }
     }
 

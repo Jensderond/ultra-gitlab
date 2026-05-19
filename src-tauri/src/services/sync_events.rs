@@ -15,8 +15,10 @@ pub trait EventEmitter: Send + Sync {
 }
 
 /// Wraps a `tauri::AppHandle` to implement `EventEmitter`.
+#[cfg(feature = "tauri-app")]
 pub struct TauriEmitter(pub tauri::AppHandle);
 
+#[cfg(feature = "tauri-app")]
 impl EventEmitter for TauriEmitter {
     fn emit_json(&self, event: &str, payload: serde_json::Value) {
         use tauri::Emitter;
