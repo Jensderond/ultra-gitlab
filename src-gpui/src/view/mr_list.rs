@@ -1,36 +1,43 @@
 //! MR list view. Two-pane layout: instance list on the left, MR table on
 //! the right, with a "Refresh" button that drives [`Backend::trigger_sync`].
 //!
+//! Emits [`NavigateEvent::OpenMr`] when a row is double-clicked or the
+//! "Open" cell button is pressed. The parent [`super::AppView`] swaps in
+//! the detail view in response.
+//!
 //! Backend calls return `tokio::sync::oneshot::Receiver`s — the GPUI
 //! executor can poll them without a Tokio context because `oneshot`
 //! doesn't park on the runtime. Anything heavier (broadcast events from
 //! the sync engine) is left as a TODO.
 
-use chrono::TimeZone;
 use gpui::{
-    actions, div, prelude::FluentBuilder, px, AppContext, Context, IntoElement, ParentElement,
-    Render, SharedString, Styled, Window,
+    div, prelude::FluentBuilder, px, AppContext, Context, Entity, EventEmitter, IntoElement,
+    ParentElement, Render, SharedString, Styled, Window,
 };
 use gpui_component::{
     button::{Button, ButtonVariants},
     h_flex,
     sidebar::{Sidebar, SidebarGroup, SidebarHeader, SidebarMenu, SidebarMenuItem},
-    table::{Column, ColumnSort, DataTable, TableDelegate, TableState},
+    table::{Column, ColumnSort, DataTable, TableDelegate, TableEvent, TableState},
     v_flex, ActiveTheme, Disableable, Icon, IconName, Sizable,
 };
 
+use super::{format_relative_time, NavigateEvent};
 use crate::backend::{Backend, InstanceRow, MrRow};
-
-actions!(ultra_gitlab_gpui, [Quit]);
 
 pub struct MrListView {
     backend: Backend,
     instances: Vec<InstanceRow>,
     selected_instance: Option<i64>,
-    mrs: gpui::Entity<TableState<MrTableDelegate>>,
+    /// Mirror of the delegate rows so the event subscriber can look up
+    /// the MR id for a clicked row without going through the delegate.
+    row_ids: Vec<i64>,
+    mrs: Entity<TableState<MrTableDelegate>>,
     status: SharedString,
     is_syncing: bool,
 }
+
+impl EventEmitter<NavigateEvent> for MrListView {}
 
 impl MrListView {
     pub fn new(backend: Backend, window: &mut Window, cx: &mut Context<Self>) -> Self {
@@ -40,16 +47,32 @@ impl MrListView {
                 .col_selectable(false)
         });
 
+        cx.subscribe(&mrs, Self::on_table_event).detach();
+
         let mut this = Self {
             backend,
             instances: Vec::new(),
             selected_instance: None,
+            row_ids: Vec::new(),
             mrs,
             status: "Loading instances...".into(),
             is_syncing: false,
         };
         this.load_instances(cx);
         this
+    }
+
+    fn on_table_event(
+        &mut self,
+        _: Entity<TableState<MrTableDelegate>>,
+        event: &TableEvent,
+        cx: &mut Context<Self>,
+    ) {
+        if let TableEvent::DoubleClickedRow(idx) = event {
+            if let Some(&mr_id) = self.row_ids.get(*idx) {
+                cx.emit(NavigateEvent::OpenMr(mr_id));
+            }
+        }
     }
 
     fn load_instances(&mut self, cx: &mut Context<Self>) {
@@ -92,11 +115,13 @@ impl MrListView {
         cx.spawn(async move |this, cx| {
             let mrs = rx.await.unwrap_or_default();
             let count = mrs.len();
+            let ids: Vec<i64> = mrs.iter().map(|r| r.id).collect();
             let _ = table.update(cx, |state, cx| {
                 state.delegate_mut().set_rows(mrs);
                 cx.notify();
             });
             this.update(cx, |this, cx| {
+                this.row_ids = ids;
                 this.status = if count == 0 {
                     "No open MRs in cache. Try Refresh to pull from GitLab.".into()
                 } else {
@@ -352,25 +377,5 @@ impl TableDelegate for MrTableDelegate {
         if descending {
             self.rows.reverse();
         }
-    }
-}
-
-fn format_relative_time(ts: i64) -> String {
-    let Some(then) = chrono::Utc.timestamp_opt(ts, 0).single() else {
-        return String::new();
-    };
-    let now = chrono::Utc::now();
-    let delta = now.signed_duration_since(then);
-
-    if delta.num_seconds() < 60 {
-        "just now".into()
-    } else if delta.num_minutes() < 60 {
-        format!("{}m ago", delta.num_minutes())
-    } else if delta.num_hours() < 24 {
-        format!("{}h ago", delta.num_hours())
-    } else if delta.num_days() < 30 {
-        format!("{}d ago", delta.num_days())
-    } else {
-        then.format("%Y-%m-%d").to_string()
     }
 }

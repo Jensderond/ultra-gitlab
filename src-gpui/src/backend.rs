@@ -49,6 +49,57 @@ pub struct InstanceRow {
     pub is_default: bool,
 }
 
+/// Full MR header info for the detail view.
+#[derive(Debug, Clone)]
+#[allow(dead_code)] // description / web_url are not all rendered yet.
+pub struct MrDetail {
+    pub id: i64,
+    pub iid: i64,
+    pub project_name: String,
+    pub title: String,
+    pub description: String,
+    pub author_username: String,
+    pub source_branch: String,
+    pub target_branch: String,
+    pub state: String,
+    pub web_url: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+/// One row from the `diff_files` table. `diff_content` is loaded lazily
+/// by [`Backend::load_diff_content`] — the file panel only needs the
+/// metadata, parsing the diff body is per-file.
+#[derive(Debug, Clone)]
+pub struct DiffFileEntry {
+    pub new_path: String,
+    pub old_path: Option<String>,
+    pub change_type: String,
+    pub additions: i64,
+    pub deletions: i64,
+}
+
+impl DiffFileEntry {
+    /// `old → new` for renames, otherwise just the new path.
+    pub fn display_path(&self) -> String {
+        match (&self.old_path, self.change_type.as_str()) {
+            (Some(old), "renamed") if old != &self.new_path => {
+                format!("{} → {}", old, self.new_path)
+            }
+            _ => self.new_path.clone(),
+        }
+    }
+}
+
+/// Bundle returned by [`Backend::load_mr_detail`]. `None` for the MR
+/// means the row wasn't in the cache (the user probably hasn't synced
+/// it yet).
+#[derive(Debug, Clone)]
+pub struct MrDetailBundle {
+    pub mr: Option<MrDetail>,
+    pub files: Vec<DiffFileEntry>,
+}
+
 /// Owned handle to the backend. Cheap to clone.
 #[derive(Clone)]
 pub struct Backend {
@@ -190,6 +241,143 @@ impl Backend {
                 )
                 .collect();
             let _ = tx.send(mrs);
+        });
+        rx
+    }
+
+    /// Fetch the full MR header + the list of changed files for the
+    /// detail view. Diff bodies are not pulled here — the detail view
+    /// fetches them one file at a time via [`Self::load_diff_content`].
+    pub fn load_mr_detail(&self, mr_id: i64) -> oneshot::Receiver<MrDetailBundle> {
+        let pool = self.pool.clone();
+        let (tx, rx) = oneshot::channel();
+        self.rt.spawn(async move {
+            let mr: Option<(
+                i64,
+                i64,
+                Option<String>,
+                String,
+                Option<String>,
+                String,
+                String,
+                String,
+                String,
+                String,
+                i64,
+                i64,
+            )> = sqlx::query_as(
+                r#"
+                SELECT
+                    mr.id,
+                    mr.iid,
+                    COALESCE(p.name_with_namespace, mr.project_name) AS project_name,
+                    mr.title,
+                    mr.description,
+                    mr.author_username,
+                    mr.source_branch,
+                    mr.target_branch,
+                    mr.state,
+                    mr.web_url,
+                    mr.created_at,
+                    mr.updated_at
+                FROM merge_requests mr
+                LEFT JOIN projects p
+                    ON p.id = mr.project_id AND p.instance_id = mr.instance_id
+                WHERE mr.id = ?1
+                "#,
+            )
+            .bind(mr_id)
+            .fetch_optional(&pool)
+            .await
+            .unwrap_or(None);
+
+            let mr = mr.map(
+                |(
+                    id,
+                    iid,
+                    project_name,
+                    title,
+                    description,
+                    author_username,
+                    source_branch,
+                    target_branch,
+                    state,
+                    web_url,
+                    created_at,
+                    updated_at,
+                )| MrDetail {
+                    id,
+                    iid,
+                    project_name: project_name.unwrap_or_else(|| "<unknown>".into()),
+                    title,
+                    description: description.unwrap_or_default(),
+                    author_username,
+                    source_branch,
+                    target_branch,
+                    state,
+                    web_url,
+                    created_at,
+                    updated_at,
+                },
+            );
+
+            let file_rows: Vec<(Option<String>, String, String, i64, i64)> = sqlx::query_as(
+                r#"
+                SELECT old_path, new_path, change_type, additions, deletions
+                FROM diff_files
+                WHERE mr_id = ?1
+                ORDER BY file_position ASC, id ASC
+                "#,
+            )
+            .bind(mr_id)
+            .fetch_all(&pool)
+            .await
+            .unwrap_or_default();
+
+            let files = file_rows
+                .into_iter()
+                .map(
+                    |(old_path, new_path, change_type, additions, deletions)| DiffFileEntry {
+                        old_path,
+                        new_path,
+                        change_type,
+                        additions,
+                        deletions,
+                    },
+                )
+                .collect();
+
+            let _ = tx.send(MrDetailBundle { mr, files });
+        });
+        rx
+    }
+
+    /// Load the unified-diff body for a single file of an MR. Returns an
+    /// empty string when the row exists but the body is NULL (binary
+    /// files, or summaries cached without per-file content).
+    pub fn load_diff_content(
+        &self,
+        mr_id: i64,
+        new_path: String,
+    ) -> oneshot::Receiver<Option<String>> {
+        let pool = self.pool.clone();
+        let (tx, rx) = oneshot::channel();
+        self.rt.spawn(async move {
+            let row: Option<(Option<String>,)> = sqlx::query_as(
+                r#"
+                SELECT diff_content
+                FROM diff_files
+                WHERE mr_id = ?1 AND new_path = ?2
+                "#,
+            )
+            .bind(mr_id)
+            .bind(&new_path)
+            .fetch_optional(&pool)
+            .await
+            .unwrap_or(None);
+
+            let body = row.map(|(c,)| c.unwrap_or_default());
+            let _ = tx.send(body);
         });
         rx
     }

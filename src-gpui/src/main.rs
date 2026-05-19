@@ -6,13 +6,14 @@
 //! for the motivation and the wiring diagram.
 
 mod backend;
+mod diff;
 mod view;
 
 use gpui::{px, size, AppContext, KeyBinding, WindowBounds, WindowOptions};
 use gpui_component::{Root, Theme, ThemeMode, TitleBar};
 
 use backend::{resolve_db_path, Backend};
-use view::{MrListView, Quit};
+use view::{AppView, Quit};
 
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
@@ -52,7 +53,7 @@ fn main() {
 
                 Theme::change(ThemeMode::Dark, Some(window), cx);
 
-                let view = cx.new(|cx| MrListView::new(backend.clone(), window, cx));
+                let view = cx.new(|cx| AppView::new(backend.clone(), window, cx));
                 cx.new(|cx| Root::new(view, window, cx))
             })
             .expect("Failed to open window");

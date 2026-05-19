@@ -17,11 +17,19 @@ Proof-of-concept. Implemented:
   fed by the same `merge_requests` table the Tauri app populates.
 - "Refresh" button that calls `SyncHandle::trigger_sync` on the
   background sync engine (instead of waiting for the periodic tick).
+- **MR detail view**: double-click a row to open it. Renders the MR
+  header (title, branches, author, state badge), a left-hand changed-
+  file list, and a Zed-inspired inline unified diff (dual line-number
+  gutters, subtle tinted backgrounds for adds / removes, hunk header
+  separator bars). Reads `diff_files.diff_content` from the same cache
+  the Tauri app populates.
 
 Not yet implemented (deliberately out of scope for the experiment):
 
-- MR detail / diff view.
 - Pipelines, issues, comments, approvals, auto-merge.
+- Syntax highlighting inside diff lines (the Tauri app uses Pierre's
+  highlighter; the GPUI side renders plain monospace for now).
+- Side-by-side diff mode — only inline / unified is wired up.
 - Auth setup flow — the experiment expects credentials to already exist
   in the SQLite DB (set up via the Tauri app once).
 - Reactive UI updates from sync events — the GPUI side currently
