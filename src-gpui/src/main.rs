@@ -7,6 +7,7 @@
 
 mod backend;
 mod diff;
+mod highlight;
 mod view;
 
 use gpui::{px, size, AppContext, KeyBinding, WindowBounds, WindowOptions};

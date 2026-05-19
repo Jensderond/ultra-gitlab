@@ -9,9 +9,10 @@
 //! the row was synced without per-file content), we show a placeholder.
 
 use gpui::{
-    div, prelude::FluentBuilder, px, rgb, Context, EventEmitter, Hsla, InteractiveElement,
-    IntoElement, MouseButton, ParentElement, Render, SharedString, StatefulInteractiveElement,
-    Styled, Window,
+    div, prelude::FluentBuilder, px, rgb, Context, EventEmitter, HighlightStyle, Hsla,
+    InteractiveElement, IntoElement, MouseButton, ParentElement, Render, SharedString,
+    StatefulInteractiveElement, StyledText, Window,
+    Styled,
 };
 use gpui_component::{
     button::{Button, ButtonVariants},
@@ -21,6 +22,7 @@ use gpui_component::{
 use super::{format_relative_time, NavigateEvent};
 use crate::backend::{Backend, DiffFileEntry, MrDetail};
 use crate::diff::{parse_unified, DiffHunk, LineKind};
+use crate::highlight::{highlight_hunk, language_from_path, HighlightedHunk, Language};
 
 /// Width of each line-number gutter in the diff view.
 const GUTTER_WIDTH: f32 = 52.0;
@@ -44,6 +46,14 @@ pub struct MrDetailView {
     files: Vec<DiffFileEntry>,
     selected_path: Option<String>,
     hunks: Vec<DiffHunk>,
+    /// Per-hunk highlight runs, computed in `select_file` once tree-
+    /// sitter has parsed the reconstructed sides. Always the same
+    /// length as `hunks`; entries are empty when the language is
+    /// unknown or has no captures on a line.
+    hl: Vec<HighlightedHunk>,
+    /// Tree-sitter language for the currently selected file. `None` for
+    /// unknown extensions — the renderer falls back to plain text.
+    language: Option<Language>,
     /// `None` = no file selected; `Some(None)` = file selected but its
     /// diff_content was NULL (binary etc); `Some(Some(_))` = loaded.
     loaded_for_path: Option<String>,
@@ -62,6 +72,8 @@ impl MrDetailView {
             files: Vec::new(),
             selected_path: None,
             hunks: Vec::new(),
+            hl: Vec::new(),
+            language: None,
             loaded_for_path: None,
             diff_status: "Loading merge request...".into(),
             is_loading: true,
@@ -104,6 +116,8 @@ impl MrDetailView {
         }
         self.selected_path = Some(path.clone());
         self.hunks.clear();
+        self.hl.clear();
+        self.language = language_from_path(&path);
         self.loaded_for_path = None;
         self.diff_status = "Loading diff...".into();
         cx.notify();
@@ -119,15 +133,30 @@ impl MrDetailView {
                 match content {
                     Some(body) if !body.is_empty() => {
                         this.hunks = parse_unified(&body);
-                        this.diff_status = format!("{} hunks", this.hunks.len()).into();
+                        this.hl = match this.language {
+                            Some(lang) => this
+                                .hunks
+                                .iter()
+                                .map(|h| highlight_hunk(h, lang))
+                                .collect(),
+                            None => Vec::new(),
+                        };
+                        let lang_label: SharedString = this
+                            .language
+                            .map(|l| format!("{:?}", l).to_ascii_lowercase().into())
+                            .unwrap_or_else(|| "plain".into());
+                        this.diff_status =
+                            format!("{} hunks · {}", this.hunks.len(), lang_label).into();
                     }
                     Some(_) => {
                         this.hunks.clear();
+                        this.hl.clear();
                         this.diff_status =
                             "No diff content cached for this file (binary or large file).".into();
                     }
                     None => {
                         this.hunks.clear();
+                        this.hl.clear();
                         this.diff_status = "File not found in cached diff.".into();
                     }
                 }
@@ -308,7 +337,7 @@ impl MrDetailView {
             )
     }
 
-    fn render_diff_panel(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_diff_panel(&self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
 
         let header = h_flex()
@@ -351,7 +380,8 @@ impl MrDetailView {
             v_flex()
                 .w_full()
                 .children(self.hunks.iter().enumerate().map(|(i, h)| {
-                    self.render_hunk(i, h, cx).into_any_element()
+                    let hl = self.hl.get(i);
+                    self.render_hunk(i, h, hl, window, cx).into_any_element()
                 }))
                 .into_any_element()
         };
@@ -374,6 +404,8 @@ impl MrDetailView {
         &self,
         idx: usize,
         hunk: &DiffHunk,
+        hl: Option<&HighlightedHunk>,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let theme = cx.theme();
@@ -389,6 +421,12 @@ impl MrDetailView {
             .font_family("monospace")
             .child(div().w(px(GUTTER_WIDTH * 2.0)).child(""))
             .child(div().child(hunk.header.clone()));
+
+        // Build a default text style for highlighted lines from the
+        // currently-rendering window so font / size / weight track the
+        // theme. We override only `color` per run.
+        let mut default_style = window.text_style();
+        default_style.color = theme.foreground;
 
         let lines = hunk.lines.iter().enumerate().map(|(j, line)| {
             let (row_bg, gutter_bg, sign, sign_color): (Hsla, Hsla, &str, Hsla) = match line.kind {
@@ -461,7 +499,11 @@ impl MrDetailView {
                         .flex_1()
                         .pr_4()
                         .whitespace_nowrap()
-                        .child(line.content.clone()),
+                        .child(render_line_content(
+                            &line.content,
+                            hl.and_then(|h| h.per_line.get(j)),
+                            &default_style,
+                        )),
                 )
         });
 
@@ -470,7 +512,7 @@ impl MrDetailView {
 }
 
 impl Render for MrDetailView {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         v_flex()
             .size_full()
             .bg(cx.theme().background)
@@ -480,9 +522,60 @@ impl Render for MrDetailView {
                     .flex_1()
                     .min_h_0()
                     .child(self.render_file_panel(cx))
-                    .child(self.render_diff_panel(cx)),
+                    .child(self.render_diff_panel(window, cx)),
             )
     }
+}
+
+/// Build the right-hand text element for a diff line. With highlight
+/// runs we emit `StyledText` so each captured range gets its tree-
+/// sitter color; without runs we fall back to a plain `SharedString`
+/// child so unknown languages still render correctly. Empty lines
+/// always render as a single space so the row keeps its height.
+fn render_line_content(
+    content: &str,
+    line_hl: Option<&crate::highlight::LineHighlights>,
+    default_style: &gpui::TextStyle,
+) -> gpui::AnyElement {
+    let display: SharedString = if content.is_empty() {
+        " ".into()
+    } else {
+        content.to_string().into()
+    };
+
+    let Some(line_hl) = line_hl else {
+        return div().child(display).into_any_element();
+    };
+    if line_hl.runs.is_empty() {
+        return div().child(display).into_any_element();
+    }
+
+    let byte_len = content.len();
+    let runs: Vec<(std::ops::Range<usize>, HighlightStyle)> = line_hl
+        .runs
+        .iter()
+        .filter_map(|(range, color)| {
+            // Clamp ranges in case the highlighter saw a slightly
+            // different byte count than the rendered string (shouldn't
+            // happen with our reconstruction, but cheap insurance).
+            let start = range.start.min(byte_len);
+            let end = range.end.min(byte_len);
+            if start >= end {
+                return None;
+            }
+            Some((
+                start..end,
+                HighlightStyle {
+                    color: Some(*color),
+                    ..Default::default()
+                },
+            ))
+        })
+        .collect();
+
+    StyledText::new(display)
+        .with_default_highlights(default_style, runs)
+        .into_any_element()
 }
 
 fn change_color(change_type: &str) -> gpui::Rgba {

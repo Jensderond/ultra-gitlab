@@ -23,12 +23,28 @@ Proof-of-concept. Implemented:
   gutters, subtle tinted backgrounds for adds / removes, hunk header
   separator bars). Reads `diff_files.diff_content` from the same cache
   the Tauri app populates.
+- **Tree-sitter syntax highlighting** inside diff lines. Grammars for
+  rust / typescript / tsx / javascript / python / go / ruby / json /
+  bash / html / css / markdown / c / cpp / toml are statically linked
+  into the binary (nothing is installed at runtime). The highlighter
+  runs per-hunk: it reconstructs the old-side and new-side text from
+  the unified diff, parses each side with tree-sitter, then folds the
+  captured byte ranges back onto individual diff lines and hands them
+  to `gpui::StyledText`. See `src/highlight.rs` for the captures-to-
+  color map (One-Dark-ish palette) and the `Language` enum for the
+  full list of bundled grammars.
+
+  > Why tree-sitter and not auto-installed LSPs? Zed itself uses tree-
+  > sitter (not LSP semantic tokens) for the coloring you see in its
+  > editor. LSPs are for *semantic* features (completion, go-to-def);
+  > they round-trip through a subprocess, need a full file on disk,
+  > and cost hundreds of ms to spin up — wrong shape for diff hunks.
+  > Tree-sitter is a pure parser, runs in-process, and tolerates
+  > broken syntax, which is what we always have inside a hunk.
 
 Not yet implemented (deliberately out of scope for the experiment):
 
 - Pipelines, issues, comments, approvals, auto-merge.
-- Syntax highlighting inside diff lines (the Tauri app uses Pierre's
-  highlighter; the GPUI side renders plain monospace for now).
 - Side-by-side diff mode — only inline / unified is wired up.
 - Auth setup flow — the experiment expects credentials to already exist
   in the SQLite DB (set up via the Tauri app once).
