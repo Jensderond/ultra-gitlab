@@ -1,14 +1,19 @@
 //! Ultra GitLab - Local-first GitLab MR review application.
 //!
 //! This is the main library for the Tauri backend, exposing IPC commands
-//! to the React frontend.
+//! to the React frontend. The Tauri-specific surface (IPC commands,
+//! window setup, system tray, companion HTTP server) is gated behind the
+//! `tauri-app` feature so that alternate frontends (e.g. the GPUI
+//! experiment in `src-gpui/`) can consume just the backend & sync engine.
 
+#[cfg(feature = "tauri-app")]
 pub mod commands;
 pub mod db;
 pub mod error;
 pub mod models;
 pub mod services;
 
+#[cfg(feature = "tauri-app")]
 use commands::{
     add_comment, approve_mr, cancel_pipeline, cancel_pipeline_job, check_merge_status,
     claim_auto_merge, clear_test_data, get_auto_merge_claim, process_auto_merge_now,
@@ -43,24 +48,34 @@ use commands::{
     update_session_cookie, update_settings, update_sync_config, update_sync_settings,
     update_theme, update_ui_font, visit_pipeline_project,
 };
+#[cfg(feature = "tauri-app")]
 use services::companion_server;
+#[cfg(feature = "tauri-app")]
 use std::sync::Arc;
+#[cfg(feature = "tauri-app")]
 use services::sync_engine::{SyncConfig, SyncEngine};
+#[cfg(feature = "tauri-app")]
 use services::sync_events::TauriEmitter;
+#[cfg(feature = "tauri-app")]
 use tauri::{
     Manager, TitleBarStyle, WebviewUrl, WebviewWindowBuilder,
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
+#[cfg(feature = "tauri-app")]
 use tauri_plugin_aptabase::EventTracker;
+#[cfg(feature = "tauri-app")]
 use tauri_plugin_log::{Target, TargetKind};
+#[cfg(feature = "tauri-app")]
 use tauri_plugin_store::StoreExt;
 
+#[cfg(feature = "tauri-app")]
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
+#[cfg(feature = "tauri-app")]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // tauri-plugin-aptabase calls tokio::spawn during plugin setup, which requires the

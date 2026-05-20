@@ -6,8 +6,11 @@
 //! Services are designed to be testable and independent of Tauri-specific code.
 
 pub mod avatar;
+#[cfg(feature = "tauri-app")]
 pub mod companion_api;
+#[cfg(feature = "tauri-app")]
 pub mod companion_auth;
+#[cfg(feature = "tauri-app")]
 pub mod companion_server;
 pub mod gitattributes;
 pub mod gitlab_client;

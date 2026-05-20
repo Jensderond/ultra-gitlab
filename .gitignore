@@ -30,3 +30,9 @@ dist-ssr
 /blob-report/
 /playwright/.cache/
 /agents/counselors/
+
+# Cargo workspace build output (workspace root since the GPUI experiment
+# was added — previously target/ lived under src-tauri/).
+/target/
+src-tauri/target/
+src-gpui/target/
