@@ -68,6 +68,7 @@ export {
   updateTheme,
   updateUiFont,
   updateDiffsFont,
+  updateMrListCondensed,
   updateCustomThemeColors,
   type CustomThemeColors,
   type SystemFont,

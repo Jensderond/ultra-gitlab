@@ -383,3 +383,141 @@
     box-shadow: 0 0 16px var(--wave-glow-strong);
   }
 }
+
+/* ================================================
+   CONDENSED VARIANT — Two-line compact row
+   ================================================ */
+
+.mr-list-item--condensed {
+  padding: 8px 24px;
+}
+
+.mr-list-item--condensed::after {
+  left: 24px;
+  right: 24px;
+}
+
+.mr-list-item--condensed.is-new .mr-condensed-top::after {
+  content: 'NEW';
+  margin-left: 4px;
+  padding: 0 5px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--bg-primary);
+  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-hover) 100%);
+  border-radius: 2px;
+}
+
+.mr-condensed {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.mr-condensed-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.mr-condensed-project {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mr-condensed-time {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  color: var(--text-secondary);
+}
+
+.mr-condensed-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.mr-condensed-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mr-list-item--condensed .mr-iid {
+  flex-shrink: 0;
+  min-width: 48px;
+}
+
+.mr-condensed-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-display, 'Cormorant Garamond', serif);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mr-condensed-approval {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+/* Pending: draw as a ring instead of relying on a ○ glyph (which renders off-center) */
+.mr-condensed-approval--ring {
+  width: 12px;
+  height: 12px;
+  background: transparent;
+  border: 1.5px solid var(--warning-color);
+}
+
+.mr-condensed-author {
+  flex-shrink: 0;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Condensed selection: full-row accent wash instead of the gradient + left bar */
+.mr-list-item--condensed.selected,
+.mr-list-item--condensed:focus.selected {
+  background: var(--wave-glow);
+}
+
+.mr-list-item--condensed.selected::before,
+.mr-list-item--condensed.is-new::before {
+  display: none;
+}

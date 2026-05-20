@@ -39,9 +39,9 @@ use commands::{
     update_collapse_patterns,
     update_companion_settings, update_custom_theme_colors, update_diffs_font,
     update_display_font,
-    update_instance_token, update_keyboard_shortcuts, update_notification_settings,
-    update_session_cookie, update_settings, update_sync_config, update_sync_settings,
-    update_theme, update_ui_font, visit_pipeline_project,
+    update_instance_token, update_keyboard_shortcuts, update_mr_list_condensed,
+    update_notification_settings, update_session_cookie, update_settings, update_sync_config,
+    update_sync_settings, update_theme, update_ui_font, visit_pipeline_project,
 };
 use services::companion_server;
 use std::sync::Arc;
@@ -304,6 +304,7 @@ pub fn run() {
             update_sync_config,
             get_settings,
             update_settings,
+            update_mr_list_condensed,
             update_keyboard_shortcuts,
             get_sync_settings,
             update_sync_settings,

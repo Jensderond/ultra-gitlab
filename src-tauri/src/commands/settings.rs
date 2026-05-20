@@ -47,6 +47,9 @@ const FILE_JUMP_COUNT_KEY: &str = "file_jump_count";
 /// Key for keyboard shortcuts in the store.
 const KEYBOARD_SHORTCUTS_KEY: &str = "keyboard_shortcuts";
 
+/// Key for MR list condensed view toggle in the store.
+const MR_LIST_CONDENSED_KEY: &str = "mr_list_condensed";
+
 /// Default number of files to jump with arrow-left/right.
 const DEFAULT_FILE_JUMP_COUNT: u32 = 5;
 
@@ -112,6 +115,8 @@ pub struct AppSettings {
     pub file_jump_count: u32,
     /// Custom keyboard shortcut bindings (shortcut id -> key string).
     pub keyboard_shortcuts: HashMap<String, String>,
+    /// Whether the merge request list uses the compact single-line layout.
+    pub mr_list_condensed: bool,
 }
 
 impl Default for AppSettings {
@@ -127,6 +132,7 @@ impl Default for AppSettings {
             companion_server: CompanionServerSettings::default(),
             file_jump_count: DEFAULT_FILE_JUMP_COUNT,
             keyboard_shortcuts: HashMap::new(),
+            mr_list_condensed: false,
         }
     }
 }
@@ -213,6 +219,12 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         None => HashMap::new(),
     };
 
+    // Try to load MR list condensed flag
+    let mr_list_condensed = match store.get(MR_LIST_CONDENSED_KEY) {
+        Some(value) => serde_json::from_value(value.clone()).unwrap_or(false),
+        None => false,
+    };
+
     Ok(AppSettings {
         sync,
         collapse_patterns,
@@ -224,6 +236,7 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         companion_server,
         file_jump_count,
         keyboard_shortcuts,
+        mr_list_condensed,
     })
 }
 
@@ -272,6 +285,10 @@ pub(crate) async fn save_settings(app: &AppHandle, settings: &AppSettings) -> Re
     // Save keyboard shortcuts
     let keyboard_shortcuts_value = serde_json::to_value(&settings.keyboard_shortcuts)?;
     store.set(KEYBOARD_SHORTCUTS_KEY, keyboard_shortcuts_value);
+
+    // Save MR list condensed flag
+    let mr_list_condensed_value = serde_json::to_value(settings.mr_list_condensed)?;
+    store.set(MR_LIST_CONDENSED_KEY, mr_list_condensed_value);
 
     // Persist to disk
     store
@@ -475,6 +492,21 @@ pub async fn update_keyboard_shortcuts(
 ) -> Result<(), AppError> {
     let mut settings = load_settings(&app).await?;
     settings.keyboard_shortcuts = shortcuts;
+    save_settings(&app, &settings).await?;
+    *settings_cache().write().await = settings;
+    Ok(())
+}
+
+/// Update the MR list condensed view toggle.
+///
+/// Convenience method that updates just the condensed flag.
+///
+/// # Arguments
+/// * `condensed` - When true, MR list rows render as compact single-line items.
+#[tauri::command]
+pub async fn update_mr_list_condensed(app: AppHandle, condensed: bool) -> Result<(), AppError> {
+    let mut settings = load_settings(&app).await?;
+    settings.mr_list_condensed = condensed;
     save_settings(&app, &settings).await?;
     *settings_cache().write().await = settings;
     Ok(())

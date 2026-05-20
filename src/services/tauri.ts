@@ -510,6 +510,13 @@ export async function updateKeyboardShortcuts(shortcuts: Record<string, string>)
   return invoke<void>('update_keyboard_shortcuts', { shortcuts });
 }
 
+/**
+ * Persist the MR list condensed view toggle.
+ */
+export async function updateMrListCondensed(condensed: boolean): Promise<void> {
+  return invoke<void>('update_mr_list_condensed', { condensed });
+}
+
 // ============================================================================
 // Theme Commands
 // ============================================================================

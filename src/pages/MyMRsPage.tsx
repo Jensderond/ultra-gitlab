@@ -13,6 +13,7 @@ import { useListSearch } from '../hooks/useListSearch';
 import SearchBar from '../components/SearchBar/SearchBar';
 import type { MergeRequest } from '../types';
 import { useInstancesQuery } from '../hooks/queries/useInstancesQuery';
+import { useSettingsQuery } from '../hooks/queries/useSettingsQuery';
 import { InstanceSwitcher } from '../components/InstanceSwitcher';
 import { useMyMRListQuery } from '../hooks/queries/useMyMRListQuery';
 import { queryKeys } from '../lib/queryKeys';
@@ -64,6 +65,8 @@ export default function MyMRsPage() {
   const queryClient = useQueryClient();
   const instancesQuery = useInstancesQuery();
   const instances = instancesQuery.data ?? [];
+  const settingsQuery = useSettingsQuery();
+  const condensed = settingsQuery.data?.mrListCondensed ?? false;
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
   const mrsRef = useRef<MergeRequest[]>([]);
   const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -215,13 +218,14 @@ export default function MyMRsPage() {
                     if (el) itemRefs.current.set(index, el);
                     else itemRefs.current.delete(index);
                   }}
-                  className={['my-mr-item-wrapper', isDraft(mr) && 'is-draft', isFullyApproved(mr) && 'is-approved'].filter(Boolean).join(' ')}
+                  className={['my-mr-item-wrapper', condensed && 'my-mr-item-wrapper--condensed', isDraft(mr) && 'is-draft', isFullyApproved(mr) && 'is-approved'].filter(Boolean).join(' ')}
                 >
                   <MRListItem
                     mr={mr}
                     selected={index === focusIndex}
                     onClick={() => handleSelectMR(mr, index)}
                     highlightQuery={isSearchOpen ? query : undefined}
+                    condensed={condensed}
                   />
                   {(mr.approvalsRequired ?? 0) > 0 && (
                     <span className="my-mr-approval-badge">

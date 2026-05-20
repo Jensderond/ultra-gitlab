@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Combobox } from '@base-ui/react/combobox';
+import { useQueryClient } from '@tanstack/react-query';
 import useTheme from '../../hooks/useTheme';
 import { THEME_PRESETS, UI_FONTS } from '../../components/ThemeProvider';
-import { isTauri, listSystemFonts, type SystemFont } from '../../services';
+import { isTauri, listSystemFonts, updateMrListCondensed, type SystemFont } from '../../services';
+import { useSettingsQuery } from '../../hooks/queries/useSettingsQuery';
+import { queryKeys } from '../../lib/queryKeys';
 import { deriveTheme } from '../../themes/deriveTheme';
 import type { Theme } from '../../types';
 
@@ -104,6 +107,16 @@ function FontCombobox({ label, labelId, fonts, value, onSelect, loading, error }
  */
 export default function AppearanceSection() {
   const { theme, setThemeById, uiFont, setUiFont, displayFont, setDisplayFont, diffsFont, setDiffsFont, customColors, previewCustomTheme, saveCustomTheme, deleteCustomTheme } = useTheme();
+  const settingsQuery = useSettingsQuery();
+  const queryClient = useQueryClient();
+  const condensed = settingsQuery.data?.mrListCondensed ?? false;
+
+  const handleToggleCondensed = useCallback(async () => {
+    const next = !condensed;
+    await updateMrListCondensed(next);
+    queryClient.invalidateQueries({ queryKey: queryKeys.settings() });
+  }, [condensed, queryClient]);
+
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editorBg, setEditorBg] = useState('#1f1f28');
@@ -348,6 +361,22 @@ export default function AppearanceSection() {
         loading={systemFontsLoading}
         error={systemFontsError}
       />
+
+      <div className="condensed-toggle-row">
+        <div className="condensed-toggle-text">
+          <span className="condensed-toggle-label">Condensed MR list</span>
+          <span className="condensed-toggle-description">Show merge requests as compact single-line rows.</span>
+        </div>
+        <button
+          className={`companion-toggle ${condensed ? 'active' : ''}`}
+          onClick={handleToggleCondensed}
+          role="switch"
+          aria-checked={condensed}
+          aria-label="Toggle condensed MR list view"
+        >
+          <span className="companion-toggle-knob" />
+        </button>
+      </div>
     </>
   );
 }

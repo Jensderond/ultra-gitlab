@@ -46,6 +46,8 @@ interface MRListProps {
   showApproved?: boolean;
   /** Callback to toggle the showApproved filter */
   onToggleApproved?: () => void;
+  /** Render rows in the compact single-line layout */
+  condensed?: boolean;
 }
 
 /**
@@ -62,6 +64,7 @@ export default function MRList({
   onFilteredCountChange,
   showApproved = false,
   onToggleApproved,
+  condensed = false,
 }: MRListProps) {
   const query = useMRListQuery(instanceId);
   const queryClient = useQueryClient();
@@ -255,6 +258,7 @@ export default function MRList({
               isNew={newMrIds.has(mr.id)}
               onClick={() => handleSelect(mr, index)}
               highlightQuery={filterQuery}
+              condensed={condensed}
             />
           ))
         )}

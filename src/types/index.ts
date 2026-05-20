@@ -295,6 +295,7 @@ export interface Settings {
   diffViewMode: DiffViewMode;
   collapsePatterns: string[];
   fileJumpCount: number;
+  mrListCondensed: boolean;
 }
 
 export type SettingsUpdate = Partial<Settings>;

@@ -75,8 +75,8 @@ const GearIcon = () => (
 const navItems: NavItem[] = [
   { path: '/mrs', matchPrefix: '/mrs', label: 'Reviews', icon: <InboxIcon /> },
   { path: '/my-mrs', matchPrefix: '/my-mrs', label: 'My MRs', icon: <UserIcon /> },
-  { path: '/issues', matchPrefix: '/issues', label: 'Issues', icon: <IssueIcon /> },
   { path: '/pipelines', matchPrefix: '/pipelines', label: 'Pipelines', icon: <PipelineIcon /> },
+  { path: '/issues', matchPrefix: '/issues', label: 'Issues', icon: <IssueIcon /> },
   { path: '/settings', matchPrefix: '/settings', label: 'Settings', icon: <GearIcon />, bottom: true },
 ];
 

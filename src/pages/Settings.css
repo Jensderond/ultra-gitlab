@@ -1947,3 +1947,32 @@ fieldset.setting-row {
   background: var(--overlay-surface-hover);
   border-color: var(--text-fuji);
 }
+
+/* Condensed MR list toggle */
+.condensed-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.condensed-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.condensed-toggle-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.condensed-toggle-description {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}

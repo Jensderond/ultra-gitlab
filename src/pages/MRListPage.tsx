@@ -13,6 +13,7 @@ import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { useListSearch } from '../hooks/useListSearch';
 import SearchBar from '../components/SearchBar/SearchBar';
 import { useInstancesQuery } from '../hooks/queries/useInstancesQuery';
+import { useSettingsQuery } from '../hooks/queries/useSettingsQuery';
 import { InstanceSwitcher } from '../components/InstanceSwitcher';
 import { queryKeys } from '../lib/queryKeys';
 import { ShortcutBar } from '../components/ShortcutBar';
@@ -43,6 +44,8 @@ export default function MRListPage() {
   const instancesQuery = useInstancesQuery();
   const instances = instancesQuery.data ?? [];
   const loading = instancesQuery.isLoading;
+  const settingsQuery = useSettingsQuery();
+  const condensed = settingsQuery.data?.mrListCondensed ?? false;
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
   const [mrs, setMrs] = useState<MergeRequest[]>([]);
   const [showApproved, setShowApproved] = useState(false);
@@ -235,6 +238,7 @@ export default function MRListPage() {
             onFilteredCountChange={handleFilteredCountChange}
             showApproved={showApproved}
             onToggleApproved={() => setShowApproved(v => !v)}
+            condensed={condensed}
           />
         ) : null}
       </main>

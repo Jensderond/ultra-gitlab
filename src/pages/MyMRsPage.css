@@ -42,6 +42,21 @@
   border: 1px solid var(--success-bg);
 }
 
+/* In condensed mode the badge sits to the right of the time on the top line */
+.my-mr-item-wrapper--condensed .my-mr-approval-badge {
+  bottom: auto;
+  top: 6px;
+  right: 24px;
+  transform: none;
+  padding: 1px 6px;
+  font-size: 9px;
+}
+
+/* Reserve room on the top row so time doesn't slide under the badge */
+.my-mr-item-wrapper--condensed .mr-condensed-time {
+  margin-right: 44px;
+}
+
 /* Loading state for MR list content */
 .mr-list-loading {
   display: flex;
