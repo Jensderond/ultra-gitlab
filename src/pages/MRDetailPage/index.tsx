@@ -129,24 +129,26 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     previousFileRef.current = filePath;
   }, [files, dispatch]);
 
+  const navigableFiles = view.hideGenerated ? reviewableFiles : files;
+
   const navigateFile = useCallback(
     (direction: number) => {
-      if (reviewableFiles.length === 0) return;
-      const currentIdx = reviewableFiles.findIndex((f) => f.newPath === view.selectedFile);
-      const nextIdx = computeNextFileIndex(currentIdx, direction, reviewableFiles.length);
-      handleFileSelect(reviewableFiles[nextIdx].newPath);
+      if (navigableFiles.length === 0) return;
+      const currentIdx = navigableFiles.findIndex((f) => f.newPath === view.selectedFile);
+      const nextIdx = computeNextFileIndex(currentIdx, direction, navigableFiles.length);
+      handleFileSelect(navigableFiles[nextIdx].newPath);
     },
-    [reviewableFiles, view.selectedFile, handleFileSelect]
+    [navigableFiles, view.selectedFile, handleFileSelect]
   );
 
   const markViewedAndNext = useCallback(() => {
     if (!view.selectedFile) return;
     dispatch({ type: 'MARK_VIEWED', path: view.selectedFile });
-    const currentIdx = reviewableFiles.findIndex((f) => f.newPath === view.selectedFile);
-    if (currentIdx < reviewableFiles.length - 1) {
+    const currentIdx = navigableFiles.findIndex((f) => f.newPath === view.selectedFile);
+    if (currentIdx < navigableFiles.length - 1) {
       navigateFile(1);
     }
-  }, [view.selectedFile, dispatch, navigateFile, reviewableFiles]);
+  }, [view.selectedFile, dispatch, navigateFile, navigableFiles]);
 
   const handleToggleViewMode = useCallback(() => {
     dispatch({

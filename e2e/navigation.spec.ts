@@ -55,18 +55,18 @@ test.describe('Navigation & Sidebar', () => {
     await expect(page.locator('button[title="Reviews"]')).not.toHaveClass(/active/);
   });
 
-  test('keyboard shortcut Ctrl+L navigates to MR list', async ({ page }) => {
+  test('keyboard shortcut Mod+L navigates to MR list', async ({ page }) => {
     await page.goto('/my-mrs');
 
-    await page.keyboard.press('Control+l');
+    await page.keyboard.press('ControlOrMeta+l');
 
     await expect(page).toHaveURL(/\/mrs/);
   });
 
-  test('keyboard shortcut Ctrl+M navigates to My MRs', async ({ page }) => {
+  test('keyboard shortcut Mod+M navigates to My MRs', async ({ page }) => {
     await page.goto('/mrs');
 
-    await page.keyboard.press('Control+m');
+    await page.keyboard.press('ControlOrMeta+m');
 
     await expect(page).toHaveURL(/\/my-mrs/);
   });
