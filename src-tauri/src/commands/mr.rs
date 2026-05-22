@@ -43,6 +43,7 @@ pub struct MergeRequestListItem {
     pub web_url: String,
     pub created_at: i64,
     pub updated_at: i64,
+    pub merged_at: Option<i64>,
     pub approval_status: Option<String>,
     pub approvals_count: Option<i64>,
     pub approvals_required: Option<i64>,
@@ -74,6 +75,7 @@ impl From<MergeRequest> for MergeRequestListItem {
             web_url: mr.web_url,
             created_at: mr.created_at,
             updated_at: mr.updated_at,
+            merged_at: mr.merged_at,
             approval_status: mr.approval_status,
             approvals_count: mr.approvals_count,
             approvals_required: mr.approvals_required,
@@ -198,17 +200,21 @@ pub async fn get_merge_requests(
 /// Get merge requests authored by the authenticated user.
 ///
 /// Queries open MRs where author_username matches the instance's authenticated_username.
+/// When `include_recently_merged` is true, also includes MRs that were merged within
+/// the last 24 hours (useful for surfacing auto-merged work).
 /// Returns the same MergeRequestListItem DTO as get_merge_requests.
 ///
 /// # Arguments
 /// * `instance_id` - GitLab instance to query
+/// * `include_recently_merged` - When true, also return merged MRs from the last 24h
 ///
 /// # Returns
-/// Array of authored merge requests.
+/// Array of authored merge requests, opened first then recently merged.
 #[tauri::command]
 pub async fn list_my_merge_requests(
     pool: State<'_, DbPool>,
     instance_id: i64,
+    include_recently_merged: Option<bool>,
 ) -> Result<Vec<MergeRequestListItem>, AppError> {
     // Get the authenticated username for this instance
     let username: Option<String> =
@@ -222,27 +228,61 @@ pub async fn list_my_merge_requests(
         AppError::not_found("No authenticated username found. Please re-authenticate.")
     })?;
 
-    let mrs: Vec<MergeRequest> = sqlx::query_as(
-        r#"
-        SELECT
-            mr.id, mr.instance_id, mr.iid, mr.project_id,
-            COALESCE(p.name_with_namespace, mr.project_name) AS project_name,
-            mr.title, mr.description,
-            mr.author_username, mr.source_branch, mr.target_branch, mr.state,
-            mr.web_url, mr.created_at, mr.updated_at, mr.merged_at,
-            mr.approval_status, mr.approvals_required, mr.approvals_count,
-            mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved,
-            mr.head_pipeline_status, mr.state_changed_at
-        FROM merge_requests mr
-        LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
-        WHERE mr.instance_id = ? AND mr.state = 'opened' AND mr.author_username = ?
-        ORDER BY mr.updated_at DESC
-        "#,
-    )
-    .bind(instance_id)
-    .bind(&username)
-    .fetch_all(pool.inner())
-    .await?;
+    let mrs: Vec<MergeRequest> = if include_recently_merged.unwrap_or(false) {
+        // 24h cutoff for recently-merged inclusion. The sync engine already
+        // hard-purges merged/closed MRs older than 24h, but we still filter
+        // defensively in case retention is extended later.
+        let cutoff = chrono::Utc::now().timestamp() - 86_400;
+        sqlx::query_as(
+            r#"
+            SELECT
+                mr.id, mr.instance_id, mr.iid, mr.project_id,
+                COALESCE(p.name_with_namespace, mr.project_name) AS project_name,
+                mr.title, mr.description,
+                mr.author_username, mr.source_branch, mr.target_branch, mr.state,
+                mr.web_url, mr.created_at, mr.updated_at, mr.merged_at,
+                mr.approval_status, mr.approvals_required, mr.approvals_count,
+                mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved,
+                mr.head_pipeline_status, mr.state_changed_at
+            FROM merge_requests mr
+            LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
+            WHERE mr.instance_id = ?
+              AND mr.author_username = ?
+              AND (
+                  mr.state = 'opened'
+                  OR (mr.state = 'merged' AND mr.merged_at IS NOT NULL AND mr.merged_at >= ?)
+              )
+            ORDER BY (mr.state = 'opened') DESC, mr.updated_at DESC
+            "#,
+        )
+        .bind(instance_id)
+        .bind(&username)
+        .bind(cutoff)
+        .fetch_all(pool.inner())
+        .await?
+    } else {
+        sqlx::query_as(
+            r#"
+            SELECT
+                mr.id, mr.instance_id, mr.iid, mr.project_id,
+                COALESCE(p.name_with_namespace, mr.project_name) AS project_name,
+                mr.title, mr.description,
+                mr.author_username, mr.source_branch, mr.target_branch, mr.state,
+                mr.web_url, mr.created_at, mr.updated_at, mr.merged_at,
+                mr.approval_status, mr.approvals_required, mr.approvals_count,
+                mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved,
+                mr.head_pipeline_status, mr.state_changed_at
+            FROM merge_requests mr
+            LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
+            WHERE mr.instance_id = ? AND mr.state = 'opened' AND mr.author_username = ?
+            ORDER BY mr.updated_at DESC
+            "#,
+        )
+        .bind(instance_id)
+        .bind(&username)
+        .fetch_all(pool.inner())
+        .await?
+    };
 
     let items = mrs.into_iter().map(MergeRequestListItem::from).collect();
     Ok(items)

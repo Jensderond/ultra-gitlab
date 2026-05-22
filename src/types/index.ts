@@ -296,6 +296,7 @@ export interface Settings {
   collapsePatterns: string[];
   fileJumpCount: number;
   mrListCondensed: boolean;
+  showRecentlyMergedMrs: boolean;
 }
 
 export type SettingsUpdate = Partial<Settings>;

@@ -69,6 +69,7 @@ export {
   updateUiFont,
   updateDiffsFont,
   updateMrListCondensed,
+  updateShowRecentlyMergedMrs,
   updateCustomThemeColors,
   type CustomThemeColors,
   type SystemFont,

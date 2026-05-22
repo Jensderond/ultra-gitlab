@@ -4,7 +4,8 @@ export const queryKeys = {
   collapsePatterns: () => ["collapsePatterns"] as const,
   notificationSettings: () => ["notificationSettings"] as const,
   mrList: (instanceId: string) => ["mrList", instanceId] as const,
-  myMRList: (instanceId: string) => ["myMRList", instanceId] as const,
+  myMRList: (instanceId: string, includeRecentlyMerged: boolean = false) =>
+    ["myMRList", instanceId, includeRecentlyMerged] as const,
   mr: (mrId: number) => ["mr", mrId] as const,
   mrFiles: (mrId: number) => ["mrFiles", mrId] as const,
   mrDiffRefs: (mrId: number) => ["mrDiffRefs", mrId] as const,

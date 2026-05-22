@@ -4,15 +4,18 @@ import { queryKeys } from '../../lib/queryKeys';
 import { listMyMergeRequests } from '../../services/tauri';
 import { pendingMerges } from '../../lib/pendingMerges';
 
-export function useMyMRListQuery(instanceId: number | undefined) {
+export function useMyMRListQuery(
+  instanceId: number | undefined,
+  includeRecentlyMerged: boolean = false,
+) {
   const pending = useSyncExternalStore(
     pendingMerges.subscribe,
     pendingMerges.getSnapshot,
     pendingMerges.getSnapshot,
   );
   const query = useQuery({
-    queryKey: queryKeys.myMRList(String(instanceId ?? '')),
-    queryFn: () => listMyMergeRequests(instanceId!),
+    queryKey: queryKeys.myMRList(String(instanceId ?? ''), includeRecentlyMerged),
+    queryFn: () => listMyMergeRequests(instanceId!, includeRecentlyMerged),
     enabled: !!instanceId,
   });
   return {

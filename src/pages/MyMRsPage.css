@@ -66,3 +66,86 @@
   color: var(--text-tertiary);
   font-size: 13px;
 }
+
+/* ─── Recently-merged row treatment ───────────────────────────────────────── */
+
+.my-mr-item-wrapper.is-merged .mr-list-item {
+  opacity: 0.6;
+}
+
+.my-mr-item-wrapper.is-merged .mr-list-item:hover,
+.my-mr-item-wrapper.is-merged .mr-list-item.selected {
+  opacity: 0.85;
+}
+
+.my-mr-item-wrapper.is-merged .mr-list-item.selected::before {
+  background: linear-gradient(180deg,
+    var(--accent-purple, #957fb8) 0%,
+    var(--accent-purple, #957fb8) 60%,
+    transparent 100%);
+}
+
+/* Badge marking recently-merged MRs */
+.my-mr-merged-badge {
+  position: absolute;
+  bottom: 14px;
+  right: 32px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--accent-purple, #957fb8);
+  background: color-mix(in srgb, var(--accent-purple, #957fb8) 14%, transparent);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--accent-purple, #957fb8) 30%, transparent);
+  white-space: nowrap;
+}
+
+.my-mr-item-wrapper--condensed .my-mr-merged-badge {
+  bottom: auto;
+  top: 6px;
+  right: 24px;
+  transform: none;
+  padding: 1px 6px;
+  font-size: 9px;
+}
+
+/* ─── Recently-merged page-header toggle ─────────────────────────────────── */
+
+.recently-merged-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.recently-merged-toggle:hover {
+  background: var(--surface-hover, rgba(255, 255, 255, 0.04));
+  color: var(--text-primary);
+}
+
+.recently-merged-toggle.is-on {
+  border-color: color-mix(in srgb, var(--accent-purple, #957fb8) 50%, transparent);
+  color: var(--accent-purple, #957fb8);
+  background: color-mix(in srgb, var(--accent-purple, #957fb8) 10%, transparent);
+}
+
+.recently-merged-toggle-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.4;
+}
+
+.recently-merged-toggle.is-on .recently-merged-toggle-dot {
+  opacity: 1;
+  box-shadow: 0 0 6px currentColor;
+}

@@ -38,6 +38,7 @@ export type ShortcutCategory =
 export type ShortcutContext =
   | 'global'
   | 'mr-list'
+  | 'my-mr-list'
   | 'mr-detail'
   | 'my-mr-detail'
   | 'diff-viewer'
@@ -276,6 +277,15 @@ export const defaultShortcuts: ShortcutDefinition[] = [
     defaultKey: 's',
     category: 'review',
     context: 'mr-detail',
+  },
+
+  // My MR list shortcuts
+  {
+    id: 'toggle-recently-merged',
+    description: 'Toggle recently-merged MRs',
+    defaultKey: 'm',
+    category: 'list',
+    context: 'my-mr-list',
   },
 
   // My MR Detail shortcuts

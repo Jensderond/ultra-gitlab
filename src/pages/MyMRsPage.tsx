@@ -7,9 +7,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { useHotkey, parseHotkey } from '@tanstack/react-hotkeys';
 import MRListItem from '../components/MRList/MRListItem';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { useListSearch } from '../hooks/useListSearch';
+import { useCondensedModeAnnouncement } from '../hooks/useCondensedModeAnnouncement';
 import SearchBar from '../components/SearchBar/SearchBar';
 import type { MergeRequest } from '../types';
 import { useInstancesQuery } from '../hooks/queries/useInstancesQuery';
@@ -17,6 +19,8 @@ import { useSettingsQuery } from '../hooks/queries/useSettingsQuery';
 import { InstanceSwitcher } from '../components/InstanceSwitcher';
 import { useMyMRListQuery } from '../hooks/queries/useMyMRListQuery';
 import { queryKeys } from '../lib/queryKeys';
+import { updateShowRecentlyMergedMrs } from '../services';
+import { useShortcuts } from '../components/ShortcutsProvider';
 import { ShortcutBar } from '../components/ShortcutBar';
 import type { ShortcutDef } from '../components/ShortcutBar';
 import { PageHeader } from '../components/PageHeader';
@@ -26,6 +30,7 @@ import './MyMRsPage.css';
 const defaultShortcuts: ShortcutDef[] = [
   { key: 'j/k', label: 'navigate' },
   { key: 'Enter', label: 'open' },
+  { key: 'm', label: 'recently merged' },
   { key: '\u2318F', label: 'search' },
   { key: '?', label: 'help' },
 ];
@@ -60,6 +65,17 @@ function isFullyApproved(mr: MergeRequest): boolean {
   return mr.approvalStatus === 'approved';
 }
 
+/**
+ * Format a Unix timestamp as a short relative time (e.g. "2h ago").
+ */
+function formatRelativeTime(timestamp: number): string {
+  const diff = Date.now() / 1000 - timestamp;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
 export default function MyMRsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -67,9 +83,22 @@ export default function MyMRsPage() {
   const instances = instancesQuery.data ?? [];
   const settingsQuery = useSettingsQuery();
   const condensed = settingsQuery.data?.mrListCondensed ?? false;
+  const showRecentlyMerged = settingsQuery.data?.showRecentlyMergedMrs ?? false;
+  useCondensedModeAnnouncement();
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
   const mrsRef = useRef<MergeRequest[]>([]);
   const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  const handleToggleRecentlyMerged = useCallback(async () => {
+    const next = !showRecentlyMerged;
+    await updateShowRecentlyMergedMrs(next);
+    queryClient.invalidateQueries({ queryKey: queryKeys.settings() });
+  }, [showRecentlyMerged, queryClient]);
+
+  const { getKey } = useShortcuts();
+  useHotkey(parseHotkey(getKey('toggle-recently-merged') ?? 'm'), () => {
+    handleToggleRecentlyMerged();
+  });
 
   // Auto-select default or first instance when instances load
   useEffect(() => {
@@ -78,7 +107,7 @@ export default function MyMRsPage() {
     }
   }, [instances, selectedInstanceId]);
 
-  const myMRsQuery = useMyMRListQuery(selectedInstanceId ?? undefined);
+  const myMRsQuery = useMyMRListQuery(selectedInstanceId ?? undefined, showRecentlyMerged);
   const mrs = myMRsQuery.data ?? [];
   const loading = myMRsQuery.isLoading;
 
@@ -176,11 +205,24 @@ export default function MyMRsPage() {
         onRefresh={() => selectedInstanceId != null && queryClient.invalidateQueries({ queryKey: queryKeys.myMRList(String(selectedInstanceId)) })}
         refreshAriaLabel="Refresh merge requests"
         actions={
-          <InstanceSwitcher
-            instances={instances}
-            selectedId={selectedInstanceId}
-            onSelect={setSelectedInstanceId}
-          />
+          <>
+            <button
+              type="button"
+              className={`recently-merged-toggle ${showRecentlyMerged ? 'is-on' : ''}`}
+              onClick={handleToggleRecentlyMerged}
+              role="switch"
+              aria-checked={showRecentlyMerged}
+              title={showRecentlyMerged ? 'Hide recently merged MRs' : 'Show MRs merged in the last 24h'}
+            >
+              <span className="recently-merged-toggle-dot" aria-hidden="true" />
+              <span className="recently-merged-toggle-label">Recently merged</span>
+            </button>
+            <InstanceSwitcher
+              instances={instances}
+              selectedId={selectedInstanceId}
+              onSelect={setSelectedInstanceId}
+            />
+          </>
         }
       />
 
@@ -210,30 +252,39 @@ export default function MyMRsPage() {
           </div>
         ) : (
           <div className="mr-list">
-            <div className="mr-list-content">
-              {filteredItems.map((mr, index) => (
-                <div
-                  key={mr.id}
-                  ref={(el) => {
-                    if (el) itemRefs.current.set(index, el);
-                    else itemRefs.current.delete(index);
-                  }}
-                  className={['my-mr-item-wrapper', condensed && 'my-mr-item-wrapper--condensed', isDraft(mr) && 'is-draft', isFullyApproved(mr) && 'is-approved'].filter(Boolean).join(' ')}
-                >
-                  <MRListItem
-                    mr={mr}
-                    selected={index === focusIndex}
-                    onClick={() => handleSelectMR(mr, index)}
-                    highlightQuery={isSearchOpen ? query : undefined}
-                    condensed={condensed}
-                  />
-                  {(mr.approvalsRequired ?? 0) > 0 && (
-                    <span className="my-mr-approval-badge">
-                      {approvalSummary(mr)}
-                    </span>
-                  )}
-                </div>
-              ))}
+            <div className={`mr-list-content${condensed ? ' mr-list-content--condensed' : ''}`}>
+              {filteredItems.map((mr, index) => {
+                const merged = mr.state === 'merged';
+                return (
+                  <div
+                    key={mr.id}
+                    ref={(el) => {
+                      if (el) itemRefs.current.set(index, el);
+                      else itemRefs.current.delete(index);
+                    }}
+                    className={['my-mr-item-wrapper', condensed && 'my-mr-item-wrapper--condensed', isDraft(mr) && 'is-draft', isFullyApproved(mr) && 'is-approved', merged && 'is-merged'].filter(Boolean).join(' ')}
+                  >
+                    <MRListItem
+                      mr={mr}
+                      selected={index === focusIndex}
+                      onClick={() => handleSelectMR(mr, index)}
+                      highlightQuery={isSearchOpen ? query : undefined}
+                      condensed={condensed}
+                    />
+                    {merged ? (
+                      <span className="my-mr-merged-badge" title={mr.mergedAt ? `Merged ${formatRelativeTime(mr.mergedAt)}` : 'Merged'}>
+                        Merged{mr.mergedAt ? ` ${formatRelativeTime(mr.mergedAt)}` : ''}
+                      </span>
+                    ) : (
+                      (mr.approvalsRequired ?? 0) > 0 && (
+                        <span className="my-mr-approval-badge">
+                          {approvalSummary(mr)}
+                        </span>
+                      )
+                    )}
+                  </div>
+                );
+              })}
             </div>
             <div className="mr-list-footer">
               <span className="mr-count">{mrs.length} merge requests</span>

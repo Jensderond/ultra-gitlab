@@ -263,11 +263,17 @@ export async function fetchMrByWebUrl(webUrl: string): Promise<ResolvedMr> {
 
 /**
  * Get merge requests authored by the current user.
+ * When `includeRecentlyMerged` is true, the response also contains MRs merged
+ * in the last 24 hours (handy for surfacing auto-merged work).
  */
 export async function listMyMergeRequests(
-  instanceId: number
+  instanceId: number,
+  includeRecentlyMerged: boolean = false
 ): Promise<MergeRequest[]> {
-  return invoke<MergeRequest[]>('list_my_merge_requests', { instanceId });
+  return invoke<MergeRequest[]>('list_my_merge_requests', {
+    instanceId,
+    includeRecentlyMerged,
+  });
 }
 
 /**
@@ -515,6 +521,13 @@ export async function updateKeyboardShortcuts(shortcuts: Record<string, string>)
  */
 export async function updateMrListCondensed(condensed: boolean): Promise<void> {
   return invoke<void>('update_mr_list_condensed', { condensed });
+}
+
+/**
+ * Persist the "show recently merged MRs" toggle used on the My MRs page.
+ */
+export async function updateShowRecentlyMergedMrs(show: boolean): Promise<void> {
+  return invoke<void>('update_show_recently_merged_mrs', { show });
 }
 
 // ============================================================================

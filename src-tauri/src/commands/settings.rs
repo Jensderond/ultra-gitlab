@@ -50,6 +50,9 @@ const KEYBOARD_SHORTCUTS_KEY: &str = "keyboard_shortcuts";
 /// Key for MR list condensed view toggle in the store.
 const MR_LIST_CONDENSED_KEY: &str = "mr_list_condensed";
 
+/// Key for the "show recently merged MRs" toggle on the My MRs page.
+const SHOW_RECENTLY_MERGED_MRS_KEY: &str = "show_recently_merged_mrs";
+
 /// Default number of files to jump with arrow-left/right.
 const DEFAULT_FILE_JUMP_COUNT: u32 = 5;
 
@@ -117,6 +120,8 @@ pub struct AppSettings {
     pub keyboard_shortcuts: HashMap<String, String>,
     /// Whether the merge request list uses the compact single-line layout.
     pub mr_list_condensed: bool,
+    /// Whether the My MRs page includes MRs merged within the last 24 hours.
+    pub show_recently_merged_mrs: bool,
 }
 
 impl Default for AppSettings {
@@ -133,6 +138,7 @@ impl Default for AppSettings {
             file_jump_count: DEFAULT_FILE_JUMP_COUNT,
             keyboard_shortcuts: HashMap::new(),
             mr_list_condensed: false,
+            show_recently_merged_mrs: false,
         }
     }
 }
@@ -225,6 +231,12 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         None => false,
     };
 
+    // Try to load "show recently merged MRs" flag
+    let show_recently_merged_mrs = match store.get(SHOW_RECENTLY_MERGED_MRS_KEY) {
+        Some(value) => serde_json::from_value(value.clone()).unwrap_or(false),
+        None => false,
+    };
+
     Ok(AppSettings {
         sync,
         collapse_patterns,
@@ -237,6 +249,7 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         file_jump_count,
         keyboard_shortcuts,
         mr_list_condensed,
+        show_recently_merged_mrs,
     })
 }
 
@@ -289,6 +302,10 @@ pub(crate) async fn save_settings(app: &AppHandle, settings: &AppSettings) -> Re
     // Save MR list condensed flag
     let mr_list_condensed_value = serde_json::to_value(settings.mr_list_condensed)?;
     store.set(MR_LIST_CONDENSED_KEY, mr_list_condensed_value);
+
+    // Save "show recently merged MRs" flag
+    let show_recently_merged_value = serde_json::to_value(settings.show_recently_merged_mrs)?;
+    store.set(SHOW_RECENTLY_MERGED_MRS_KEY, show_recently_merged_value);
 
     // Persist to disk
     store
@@ -507,6 +524,22 @@ pub async fn update_keyboard_shortcuts(
 pub async fn update_mr_list_condensed(app: AppHandle, condensed: bool) -> Result<(), AppError> {
     let mut settings = load_settings(&app).await?;
     settings.mr_list_condensed = condensed;
+    save_settings(&app, &settings).await?;
+    *settings_cache().write().await = settings;
+    Ok(())
+}
+
+/// Update the "show recently merged MRs" toggle for the My MRs page.
+///
+/// # Arguments
+/// * `show` - When true, the My MRs list also includes MRs merged in the last 24 hours.
+#[tauri::command]
+pub async fn update_show_recently_merged_mrs(
+    app: AppHandle,
+    show: bool,
+) -> Result<(), AppError> {
+    let mut settings = load_settings(&app).await?;
+    settings.show_recently_merged_mrs = show;
     save_settings(&app, &settings).await?;
     *settings_cache().write().await = settings;
     Ok(())
