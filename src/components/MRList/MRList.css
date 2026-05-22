@@ -19,6 +19,10 @@
   scrollbar-color: var(--border-color) transparent;
 }
 
+.mr-list-content--condensed {
+  padding-top: 0;
+}
+
 .mr-list-content::-webkit-scrollbar {
   width: 5px;
 }

@@ -8,6 +8,8 @@ export interface Toast {
   url?: string;
   /** In-app route to navigate to when clicking the toast */
   route?: string;
+  /** If true, the toast does not auto-dismiss and stays until the user closes it */
+  sticky?: boolean;
 }
 
 interface ToastContextValue {
@@ -55,12 +57,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         return next;
       });
 
-      // Auto-dismiss
-      const timer = setTimeout(() => {
-        timersRef.current.delete(id);
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, AUTO_DISMISS_MS);
-      timersRef.current.set(id, timer);
+      // Auto-dismiss (sticky toasts stay until the user dismisses them)
+      if (!toast.sticky) {
+        const timer = setTimeout(() => {
+          timersRef.current.delete(id);
+          setToasts((prev) => prev.filter((t) => t.id !== id));
+        }, AUTO_DISMISS_MS);
+        timersRef.current.set(id, timer);
+      }
     },
     []
   );

@@ -231,7 +231,7 @@ export default function MRList({
 
   return (
     <div className="mr-list">
-      <div className="mr-list-content">
+      <div className={`mr-list-content${condensed ? ' mr-list-content--condensed' : ''}`}>
         {mrs.length === 0 ? (
           <div className="mr-list-empty">
             <p>No open merge requests</p>

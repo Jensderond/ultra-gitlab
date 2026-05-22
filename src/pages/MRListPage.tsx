@@ -11,6 +11,7 @@ import { MRList } from '../components/MRList';
 import type { MergeRequest } from '../types';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { useListSearch } from '../hooks/useListSearch';
+import { useCondensedModeAnnouncement } from '../hooks/useCondensedModeAnnouncement';
 import SearchBar from '../components/SearchBar/SearchBar';
 import { useInstancesQuery } from '../hooks/queries/useInstancesQuery';
 import { useSettingsQuery } from '../hooks/queries/useSettingsQuery';
@@ -46,6 +47,7 @@ export default function MRListPage() {
   const loading = instancesQuery.isLoading;
   const settingsQuery = useSettingsQuery();
   const condensed = settingsQuery.data?.mrListCondensed ?? false;
+  useCondensedModeAnnouncement();
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
   const [mrs, setMrs] = useState<MergeRequest[]>([]);
   const [showApproved, setShowApproved] = useState(false);

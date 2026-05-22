@@ -102,14 +102,36 @@ function FontCombobox({ label, labelId, fonts, value, onSelect, loading, error }
   );
 }
 
+interface AppearanceSectionProps {
+  /** When true, scroll to the condensed MR list toggle and pulse it once. */
+  highlightCondensed?: boolean;
+}
+
 /**
  * Appearance section — theme selector with visual swatches + font combobox + custom theme editor.
  */
-export default function AppearanceSection() {
+export default function AppearanceSection({ highlightCondensed = false }: AppearanceSectionProps) {
   const { theme, setThemeById, uiFont, setUiFont, displayFont, setDisplayFont, diffsFont, setDiffsFont, customColors, previewCustomTheme, saveCustomTheme, deleteCustomTheme } = useTheme();
   const settingsQuery = useSettingsQuery();
   const queryClient = useQueryClient();
   const condensed = settingsQuery.data?.mrListCondensed ?? false;
+
+  const condensedRowRef = useRef<HTMLDivElement>(null);
+  const [pulseCondensed, setPulseCondensed] = useState(false);
+
+  useEffect(() => {
+    if (!highlightCondensed) return;
+    // Wait a tick so the <details> has actually opened and laid out.
+    const t = window.setTimeout(() => {
+      condensedRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setPulseCondensed(true);
+    }, 150);
+    const off = window.setTimeout(() => setPulseCondensed(false), 2800);
+    return () => {
+      window.clearTimeout(t);
+      window.clearTimeout(off);
+    };
+  }, [highlightCondensed]);
 
   const handleToggleCondensed = useCallback(async () => {
     const next = !condensed;
@@ -362,7 +384,10 @@ export default function AppearanceSection() {
         error={systemFontsError}
       />
 
-      <div className="condensed-toggle-row">
+      <div
+        ref={condensedRowRef}
+        className={`condensed-toggle-row${pulseCondensed ? ' condensed-toggle-row--pulse' : ''}`}
+      >
         <div className="condensed-toggle-text">
           <span className="condensed-toggle-label">Condensed MR list</span>
           <span className="condensed-toggle-description">Show merge requests as compact single-line rows.</span>

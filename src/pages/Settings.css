@@ -1955,8 +1955,30 @@ fieldset.setting-row {
   justify-content: space-between;
   gap: 16px;
   margin-top: 20px;
-  padding-top: 16px;
+  padding: 16px 12px 12px;
   border-top: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 0 0 0 transparent;
+  transition: box-shadow 200ms ease, background-color 200ms ease;
+}
+
+.condensed-toggle-row--pulse {
+  animation: condensedTogglePulse 2.4s ease-out;
+}
+
+@keyframes condensedTogglePulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--accent-color);
+    background-color: color-mix(in srgb, var(--accent-color) 12%, transparent);
+  }
+  40% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-color) 35%, transparent);
+    background-color: color-mix(in srgb, var(--accent-color) 8%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    background-color: transparent;
+  }
 }
 
 .condensed-toggle-text {

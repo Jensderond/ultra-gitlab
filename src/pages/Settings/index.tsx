@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import BackButton from '../../components/BackButton';
 import { isTauri } from '../../services/transport';
 import { getNotificationSettings } from '../../services/tauri';
@@ -56,6 +57,9 @@ export default function Settings({ updateChecker }: SettingsProps) {
   const syncQuery = useSyncSettingsQuery();
   const { theme } = useTheme();
   const notifSubtitle = useNotificationSubtitle();
+  const location = useLocation();
+  const highlight = new URLSearchParams(location.search).get('highlight');
+  const highlightCondensed = highlight === 'condensed-mr-list';
 
   const syncSubtitle = syncQuery.data
     ? SYNC_INTERVAL_LABELS[syncQuery.data.interval_secs] ?? `${syncQuery.data.interval_secs}s`
@@ -87,8 +91,8 @@ export default function Settings({ updateChecker }: SettingsProps) {
           </CollapsibleSection>
         )}
 
-        <CollapsibleSection title="Appearance" subtitle={theme.name}>
-          <AppearanceSection />
+        <CollapsibleSection title="Appearance" subtitle={theme.name} defaultOpen={highlightCondensed}>
+          <AppearanceSection highlightCondensed={highlightCondensed} />
         </CollapsibleSection>
 
         {isTauri && (
