@@ -5,7 +5,6 @@
  */
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
-import { motion, LayoutGroup } from 'motion/react';
 import type { DiffFileSummary, ChangeType } from '../../types';
 import './FileNavigation.css';
 
@@ -180,7 +179,6 @@ export default function FileNavigation({
         )}
       </div>
       <div className="file-nav-list">
-        <LayoutGroup>
         {visibleFiles.map((file) => {
           const index = files.indexOf(file);
           const indicator = getChangeIndicator(file.changeType);
@@ -203,13 +201,7 @@ export default function FileNavigation({
                 }
               }}
             >
-              {isFocused && (
-                <motion.div
-                  className="file-nav-focus-ring"
-                  layoutId="file-nav-focus"
-                  transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
-                />
-              )}
+              {isFocused && <div className="file-nav-focus-ring" />}
               <span className={`file-change-indicator ${indicator.className}`}>
                 {indicator.text}
               </span>
@@ -232,7 +224,6 @@ export default function FileNavigation({
             </div>
           );
         })}
-        </LayoutGroup>
       </div>
     </div>
   );

@@ -173,18 +173,12 @@
     var(--wave-glow) 0%,
     transparent 100%);
   opacity: 0;
-  transition: opacity 0.2s ease;
   pointer-events: none;
   z-index: 0;
 }
 
 .file-nav-item.selected::after {
   opacity: 1;
-}
-
-@keyframes accent-line-grow {
-  0% { width: 2px; }
-  100% { width: 4px; }
 }
 
 .file-nav-item.selected::before {
@@ -199,7 +193,6 @@
     var(--accent-hover) 100%);
   box-shadow: 0 0 10px var(--wave-glow-strong);
   border-radius: 0 2px 2px 0;
-  animation: accent-line-grow 0.2s ease 0.1s both;
 }
 
 .file-nav-item.focused {
