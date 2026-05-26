@@ -20,7 +20,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@pierre/diffs": "^1.2.1",
+    "@pierre/diffs": "^1.2.3",
     "@tanstack/react-hotkeys": "^0.9.1",
     "@tanstack/react-query": "^5.100.11",
     "@tauri-apps/api": "^2.11.0",
