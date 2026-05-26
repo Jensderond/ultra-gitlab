@@ -2082,11 +2082,16 @@ impl SyncEngine {
             let soft_ids: Vec<i64> = soft_purge_rows.iter().map(|(id, _)| *id).collect();
             let placeholders: Vec<String> =
                 (0..soft_ids.len()).map(|_| "?".to_string()).collect();
+            // Backfill merged_at when missing so the "recently merged" window on
+            // the My MRs page can surface auto-merged work. GitLab's real merge
+            // timestamp isn't known here, but "noticed merged at now" is the
+            // best approximation we have without an extra fetch.
+            let now_ts = now();
             let query = format!(
-                "UPDATE merge_requests SET state = 'merged', state_changed_at = ? WHERE id IN ({})",
+                "UPDATE merge_requests SET state = 'merged', state_changed_at = ?, merged_at = COALESCE(merged_at, ?) WHERE id IN ({})",
                 placeholders.join(", ")
             );
-            let mut q = sqlx::query(&query).bind(now());
+            let mut q = sqlx::query(&query).bind(now_ts).bind(now_ts);
             for id in &soft_ids {
                 q = q.bind(*id);
             }
@@ -2748,8 +2753,9 @@ impl SyncEngine {
                         // Reflect merged state in the local DB.
                         let now_ts = now();
                         if let Err(e) = sqlx::query(
-                            "UPDATE merge_requests SET state = 'merged', merged_at = ? WHERE id = ?",
+                            "UPDATE merge_requests SET state = 'merged', merged_at = ?, state_changed_at = ? WHERE id = ?",
                         )
+                        .bind(now_ts)
                         .bind(now_ts)
                         .bind(claim.mr_id)
                         .execute(&self.pool)

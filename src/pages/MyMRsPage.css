@@ -110,6 +110,13 @@
   font-size: 9px;
 }
 
+/* The merged badge ("Merged 23h ago") is wider than the approval badge, so
+   reserve extra room on the top row in condensed mode. Overrides the 44px
+   approval-badge reservation above. */
+.my-mr-item-wrapper--condensed.is-merged .mr-condensed-time {
+  margin-right: 110px;
+}
+
 /* ─── Recently-merged page-header toggle ─────────────────────────────────── */
 
 .recently-merged-toggle {

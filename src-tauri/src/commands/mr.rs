@@ -1231,13 +1231,18 @@ pub async fn merge_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppErro
     // Call GitLab merge API
     client.merge_merge_request(project_id, mr_iid).await?;
 
-    // Update local DB on success
+    // Update local DB on success. state_changed_at is required so the sync
+    // engine's hard-purge (which treats NULL as "legacy, eligible for delete")
+    // doesn't sweep the row away on the very next cycle.
     let now = chrono::Utc::now().timestamp();
-    sqlx::query("UPDATE merge_requests SET state = 'merged', merged_at = ? WHERE id = ?")
-        .bind(now)
-        .bind(mr_id)
-        .execute(pool.inner())
-        .await?;
+    sqlx::query(
+        "UPDATE merge_requests SET state = 'merged', merged_at = ?, state_changed_at = ? WHERE id = ?",
+    )
+    .bind(now)
+    .bind(now)
+    .bind(mr_id)
+    .execute(pool.inner())
+    .await?;
 
     Ok(())
 }
