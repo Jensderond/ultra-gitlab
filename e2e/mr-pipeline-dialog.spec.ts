@@ -19,7 +19,7 @@ test.describe('Pipeline detail dialog (from MR detail)', () => {
 
     // URL did not change — MR detail page is still mounted underneath
     await expect(page).toHaveURL(/\/my-mrs\/201$/);
-    await expect(page.locator('.my-mr-detail-title-row h1')).toBeVisible();
+    await expect(page.locator('.my-mr-overview-title')).toBeVisible();
   });
 
   test('renders jobs grouped by stage inside the dialog', async ({ page }) => {
@@ -47,7 +47,7 @@ test.describe('Pipeline detail dialog (from MR detail)', () => {
     // Overlay tears down (closing animation, then unmount). URL untouched.
     await expect(overlay).toHaveCount(0);
     await expect(page).toHaveURL(/\/my-mrs\/201$/);
-    await expect(page.locator('.my-mr-detail-title-row h1')).toBeVisible();
+    await expect(page.locator('.my-mr-overview-title')).toBeVisible();
   });
 
   test('clicking the backdrop closes the dialog', async ({ page }) => {

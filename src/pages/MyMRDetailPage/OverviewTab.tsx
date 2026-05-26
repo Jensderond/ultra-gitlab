@@ -56,6 +56,8 @@ export function OverviewTab({
 
   return (
     <div className="my-mr-overview">
+      <h1 className="my-mr-overview-title">{mr.title}</h1>
+
       <section className="my-mr-overview-section">
         <h3>Details</h3>
         <dl className="my-mr-detail-list">

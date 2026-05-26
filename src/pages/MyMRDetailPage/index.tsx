@@ -130,7 +130,6 @@ export default function MyMRDetailPage() {
           {mr.projectName && (
             <span className="my-mr-detail-project">{mr.projectName.replace(/^Customers\s*\/\s*/, '')}</span>
           )}
-          <h1>{mr.title}</h1>
         </div>
       </header>
 
