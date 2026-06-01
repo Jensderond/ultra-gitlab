@@ -1,0 +1,19 @@
+[package]
+name = "ultra-gitlab-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "ultra"
+path = "src/main.rs"
+
+[dependencies]
+ultra-gitlab = { path = ".." }
+ratatui = "0.29"
+crossterm = { version = "0.28", features = ["event-stream"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+futures = "0.3"
+syntect = "5"
+dirs = "5"
+chrono = "0.4"
+anyhow = "1"

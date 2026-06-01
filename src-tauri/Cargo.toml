@@ -1,3 +1,7 @@
+[workspace]
+members = ["cli"]
+resolver = "2"
+
 [package]
 name = "ultra-gitlab"
 version = "0.20.0"
