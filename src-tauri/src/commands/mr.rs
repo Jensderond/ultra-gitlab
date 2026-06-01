@@ -1340,6 +1340,47 @@ pub async fn rebase_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppErr
     client.rebase_merge_request(project_id, mr_iid).await
 }
 
+/// Mark the user's own draft MR as ready by stripping the Draft:/WIP: title prefix.
+///
+/// Looks up the cached title, strips the prefix, and PUTs the new title to
+/// GitLab. On success, updates the local DB title and returns it. If the title
+/// has no draft prefix, returns it unchanged without a network call.
+///
+/// # Arguments
+/// * `mr_id` - The local MR database ID
+///
+/// # Returns
+/// The MR title after stripping (the new ready title).
+#[tauri::command]
+pub async fn undraft_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<String, AppError> {
+    let title: String = sqlx::query_scalar("SELECT title FROM merge_requests WHERE id = ?")
+        .bind(mr_id)
+        .fetch_optional(pool.inner())
+        .await?
+        .ok_or_else(|| AppError::not_found_with_id("MergeRequest", mr_id.to_string()))?;
+
+    let new_title = strip_draft_prefix(&title);
+
+    // No draft prefix — nothing to do. Avoid an unnecessary API call.
+    if new_title == title {
+        return Ok(title);
+    }
+
+    let (instance_id, project_id, mr_iid) = get_mr_api_ids(pool.inner(), mr_id).await?;
+    let client = create_gitlab_client(&pool, instance_id).await?;
+    client
+        .mark_merge_request_ready(project_id, mr_iid, &new_title)
+        .await?;
+
+    sqlx::query("UPDATE merge_requests SET title = ? WHERE id = ?")
+        .bind(&new_title)
+        .bind(mr_id)
+        .execute(pool.inner())
+        .await?;
+
+    Ok(new_title)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

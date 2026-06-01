@@ -64,7 +64,7 @@ pub use mr::{
     check_merge_status, get_cached_file_pair, get_diff_content, get_diff_file,
     get_diff_file_metadata, get_diff_files, get_diff_hunks, get_diff_refs, get_file_content,
     get_file_content_base64, get_merge_request_detail, get_merge_requests, get_mr_pipelines,
-    list_my_merge_requests, merge_mr, rebase_mr, resolve_mr_by_web_url, fetch_mr_by_web_url,
+    list_my_merge_requests, merge_mr, rebase_mr, undraft_mr, resolve_mr_by_web_url, fetch_mr_by_web_url,
 };
 pub use notification_settings::{get_notification_settings, update_notification_settings};
 pub use notifications::send_native_notification;
