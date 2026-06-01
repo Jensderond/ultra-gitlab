@@ -93,6 +93,7 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
   }, [fetchMergeStatus]);
 
   const handleMerge = useCallback(() => {
+    if (isDraft) return;
     if (merging) return;
     if (!mergeConfirm) {
       mergeDispatch({ type: 'REQUEST_MERGE' });
@@ -221,6 +222,13 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
             Cancel auto-merge
           </button>
         </div>
+      ) : isDraft || mergeStatus === 'draft_status' ? (
+        <div className="my-mr-merge-actions">
+          <span className="my-mr-merge-status draft">Draft</span>
+          <button className="my-mr-action-btn rebase" onClick={handleUndraft}>
+            Mark ready <span className="shortcut-tag"><span className="shortcut-mod">⌘</span>+↵</span>
+          </button>
+        </div>
       ) : optimisticallyMergeable && mr.approvalStatus === 'approved' ? (
         <div className="my-mr-merge-actions">
           <button
@@ -261,13 +269,6 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
       ) : mergeStatus === 'discussions_not_resolved' ? (
         <div className="my-mr-merge-actions">
           <span className="my-mr-merge-status discussions">Unresolved discussions</span>
-        </div>
-      ) : isDraft || mergeStatus === 'draft_status' ? (
-        <div className="my-mr-merge-actions">
-          <span className="my-mr-merge-status draft">Draft</span>
-          <button className="my-mr-action-btn rebase" onClick={handleUndraft}>
-            Mark ready <span className="shortcut-tag"><span className="shortcut-mod">⌘</span>+↵</span>
-          </button>
         </div>
       ) : mergeStatus === 'not_approved' ? (
         <div className="my-mr-merge-actions">
