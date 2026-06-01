@@ -1,5 +1,6 @@
 //! `ultra` — terminal UI for Ultra GitLab.
 
+mod data;
 mod db_path;
 
 use anyhow::Context;
