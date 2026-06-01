@@ -1062,6 +1062,41 @@ impl GitLabClient {
         }
     }
 
+    /// Mark a merge request as ready by setting its title (removes the Draft: prefix).
+    ///
+    /// GitLab has no dedicated "undraft" write attribute that is stable across
+    /// versions; the web UI's "Mark as ready" simply edits the title. We do the
+    /// same by PUTting a title with the draft prefix already stripped.
+    pub async fn mark_merge_request_ready(
+        &self,
+        project_id: i64,
+        mr_iid: i64,
+        new_title: &str,
+    ) -> Result<(), AppError> {
+        let endpoint = format!("/projects/{}/merge_requests/{}", project_id, mr_iid);
+        let url = self.api_url(&endpoint);
+        let response = self
+            .send_with_retry(
+                self.client
+                    .put(&url)
+                    .json(&serde_json::json!({ "title": new_title })),
+            )
+            .await?;
+
+        if response.status().is_success() {
+            Ok(())
+        } else {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            let message = serde_json::from_str::<serde_json::Value>(&body)
+                .ok()
+                .and_then(|v| v.get("message")?.as_str().map(String::from))
+                .unwrap_or_else(|| format!("Failed to mark ready ({})", status));
+
+            Err(AppError::gitlab_api_full(&message, status.as_u16(), &endpoint))
+        }
+    }
+
     /// Add a general comment to a merge request.
     pub async fn add_comment(
         &self,
