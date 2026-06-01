@@ -1,5 +1,6 @@
 //! Top-level rendering: tab bar, body, footer.
 
+pub mod detail;
 pub mod diff;
 pub mod footer;
 pub mod list;
@@ -8,7 +9,7 @@ use crate::app::{App, Screen, Tab};
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
 pub fn draw(f: &mut Frame, app: &mut App) {
@@ -20,14 +21,8 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     render_tabs(f, app, chunks[0]);
 
     match app.screen {
-        // Lists and detail bodies are added in Phases 5 and 7. For now show a
-        // placeholder so the skeleton runs.
         Screen::List => list::render(f, app, chunks[1]),
-        Screen::Detail => {
-            let p = Paragraph::new("detail view: Phase 7")
-                .block(Block::default().borders(Borders::ALL));
-            f.render_widget(p, chunks[1]);
-        }
+        Screen::Detail => detail::render(f, app, chunks[1]),
     }
 
     footer::render(f, app, chunks[2]);

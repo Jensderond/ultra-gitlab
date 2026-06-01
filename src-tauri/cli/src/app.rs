@@ -2,6 +2,7 @@
 
 use crate::data;
 use crate::event::AppEvent;
+use crate::syntax::Highlighter;
 use crate::ui;
 use crossterm::event::{Event, EventStream, KeyCode, KeyEventKind};
 use futures::StreamExt;
@@ -52,6 +53,7 @@ pub struct App {
     pub confirm: Option<Confirm>,
 
     pub tx: mpsc::UnboundedSender<AppEvent>,
+    pub highlighter: Highlighter,
 }
 
 /// A pending y/n confirmation for a destructive action.
@@ -89,6 +91,7 @@ impl App {
             should_quit: false,
             confirm: None,
             tx,
+            highlighter: Highlighter::new(),
         }
     }
 
