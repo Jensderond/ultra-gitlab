@@ -51,7 +51,7 @@ export default function MyMRDetailPage() {
 
   const isMergedOrClosed = mr?.state === 'merged' || mr?.state === 'closed';
 
-  const mergeActionsRef = useRef<MergeActions>({ merge: null, rebase: null });
+  const mergeActionsRef = useRef<MergeActions>({ merge: null, rebase: null, undraft: null });
   const { data: settings } = useSettingsQuery();
   const codeTab = useCodeTab(mrId, mr, activeTab);
 

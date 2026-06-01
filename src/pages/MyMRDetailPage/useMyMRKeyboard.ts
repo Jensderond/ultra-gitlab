@@ -135,6 +135,10 @@ export function useMyMRKeyboard(options: KeyboardOptions) {
           e.preventDefault();
           trackShortcut('Mod+Enter', 'rebase', 'my_mr_detail');
           actions.rebase();
+        } else if (actions?.undraft) {
+          e.preventDefault();
+          trackShortcut('Mod+Enter', 'undraft', 'my_mr_detail');
+          actions.undraft();
         }
       }
     }
