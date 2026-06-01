@@ -128,6 +128,7 @@ pub async fn get_merge_requests(
               (SELECT authenticated_username FROM gitlab_instances WHERE id = mr.instance_id),
               ''
           )
+          AND mr.assigned_to_me = 0
         "#,
     );
 
@@ -255,7 +256,7 @@ pub async fn list_my_merge_requests(
             FROM merge_requests mr
             LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
             WHERE mr.instance_id = ?
-              AND mr.author_username = ?
+              AND (mr.author_username = ? OR mr.assigned_to_me = 1)
               AND (
                   mr.state = 'opened'
                   OR (mr.state = 'merged' AND mr.merged_at IS NOT NULL AND mr.merged_at >= ?)
@@ -282,7 +283,7 @@ pub async fn list_my_merge_requests(
                 mr.head_pipeline_status, mr.state_changed_at
             FROM merge_requests mr
             LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
-            WHERE mr.instance_id = ? AND mr.state = 'opened' AND mr.author_username = ?{draft_clause}
+            WHERE mr.instance_id = ? AND mr.state = 'opened' AND (mr.author_username = ? OR mr.assigned_to_me = 1){draft_clause}
             ORDER BY mr.updated_at DESC
             "#,
         ))
