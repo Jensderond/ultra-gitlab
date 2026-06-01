@@ -1,0 +1,120 @@
+//! Backend operations shared between the Tauri commands and the `ultra` CLI.
+//!
+//! Functions here take `&DbPool` (not Tauri `State`) so they can run in any
+//! process. The Tauri command handlers delegate to these; the CLI calls them
+//! directly against the same SQLite database.
+
+pub mod mr_actions;
+pub mod mr_query;
+
+use crate::db::pool::DbPool;
+use crate::error::AppError;
+use crate::models::GitLabInstance;
+use crate::services::gitlab_client::{GitLabClient, GitLabClientConfig};
+
+/// Build a GitLab API client for the given instance from its stored token.
+pub async fn create_client(pool: &DbPool, instance_id: i64) -> Result<GitLabClient, AppError> {
+    let instance: Option<GitLabInstance> = sqlx::query_as(
+        r#"
+        SELECT id, url, name, token, created_at, authenticated_username, session_cookie, is_default
+        FROM gitlab_instances
+        WHERE id = $1
+        "#,
+    )
+    .bind(instance_id)
+    .fetch_optional(pool)
+    .await?;
+
+    let instance = instance
+        .ok_or_else(|| AppError::not_found_with_id("GitLabInstance", instance_id.to_string()))?;
+    let token = instance
+        .token
+        .ok_or_else(|| AppError::authentication("No token configured for GitLab instance"))?;
+
+    GitLabClient::new(GitLabClientConfig {
+        base_url: instance.url,
+        token,
+        timeout_secs: 30,
+    })
+}
+
+/// Return the default instance id, falling back to the lowest id if none is
+/// explicitly marked default. `None` means no instances are configured.
+pub async fn default_instance_id(pool: &DbPool) -> Result<Option<i64>, AppError> {
+    let id: Option<i64> = sqlx::query_scalar(
+        "SELECT id FROM gitlab_instances ORDER BY is_default DESC, id ASC LIMIT 1",
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(id)
+}
+
+/// Return the authenticated username stored for an instance, if any.
+pub async fn authenticated_username(
+    pool: &DbPool,
+    instance_id: i64,
+) -> Result<Option<String>, AppError> {
+    let name: Option<String> =
+        sqlx::query_scalar("SELECT authenticated_username FROM gitlab_instances WHERE id = ?")
+            .bind(instance_id)
+            .fetch_optional(pool)
+            .await?
+            .flatten();
+    Ok(name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db;
+    use tempfile::tempdir;
+
+    /// Build a temp DB and insert one default instance. Returns (pool, id).
+    pub async fn seed_instance(default: bool) -> (DbPool, i64) {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("t.db");
+        // Keep the tempdir alive for the test process lifetime.
+        std::mem::forget(dir);
+        let pool = db::initialize(&path).await.unwrap();
+        sqlx::query(
+            "INSERT INTO gitlab_instances (url, name, token, created_at, authenticated_username, is_default)
+             VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind("https://gitlab.example.com")
+        .bind("test")
+        .bind("tok")
+        .bind(0i64)
+        .bind("me")
+        .bind(default as i64)
+        .execute(&pool)
+        .await
+        .unwrap();
+        let id: i64 = sqlx::query_scalar("SELECT id FROM gitlab_instances LIMIT 1")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        (pool, id)
+    }
+
+    #[tokio::test]
+    async fn default_instance_id_returns_seeded() {
+        let (pool, id) = seed_instance(true).await;
+        assert_eq!(default_instance_id(&pool).await.unwrap(), Some(id));
+    }
+
+    #[tokio::test]
+    async fn default_instance_id_none_when_empty() {
+        let dir = tempdir().unwrap();
+        let pool = db::initialize(&dir.path().join("t.db")).await.unwrap();
+        assert_eq!(default_instance_id(&pool).await.unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn authenticated_username_reads_value() {
+        let (pool, id) = seed_instance(true).await;
+        assert_eq!(
+            authenticated_username(&pool, id).await.unwrap(),
+            Some("me".to_string())
+        );
+    }
+}

@@ -4,6 +4,7 @@
 //! to the React frontend.
 
 pub mod commands;
+pub mod core;
 pub mod db;
 pub mod error;
 pub mod models;
