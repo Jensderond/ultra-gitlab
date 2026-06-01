@@ -1,6 +1,7 @@
 //! Top-level rendering: tab bar, body, footer.
 
 pub mod footer;
+pub mod list;
 
 use crate::app::{App, Screen, Tab};
 use ratatui::layout::{Constraint, Direction, Layout};
@@ -20,12 +21,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     match app.screen {
         // Lists and detail bodies are added in Phases 5 and 7. For now show a
         // placeholder so the skeleton runs.
-        Screen::List => {
-            let n = app.rows().len();
-            let p = Paragraph::new(format!("{} merge requests (list view: Phase 5)", n))
-                .block(Block::default().borders(Borders::ALL));
-            f.render_widget(p, chunks[1]);
-        }
+        Screen::List => list::render(f, app, chunks[1]),
         Screen::Detail => {
             let p = Paragraph::new("detail view: Phase 7")
                 .block(Block::default().borders(Borders::ALL));
