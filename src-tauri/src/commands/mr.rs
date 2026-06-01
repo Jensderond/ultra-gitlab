@@ -215,6 +215,7 @@ pub async fn list_my_merge_requests(
     pool: State<'_, DbPool>,
     instance_id: i64,
     include_recently_merged: Option<bool>,
+    include_drafts: Option<bool>,
 ) -> Result<Vec<MergeRequestListItem>, AppError> {
     // Get the authenticated username for this instance
     let username: Option<String> =
@@ -228,12 +229,19 @@ pub async fn list_my_merge_requests(
         AppError::not_found("No authenticated username found. Please re-authenticate.")
     })?;
 
+    // When drafts are hidden, exclude titles with a Draft:/WIP: prefix.
+    let draft_clause = if include_drafts.unwrap_or(true) {
+        ""
+    } else {
+        " AND mr.title NOT LIKE 'Draft:%' AND mr.title NOT LIKE 'WIP:%'"
+    };
+
     let mrs: Vec<MergeRequest> = if include_recently_merged.unwrap_or(false) {
         // 24h cutoff for recently-merged inclusion. The sync engine already
         // hard-purges merged/closed MRs older than 24h, but we still filter
         // defensively in case retention is extended later.
         let cutoff = chrono::Utc::now().timestamp() - 86_400;
-        sqlx::query_as(
+        sqlx::query_as(&format!(
             r#"
             SELECT
                 mr.id, mr.instance_id, mr.iid, mr.project_id,
@@ -251,17 +259,17 @@ pub async fn list_my_merge_requests(
               AND (
                   mr.state = 'opened'
                   OR (mr.state = 'merged' AND mr.merged_at IS NOT NULL AND mr.merged_at >= ?)
-              )
+              ){draft_clause}
             ORDER BY (mr.state = 'opened') DESC, mr.updated_at DESC
             "#,
-        )
+        ))
         .bind(instance_id)
         .bind(&username)
         .bind(cutoff)
         .fetch_all(pool.inner())
         .await?
     } else {
-        sqlx::query_as(
+        sqlx::query_as(&format!(
             r#"
             SELECT
                 mr.id, mr.instance_id, mr.iid, mr.project_id,
@@ -274,10 +282,10 @@ pub async fn list_my_merge_requests(
                 mr.head_pipeline_status, mr.state_changed_at
             FROM merge_requests mr
             LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
-            WHERE mr.instance_id = ? AND mr.state = 'opened' AND mr.author_username = ?
+            WHERE mr.instance_id = ? AND mr.state = 'opened' AND mr.author_username = ?{draft_clause}
             ORDER BY mr.updated_at DESC
             "#,
-        )
+        ))
         .bind(instance_id)
         .bind(&username)
         .fetch_all(pool.inner())
