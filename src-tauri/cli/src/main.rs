@@ -1,14 +1,19 @@
 //! `ultra` — terminal UI for Ultra GitLab.
 
+mod actions;
+mod app;
 mod data;
 mod db_path;
+mod event;
+mod ui;
 
 use anyhow::Context;
+use std::sync::Arc;
+use tokio::sync::mpsc;
 use ultra_gitlab_lib::core;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Crude flag parse: support `--db <path>` only for now.
     let mut args = std::env::args().skip(1);
     let mut db_flag = None;
     while let Some(a) = args.next() {
@@ -27,17 +32,16 @@ async fn main() -> anyhow::Result<()> {
     let pool = ultra_gitlab_lib::db::initialize(&path)
         .await
         .with_context(|| format!("opening database at {}", path.display()))?;
-
     let instance_id = core::default_instance_id(&pool)
         .await?
         .context("No GitLab instance configured. Sign in via the desktop app first.")?;
-    let user = core::authenticated_username(&pool, instance_id).await?;
+    let username = core::authenticated_username(&pool, instance_id).await?;
 
-    println!(
-        "Connected to {} as {} (instance {})",
-        path.display(),
-        user.as_deref().unwrap_or("<unknown>"),
-        instance_id
-    );
-    Ok(())
+    let (tx, rx) = mpsc::unbounded_channel();
+    let app = app::App::new(Arc::new(pool), instance_id, username, tx);
+
+    let terminal = ratatui::init();
+    let result = app::run(terminal, app, rx).await;
+    ratatui::restore();
+    result
 }
