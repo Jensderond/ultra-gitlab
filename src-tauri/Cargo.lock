@@ -6302,7 +6302,7 @@ dependencies = [
 
 [[package]]
 name = "ultra-gitlab"
-version = "0.20.0"
+version = "0.20.1"
 dependencies = [
  "axum",
  "base64 0.22.1",
