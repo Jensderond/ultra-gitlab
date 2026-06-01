@@ -13,8 +13,12 @@ pub fn render(f: &mut Frame, app: &App, area: Rect) {
             "tab focus · j/k scroll · a approve · R rebase · M merge · U undraft · A auto-merge · esc back"
         }
     };
-    let spinner = if app.busy { "⏳ " } else { "" };
-    let line = format!(" {spinner}{}  |  {hints}", app.status);
+    let line = if let Some(confirm) = &app.confirm {
+        format!(" {}", confirm.prompt)
+    } else {
+        let spinner = if app.busy { "⏳ " } else { "" };
+        format!(" {spinner}{}  |  {hints}", app.status)
+    };
     f.render_widget(
         Paragraph::new(line).style(Style::default().fg(Color::Gray)),
         area,
