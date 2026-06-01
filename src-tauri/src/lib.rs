@@ -42,7 +42,7 @@ use commands::{
     update_display_font,
     update_instance_token, update_keyboard_shortcuts, update_mr_list_condensed,
     update_notification_settings, update_session_cookie, update_settings,
-    update_show_recently_merged_mrs, update_sync_config,
+    update_show_draft_mrs, update_show_recently_merged_mrs, update_sync_config,
     update_sync_settings, update_theme, update_ui_font, visit_pipeline_project,
 };
 use services::companion_server;
@@ -307,6 +307,7 @@ pub fn run() {
             get_settings,
             update_settings,
             update_mr_list_condensed,
+            update_show_draft_mrs,
             update_show_recently_merged_mrs,
             update_keyboard_shortcuts,
             get_sync_settings,

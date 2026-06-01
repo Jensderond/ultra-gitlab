@@ -53,6 +53,9 @@ const MR_LIST_CONDENSED_KEY: &str = "mr_list_condensed";
 /// Key for the "show recently merged MRs" toggle on the My MRs page.
 const SHOW_RECENTLY_MERGED_MRS_KEY: &str = "show_recently_merged_mrs";
 
+/// Key for the "show draft MRs" toggle on the My MRs page.
+const SHOW_DRAFT_MRS_KEY: &str = "show_draft_mrs";
+
 /// Default number of files to jump with arrow-left/right.
 const DEFAULT_FILE_JUMP_COUNT: u32 = 5;
 
@@ -122,6 +125,8 @@ pub struct AppSettings {
     pub mr_list_condensed: bool,
     /// Whether the My MRs page includes MRs merged within the last 24 hours.
     pub show_recently_merged_mrs: bool,
+    /// Whether the My MRs page includes the user's draft MRs. Defaults to true.
+    pub show_draft_mrs: bool,
 }
 
 impl Default for AppSettings {
@@ -139,6 +144,7 @@ impl Default for AppSettings {
             keyboard_shortcuts: HashMap::new(),
             mr_list_condensed: false,
             show_recently_merged_mrs: false,
+            show_draft_mrs: true,
         }
     }
 }
@@ -237,6 +243,12 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         None => false,
     };
 
+    // Try to load "show draft MRs" flag (defaults to true)
+    let show_draft_mrs = match store.get(SHOW_DRAFT_MRS_KEY) {
+        Some(value) => serde_json::from_value(value.clone()).unwrap_or(true),
+        None => true,
+    };
+
     Ok(AppSettings {
         sync,
         collapse_patterns,
@@ -250,6 +262,7 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         keyboard_shortcuts,
         mr_list_condensed,
         show_recently_merged_mrs,
+        show_draft_mrs,
     })
 }
 
@@ -306,6 +319,10 @@ pub(crate) async fn save_settings(app: &AppHandle, settings: &AppSettings) -> Re
     // Save "show recently merged MRs" flag
     let show_recently_merged_value = serde_json::to_value(settings.show_recently_merged_mrs)?;
     store.set(SHOW_RECENTLY_MERGED_MRS_KEY, show_recently_merged_value);
+
+    // Save "show draft MRs" flag
+    let show_draft_value = serde_json::to_value(settings.show_draft_mrs)?;
+    store.set(SHOW_DRAFT_MRS_KEY, show_draft_value);
 
     // Persist to disk
     store
@@ -540,6 +557,19 @@ pub async fn update_show_recently_merged_mrs(
 ) -> Result<(), AppError> {
     let mut settings = load_settings(&app).await?;
     settings.show_recently_merged_mrs = show;
+    save_settings(&app, &settings).await?;
+    *settings_cache().write().await = settings;
+    Ok(())
+}
+
+/// Update the "show draft MRs" toggle for the My MRs page.
+///
+/// # Arguments
+/// * `show` - When true, the My MRs list includes the user's draft MRs.
+#[tauri::command]
+pub async fn update_show_draft_mrs(app: AppHandle, show: bool) -> Result<(), AppError> {
+    let mut settings = load_settings(&app).await?;
+    settings.show_draft_mrs = show;
     save_settings(&app, &settings).await?;
     *settings_cache().write().await = settings;
     Ok(())
