@@ -35,6 +35,8 @@ mod tests {
 
     #[test]
     fn default_ends_with_identifier_and_file() {
+        // Ensure the env-var tier doesn't shadow the default-path tier under test.
+        std::env::remove_var("ULTRA_GITLAB_DB");
         let p = resolve_db_path(None).unwrap();
         assert!(p.ends_with(format!("{IDENTIFIER}/{DB_FILE}")));
     }
