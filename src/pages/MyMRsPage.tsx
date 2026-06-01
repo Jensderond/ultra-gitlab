@@ -19,7 +19,7 @@ import { useSettingsQuery } from '../hooks/queries/useSettingsQuery';
 import { InstanceSwitcher } from '../components/InstanceSwitcher';
 import { useMyMRListQuery } from '../hooks/queries/useMyMRListQuery';
 import { queryKeys } from '../lib/queryKeys';
-import { updateShowRecentlyMergedMrs } from '../services';
+import { updateShowRecentlyMergedMrs, updateShowDraftMrs } from '../services';
 import { useShortcuts } from '../components/ShortcutsProvider';
 import { ShortcutBar } from '../components/ShortcutBar';
 import type { ShortcutDef } from '../components/ShortcutBar';
@@ -31,6 +31,7 @@ const defaultShortcuts: ShortcutDef[] = [
   { key: 'j/k', label: 'navigate' },
   { key: 'Enter', label: 'open' },
   { key: 'm', label: 'recently merged' },
+  { key: 'd', label: 'drafts' },
   { key: '\u2318F', label: 'search' },
   { key: '?', label: 'help' },
 ];
@@ -84,6 +85,7 @@ export default function MyMRsPage() {
   const settingsQuery = useSettingsQuery();
   const condensed = settingsQuery.data?.mrListCondensed ?? false;
   const showRecentlyMerged = settingsQuery.data?.showRecentlyMergedMrs ?? false;
+  const showDrafts = settingsQuery.data?.showDraftMrs ?? true;
   useCondensedModeAnnouncement();
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
   const mrsRef = useRef<MergeRequest[]>([]);
@@ -95,9 +97,18 @@ export default function MyMRsPage() {
     queryClient.invalidateQueries({ queryKey: queryKeys.settings() });
   }, [showRecentlyMerged, queryClient]);
 
+  const handleToggleDrafts = useCallback(async () => {
+    const next = !showDrafts;
+    await updateShowDraftMrs(next);
+    queryClient.invalidateQueries({ queryKey: queryKeys.settings() });
+  }, [showDrafts, queryClient]);
+
   const { getKey } = useShortcuts();
   useHotkey(parseHotkey(getKey('toggle-recently-merged') ?? 'm'), () => {
     handleToggleRecentlyMerged();
+  });
+  useHotkey(parseHotkey(getKey('toggle-drafts') ?? 'd'), () => {
+    handleToggleDrafts();
   });
 
   // Auto-select default or first instance when instances load
@@ -107,7 +118,7 @@ export default function MyMRsPage() {
     }
   }, [instances, selectedInstanceId]);
 
-  const myMRsQuery = useMyMRListQuery(selectedInstanceId ?? undefined, showRecentlyMerged);
+  const myMRsQuery = useMyMRListQuery(selectedInstanceId ?? undefined, showRecentlyMerged, showDrafts);
   const mrs = myMRsQuery.data ?? [];
   const loading = myMRsQuery.isLoading;
 
@@ -206,6 +217,17 @@ export default function MyMRsPage() {
         refreshAriaLabel="Refresh merge requests"
         actions={
           <>
+            <button
+              type="button"
+              className={`recently-merged-toggle ${showDrafts ? 'is-on' : ''}`}
+              onClick={handleToggleDrafts}
+              role="switch"
+              aria-checked={showDrafts}
+              title={showDrafts ? 'Hide your draft MRs' : 'Show your draft MRs'}
+            >
+              <span className="recently-merged-toggle-dot" aria-hidden="true" />
+              <span className="recently-merged-toggle-label">Drafts</span>
+            </button>
             <button
               type="button"
               className={`recently-merged-toggle ${showRecentlyMerged ? 'is-on' : ''}`}

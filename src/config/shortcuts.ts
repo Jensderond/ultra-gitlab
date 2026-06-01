@@ -287,6 +287,13 @@ export const defaultShortcuts: ShortcutDefinition[] = [
     category: 'list',
     context: 'my-mr-list',
   },
+  {
+    id: 'toggle-drafts',
+    description: 'Toggle draft MRs',
+    defaultKey: 'd',
+    category: 'list',
+    context: 'my-mr-list',
+  },
 
   // My MR Detail shortcuts
   {
