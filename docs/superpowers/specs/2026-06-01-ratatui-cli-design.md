@@ -48,7 +48,7 @@ drill-down, multi-instance selection.
 
 ## Crate layout & backend reuse
 
-- New crate at `src-tauri/cli/` — package `ultra-gitlab-cli`, binary `ugl` —
+- New crate at `src-tauri/cli/` — package `ultra-gitlab-cli`, binary `ultra` —
   added as a **workspace member** of `src-tauri`. This keeps the TUI
   dependencies (ratatui, crossterm, syntect) out of the desktop app's dependency
   tree and build.
