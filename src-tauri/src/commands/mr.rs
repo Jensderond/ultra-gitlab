@@ -1009,50 +1009,7 @@ fn parse_mr_web_url(url: &str) -> Result<(String, String, i64), AppError> {
 /// Success or error (e.g., conflicts, pipeline failures, permissions).
 #[tauri::command]
 pub async fn merge_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppError> {
-    let (instance_id, project_id, mr_iid) = get_mr_api_ids(pool.inner(), mr_id).await?;
-    let client = create_gitlab_client(&pool, instance_id).await?;
-
-    // Call GitLab merge API
-    client.merge_merge_request(project_id, mr_iid).await?;
-
-    // Update local DB on success. state_changed_at is required so the sync
-    // engine's hard-purge (which treats NULL as "legacy, eligible for delete")
-    // doesn't sweep the row away on the very next cycle.
-    let now = chrono::Utc::now().timestamp();
-    sqlx::query(
-        "UPDATE merge_requests SET state = 'merged', merged_at = ?, state_changed_at = ? WHERE id = ?",
-    )
-    .bind(now)
-    .bind(now)
-    .bind(mr_id)
-    .execute(pool.inner())
-    .await?;
-
-    Ok(())
-}
-
-/// Remove a leading `Draft:` or `WIP:` prefix from an MR title.
-///
-/// Matches the prefixes the frontend `isDraft` recognizes. Trims one optional
-/// following space. Returns the title unchanged if it has no draft prefix.
-fn strip_draft_prefix(title: &str) -> String {
-    for prefix in ["Draft:", "WIP:"] {
-        if let Some(rest) = title.strip_prefix(prefix) {
-            return rest.trim_start().to_string();
-        }
-    }
-    title.to_string()
-}
-
-/// Helper to look up instance_id, project_id, iid for a merge request.
-async fn get_mr_api_ids(pool: &DbPool, mr_id: i64) -> Result<(i64, i64, i64), AppError> {
-    sqlx::query_as::<_, (i64, i64, i64)>(
-        "SELECT instance_id, project_id, iid FROM merge_requests WHERE id = ?",
-    )
-    .bind(mr_id)
-    .fetch_optional(pool)
-    .await?
-    .ok_or_else(|| AppError::not_found_with_id("MergeRequest", mr_id.to_string()))
+    crate::core::mr_actions::merge(pool.inner(), mr_id).await
 }
 
 /// Check the merge status of an MR by fetching it from GitLab.
@@ -1070,7 +1027,7 @@ async fn get_mr_api_ids(pool: &DbPool, mr_id: i64) -> Result<(i64, i64, i64), Ap
 /// * `mr_id` - The local MR database ID
 #[tauri::command]
 pub async fn check_merge_status(pool: State<'_, DbPool>, mr_id: i64) -> Result<String, AppError> {
-    let (instance_id, project_id, mr_iid) = get_mr_api_ids(pool.inner(), mr_id).await?;
+    let (instance_id, project_id, mr_iid) = crate::core::mr_actions::mr_api_ids(pool.inner(), mr_id).await?;
     let client = create_gitlab_client(&pool, instance_id).await?;
     let gitlab_mr = client.get_merge_request(project_id, mr_iid).await?;
 
@@ -1089,7 +1046,7 @@ pub async fn get_mr_pipelines(
     mr_id: i64,
 ) -> Result<Vec<crate::commands::pipeline::PipelineStatus>, AppError> {
     use crate::commands::pipeline::PipelineStatus;
-    let (instance_id, project_id, mr_iid) = get_mr_api_ids(pool.inner(), mr_id).await?;
+    let (instance_id, project_id, mr_iid) = crate::core::mr_actions::mr_api_ids(pool.inner(), mr_id).await?;
     let client = create_gitlab_client(&pool, instance_id).await?;
     let pipelines = client.get_mr_pipelines(project_id, mr_iid).await?;
 
@@ -1119,9 +1076,7 @@ pub async fn get_mr_pipelines(
 /// * `mr_id` - The local MR database ID
 #[tauri::command]
 pub async fn rebase_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppError> {
-    let (instance_id, project_id, mr_iid) = get_mr_api_ids(pool.inner(), mr_id).await?;
-    let client = create_gitlab_client(&pool, instance_id).await?;
-    client.rebase_merge_request(project_id, mr_iid).await
+    crate::core::mr_actions::rebase(pool.inner(), mr_id).await
 }
 
 /// Mark the user's own draft MR as ready by stripping the Draft:/WIP: title prefix.
@@ -1137,32 +1092,7 @@ pub async fn rebase_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppErr
 /// The MR title after stripping (the new ready title).
 #[tauri::command]
 pub async fn undraft_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<String, AppError> {
-    let title: String = sqlx::query_scalar("SELECT title FROM merge_requests WHERE id = ?")
-        .bind(mr_id)
-        .fetch_optional(pool.inner())
-        .await?
-        .ok_or_else(|| AppError::not_found_with_id("MergeRequest", mr_id.to_string()))?;
-
-    let new_title = strip_draft_prefix(&title);
-
-    // No draft prefix — nothing to do. Avoid an unnecessary API call.
-    if new_title == title {
-        return Ok(title);
-    }
-
-    let (instance_id, project_id, mr_iid) = get_mr_api_ids(pool.inner(), mr_id).await?;
-    let client = create_gitlab_client(&pool, instance_id).await?;
-    client
-        .mark_merge_request_ready(project_id, mr_iid, &new_title)
-        .await?;
-
-    sqlx::query("UPDATE merge_requests SET title = ? WHERE id = ?")
-        .bind(&new_title)
-        .bind(mr_id)
-        .execute(pool.inner())
-        .await?;
-
-    Ok(new_title)
+    crate::core::mr_actions::undraft(pool.inner(), mr_id).await
 }
 
 #[cfg(test)]
@@ -1182,18 +1112,6 @@ mod tests {
     fn test_parse_range() {
         assert_eq!(parse_range("10,5"), Some((10, 5)));
         assert_eq!(parse_range("10"), Some((10, 1)));
-    }
-
-    #[test]
-    fn test_strip_draft_prefix() {
-        assert_eq!(strip_draft_prefix("Draft: Add feature"), "Add feature");
-        assert_eq!(strip_draft_prefix("WIP: Add feature"), "Add feature");
-        // No prefix — returned unchanged.
-        assert_eq!(strip_draft_prefix("Add feature"), "Add feature");
-        // Prefix without trailing space still stripped.
-        assert_eq!(strip_draft_prefix("Draft:Add feature"), "Add feature");
-        // Only a leading prefix is stripped, not mid-title occurrences.
-        assert_eq!(strip_draft_prefix("Add Draft: thing"), "Add Draft: thing");
     }
 
     #[test]
