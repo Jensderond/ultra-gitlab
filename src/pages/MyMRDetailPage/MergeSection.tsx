@@ -132,7 +132,7 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
         });
       },
     );
-  }, [mrId, merging, mergeConfirm, mergeDispatch, setMr, onMerged, instanceId, mrIid, mrTitle, queryClient, addToast]);
+  }, [isDraft, mrId, merging, mergeConfirm, mergeDispatch, setMr, onMerged, instanceId, mrIid, mrTitle, queryClient, addToast]);
 
   const handleRebase = useCallback(async () => {
     if (rebasing) return;
