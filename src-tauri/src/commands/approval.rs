@@ -41,23 +41,7 @@ pub async fn approve_mr(
     let (project_id, mr_iid) = get_mr_ids(pool.inner(), mr_id).await?;
 
     // Update approval status optimistically
-    // Increment approvals_count, update approval_status, and mark user as having approved
-    sqlx::query(
-        r#"
-        UPDATE merge_requests
-        SET approvals_count = COALESCE(approvals_count, 0) + 1,
-            approval_status = CASE
-                WHEN COALESCE(approvals_count, 0) + 1 >= COALESCE(approvals_required, 1)
-                THEN 'approved'
-                ELSE 'pending'
-            END,
-            user_has_approved = 1
-        WHERE id = ?
-        "#,
-    )
-    .bind(mr_id)
-    .execute(pool.inner())
-    .await?;
+    crate::core::mr_actions::apply_local_approval(pool.inner(), mr_id, true).await?;
 
     // Build payload for sync queue
     let payload = serde_json::to_string(&ApprovalPayload { project_id, mr_iid })?;
@@ -104,23 +88,7 @@ pub async fn unapprove_mr(
     let (project_id, mr_iid) = get_mr_ids(pool.inner(), mr_id).await?;
 
     // Update approval status optimistically
-    // Decrement approvals_count (but not below 0), update approval_status, and mark user as not having approved
-    sqlx::query(
-        r#"
-        UPDATE merge_requests
-        SET approvals_count = MAX(COALESCE(approvals_count, 0) - 1, 0),
-            approval_status = CASE
-                WHEN MAX(COALESCE(approvals_count, 0) - 1, 0) >= COALESCE(approvals_required, 1)
-                THEN 'approved'
-                ELSE 'pending'
-            END,
-            user_has_approved = 0
-        WHERE id = ?
-        "#,
-    )
-    .bind(mr_id)
-    .execute(pool.inner())
-    .await?;
+    crate::core::mr_actions::apply_local_approval(pool.inner(), mr_id, false).await?;
 
     // Build payload for sync queue
     // For unapprove, we'll use a special action type marker in the payload
