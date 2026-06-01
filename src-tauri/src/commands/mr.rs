@@ -106,96 +106,16 @@ pub async fn get_merge_requests(
     filter: Option<MergeRequestFilter>,
 ) -> Result<Vec<MergeRequestListItem>, AppError> {
     let filter = filter.unwrap_or_default();
-
-    // Build the query dynamically based on filters
-    // LEFT JOIN with projects table for human-readable project names,
-    // falling back to the URL-derived project_name on merge_requests
-    let mut query = String::from(
-        r#"
-        SELECT
-            mr.id, mr.instance_id, mr.iid, mr.project_id,
-            COALESCE(p.name_with_namespace, mr.project_name) AS project_name,
-            mr.title, mr.description,
-            mr.author_username, mr.source_branch, mr.target_branch, mr.state,
-            mr.web_url, mr.created_at, mr.updated_at, mr.merged_at,
-            mr.approval_status, mr.approvals_required, mr.approvals_count,
-            mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved,
-            mr.head_pipeline_status, mr.state_changed_at
-        FROM merge_requests mr
-        LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
-        WHERE mr.instance_id = $1
-          AND mr.author_username != COALESCE(
-              (SELECT authenticated_username FROM gitlab_instances WHERE id = mr.instance_id),
-              ''
-          )
-          AND mr.assigned_to_me = 0
-        "#,
-    );
-
-    // Add state filter — defaults to 'opened' so retained merged/closed MRs
-    // don't appear in the active list. Pass state='all' to include them.
-    let state_filter = Some(filter.state.as_deref().unwrap_or("opened"));
-    if let Some(state) = state_filter {
-        if state != "all" {
-            query.push_str(" AND mr.state = $2");
-        }
-    }
-
-    // Add search filter if specified
-    let has_search = filter.search.is_some();
-    let search_pattern = filter.search.map(|s| format!("%{}%", s));
-
-    if has_search {
-        let search_param = if state_filter.is_none_or(|s| s == "all") {
-            "$2"
-        } else {
-            "$3"
-        };
-        query.push_str(&format!(
-            " AND (mr.title LIKE {} OR mr.description LIKE {})",
-            search_param, search_param
-        ));
-    }
-
-    // Order by updated_at descending for most recent first
-    query.push_str(" ORDER BY mr.updated_at DESC");
-
-    // Execute the query with appropriate bindings
-    let mrs: Vec<MergeRequest> = match (state_filter, search_pattern.as_ref()) {
-        (Some(state), Some(search)) if state != "all" => {
-            sqlx::query_as(&query)
-                .bind(instance_id)
-                .bind(state)
-                .bind(search)
-                .fetch_all(pool.inner())
-                .await?
-        }
-        (Some(state), None) if state != "all" => {
-            sqlx::query_as(&query)
-                .bind(instance_id)
-                .bind(state)
-                .fetch_all(pool.inner())
-                .await?
-        }
-        (_, Some(search)) => {
-            sqlx::query_as(&query)
-                .bind(instance_id)
-                .bind(search)
-                .fetch_all(pool.inner())
-                .await?
-        }
-        _ => {
-            sqlx::query_as(&query)
-                .bind(instance_id)
-                .fetch_all(pool.inner())
-                .await?
-        }
-    };
-
-    // Convert to response items with parsed JSON fields
-    let items = mrs.into_iter().map(MergeRequestListItem::from).collect();
-
-    Ok(items)
+    let rows = crate::core::mr_query::list_review_mrs(
+        pool.inner(),
+        instance_id,
+        crate::core::mr_query::ReviewFilter {
+            state: filter.state,
+            search: filter.search,
+        },
+    )
+    .await?;
+    Ok(rows.into_iter().map(MergeRequestListItem::from).collect())
 }
 
 /// Get merge requests authored by the authenticated user.
@@ -218,83 +138,14 @@ pub async fn list_my_merge_requests(
     include_recently_merged: Option<bool>,
     include_drafts: Option<bool>,
 ) -> Result<Vec<MergeRequestListItem>, AppError> {
-    // Get the authenticated username for this instance
-    let username: Option<String> =
-        sqlx::query_scalar("SELECT authenticated_username FROM gitlab_instances WHERE id = ?")
-            .bind(instance_id)
-            .fetch_optional(pool.inner())
-            .await?
-            .flatten();
-
-    let username = username.ok_or_else(|| {
-        AppError::not_found("No authenticated username found. Please re-authenticate.")
-    })?;
-
-    // When drafts are hidden, exclude titles with a Draft:/WIP: prefix.
-    let draft_clause = if include_drafts.unwrap_or(true) {
-        ""
-    } else {
-        " AND mr.title NOT LIKE 'Draft:%' AND mr.title NOT LIKE 'WIP:%'"
-    };
-
-    let mrs: Vec<MergeRequest> = if include_recently_merged.unwrap_or(false) {
-        // 24h cutoff for recently-merged inclusion. The sync engine already
-        // hard-purges merged/closed MRs older than 24h, but we still filter
-        // defensively in case retention is extended later.
-        let cutoff = chrono::Utc::now().timestamp() - 86_400;
-        sqlx::query_as(&format!(
-            r#"
-            SELECT
-                mr.id, mr.instance_id, mr.iid, mr.project_id,
-                COALESCE(p.name_with_namespace, mr.project_name) AS project_name,
-                mr.title, mr.description,
-                mr.author_username, mr.source_branch, mr.target_branch, mr.state,
-                mr.web_url, mr.created_at, mr.updated_at, mr.merged_at,
-                mr.approval_status, mr.approvals_required, mr.approvals_count,
-                mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved,
-                mr.head_pipeline_status, mr.state_changed_at
-            FROM merge_requests mr
-            LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
-            WHERE mr.instance_id = ?
-              AND (mr.author_username = ? OR mr.assigned_to_me = 1)
-              AND (
-                  mr.state = 'opened'
-                  OR (mr.state = 'merged' AND mr.merged_at IS NOT NULL AND mr.merged_at >= ?)
-              ){draft_clause}
-            ORDER BY (mr.state = 'opened') DESC, mr.updated_at DESC
-            "#,
-        ))
-        .bind(instance_id)
-        .bind(&username)
-        .bind(cutoff)
-        .fetch_all(pool.inner())
-        .await?
-    } else {
-        sqlx::query_as(&format!(
-            r#"
-            SELECT
-                mr.id, mr.instance_id, mr.iid, mr.project_id,
-                COALESCE(p.name_with_namespace, mr.project_name) AS project_name,
-                mr.title, mr.description,
-                mr.author_username, mr.source_branch, mr.target_branch, mr.state,
-                mr.web_url, mr.created_at, mr.updated_at, mr.merged_at,
-                mr.approval_status, mr.approvals_required, mr.approvals_count,
-                mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved,
-                mr.head_pipeline_status, mr.state_changed_at
-            FROM merge_requests mr
-            LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
-            WHERE mr.instance_id = ? AND mr.state = 'opened' AND (mr.author_username = ? OR mr.assigned_to_me = 1){draft_clause}
-            ORDER BY mr.updated_at DESC
-            "#,
-        ))
-        .bind(instance_id)
-        .bind(&username)
-        .fetch_all(pool.inner())
-        .await?
-    };
-
-    let items = mrs.into_iter().map(MergeRequestListItem::from).collect();
-    Ok(items)
+    let rows = crate::core::mr_query::list_my_mrs(
+        pool.inner(),
+        instance_id,
+        include_recently_merged.unwrap_or(false),
+        include_drafts.unwrap_or(true),
+    )
+    .await?;
+    Ok(rows.into_iter().map(MergeRequestListItem::from).collect())
 }
 
 /// Diff summary information for an MR.
@@ -351,80 +202,17 @@ pub async fn get_merge_request_detail(
     pool: State<'_, DbPool>,
     mr_id: i64,
 ) -> Result<MergeRequestDetail, AppError> {
-    // Fetch the MR with project name from projects table
-    let mr: Option<MergeRequest> = sqlx::query_as(
-        r#"
-        SELECT
-            mr.id, mr.instance_id, mr.iid, mr.project_id,
-            COALESCE(p.name_with_namespace, mr.project_name) AS project_name,
-            mr.title, mr.description,
-            mr.author_username, mr.source_branch, mr.target_branch, mr.state,
-            mr.web_url, mr.created_at, mr.updated_at, mr.merged_at,
-            mr.approval_status, mr.approvals_required, mr.approvals_count,
-            mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved,
-            mr.head_pipeline_status, mr.state_changed_at
-        FROM merge_requests mr
-        LEFT JOIN projects p ON p.id = mr.project_id AND p.instance_id = mr.instance_id
-        WHERE mr.id = $1
-        "#,
-    )
-    .bind(mr_id)
-    .fetch_optional(pool.inner())
-    .await?;
-
-    let mr = mr.ok_or_else(|| AppError::not_found_with_id("MergeRequest", mr_id.to_string()))?;
-
-    // Fetch the diff summary
-    let diff: Option<Diff> = sqlx::query_as(
-        r#"
-        SELECT mr_id, content, base_sha, head_sha, start_sha,
-               file_count, additions, deletions, cached_at
-        FROM diffs
-        WHERE mr_id = $1
-        "#,
-    )
-    .bind(mr_id)
-    .fetch_optional(pool.inner())
-    .await?;
-
-    // Fetch diff files for the summary
-    let diff_files: Vec<DiffFile> = sqlx::query_as(
-        r#"
-        SELECT id, mr_id, old_path, new_path, change_type,
-               additions, deletions, file_position, diff_content
-        FROM diff_files
-        WHERE mr_id = $1
-        ORDER BY file_position
-        "#,
-    )
-    .bind(mr_id)
-    .fetch_all(pool.inner())
-    .await?;
-
-    // Build diff summary
-    let diff_summary = diff.map(|d| DiffSummary {
+    let detail = crate::core::mr_query::get_detail(pool.inner(), mr_id).await?;
+    let diff_summary = detail.diff.map(|d| DiffSummary {
         file_count: d.file_count,
         additions: d.additions,
         deletions: d.deletions,
-        files: diff_files.into_iter().map(DiffFileSummary::from).collect(),
+        files: detail.diff_files.into_iter().map(DiffFileSummary::from).collect(),
     });
-
-    // Count pending sync actions for this MR
-    let pending_actions: (i64,) = sqlx::query_as(
-        r#"
-        SELECT COUNT(*) as count
-        FROM sync_queue
-        WHERE mr_id = $1 AND status IN ('pending', 'syncing')
-        "#,
-    )
-    .bind(mr_id)
-    .fetch_one(pool.inner())
-    .await?;
-
     Ok(MergeRequestDetail {
-        mr: MergeRequestListItem::from(mr),
+        mr: MergeRequestListItem::from(detail.mr),
         diff_summary,
-        pending_actions: pending_actions.0,
+        pending_actions: detail.pending_actions,
     })
 }
 
@@ -625,20 +413,7 @@ pub async fn get_diff_files(
     pool: State<'_, DbPool>,
     mr_id: i64,
 ) -> Result<Vec<DiffFile>, AppError> {
-    let diff_files: Vec<DiffFile> = sqlx::query_as(
-        r#"
-        SELECT id, mr_id, old_path, new_path, change_type,
-               additions, deletions, file_position, diff_content
-        FROM diff_files
-        WHERE mr_id = $1
-        ORDER BY file_position
-        "#,
-    )
-    .bind(mr_id)
-    .fetch_all(pool.inner())
-    .await?;
-
-    Ok(diff_files)
+    crate::core::mr_query::get_diff_files(pool.inner(), mr_id).await
 }
 
 /// Get diff content for a specific file with syntax highlighting.
