@@ -1,5 +1,6 @@
 //! Top-level rendering: tab bar, body, footer.
 
+pub mod diff;
 pub mod footer;
 pub mod list;
 
