@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { mergeMR, checkMergeStatus, rebaseMR } from '../../services/tauri';
+import { mergeMR, checkMergeStatus, rebaseMR, undraftMR } from '../../services/tauri';
 import { useToast } from '../../components/Toast/ToastContext';
 import { queryKeys } from '../../lib/queryKeys';
 import { pendingMerges } from '../../lib/pendingMerges';
@@ -43,6 +43,7 @@ function autoMergeStatusLabel(status: string | null): string {
 export interface MergeActions {
   merge: (() => void) | null;
   rebase: (() => void) | null;
+  undraft: (() => void) | null;
 }
 
 interface MergeSectionProps {
@@ -63,6 +64,7 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
   const instanceId = mr.instanceId;
   const mrTitle = mr.title;
   const mrIid = mr.iid;
+  const isDraft = mrTitle.startsWith('Draft:') || mrTitle.startsWith('WIP:');
 
   const { claim: autoMergeClaim, isClaimed: autoMergeOn, toggle: toggleAutoMerge } = useAutoMerge(mrId);
 
@@ -143,6 +145,26 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
     }
   }, [mrId, rebasing, mergeDispatch, fetchMergeStatus]);
 
+  const handleUndraft = useCallback(async () => {
+    try {
+      const newTitle = await undraftMR(mrId);
+      setMr((prev) => (prev ? { ...prev, title: newTitle } : prev));
+      // Re-check mergeability now that the draft block is gone.
+      fetchMergeStatus();
+      queryClient.invalidateQueries({ queryKey: queryKeys.mr(mrId) });
+      if (instanceId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.myMRList(String(instanceId)) });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to mark ready';
+      addToast({
+        type: 'info',
+        title: `Failed to mark !${mrIid} ready`,
+        body: `${mrTitle} — ${message}`,
+      });
+    }
+  }, [mrId, setMr, fetchMergeStatus, queryClient, instanceId, mrIid, mrTitle, addToast]);
+
   // Treat an unresolved merge status (still loading or not yet fetched) as
   // optimistically mergeable when the MR is approved, so the user does not
   // wait on GitLab before clicking Merge. A failed merge surfaces via toast.
@@ -153,16 +175,17 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
   // Rebase is only offered when GitLab's `detailed_merge_status` is
   // `need_rebase` — matches the GitLab web UI, which hides the button when
   // the source branch is already up to date with target.
-  const canMerge = mr.state === 'opened' && optimisticallyMergeable && mr.approvalStatus === 'approved' && !merging;
-  const canRebase = mr.state === 'opened' && mergeStatus === 'need_rebase' && !rebasing;
+  const canMerge = !isDraft && mr.state === 'opened' && optimisticallyMergeable && mr.approvalStatus === 'approved' && !merging;
+  const canRebase = !isDraft && mr.state === 'opened' && mergeStatus === 'need_rebase' && !rebasing;
   useEffect(() => {
     if (actionsRef) {
       actionsRef.current = {
         merge: canMerge ? handleMerge : null,
         rebase: canRebase ? handleRebase : null,
+        undraft: isDraft && mr.state === 'opened' ? handleUndraft : null,
       };
     }
-  }, [actionsRef, canMerge, canRebase, handleMerge, handleRebase]);
+  }, [actionsRef, canMerge, canRebase, handleMerge, handleRebase, isDraft, mr.state, handleUndraft]);
 
   if (mr.state === 'merged') {
     return (
@@ -239,9 +262,12 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
         <div className="my-mr-merge-actions">
           <span className="my-mr-merge-status discussions">Unresolved discussions</span>
         </div>
-      ) : mergeStatus === 'draft_status' ? (
+      ) : isDraft || mergeStatus === 'draft_status' ? (
         <div className="my-mr-merge-actions">
           <span className="my-mr-merge-status draft">Draft</span>
+          <button className="my-mr-action-btn rebase" onClick={handleUndraft}>
+            Mark ready <span className="shortcut-tag"><span className="shortcut-mod">⌘</span>+↵</span>
+          </button>
         </div>
       ) : mergeStatus === 'not_approved' ? (
         <div className="my-mr-merge-actions">
