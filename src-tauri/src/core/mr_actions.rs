@@ -126,6 +126,48 @@ pub async fn unapprove(pool: &DbPool, mr_id: i64) -> Result<(), AppError> {
     apply_local_approval(pool, mr_id, false).await
 }
 
+/// A changed file fetched live from GitLab (not persisted). Field names match
+/// the subset of `models::DiffFile` the CLI's renderer needs.
+#[derive(Debug, Clone)]
+pub struct LiveDiffFile {
+    pub old_path: Option<String>,
+    pub new_path: String,
+    pub change_type: String,
+    pub diff_content: String,
+}
+
+/// Fetch an MR's diff live from GitLab and return per-file unified diffs.
+/// Used when the local cache has no diff for an MR. Not written back to the DB;
+/// the desktop sync engine persists diffs on its own cycle.
+pub async fn get_live_diff(pool: &DbPool, mr_id: i64) -> Result<Vec<LiveDiffFile>, AppError> {
+    let (instance_id, project_id, iid) = mr_api_ids(pool, mr_id).await?;
+    let client = create_client(pool, instance_id).await?;
+    let version = client.get_merge_request_diff(project_id, iid).await?;
+    Ok(version
+        .diffs
+        .into_iter()
+        .map(|d| LiveDiffFile {
+            change_type: if d.new_file {
+                "added"
+            } else if d.deleted_file {
+                "deleted"
+            } else if d.renamed_file {
+                "renamed"
+            } else {
+                "modified"
+            }
+            .to_string(),
+            old_path: if d.old_path == d.new_path {
+                None
+            } else {
+                Some(d.old_path)
+            },
+            new_path: d.new_path,
+            diff_content: d.diff,
+        })
+        .collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
