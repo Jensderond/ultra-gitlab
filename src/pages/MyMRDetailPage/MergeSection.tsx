@@ -147,24 +147,38 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
   }, [mrId, rebasing, mergeDispatch, fetchMergeStatus]);
 
   const handleUndraft = useCallback(async () => {
+    const previousTitle = mrTitle;
+    // Mirror the backend strip (Draft:/WIP: prefix + leading space).
+    const newTitle = previousTitle.replace(/^(Draft:|WIP:)\s*/, '');
+    if (newTitle === previousTitle) return; // Not a draft — nothing to do.
+
+    // Local-first: on keypress, immediately drop the draft prefix and clear the
+    // stale `draft_status` (showing "checking") so the UI leaves the draft state
+    // at once. We re-check against GitLab only AFTER the PUT lands — checking
+    // before would just report `draft_status` again. Revert on failure.
+    setMr((prev) => (prev ? { ...prev, title: newTitle } : prev));
+    mergeDispatch({ type: 'MERGE_STATUS_RESULT', status: null });
+    mergeDispatch({ type: 'START_MERGE_STATUS_CHECK' });
     try {
-      const newTitle = await undraftMR(mrId);
-      setMr((prev) => (prev ? { ...prev, title: newTitle } : prev));
-      // Re-check mergeability now that the draft block is gone.
+      await undraftMR(mrId);
+      // Re-check mergeability now that the draft block is gone server-side.
       fetchMergeStatus();
       queryClient.invalidateQueries({ queryKey: queryKeys.mr(mrId) });
       if (instanceId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.myMRList(String(instanceId)) });
       }
     } catch (err) {
+      // Roll back the optimistic changes.
+      setMr((prev) => (prev ? { ...prev, title: previousTitle } : prev));
+      mergeDispatch({ type: 'MERGE_STATUS_RESULT', status: 'draft_status' });
       const message = err instanceof Error ? err.message : 'Failed to mark ready';
       addToast({
         type: 'info',
         title: `Failed to mark !${mrIid} ready`,
-        body: `${mrTitle} — ${message}`,
+        body: `${previousTitle} — ${message}`,
       });
     }
-  }, [mrId, setMr, fetchMergeStatus, queryClient, instanceId, mrIid, mrTitle, addToast]);
+  }, [mrId, setMr, mergeDispatch, fetchMergeStatus, queryClient, instanceId, mrIid, mrTitle, addToast]);
 
   // Treat an unresolved merge status (still loading or not yet fetched) as
   // optimistically mergeable when the MR is approved, so the user does not
