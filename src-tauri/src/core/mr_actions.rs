@@ -170,6 +170,13 @@ mod tests {
                 .await
                 .unwrap();
         assert_eq!((count, approved), (1, 1));
+        // approvals_count (1) >= approvals_required (1) → status flips to approved.
+        let status: Option<String> =
+            sqlx::query_scalar("SELECT approval_status FROM merge_requests WHERE id = 1")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(status.as_deref(), Some("approved"));
 
         apply_local_approval(&pool, 1, false).await.unwrap();
         let (count, approved): (i64, i64) =
@@ -178,5 +185,12 @@ mod tests {
                 .await
                 .unwrap();
         assert_eq!((count, approved), (0, 0));
+        // approvals_count (0) < approvals_required (1) → status back to pending.
+        let status: Option<String> =
+            sqlx::query_scalar("SELECT approval_status FROM merge_requests WHERE id = 1")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(status.as_deref(), Some("pending"));
     }
 }
