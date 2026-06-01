@@ -33,6 +33,8 @@ pub async fn merge(pool: &DbPool, mr_id: i64) -> Result<(), AppError> {
     let (instance_id, project_id, iid) = mr_api_ids(pool, mr_id).await?;
     let client = create_client(pool, instance_id).await?;
     client.merge_merge_request(project_id, iid).await?;
+    // state_changed_at is required so the sync engine's hard-purge (which treats
+    // NULL as "legacy, eligible for delete") doesn't sweep the row on the next cycle.
     let now = chrono::Utc::now().timestamp();
     sqlx::query(
         "UPDATE merge_requests SET state = 'merged', merged_at = ?, state_changed_at = ? WHERE id = ?",
