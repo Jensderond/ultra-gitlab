@@ -98,6 +98,7 @@ mod tests {
             title: title.into(),
             author: "alice".into(),
             source_branch: "feat".into(),
+            target_branch: "main".into(),
             state: "opened".into(),
             approvals_count: 1,
             approvals_required: 2,

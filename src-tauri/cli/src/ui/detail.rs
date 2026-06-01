@@ -42,11 +42,11 @@ fn render_header(f: &mut Frame, detail: &crate::data::DetailData, area: Rect) {
     let meta = Line::from(vec![
         Span::styled(r.project_name.clone(), Style::default().fg(Color::Blue)),
         Span::raw("  "),
-        Span::styled(format!("{} → {}", r.source_branch, "…"), Style::default().fg(Color::DarkGray)),
+        Span::styled(format!("{} → {}", r.source_branch, r.target_branch), Style::default().fg(Color::DarkGray)),
         Span::raw("  "),
         Span::raw(format!("approvals {}/{}", r.approvals_count, r.approvals_required.max(0))),
         Span::raw("  "),
-        Span::raw(format!("pipeline {}", r.pipeline.clone().unwrap_or_else(|| "-".into()))),
+        Span::raw(format!("pipeline {}", r.pipeline.as_deref().unwrap_or("-"))),
     ]);
     let block = Block::default().borders(Borders::ALL);
     f.render_widget(Paragraph::new(vec![title, meta]).block(block).wrap(Wrap { trim: true }), area);
