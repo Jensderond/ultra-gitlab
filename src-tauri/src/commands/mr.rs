@@ -1247,6 +1247,19 @@ pub async fn merge_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppErro
     Ok(())
 }
 
+/// Remove a leading `Draft:` or `WIP:` prefix from an MR title.
+///
+/// Matches the prefixes the frontend `isDraft` recognizes. Trims one optional
+/// following space. Returns the title unchanged if it has no draft prefix.
+fn strip_draft_prefix(title: &str) -> String {
+    for prefix in ["Draft:", "WIP:"] {
+        if let Some(rest) = title.strip_prefix(prefix) {
+            return rest.trim_start().to_string();
+        }
+    }
+    title.to_string()
+}
+
 /// Helper to look up instance_id, project_id, iid for a merge request.
 async fn get_mr_api_ids(pool: &DbPool, mr_id: i64) -> Result<(i64, i64, i64), AppError> {
     sqlx::query_as::<_, (i64, i64, i64)>(
@@ -1344,6 +1357,18 @@ mod tests {
     fn test_parse_range() {
         assert_eq!(parse_range("10,5"), Some((10, 5)));
         assert_eq!(parse_range("10"), Some((10, 1)));
+    }
+
+    #[test]
+    fn test_strip_draft_prefix() {
+        assert_eq!(strip_draft_prefix("Draft: Add feature"), "Add feature");
+        assert_eq!(strip_draft_prefix("WIP: Add feature"), "Add feature");
+        // No prefix — returned unchanged.
+        assert_eq!(strip_draft_prefix("Add feature"), "Add feature");
+        // Prefix without trailing space still stripped.
+        assert_eq!(strip_draft_prefix("Draft:Add feature"), "Add feature");
+        // Only a leading prefix is stripped, not mid-title occurrences.
+        assert_eq!(strip_draft_prefix("Add Draft: thing"), "Add Draft: thing");
     }
 
     #[test]
