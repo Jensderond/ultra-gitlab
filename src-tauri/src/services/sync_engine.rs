@@ -131,6 +131,15 @@ pub struct SyncLogEntry {
     pub timestamp: i64,
 }
 
+/// MRs fetched from GitLab for one instance, plus whether the fetch was complete.
+///
+/// `complete` is false when any scope fetch failed or the result was truncated.
+/// Callers must not soft-purge (mark missing MRs as merged) on an incomplete fetch.
+struct FetchedMrs {
+    mrs: Vec<GitLabMergeRequest>,
+    complete: bool,
+}
+
 /// Result of a sync operation.
 #[derive(Debug)]
 pub struct SyncResult {
@@ -722,8 +731,8 @@ impl SyncEngine {
         );
 
         // Fetch MRs based on scope — reuse username from validate_token above
-        let mrs = match self.fetch_mrs_for_instance(&client, &config, current_username.as_deref().unwrap_or("unknown")).await {
-            Ok(mrs) => mrs,
+        let (mrs, fetch_complete) = match self.fetch_mrs_for_instance(&client, &config, current_username.as_deref().unwrap_or("unknown")).await {
+            Ok(fetched) => (fetched.mrs, fetched.complete),
             Err(e) => {
                 // If auth expired, propagate the error with instance info
                 if e.is_authentication_expired() {
@@ -734,7 +743,8 @@ impl SyncEngine {
                     ));
                 }
                 result.errors.push(format!("Failed to fetch MRs: {}", e));
-                Vec::new()
+                // Fetch failed outright — incomplete, so soft-purge stays disabled.
+                (Vec::new(), false)
             }
         };
 
@@ -826,10 +836,19 @@ impl SyncEngine {
         //
         // We skip purge ONLY when GitLab returned MRs but all sync tasks failed
         // (network/auth issue) — to avoid accidentally deleting valid local data.
+        //
+        // Soft-purge (marking a cached opened MR as merged because it's missing
+        // from this fetch) is gated on `fetch_complete`: if any scope fetch failed
+        // or the result was truncated, a missing MR may simply not have been
+        // fetched — marking it merged would be wrong (and caused live MRs, e.g.
+        // bot-assigned ones, to flicker between merged/opened). Hard-purge of
+        // already-merged rows is always safe and still runs.
         let should_purge = !synced_local_mr_ids.is_empty() || mrs.is_empty();
         if should_purge {
             self.emit_progress(SyncPhase::Purging, "Purging merged/closed MRs");
-            result.purged_count = self.purge_closed_mrs(instance.id, &synced_local_mr_ids).await?;
+            result.purged_count = self
+                .purge_closed_mrs(instance.id, &synced_local_mr_ids, fetch_complete)
+                .await?;
         } else if !mrs.is_empty() {
             log::warn!(
                 "[sync] Skipping purge for instance {}: all {} MR tasks failed",
@@ -938,8 +957,22 @@ impl SyncEngine {
         client: &GitLabClient,
         config: &SyncConfig,
         username: &str,
-    ) -> Result<Vec<GitLabMergeRequest>, AppError> {
-        let mut all_mrs = Vec::new();
+    ) -> Result<FetchedMrs, AppError> {
+        let mut all_mrs: Vec<GitLabMergeRequest> = Vec::new();
+        // Tracks whether we successfully fetched every scope without truncation.
+        // The soft-purge ("opened MR not in this fetch must have merged") is only
+        // safe when the fetch was complete — otherwise a transient scope failure
+        // or truncation would falsely mark live MRs as merged.
+        let mut complete = true;
+
+        // Merge a scope's results, skipping ids already collected from another scope.
+        fn merge_unique(all_mrs: &mut Vec<GitLabMergeRequest>, data: Vec<GitLabMergeRequest>) {
+            for mr in data {
+                if !all_mrs.iter().any(|m: &GitLabMergeRequest| m.id == mr.id) {
+                    all_mrs.push(mr);
+                }
+            }
+        }
 
         // Fetch authored MRs
         {
@@ -956,12 +989,21 @@ impl SyncEngine {
                 serde_json::to_string(&query).unwrap_or_default()
             );
 
-            let response = client.list_merge_requests(&query).await?;
-            eprintln!(
-                "[sync] Received {} authored MRs from GitLab",
-                response.data.len()
-            );
-            all_mrs.extend(response.data);
+            match client.list_merge_requests(&query).await {
+                Ok(response) => {
+                    eprintln!(
+                        "[sync] Received {} authored MRs from GitLab",
+                        response.data.len()
+                    );
+                    merge_unique(&mut all_mrs, response.data);
+                }
+                // Auth failures must propagate so the caller can prompt re-auth.
+                Err(e) if e.is_authentication_expired() => return Err(e),
+                Err(e) => {
+                    complete = false;
+                    eprintln!("[sync] Authored MR fetch failed (continuing): {}", e);
+                }
+            }
         }
 
         // Fetch reviewing MRs
@@ -983,25 +1025,68 @@ impl SyncEngine {
                 serde_json::to_string(&query).unwrap_or_default()
             );
 
-            let response = client.list_merge_requests(&query).await?;
-            eprintln!(
-                "[sync] Received {} reviewing MRs from GitLab",
-                response.data.len()
-            );
-            // Avoid duplicates (MR could be both authored and assigned for review)
-            for mr in response.data {
-                if !all_mrs.iter().any(|m: &GitLabMergeRequest| m.id == mr.id) {
-                    all_mrs.push(mr);
+            match client.list_merge_requests(&query).await {
+                Ok(response) => {
+                    eprintln!(
+                        "[sync] Received {} reviewing MRs from GitLab",
+                        response.data.len()
+                    );
+                    merge_unique(&mut all_mrs, response.data);
+                }
+                Err(e) if e.is_authentication_expired() => return Err(e),
+                Err(e) => {
+                    complete = false;
+                    eprintln!("[sync] Reviewing MR fetch failed (continuing): {}", e);
                 }
             }
         }
 
-        // Limit to max MRs per sync
-        if all_mrs.len() > config.max_mrs_per_sync {
-            all_mrs.truncate(config.max_mrs_per_sync);
+        // Fetch MRs assigned to the user. Covers MRs authored by someone else
+        // (e.g. Renovate bot) but assigned to the user — these aren't picked up
+        // by the authored or reviewing scopes above. Drafts are intentionally
+        // included; the "My MRs" view applies its own draft toggle.
+        {
+            let query = MergeRequestsQuery {
+                state: Some("opened".to_string()),
+                scope: Some("assigned_to_me".to_string()),
+                per_page: Some(100),
+                ..Default::default()
+            };
+
+            eprintln!(
+                "[sync] Fetching assigned MRs for user '{}', query: {}",
+                username,
+                serde_json::to_string(&query).unwrap_or_default()
+            );
+
+            match client.list_merge_requests(&query).await {
+                Ok(response) => {
+                    eprintln!(
+                        "[sync] Received {} assigned MRs from GitLab",
+                        response.data.len()
+                    );
+                    merge_unique(&mut all_mrs, response.data);
+                }
+                Err(e) if e.is_authentication_expired() => return Err(e),
+                Err(e) => {
+                    complete = false;
+                    eprintln!("[sync] Assigned MR fetch failed (continuing): {}", e);
+                }
+            }
         }
 
-        Ok(all_mrs)
+        // Limit to max MRs per sync. A truncated fetch is incomplete: we can no
+        // longer tell a dropped MR apart from a merged one, so disable soft-purge.
+        if all_mrs.len() > config.max_mrs_per_sync {
+            all_mrs.truncate(config.max_mrs_per_sync);
+            complete = false;
+            eprintln!(
+                "[sync] MR fetch truncated to {} — soft-purge disabled this cycle",
+                config.max_mrs_per_sync
+            );
+        }
+
+        Ok(FetchedMrs { mrs: all_mrs, complete })
     }
 
     /// Sync a single MR (metadata, diff, comments, approval status).
@@ -1030,7 +1115,7 @@ impl SyncEngine {
 
         // Upsert MR metadata and get the canonical DB row id
         // (may differ from mr.id if the row already existed with a different PK)
-        let local_mr_id = self.upsert_mr(instance_id, mr).await.map_err(|e| {
+        let local_mr_id = self.upsert_mr(instance_id, mr, current_user_id).await.map_err(|e| {
             eprintln!("[sync] MR !{}: upsert_mr failed: {}", mr.iid, e);
             e
         })?;
@@ -1496,7 +1581,12 @@ impl SyncEngine {
 
     /// Upsert MR metadata into the database.
     /// Returns the canonical DB row id (which may differ from mr.id if the row already existed).
-    async fn upsert_mr(&self, instance_id: i64, mr: &GitLabMergeRequest) -> Result<i64, AppError> {
+    async fn upsert_mr(
+        &self,
+        instance_id: i64,
+        mr: &GitLabMergeRequest,
+        current_user_id: Option<i64>,
+    ) -> Result<i64, AppError> {
         let created_at = parse_iso_timestamp(&mr.created_at);
         let updated_at = parse_iso_timestamp(&mr.updated_at);
         let merged_at = mr.merged_at.as_ref().map(|s| parse_iso_timestamp(s));
@@ -1511,6 +1601,13 @@ impl SyncEngine {
             .unwrap_or_else(|| "[]".to_string());
         let project_name = extract_project_path(&mr.web_url);
         let head_pipeline_status = mr.head_pipeline.as_ref().map(|p| p.status.clone());
+
+        // Flag MRs assigned to the authenticated user (matched by user id).
+        // Falls back to false when the user id is unknown (token validation failed).
+        let assigned_to_me = match (current_user_id, mr.assignees.as_ref()) {
+            (Some(uid), Some(assignees)) => assignees.iter().any(|a| a.id == uid),
+            _ => false,
+        };
 
         // Set state_changed_at when MR arrives from GitLab in merged/closed state.
         // On conflict, only update state_changed_at if the state is actually changing
@@ -1527,8 +1624,8 @@ impl SyncEngine {
                 id, instance_id, iid, project_id, title, description,
                 author_username, source_branch, target_branch, state, web_url,
                 created_at, updated_at, merged_at, labels, reviewers, cached_at,
-                project_name, head_pipeline_status, state_changed_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                project_name, head_pipeline_status, state_changed_at, assigned_to_me
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(instance_id, project_id, iid) DO UPDATE SET
                 title = excluded.title,
                 description = excluded.description,
@@ -1539,6 +1636,7 @@ impl SyncEngine {
                 reviewers = excluded.reviewers,
                 cached_at = excluded.cached_at,
                 project_name = excluded.project_name,
+                assigned_to_me = excluded.assigned_to_me,
                 head_pipeline_status = COALESCE(excluded.head_pipeline_status, merge_requests.head_pipeline_status),
                 state_changed_at = CASE
                     WHEN excluded.state != 'opened' AND merge_requests.state = 'opened'
@@ -1569,6 +1667,7 @@ impl SyncEngine {
         .bind(&project_name)
         .bind(&head_pipeline_status)
         .bind(state_changed_at)
+        .bind(assigned_to_me)
         .execute(&self.pool)
         .await?;
 
@@ -2025,13 +2124,19 @@ impl SyncEngine {
         &self,
         instance_id: i64,
         synced_local_mr_ids: &[i64],
+        allow_soft_purge: bool,
     ) -> Result<i64, AppError> {
         let open_mr_ids = synced_local_mr_ids;
 
         // --- Collect both candidate sets BEFORE any mutations ---
         // This prevents Pass 2 from catching MRs that were just soft-purged in Pass 1.
 
-        let soft_purge_rows: Vec<(i64, i64)> = if open_mr_ids.is_empty() {
+        // Soft-purge candidates are only collected when the fetch was complete.
+        // On an incomplete fetch a missing MR may just not have been fetched, so
+        // we must not infer it merged.
+        let soft_purge_rows: Vec<(i64, i64)> = if !allow_soft_purge {
+            Vec::new()
+        } else if open_mr_ids.is_empty() {
             sqlx::query_as(
                 "SELECT id, iid FROM merge_requests WHERE instance_id = ? AND state = 'opened'",
             )
@@ -3236,5 +3341,80 @@ mod tests {
 
         assert!(!status.is_syncing);
         assert!(status.last_sync_time.is_none());
+    }
+
+    /// Insert one opened MR and return (instance_id, mr_id).
+    async fn seed_opened_mr(pool: &DbPool) -> (i64, i64) {
+        let instance_id: i64 = sqlx::query_scalar(
+            "INSERT INTO gitlab_instances (url, name) VALUES ('https://gitlab.com', 'GitLab') RETURNING id",
+        )
+        .fetch_one(pool)
+        .await
+        .unwrap();
+
+        sqlx::query(
+            r#"
+            INSERT INTO merge_requests (
+                id, instance_id, iid, project_id, title, author_username,
+                source_branch, target_branch, state, web_url, created_at, updated_at,
+                assigned_to_me
+            ) VALUES (1, ?, 100, 1000, 'Renovate: bump deps', 'renovate-bot',
+                      'renovate/deps', 'main', 'opened',
+                      'https://gitlab.com/p/-/merge_requests/100', 0, 0, 1)
+            "#,
+        )
+        .bind(instance_id)
+        .execute(pool)
+        .await
+        .unwrap();
+
+        (instance_id, 1)
+    }
+
+    async fn mr_state(pool: &DbPool, mr_id: i64) -> String {
+        sqlx::query_scalar("SELECT state FROM merge_requests WHERE id = ?")
+            .bind(mr_id)
+            .fetch_one(pool)
+            .await
+            .unwrap()
+    }
+
+    // An incomplete fetch (a scope failed or results were truncated) must NOT
+    // soft-purge: a missing opened MR may simply not have been fetched. This is
+    // the regression that made bot-assigned MRs flicker between merged/opened.
+    #[tokio::test]
+    async fn test_incomplete_fetch_does_not_soft_purge() {
+        let dir = tempfile::tempdir().unwrap();
+        let pool = crate::db::initialize(&dir.path().join("test.db")).await.unwrap();
+        let (instance_id, mr_id) = seed_opened_mr(&pool).await;
+
+        let engine = SyncEngine::new(pool.clone(), Arc::new(crate::services::sync_events::NoopEmitter));
+
+        // MR not in the synced set, but fetch was incomplete → must stay opened.
+        engine
+            .purge_closed_mrs(instance_id, &[], false)
+            .await
+            .unwrap();
+
+        assert_eq!(mr_state(&pool, mr_id).await, "opened");
+    }
+
+    // A complete fetch that didn't return a cached opened MR means it really
+    // merged/closed — soft-purge should mark it merged.
+    #[tokio::test]
+    async fn test_complete_fetch_soft_purges_missing_mr() {
+        let dir = tempfile::tempdir().unwrap();
+        let pool = crate::db::initialize(&dir.path().join("test.db")).await.unwrap();
+        let (instance_id, mr_id) = seed_opened_mr(&pool).await;
+
+        let engine = SyncEngine::new(pool.clone(), Arc::new(crate::services::sync_events::NoopEmitter));
+
+        // MR absent from a complete fetch → genuinely gone → soft-purged.
+        engine
+            .purge_closed_mrs(instance_id, &[], true)
+            .await
+            .unwrap();
+
+        assert_eq!(mr_state(&pool, mr_id).await, "merged");
     }
 }

@@ -1,7 +1,7 @@
 /**
  * My MRs page component.
  *
- * Displays merge requests authored by the authenticated user.
+ * Displays merge requests authored by or assigned to the authenticated user.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -265,8 +265,8 @@ export default function MyMRsPage() {
           <div className="mr-list-loading">Loading your merge requests...</div>
         ) : mrs.length === 0 ? (
           <div className="mr-list-page-empty">
-            <h2>No Authored MRs</h2>
-            <p>You don't have any open merge requests at the moment.</p>
+            <h2>No Merge Requests</h2>
+            <p>You don't have any open merge requests authored by or assigned to you right now.</p>
           </div>
         ) : filteredItems.length === 0 ? (
           <div className="mr-list-page-empty">

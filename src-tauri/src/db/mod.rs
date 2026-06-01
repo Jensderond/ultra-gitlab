@@ -149,6 +149,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0022_auto_merge_claims",
         include_str!("migrations/0022_auto_merge_claims.sql"),
     ),
+    (
+        "0023_add_mr_assigned_to_me",
+        include_str!("migrations/0023_add_mr_assigned_to_me.sql"),
+    ),
 ];
 
 /// Run all pending database migrations.
