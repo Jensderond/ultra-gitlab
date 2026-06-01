@@ -49,22 +49,22 @@ pub async fn list_review_mrs(
     );
 
     let state = filter.state.unwrap_or_else(|| "opened".to_string());
-    let filter_state = state != "all";
-    if filter_state {
+    let apply_state_filter = state != "all";
+    if apply_state_filter {
         query.push_str(" AND mr.state = $2");
     }
 
     let has_search = filter.search.is_some();
     let search_pattern = filter.search.map(|s| format!("%{}%", s));
     if has_search {
-        let param = if filter_state { "$3" } else { "$2" };
+        let param = if apply_state_filter { "$3" } else { "$2" };
         query.push_str(&format!(
             " AND (mr.title LIKE {param} OR mr.description LIKE {param})"
         ));
     }
     query.push_str(" ORDER BY mr.updated_at DESC");
 
-    let rows: Vec<MergeRequest> = match (filter_state, search_pattern.as_ref()) {
+    let rows: Vec<MergeRequest> = match (apply_state_filter, search_pattern.as_ref()) {
         (true, Some(search)) => {
             sqlx::query_as(&query)
                 .bind(instance_id)
@@ -296,5 +296,43 @@ mod tests {
         assert!(detail.diff.is_none());
         assert!(detail.diff_files.is_empty());
         assert_eq!(detail.pending_actions, 0);
+    }
+
+    #[tokio::test]
+    async fn review_excludes_assigned_to_me() {
+        // MR authored by someone else but assigned to me must not appear in review.
+        let (_dir, pool, inst) = pool_with_mr("alice", 1, "opened", "assigned").await;
+        let rows = list_review_mrs(&pool, inst, ReviewFilter::default()).await.unwrap();
+        assert!(rows.is_empty(), "assigned-to-me MR must be excluded from review");
+    }
+
+    #[tokio::test]
+    async fn mine_hides_drafts_when_excluded() {
+        let (_dir, pool, inst) = pool_with_mr("me", 0, "opened", "Draft: wip thing").await;
+        let with = list_my_mrs(&pool, inst, false, true).await.unwrap();
+        assert_eq!(with.len(), 1, "draft shown when include_drafts=true");
+        let without = list_my_mrs(&pool, inst, false, false).await.unwrap();
+        assert!(without.is_empty(), "draft hidden when include_drafts=false");
+    }
+
+    #[tokio::test]
+    async fn review_search_matches_title() {
+        let (_dir, pool, inst) = pool_with_mr("alice", 0, "opened", "fix the parser").await;
+        let hit = list_review_mrs(
+            &pool,
+            inst,
+            ReviewFilter { state: None, search: Some("parser".into()) },
+        )
+        .await
+        .unwrap();
+        assert_eq!(hit.len(), 1, "search should match title substring");
+        let miss = list_review_mrs(
+            &pool,
+            inst,
+            ReviewFilter { state: None, search: Some("zzznomatch".into()) },
+        )
+        .await
+        .unwrap();
+        assert!(miss.is_empty(), "non-matching search returns nothing");
     }
 }
