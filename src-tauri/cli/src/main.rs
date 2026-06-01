@@ -5,6 +5,7 @@ mod app;
 mod data;
 mod db_path;
 mod event;
+mod syntax;
 mod ui;
 
 use anyhow::Context;
