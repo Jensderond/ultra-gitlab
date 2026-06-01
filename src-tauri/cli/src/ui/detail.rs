@@ -63,7 +63,18 @@ fn render_tree(f: &mut Frame, app: &mut App, detail: &crate::data::DetailData, a
                 "renamed" => Span::styled("R ", Style::default().fg(Color::Yellow)),
                 _ => Span::styled("M ", Style::default().fg(Color::Cyan)),
             };
-            ListItem::new(Line::from(vec![sym, Span::raw(file.new_path.clone())]))
+            let mut spans = vec![sym, Span::raw(file.new_path.clone())];
+            if file.additions > 0 || file.deletions > 0 {
+                spans.push(Span::styled(
+                    format!("  +{}", file.additions),
+                    Style::default().fg(Color::Green),
+                ));
+                spans.push(Span::styled(
+                    format!(" -{}", file.deletions),
+                    Style::default().fg(Color::Red),
+                ));
+            }
+            ListItem::new(Line::from(spans))
         })
         .collect();
     let focused = app.focus == Focus::Tree;

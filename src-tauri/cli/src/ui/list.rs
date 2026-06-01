@@ -99,7 +99,6 @@ mod tests {
             author: "alice".into(),
             source_branch: "feat".into(),
             target_branch: "main".into(),
-            state: "opened".into(),
             approvals_count: 1,
             approvals_required: 2,
             pipeline: Some("success".into()),

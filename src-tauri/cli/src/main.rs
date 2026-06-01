@@ -20,6 +20,8 @@ async fn main() -> anyhow::Result<()> {
     while let Some(a) = args.next() {
         if a == "--db" {
             db_flag = args.next();
+        } else if let Some(v) = a.strip_prefix("--db=") {
+            db_flag = Some(v.to_string());
         }
     }
 

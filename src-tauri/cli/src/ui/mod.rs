@@ -38,6 +38,11 @@ fn render_tabs(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
         span("1 Review", app.tab == Tab::Review),
         Span::raw(" "),
         span("2 Mine", app.tab == Tab::Mine),
+        Span::raw("   "),
+        Span::styled(
+            app.username.as_deref().map(|u| format!("@{u}")).unwrap_or_default(),
+            Style::default().fg(Color::DarkGray),
+        ),
     ]);
     f.render_widget(Paragraph::new(line), area);
 }
