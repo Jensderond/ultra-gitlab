@@ -268,11 +268,13 @@ export async function fetchMrByWebUrl(webUrl: string): Promise<ResolvedMr> {
  */
 export async function listMyMergeRequests(
   instanceId: number,
-  includeRecentlyMerged: boolean = false
+  includeRecentlyMerged: boolean = false,
+  includeDrafts: boolean = true
 ): Promise<MergeRequest[]> {
   return invoke<MergeRequest[]>('list_my_merge_requests', {
     instanceId,
     includeRecentlyMerged,
+    includeDrafts,
   });
 }
 
@@ -314,6 +316,14 @@ export async function checkMergeStatus(mrId: number): Promise<string> {
  */
 export async function rebaseMR(mrId: number): Promise<void> {
   return invoke<void>('rebase_mr', { mrId });
+}
+
+/**
+ * Mark the user's own draft MR as ready (strips the Draft:/WIP: title prefix).
+ * Returns the new title.
+ */
+export async function undraftMR(mrId: number): Promise<string> {
+  return invoke<string>('undraft_mr', { mrId });
 }
 
 /**
@@ -528,6 +538,13 @@ export async function updateMrListCondensed(condensed: boolean): Promise<void> {
  */
 export async function updateShowRecentlyMergedMrs(show: boolean): Promise<void> {
   return invoke<void>('update_show_recently_merged_mrs', { show });
+}
+
+/**
+ * Persist the "show draft MRs" toggle used on the My MRs page.
+ */
+export async function updateShowDraftMrs(show: boolean): Promise<void> {
+  return invoke<void>('update_show_draft_mrs', { show });
 }
 
 // ============================================================================

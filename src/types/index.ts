@@ -297,6 +297,7 @@ export interface Settings {
   fileJumpCount: number;
   mrListCondensed: boolean;
   showRecentlyMergedMrs: boolean;
+  showDraftMrs: boolean;
 }
 
 export type SettingsUpdate = Partial<Settings>;
