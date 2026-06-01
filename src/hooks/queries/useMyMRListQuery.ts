@@ -7,6 +7,7 @@ import { pendingMerges } from '../../lib/pendingMerges';
 export function useMyMRListQuery(
   instanceId: number | undefined,
   includeRecentlyMerged: boolean = false,
+  includeDrafts: boolean = true,
 ) {
   const pending = useSyncExternalStore(
     pendingMerges.subscribe,
@@ -14,8 +15,8 @@ export function useMyMRListQuery(
     pendingMerges.getSnapshot,
   );
   const query = useQuery({
-    queryKey: queryKeys.myMRList(String(instanceId ?? ''), includeRecentlyMerged),
-    queryFn: () => listMyMergeRequests(instanceId!, includeRecentlyMerged),
+    queryKey: queryKeys.myMRList(String(instanceId ?? ''), includeRecentlyMerged, includeDrafts),
+    queryFn: () => listMyMergeRequests(instanceId!, includeRecentlyMerged, includeDrafts),
     enabled: !!instanceId,
   });
   return {
