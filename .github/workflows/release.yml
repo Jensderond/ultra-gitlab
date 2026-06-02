@@ -168,7 +168,7 @@ jobs:
 
       - name: Build ultra CLI binary
         working-directory: src-tauri
-        run: cargo build --release --bin ultra --target aarch64-apple-darwin
+        run: cargo build --release -p ultra-gitlab-cli --target aarch64-apple-darwin
 
       - name: Attach ultra CLI to the release
         env:
