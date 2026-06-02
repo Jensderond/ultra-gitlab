@@ -254,6 +254,9 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
                 Focus::Diff => Focus::Tree,
             };
         }
+        // Right (or vim l) jumps into the diff to scroll it; Left (or h) back to files.
+        KeyCode::Right | KeyCode::Char('l') => app.focus = Focus::Diff,
+        KeyCode::Left | KeyCode::Char('h') => app.focus = Focus::Tree,
         KeyCode::Char('j') | KeyCode::Down => match app.focus {
             Focus::Tree => move_file(app, 1),
             Focus::Diff => app.diff_scroll = app.diff_scroll.saturating_add(1),

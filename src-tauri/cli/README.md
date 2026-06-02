@@ -24,7 +24,7 @@ hint to sign in via the desktop app first.
 ## Keys
 
 - **Lists:** `1`/`2`/`Tab` switch tabs · `j`/`k` move · `enter` open · `r` refresh · `q` quit
-- **Detail:** `tab` toggle focus (Files ↔ Diff) · `j`/`k` scroll/file · `esc` back
+- **Detail:** `→`/`l` focus diff · `←`/`h` focus files · `tab` toggle focus · `j`/`k` scroll/file · `esc` back
 - **Review detail:** `a` approve / unapprove
 - **Mine detail:** `R` rebase · `M` merge (confirm with `y`) · `U` undraft · `A` auto-merge
 
