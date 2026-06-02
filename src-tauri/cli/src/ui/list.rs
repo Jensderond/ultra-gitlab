@@ -2,10 +2,10 @@
 
 use crate::app::{App, Tab};
 use crate::data::MrRow;
-use ratatui::layout::Rect;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, List, ListItem};
+use ratatui::widgets::{Block, Borders, List, ListItem, ListState};
 use ratatui::Frame;
 
 fn pipeline_glyph(status: Option<&str>) -> Span<'static> {
@@ -45,6 +45,9 @@ fn row_line(row: &MrRow, mine: bool) -> Line<'static> {
     if mine && row.is_draft {
         spans.push(Span::styled(" [draft]", Style::default().fg(Color::Yellow)));
     }
+    if mine && row.is_merged() {
+        spans.push(Span::styled(" [merged]", Style::default().fg(Color::Magenta)));
+    }
     if !mine {
         spans.push(Span::styled(
             format!("  @{}", row.author),
@@ -66,7 +69,6 @@ fn truncate(s: &str, max: usize) -> String {
 
 pub fn render(f: &mut Frame, app: &mut App, area: Rect) {
     let mine = app.tab == Tab::Mine;
-    let title = if mine { " Mine " } else { " Review " };
     let rows = app.rows();
     if rows.is_empty() {
         let msg = if app.busy {
@@ -74,16 +76,68 @@ pub fn render(f: &mut Frame, app: &mut App, area: Rect) {
         } else {
             "No merge requests. Press r to refresh (desktop app keeps the cache fresh)."
         };
+        let title = if mine { " Mine " } else { " Review " };
         let block = Block::default().borders(Borders::ALL).title(title);
         f.render_widget(ratatui::widgets::Paragraph::new(msg).block(block), area);
         return;
     }
-    let items: Vec<ListItem> = rows.iter().map(|r| ListItem::new(row_line(r, mine))).collect();
+
+    if mine {
+        render_mine(f, app, area);
+    } else {
+        let items: Vec<ListItem> = rows.iter().map(|r| ListItem::new(row_line(r, false))).collect();
+        let list = List::new(items)
+            .block(Block::default().borders(Borders::ALL).title(" Review "))
+            .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+            .highlight_symbol("▌");
+        f.render_stateful_widget(list, area, &mut app.list_state);
+    }
+}
+
+/// Render the Mine tab as two boxes: open work on top, drafts & recently merged
+/// below. Rows are pre-sorted (open first) in `data::load_mine`, so `split` is
+/// the count of leading open rows and the global selection index maps cleanly
+/// into each box.
+fn render_mine(f: &mut Frame, app: &mut App, area: Rect) {
+    let rows = app.rows();
+    let split = rows.iter().take_while(|r| r.is_open_work()).count();
+    let open = &rows[..split];
+    let other = &rows[split..];
+    let selected = app.list_state.selected().unwrap_or(0);
+
+    // Single section present: render one full-height box.
+    if open.is_empty() {
+        render_section(f, area, " Drafts & Merged ", other, Some(selected));
+        return;
+    }
+    if other.is_empty() {
+        render_section(f, area, " Open ", open, Some(selected));
+        return;
+    }
+
+    // Both present: top box sized to fit open rows (capped at ~60% of the area),
+    // bottom box takes the remainder.
+    let open_h = (open.len() as u16 + 2).min((area.height * 3 / 5).max(3));
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(open_h), Constraint::Min(3)])
+        .split(area);
+
+    render_section(f, chunks[0], " Open ", open, Some(selected));
+    let lower = if selected >= split { Some(selected - split) } else { None };
+    render_section(f, chunks[1], " Drafts & Merged ", other, lower);
+}
+
+fn render_section(f: &mut Frame, area: Rect, title: &str, rows: &[MrRow], selected: Option<usize>) {
+    let items: Vec<ListItem> = rows.iter().map(|r| ListItem::new(row_line(r, true))).collect();
     let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title(title))
+        .block(Block::default().borders(Borders::ALL).title(title.to_string()))
         .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
         .highlight_symbol("▌");
-    f.render_stateful_widget(list, area, &mut app.list_state);
+    let mut state = ListState::default();
+    // Only highlight in the box that actually owns the selection.
+    state.select(selected.filter(|&i| i < rows.len()));
+    f.render_stateful_widget(list, area, &mut state);
 }
 
 #[cfg(test)]
@@ -104,6 +158,7 @@ mod tests {
             pipeline: Some("success".into()),
             is_draft: false,
             user_has_approved: false,
+            state: "opened".into(),
         }
     }
 

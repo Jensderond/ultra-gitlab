@@ -22,6 +22,20 @@ pub struct MrRow {
     pub pipeline: Option<String>,
     pub is_draft: bool,
     pub user_has_approved: bool,
+    /// GitLab MR state: `opened`, `merged`, or `closed`.
+    pub state: String,
+}
+
+impl MrRow {
+    pub fn is_merged(&self) -> bool {
+        self.state == "merged"
+    }
+
+    /// True for open, non-draft MRs — the actionable top section of the Mine tab.
+    /// Drafts and recently-merged MRs fall into the secondary section.
+    pub fn is_open_work(&self) -> bool {
+        self.state == "opened" && !self.is_draft
+    }
 }
 
 impl From<MergeRequest> for MrRow {
@@ -40,6 +54,7 @@ impl From<MergeRequest> for MrRow {
             pipeline: m.head_pipeline_status,
             is_draft,
             user_has_approved: m.user_has_approved,
+            state: m.state,
         }
     }
 }
@@ -89,12 +104,22 @@ pub struct DetailData {
 
 pub async fn load_review(pool: &DbPool, instance_id: i64) -> Result<Vec<MrRow>, AppError> {
     let rows = mr_query::list_review_mrs(pool, instance_id, ReviewFilter::default()).await?;
-    Ok(rows.into_iter().map(MrRow::from).collect())
+    // Hide MRs the user has already approved — once reviewed, they drop off the list.
+    Ok(rows
+        .into_iter()
+        .map(MrRow::from)
+        .filter(|r| !r.user_has_approved)
+        .collect())
 }
 
 pub async fn load_mine(pool: &DbPool, instance_id: i64) -> Result<Vec<MrRow>, AppError> {
     let rows = mr_query::list_my_mrs(pool, instance_id, true, true).await?;
-    Ok(rows.into_iter().map(MrRow::from).collect())
+    let mut rows: Vec<MrRow> = rows.into_iter().map(MrRow::from).collect();
+    // Open, non-draft MRs sort to the top (actionable); drafts and recently
+    // merged drop below. Stable sort preserves the query's updated_at order
+    // within each group. The list UI renders the two groups as separate boxes.
+    rows.sort_by_key(|r| !r.is_open_work());
+    Ok(rows)
 }
 
 pub async fn load_detail(pool: &DbPool, mr_id: i64) -> Result<DetailData, AppError> {

@@ -54,6 +54,10 @@ pub struct App {
     pub busy: bool,
     pub should_quit: bool,
     pub confirm: Option<Confirm>,
+    /// Request a full terminal clear before the next draw. Set on transitions
+    /// (file switch, leaving the detail view) where the frame-diff can leave
+    /// stale diff cells behind — clearing forces a complete repaint.
+    pub force_clear: bool,
 
     pub tx: mpsc::UnboundedSender<AppEvent>,
     pub highlighter: Highlighter,
@@ -94,6 +98,7 @@ impl App {
             busy: true,
             should_quit: false,
             confirm: None,
+            force_clear: false,
             tx,
             highlighter: Highlighter::new(),
         }
@@ -162,6 +167,10 @@ pub async fn run(
         if app.should_quit {
             break;
         }
+        if app.force_clear {
+            terminal.clear()?;
+            app.force_clear = false;
+        }
         terminal.draw(|f| ui::draw(f, &mut app))?;
     }
     Ok(())
@@ -190,6 +199,9 @@ fn handle_event(app: &mut App, ev: AppEvent) {
         AppEvent::ActionDone(verb, Ok(msg)) => {
             app.busy = false;
             app.status = format!("{verb}: {msg}");
+            // For approve the UI already updated optimistically (see
+            // actions::approve_optimistic); the reload just reconciles with the
+            // server. Other actions rely on the reload to reflect their result.
             app.load_lists();
         }
         AppEvent::Review(Err(e))
@@ -201,6 +213,11 @@ fn handle_event(app: &mut App, ev: AppEvent) {
         AppEvent::ActionDone(verb, Err(e)) => {
             app.busy = false;
             app.status = format!("{verb} failed: {e}");
+            // The optimistic approve removed the row up front; reload to bring it
+            // back since the request never landed.
+            if verb == "approve" {
+                app.load_lists();
+            }
         }
     }
 }
@@ -252,6 +269,7 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
         KeyCode::Esc | KeyCode::Char('q') => {
             app.screen = Screen::List;
             app.detail = None;
+            app.force_clear = true;
         }
         KeyCode::Tab => {
             app.focus = match app.focus {
@@ -304,6 +322,7 @@ fn move_file(app: &mut App, delta: i32) {
     let next = (cur + delta).clamp(0, len as i32 - 1) as usize;
     app.file_state.select(Some(next));
     app.diff_scroll = 0;
+    app.force_clear = true;
 }
 
 /// Mark the selected file viewed, then select the next not-yet-viewed file
@@ -322,6 +341,7 @@ fn mark_viewed_and_advance(app: &mut App) {
     if let Some(i) = next {
         app.file_state.select(Some(i));
         app.diff_scroll = 0;
+        app.force_clear = true;
     } else {
         app.status = "All files viewed".into();
     }
