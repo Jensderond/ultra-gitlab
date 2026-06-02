@@ -7,6 +7,7 @@ mod db_path;
 mod event;
 mod syntax;
 mod ui;
+mod update;
 
 use anyhow::Context;
 use std::sync::Arc;
@@ -15,11 +16,19 @@ use ultra_gitlab_lib::core;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let mut args = std::env::args().skip(1);
+    let args: Vec<String> = std::env::args().skip(1).collect();
+
+    // `ultra update` self-updates and exits (no DB / TUI). Blocking, so run it
+    // off the async runtime.
+    if args.first().map(String::as_str) == Some("update") {
+        return tokio::task::spawn_blocking(update::run_update).await?;
+    }
+
     let mut db_flag = None;
-    while let Some(a) = args.next() {
+    let mut it = args.into_iter();
+    while let Some(a) = it.next() {
         if a == "--db" {
-            db_flag = args.next();
+            db_flag = it.next();
         } else if let Some(v) = a.strip_prefix("--db=") {
             db_flag = Some(v.to_string());
         }

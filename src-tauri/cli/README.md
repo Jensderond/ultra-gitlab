@@ -21,6 +21,13 @@ environment variable. By default it opens the same file the desktop app uses:
 If the database doesn't exist or no instance is configured, the CLI exits with a
 hint to sign in via the desktop app first.
 
+## Update
+
+`ultra update` replaces the binary with the newest **promoted** GitHub release
+(pre-releases are ignored until you mark one as Latest):
+
+    ultra update
+
 ## Keys
 
 - **Lists:** `1`/`2`/`Tab` switch tabs · `j`/`k` move · `enter` open · `r` refresh · `q` quit
