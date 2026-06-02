@@ -10,8 +10,8 @@ pub fn render(f: &mut Frame, app: &App, area: Rect) {
     let hints = match app.screen {
         Screen::List => "1/2 tabs · j/k move · enter open · r refresh · q quit",
         Screen::Detail => match app.tab {
-            Tab::Review => "→/← or tab focus · j/k scroll · a approve/unapprove · esc back",
-            Tab::Mine => "→/← or tab focus · j/k scroll · R rebase · M merge · U undraft · A auto-merge · esc back",
+            Tab::Review => "→/← focus · j/k scroll · V viewed · a approve/unapprove · esc back",
+            Tab::Mine => "→/← focus · j/k scroll · V viewed · R rebase · M merge · U undraft · A auto-merge · esc back",
         },
     };
     let line = if let Some(confirm) = &app.confirm {

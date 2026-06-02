@@ -57,13 +57,19 @@ fn render_tree(f: &mut Frame, app: &mut App, detail: &crate::data::DetailData, a
         .files
         .iter()
         .map(|file| {
+            let viewed = app.viewed.contains(&file.new_path);
             let sym = match file.change_type.as_str() {
                 "added" => Span::styled("A ", Style::default().fg(Color::Green)),
                 "deleted" => Span::styled("D ", Style::default().fg(Color::Red)),
                 "renamed" => Span::styled("R ", Style::default().fg(Color::Yellow)),
                 _ => Span::styled("M ", Style::default().fg(Color::Cyan)),
             };
-            let mut spans = vec![sym, Span::raw(file.new_path.clone())];
+            let path_style = if viewed {
+                Style::default().fg(Color::DarkGray)
+            } else {
+                Style::default()
+            };
+            let mut spans = vec![sym, Span::styled(file.new_path.clone(), path_style)];
             if file.additions > 0 || file.deletions > 0 {
                 spans.push(Span::styled(
                     format!("  +{}", file.additions),
@@ -73,6 +79,9 @@ fn render_tree(f: &mut Frame, app: &mut App, detail: &crate::data::DetailData, a
                     format!(" -{}", file.deletions),
                     Style::default().fg(Color::Red),
                 ));
+            }
+            if viewed {
+                spans.push(Span::styled("  ✓", Style::default().fg(Color::Green)));
             }
             ListItem::new(Line::from(spans))
         })
