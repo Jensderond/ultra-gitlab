@@ -89,6 +89,8 @@ export {
   refreshAvatars,
   resolveMrByWebUrl,
   fetchMrByWebUrl,
+  downloadAndInstallCli,
+  cliStatus,
 } from './tauri';
 
 // GitLab operations (high-level)

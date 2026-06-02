@@ -18,6 +18,7 @@ import UpdatesSection from './UpdatesSection';
 import InstancesSection from './InstancesSection';
 import SyncSettingsSection from './SyncSettingsSection';
 import CompanionServerSection from './CompanionServerSection';
+import CliSection from './CliSection';
 import AppearanceSection from './AppearanceSection';
 import NotificationsSection from './NotificationsSection';
 import CollapsePatternsEditor from './CollapsePatternsEditor';
@@ -88,6 +89,12 @@ export default function Settings({ updateChecker }: SettingsProps) {
         {isTauri && (
           <CollapsibleSection title={<>Companion Server <span className="beta-badge">Beta</span></>}>
             <CompanionServerSection />
+          </CollapsibleSection>
+        )}
+
+        {isTauri && (
+          <CollapsibleSection title="Command Line">
+            <CliSection />
           </CollapsibleSection>
         )}
 

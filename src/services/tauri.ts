@@ -44,6 +44,8 @@ import type {
   IssueProject,
   IssueNote,
   IssueAssigneeCandidate,
+  CliInstallResult,
+  CliStatus,
 } from '../types';
 
 // ============================================================================
@@ -1082,4 +1084,23 @@ export async function updateSessionCookie(instanceId: number, sessionCookie: str
  */
 export async function refreshAvatars(instanceId: number): Promise<number> {
   return invoke<number>('refresh_avatars', { instanceId });
+}
+
+// ============================================================================
+// CLI Commands
+// ============================================================================
+
+/**
+ * Download and install the ultra CLI binary to ~/.local/bin.
+ * Returns the installed version, path, whether it is on PATH, and a human message.
+ */
+export async function downloadAndInstallCli(): Promise<CliInstallResult> {
+  return invoke<CliInstallResult>('download_and_install_cli');
+}
+
+/**
+ * Get current CLI installation status.
+ */
+export async function cliStatus(): Promise<CliStatus> {
+  return invoke<CliStatus>('cli_status');
 }

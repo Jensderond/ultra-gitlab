@@ -547,6 +547,23 @@ export interface NotificationSettings {
 }
 
 // ============================================================================
+// CLI Install
+// ============================================================================
+
+export interface CliInstallResult {
+  version: string;
+  path: string;
+  onPath: boolean;
+  message: string;
+}
+
+export interface CliStatus {
+  installed: boolean;
+  path: string;
+  onPath: boolean;
+}
+
+// ============================================================================
 // Companion Server Settings
 // ============================================================================
 
