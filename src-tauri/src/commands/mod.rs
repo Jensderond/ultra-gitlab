@@ -13,6 +13,7 @@
 pub mod approval;
 pub mod auth;
 pub mod auto_merge;
+pub mod cli;
 pub mod avatar;
 pub mod comments;
 pub mod companion_server;
@@ -30,6 +31,7 @@ pub mod settings;
 pub mod sync;
 
 // Re-export commands for registration in lib.rs
+pub use cli::{cli_status, download_and_install_cli};
 pub use approval::{approve_mr, get_approval_status, unapprove_mr};
 pub use auto_merge::{
     claim_auto_merge, get_auto_merge_claim, process_auto_merge_now, unclaim_auto_merge,

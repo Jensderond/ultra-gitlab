@@ -11,6 +11,7 @@ pub mod models;
 pub mod services;
 
 use commands::{
+    cli_status, download_and_install_cli,
     add_comment, approve_mr, cancel_pipeline, cancel_pipeline_job, check_merge_status,
     claim_auto_merge, clear_test_data, get_auto_merge_claim, process_auto_merge_now,
     unclaim_auto_merge,
@@ -401,6 +402,9 @@ pub fn run() {
             get_avatars,
             update_session_cookie,
             refresh_avatars,
+            // CLI installer
+            cli_status,
+            download_and_install_cli,
         ])
         .on_window_event(|window, event| {
             #[cfg(target_os = "macos")]
