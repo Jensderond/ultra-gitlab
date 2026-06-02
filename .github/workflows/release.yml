@@ -7,6 +7,11 @@ on:
         description: 'Version number (e.g. 0.14.0)'
         required: true
         type: string
+      prerelease:
+        description: 'Publish as a pre-release (not marked Latest; promote manually in the GitHub UI when ready). The auto-updater only serves the Latest release.'
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   validate-version:
@@ -158,5 +163,16 @@ jobs:
           releaseName: 'Ultra GitLab v${{ inputs.version }}'
           releaseBody: ${{ needs.changelog.outputs.content }}
           releaseDraft: false
-          prerelease: false
+          prerelease: ${{ inputs.prerelease }}
           args: --target aarch64-apple-darwin
+
+      - name: Build ultra CLI binary
+        working-directory: src-tauri
+        run: cargo build --release --bin ultra --target aarch64-apple-darwin
+
+      - name: Attach ultra CLI to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp src-tauri/target/aarch64-apple-darwin/release/ultra ultra-macos-arm64
+          gh release upload "v${{ inputs.version }}" ultra-macos-arm64 --clobber
