@@ -32,6 +32,13 @@ const files = [
     replace: (content: string) =>
       content.replace(/^version\s*=\s*"[^"]*"/m, `version = "${version}"`),
   },
+  {
+    // Keep the CLI crate's version in lockstep so `ultra update` (self_update)
+    // can compare the running binary against the release tag.
+    path: "src-tauri/cli/Cargo.toml",
+    replace: (content: string) =>
+      content.replace(/^version\s*=\s*"[^"]*"/m, `version = "${version}"`),
+  },
 ];
 
 for (const file of files) {

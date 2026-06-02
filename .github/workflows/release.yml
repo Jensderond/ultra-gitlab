@@ -170,9 +170,10 @@ jobs:
         working-directory: src-tauri
         run: cargo build --release -p ultra-gitlab-cli --target aarch64-apple-darwin
 
-      - name: Attach ultra CLI to the release
+      - name: Package & attach ultra CLI to the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cp src-tauri/target/aarch64-apple-darwin/release/ultra ultra-macos-arm64
-          gh release upload "v${{ inputs.version }}" ultra-macos-arm64 --clobber
+          tar -czf ultra-aarch64-apple-darwin.tar.gz \
+            -C src-tauri/target/aarch64-apple-darwin/release ultra
+          gh release upload "v${{ inputs.version }}" ultra-aarch64-apple-darwin.tar.gz --clobber
