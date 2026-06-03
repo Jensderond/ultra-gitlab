@@ -633,9 +633,6 @@ mod tests {
             status: status.map(|s| data::PipeStatus {
                 status: s.into(),
                 ref_name: "main".into(),
-                sha: "abc".into(),
-                web_url: "http://x".into(),
-                duration: None,
             }),
         }
     }
@@ -654,9 +651,11 @@ mod tests {
 
     #[test]
     fn has_inflight_checks_active_view() {
-        let mut st = PipelinesState::default();
-        st.projects = vec![proj(1, Some("running")), proj(2, Some("success"))];
-        st.view = PipeView::Projects;
+        let mut st = PipelinesState {
+            projects: vec![proj(1, Some("running")), proj(2, Some("success"))],
+            view: PipeView::Projects,
+            ..Default::default()
+        };
         assert!(st.has_inflight());
         st.projects = vec![proj(1, Some("success"))];
         assert!(!st.has_inflight());

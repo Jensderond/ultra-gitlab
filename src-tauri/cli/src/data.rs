@@ -158,9 +158,6 @@ pub fn short_sha(sha: &str) -> String {
 pub struct PipeStatus {
     pub status: String,
     pub ref_name: String,
-    pub sha: String,
-    pub web_url: String,
-    pub duration: Option<i64>,
 }
 
 /// A tracked project row in the Pipelines tab.
@@ -182,7 +179,6 @@ pub struct PipeRow {
     pub ref_name: String,
     pub sha: String,
     pub web_url: String,
-    pub created_at: String,
     pub duration: Option<i64>,
 }
 
@@ -195,7 +191,6 @@ impl From<GitLabPipeline> for PipeRow {
             ref_name: p.ref_name,
             sha: short_sha(&p.sha),
             web_url: p.web_url,
-            created_at: p.created_at,
             duration: p.duration,
         }
     }
@@ -210,7 +205,6 @@ pub struct JobRow {
     pub status: String,
     pub web_url: String,
     pub allow_failure: bool,
-    pub duration: Option<f64>,
 }
 
 impl From<GitLabJob> for JobRow {
@@ -222,7 +216,6 @@ impl From<GitLabJob> for JobRow {
             status: j.status,
             web_url: j.web_url,
             allow_failure: j.allow_failure,
-            duration: j.duration,
         }
     }
 }
@@ -232,7 +225,6 @@ impl From<GitLabJob> for JobRow {
 pub struct ProjectHit {
     pub id: i64,
     pub name: String,
-    pub web_url: String,
 }
 
 fn project_row(p: PipelineProject, status: Option<PipeStatus>) -> PipeProjectRow {
@@ -260,9 +252,6 @@ pub async fn load_pipeline_projects(
             PipeStatus {
                 status: c.status,
                 ref_name: c.ref_name,
-                sha: short_sha(&c.sha),
-                web_url: c.web_url,
-                duration: c.duration,
             },
         );
     }
@@ -290,9 +279,6 @@ pub async fn load_project_statuses(
                 PipeStatus {
                     status: p.status,
                     ref_name: p.ref_name,
-                    sha: short_sha(&p.sha),
-                    web_url: p.web_url,
-                    duration: p.duration,
                 },
             )
         })
@@ -340,7 +326,6 @@ pub async fn search_pipeline_projects(
         .map(|p: Project| ProjectHit {
             id: p.id,
             name: p.name_with_namespace,
-            web_url: p.web_url,
         })
         .collect())
 }
