@@ -9,13 +9,7 @@ use ratatui::widgets::{Block, Borders, List, ListItem, ListState};
 use ratatui::Frame;
 
 fn pipeline_glyph(status: Option<&str>) -> Span<'static> {
-    let (sym, color) = match status {
-        Some("success") => ("●", Color::Green),
-        Some("failed") => ("●", Color::Red),
-        Some("running") => ("●", Color::Yellow),
-        Some(_) => ("●", Color::DarkGray),
-        None => ("·", Color::DarkGray),
-    };
+    let (sym, color) = crate::ui::status_style(status);
     Span::styled(sym, Style::default().fg(color))
 }
 

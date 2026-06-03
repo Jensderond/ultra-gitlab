@@ -8,6 +8,7 @@ mod event;
 mod syntax;
 mod ui;
 mod update;
+mod util;
 
 use anyhow::Context;
 use std::sync::Arc;

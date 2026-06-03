@@ -46,3 +46,19 @@ fn render_tabs(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     ]);
     f.render_widget(Paragraph::new(line), area);
 }
+
+/// Map a pipeline/job status string to a glyph and color, shared by the list,
+/// pipelines, and detail views. `None` status renders a dim dot.
+pub fn status_style(status: Option<&str>) -> (&'static str, Color) {
+    match status {
+        Some("success") => ("●", Color::Green),
+        Some("failed") => ("●", Color::Red),
+        Some("running") => ("●", Color::Yellow),
+        Some("pending") | Some("created") | Some("waiting_for_resource") | Some("preparing")
+        | Some("scheduled") => ("●", Color::Cyan),
+        Some("canceled") | Some("skipped") => ("●", Color::DarkGray),
+        Some("manual") => ("◆", Color::Magenta),
+        Some(_) => ("●", Color::DarkGray),
+        None => ("·", Color::DarkGray),
+    }
+}
