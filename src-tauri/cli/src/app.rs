@@ -157,6 +157,10 @@ pub async fn run(
     app.load_lists();
     terminal.draw(|f| ui::draw(f, &mut app))?;
 
+    let mut ticker = tokio::time::interval(std::time::Duration::from_secs(10));
+    // The first tick fires immediately; skip it so we don't double-load on start.
+    ticker.tick().await;
+
     loop {
         tokio::select! {
             maybe_key = keys.next() => {
@@ -169,6 +173,9 @@ pub async fn run(
             Some(ev) = rx.recv() => {
                 handle_event(&mut app, ev);
             }
+            _ = ticker.tick() => {
+                on_tick(&mut app);
+            }
         }
         if app.should_quit {
             break;
@@ -180,6 +187,21 @@ pub async fn run(
         terminal.draw(|f| ui::draw(f, &mut app))?;
     }
     Ok(())
+}
+
+/// Periodic refresh: while the active pipelines view has an in-flight
+/// pipeline/job, re-fetch it so status changes appear without input.
+fn on_tick(app: &mut App) {
+    if app.busy {
+        return;
+    }
+    if app.tab == Tab::Pipelines
+        && app.screen == Screen::List
+        && app.pipelines.search.is_none()
+        && app.pipelines.has_inflight()
+    {
+        crate::pipelines::reload_active_view(app);
+    }
 }
 
 fn handle_event(app: &mut App, ev: AppEvent) {
