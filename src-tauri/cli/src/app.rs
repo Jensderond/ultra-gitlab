@@ -437,6 +437,7 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
         KeyCode::Esc | KeyCode::Char('q') => {
             app.screen = Screen::List;
             app.detail = None;
+            app.detail_pipes.reset();
             app.force_clear = true;
         }
         KeyCode::Tab => {
@@ -525,10 +526,19 @@ fn open_detail(app: &mut App) {
     app.detail = None;
     app.busy = true;
     app.status = "Loading diff…".into();
+    app.detail_pipes.reset();
     let pool = app.pool.clone();
     let tx = app.tx.clone();
     tokio::spawn(async move {
         let r = data::load_detail(&pool, mr_id).await.map_err(|e| e.to_string());
         let _ = tx.send(AppEvent::Detail(r));
+    });
+    let pool2 = app.pool.clone();
+    let tx2 = app.tx.clone();
+    tokio::spawn(async move {
+        let r = data::load_mr_pipelines(&pool2, mr_id)
+            .await
+            .map_err(|e| e.to_string());
+        let _ = tx2.send(AppEvent::MrPipes(r));
     });
 }
