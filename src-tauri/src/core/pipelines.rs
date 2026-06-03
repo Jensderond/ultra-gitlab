@@ -10,7 +10,8 @@ use crate::db::pool::DbPool;
 use crate::error::AppError;
 use crate::models::pipeline_project::{self, PipelineProject};
 use crate::models::project::{self, Project};
-use crate::services::gitlab_client::GitLabPipeline;
+use crate::services::gitlab_client::{GitLabJob, GitLabPipeline};
+use futures::future::join_all;
 use std::collections::HashSet;
 
 /// List all tracked pipeline projects for an instance.
@@ -150,6 +151,113 @@ pub async fn cached_statuses(
             duration: c.duration,
         })
         .collect())
+}
+
+/// Fetch the latest pipeline for each project in parallel and cache results.
+pub async fn latest_statuses(
+    pool: &DbPool,
+    instance_id: i64,
+    project_ids: &[i64],
+) -> Result<Vec<GitLabPipeline>, AppError> {
+    let client = create_client(pool, instance_id).await?;
+    let futures = project_ids.iter().map(|&pid| {
+        let client = client.clone();
+        async move { client.get_latest_pipeline(pid).await.ok().flatten() }
+    });
+    let statuses: Vec<GitLabPipeline> = join_all(futures).await.into_iter().flatten().collect();
+    for s in &statuses {
+        let _ = pipeline_cache::upsert_pipeline_status(
+            pool,
+            instance_id,
+            s.project_id,
+            s.id,
+            &s.status,
+            &s.ref_name,
+            &s.sha,
+            &s.web_url,
+            &s.created_at,
+            s.updated_at.as_deref(),
+            s.duration,
+        )
+        .await;
+    }
+    Ok(statuses)
+}
+
+/// Recent pipelines for a project (newest first), up to `limit`.
+pub async fn project_pipelines(
+    pool: &DbPool,
+    instance_id: i64,
+    project_id: i64,
+    limit: u32,
+) -> Result<Vec<GitLabPipeline>, AppError> {
+    let client = create_client(pool, instance_id).await?;
+    client.get_project_pipelines(project_id, limit).await
+}
+
+/// Jobs for a pipeline, including bridge (child-pipeline trigger) jobs.
+pub async fn pipeline_jobs(
+    pool: &DbPool,
+    instance_id: i64,
+    project_id: i64,
+    pipeline_id: i64,
+) -> Result<Vec<GitLabJob>, AppError> {
+    let client = create_client(pool, instance_id).await?;
+    let mut jobs = client.get_pipeline_jobs(project_id, pipeline_id).await?;
+    let bridges = client.get_pipeline_bridges(project_id, pipeline_id).await?;
+    jobs.extend(bridges);
+    Ok(jobs)
+}
+
+/// Play (trigger) a manual job.
+pub async fn play_job(
+    pool: &DbPool,
+    instance_id: i64,
+    project_id: i64,
+    job_id: i64,
+) -> Result<GitLabJob, AppError> {
+    create_client(pool, instance_id).await?.play_job(project_id, job_id).await
+}
+
+/// Retry a failed or canceled job.
+pub async fn retry_job(
+    pool: &DbPool,
+    instance_id: i64,
+    project_id: i64,
+    job_id: i64,
+) -> Result<GitLabJob, AppError> {
+    create_client(pool, instance_id).await?.retry_job(project_id, job_id).await
+}
+
+/// Cancel a running or pending job.
+pub async fn cancel_job(
+    pool: &DbPool,
+    instance_id: i64,
+    project_id: i64,
+    job_id: i64,
+) -> Result<GitLabJob, AppError> {
+    create_client(pool, instance_id).await?.cancel_job(project_id, job_id).await
+}
+
+/// Cancel a running or pending pipeline.
+pub async fn cancel_pipeline(
+    pool: &DbPool,
+    instance_id: i64,
+    project_id: i64,
+    pipeline_id: i64,
+) -> Result<GitLabPipeline, AppError> {
+    create_client(pool, instance_id)
+        .await?
+        .cancel_pipeline(project_id, pipeline_id)
+        .await
+}
+
+/// Pipelines attached to a merge request (resolves the local `mr_id` to API ids).
+pub async fn mr_pipelines(pool: &DbPool, mr_id: i64) -> Result<Vec<GitLabPipeline>, AppError> {
+    let (instance_id, project_id, mr_iid) =
+        crate::core::mr_actions::mr_api_ids(pool, mr_id).await?;
+    let client = create_client(pool, instance_id).await?;
+    client.get_mr_pipelines(project_id, mr_iid).await
 }
 
 #[cfg(test)]
