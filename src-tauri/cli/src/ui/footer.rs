@@ -1,6 +1,6 @@
 //! Bottom status/hint bar.
 
-use crate::app::{App, Screen, Tab};
+use crate::app::{App, Focus, Screen, Tab};
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Style};
 use ratatui::widgets::Paragraph;
@@ -22,11 +22,23 @@ pub fn render(f: &mut Frame, app: &App, area: Rect) {
                 }
             },
         },
-        Screen::Detail => match app.tab {
-            Tab::Review => "→/← focus · j/k scroll · V viewed · a approve/unapprove · esc back",
-            Tab::Mine => "→/← focus · j/k scroll · V viewed · R rebase · M merge · U undraft · A auto-merge · esc back",
-            Tab::Pipelines => "esc back",
-        },
+        Screen::Detail => {
+            // When the pipelines panel is focused, show its keys instead of the
+            // file/diff hints so the panel's actions are discoverable.
+            if app.focus == Focus::Pipeline {
+                if app.detail_pipes.jobs.is_some() {
+                    "j/k · p play · R retry · c cancel · o browser · esc back"
+                } else {
+                    "Tab focus · j/k · enter jobs · o browser · esc back"
+                }
+            } else {
+                match app.tab {
+                    Tab::Review => "Tab/→/← focus · j/k scroll · V viewed · a approve/unapprove · esc back",
+                    Tab::Mine => "Tab/→/← focus · j/k scroll · V viewed · R rebase · M merge · U undraft · A auto-merge · esc back",
+                    Tab::Pipelines => "esc back",
+                }
+            }
+        }
     };
     let line = if let Some(confirm) = &app.confirm {
         format!(" {}", confirm.prompt)

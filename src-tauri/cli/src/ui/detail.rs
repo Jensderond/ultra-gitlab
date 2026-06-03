@@ -126,6 +126,7 @@ fn render_diff(f: &mut Frame, app: &App, detail: &crate::data::DetailData, area:
 
 fn render_pipelines_panel(f: &mut Frame, app: &mut App, area: Rect) {
     let focused = app.focus == Focus::Pipeline;
+    let busy = app.busy;
     let glyph = |status: Option<&str>| {
         let (sym, color) = status_style(status);
         Span::styled(sym, Style::default().fg(color))
@@ -138,7 +139,10 @@ fn render_pipelines_panel(f: &mut Frame, app: &mut App, area: Rect) {
             .title(" Pipeline jobs · esc back ")
             .border_style(border_style(focused));
         if jobs.is_empty() {
-            f.render_widget(Paragraph::new("Loading…").block(block), area);
+            // Enter seeds `Some(vec![])` before the fetch resolves, so distinguish
+            // "still loading" from "fetched, no jobs" via the busy flag.
+            let msg = if busy { "Loading…" } else { "No jobs" };
+            f.render_widget(Paragraph::new(msg).block(block), area);
             return;
         }
         let items: Vec<ListItem> = jobs
