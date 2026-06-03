@@ -4,6 +4,7 @@ pub mod detail;
 pub mod diff;
 pub mod footer;
 pub mod list;
+pub mod pipelines;
 
 use crate::app::{App, Screen, Tab};
 use ratatui::layout::{Constraint, Direction, Layout};
@@ -21,7 +22,10 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     render_tabs(f, app, chunks[0]);
 
     match app.screen {
-        Screen::List => list::render(f, app, chunks[1]),
+        Screen::List => match app.tab {
+            Tab::Pipelines => pipelines::render(f, app, chunks[1]),
+            _ => list::render(f, app, chunks[1]),
+        },
         Screen::Detail => detail::render(f, app, chunks[1]),
     }
 
@@ -38,6 +42,8 @@ fn render_tabs(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
         span("1 Review", app.tab == Tab::Review),
         Span::raw(" "),
         span("2 Mine", app.tab == Tab::Mine),
+        Span::raw(" "),
+        span("3 Pipelines", app.tab == Tab::Pipelines),
         Span::raw("   "),
         Span::styled(
             app.username.as_deref().map(|u| format!("@{u}")).unwrap_or_default(),
