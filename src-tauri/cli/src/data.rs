@@ -3,9 +3,11 @@
 
 use ultra_gitlab_lib::core::mr_actions;
 use ultra_gitlab_lib::core::mr_query::{self, ReviewFilter};
+use ultra_gitlab_lib::core::pipelines;
 use ultra_gitlab_lib::db::pool::DbPool;
 use ultra_gitlab_lib::error::AppError;
-use ultra_gitlab_lib::models::{DiffFile, MergeRequest};
+use ultra_gitlab_lib::models::{DiffFile, MergeRequest, PipelineProject, Project};
+use ultra_gitlab_lib::services::gitlab_client::{GitLabJob, GitLabPipeline};
 
 /// A row in either list view.
 #[derive(Debug, Clone)]
@@ -139,5 +141,238 @@ pub async fn load_detail(pool: &DbPool, mr_id: i64) -> Result<DetailData, AppErr
             files: detail.diff_files.into_iter().map(FileDiff::from).collect(),
             live: false,
         })
+    }
+}
+
+/// Truncate a git SHA to its short 8-char form for display.
+pub fn short_sha(sha: &str) -> String {
+    if sha.len() > 8 {
+        sha[..8].to_string()
+    } else {
+        sha.to_string()
+    }
+}
+
+/// Latest pipeline status shown next to a project in the Projects view.
+#[derive(Debug, Clone)]
+pub struct PipeStatus {
+    pub status: String,
+    pub ref_name: String,
+    pub sha: String,
+    pub web_url: String,
+    pub duration: Option<i64>,
+}
+
+/// A tracked project row in the Pipelines tab.
+#[derive(Debug, Clone)]
+pub struct PipeProjectRow {
+    pub project_id: i64,
+    pub name: String,
+    pub web_url: String,
+    pub pinned: bool,
+    pub status: Option<PipeStatus>,
+}
+
+/// A pipeline row (project pipelines or MR pipelines).
+#[derive(Debug, Clone)]
+pub struct PipeRow {
+    pub id: i64,
+    pub project_id: i64,
+    pub status: String,
+    pub ref_name: String,
+    pub sha: String,
+    pub web_url: String,
+    pub created_at: String,
+    pub duration: Option<i64>,
+}
+
+impl From<GitLabPipeline> for PipeRow {
+    fn from(p: GitLabPipeline) -> Self {
+        PipeRow {
+            id: p.id,
+            project_id: p.project_id,
+            status: p.status,
+            ref_name: p.ref_name,
+            sha: short_sha(&p.sha),
+            web_url: p.web_url,
+            created_at: p.created_at,
+            duration: p.duration,
+        }
+    }
+}
+
+/// A job row within a pipeline.
+#[derive(Debug, Clone)]
+pub struct JobRow {
+    pub id: i64,
+    pub name: String,
+    pub stage: String,
+    pub status: String,
+    pub web_url: String,
+    pub allow_failure: bool,
+    pub duration: Option<f64>,
+}
+
+impl From<GitLabJob> for JobRow {
+    fn from(j: GitLabJob) -> Self {
+        JobRow {
+            id: j.id,
+            name: j.name,
+            stage: j.stage,
+            status: j.status,
+            web_url: j.web_url,
+            allow_failure: j.allow_failure,
+            duration: j.duration,
+        }
+    }
+}
+
+/// A project search result in the add-project overlay.
+#[derive(Debug, Clone)]
+pub struct ProjectHit {
+    pub id: i64,
+    pub name: String,
+    pub web_url: String,
+}
+
+fn project_row(p: PipelineProject, status: Option<PipeStatus>) -> PipeProjectRow {
+    PipeProjectRow {
+        project_id: p.project_id,
+        name: p.name_with_namespace,
+        web_url: p.web_url,
+        pinned: p.pinned,
+        status,
+    }
+}
+
+/// Load tracked projects with their cached statuses for instant glyphs.
+pub async fn load_pipeline_projects(
+    pool: &DbPool,
+    instance_id: i64,
+) -> Result<Vec<PipeProjectRow>, AppError> {
+    let projects = pipelines::list_projects(pool, instance_id).await?;
+    let ids: Vec<i64> = projects.iter().map(|p| p.project_id).collect();
+    let cached = pipelines::cached_statuses(pool, instance_id, &ids).await?;
+    let mut by_pid: std::collections::HashMap<i64, PipeStatus> = std::collections::HashMap::new();
+    for c in cached {
+        by_pid.insert(
+            c.project_id,
+            PipeStatus {
+                status: c.status,
+                ref_name: c.ref_name,
+                sha: short_sha(&c.sha),
+                web_url: c.web_url,
+                duration: c.duration,
+            },
+        );
+    }
+    Ok(projects
+        .into_iter()
+        .map(|p| {
+            let st = by_pid.remove(&p.project_id);
+            project_row(p, st)
+        })
+        .collect())
+}
+
+/// Fetch live latest statuses for the given projects.
+pub async fn load_project_statuses(
+    pool: &DbPool,
+    instance_id: i64,
+    project_ids: Vec<i64>,
+) -> Result<Vec<(i64, PipeStatus)>, AppError> {
+    let live = pipelines::latest_statuses(pool, instance_id, &project_ids).await?;
+    Ok(live
+        .into_iter()
+        .map(|p| {
+            (
+                p.project_id,
+                PipeStatus {
+                    status: p.status,
+                    ref_name: p.ref_name,
+                    sha: short_sha(&p.sha),
+                    web_url: p.web_url,
+                    duration: p.duration,
+                },
+            )
+        })
+        .collect())
+}
+
+/// Recent pipelines for a project.
+pub async fn load_project_pipelines(
+    pool: &DbPool,
+    instance_id: i64,
+    project_id: i64,
+) -> Result<Vec<PipeRow>, AppError> {
+    Ok(pipelines::project_pipelines(pool, instance_id, project_id, 20)
+        .await?
+        .into_iter()
+        .map(PipeRow::from)
+        .collect())
+}
+
+/// Jobs (and bridges) for a pipeline.
+pub async fn load_pipeline_jobs(
+    pool: &DbPool,
+    instance_id: i64,
+    project_id: i64,
+    pipeline_id: i64,
+) -> Result<Vec<JobRow>, AppError> {
+    Ok(
+        pipelines::pipeline_jobs(pool, instance_id, project_id, pipeline_id)
+            .await?
+            .into_iter()
+            .map(JobRow::from)
+            .collect(),
+    )
+}
+
+/// Search projects to add to the dashboard.
+pub async fn search_pipeline_projects(
+    pool: &DbPool,
+    instance_id: i64,
+    query: String,
+) -> Result<Vec<ProjectHit>, AppError> {
+    Ok(pipelines::search_projects(pool, instance_id, &query)
+        .await?
+        .into_iter()
+        .map(|p: Project| ProjectHit {
+            id: p.id,
+            name: p.name_with_namespace,
+            web_url: p.web_url,
+        })
+        .collect())
+}
+
+/// Pipelines attached to an MR (for the detail-screen panel).
+pub async fn load_mr_pipelines(pool: &DbPool, mr_id: i64) -> Result<Vec<PipeRow>, AppError> {
+    Ok(pipelines::mr_pipelines(pool, mr_id)
+        .await?
+        .into_iter()
+        .map(PipeRow::from)
+        .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pipe_row_shortens_sha() {
+        let p = ultra_gitlab_lib::services::gitlab_client::GitLabPipeline {
+            id: 1,
+            project_id: 10,
+            status: "success".into(),
+            ref_name: "main".into(),
+            sha: "abcdef0123456789".into(),
+            web_url: "http://x".into(),
+            created_at: "2026-06-03T00:00:00Z".into(),
+            updated_at: None,
+            duration: Some(12),
+        };
+        let row = PipeRow::from(p);
+        assert_eq!(row.sha, "abcdef01");
+        assert_eq!(row.status, "success");
     }
 }
