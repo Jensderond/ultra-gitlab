@@ -30,6 +30,7 @@ pub enum Screen {
 pub enum Focus {
     Tree,
     Diff,
+    Pipeline,
 }
 
 pub struct App {
@@ -195,12 +196,27 @@ fn on_tick(app: &mut App) {
     if app.busy {
         return;
     }
-    if app.tab == Tab::Pipelines
-        && app.screen == Screen::List
-        && app.pipelines.search.is_none()
-        && app.pipelines.has_inflight()
-    {
-        crate::pipelines::reload_active_view(app);
+    if app.tab == Tab::Pipelines && app.screen == Screen::List && app.pipelines.search.is_none() {
+        if app.pipelines.has_inflight() {
+            crate::pipelines::reload_active_view(app);
+        }
+        return;
+    }
+    if app.screen == Screen::Detail {
+        let inflight = app
+            .detail_pipes
+            .jobs
+            .as_ref()
+            .map(|jobs| jobs.iter().any(|j| j.status == "running" || j.status == "pending"))
+            .unwrap_or_else(|| {
+                app.detail_pipes
+                    .pipelines
+                    .iter()
+                    .any(|p| p.status == "running" || p.status == "pending")
+            });
+        if inflight {
+            crate::pipelines::refresh_detail(app);
+        }
     }
 }
 
@@ -341,7 +357,7 @@ fn handle_event(app: &mut App, ev: AppEvent) {
 
 fn handle_key(app: &mut App, code: KeyCode) {
     // Pipeline cancel confirmation intercepts keys first when active.
-    if app.tab == Tab::Pipelines {
+    if app.tab == Tab::Pipelines || app.screen == Screen::Detail {
         if let Some(c) = app.pipelines.confirm.clone() {
             match code {
                 KeyCode::Char('y') | KeyCode::Char('Y') => {
@@ -435,15 +451,21 @@ fn switch_tab(app: &mut App, tab: Tab) {
 fn handle_detail_key(app: &mut App, code: KeyCode) {
     match code {
         KeyCode::Esc | KeyCode::Char('q') => {
-            app.screen = Screen::List;
-            app.detail = None;
-            app.detail_pipes.reset();
-            app.force_clear = true;
+            if app.focus == Focus::Pipeline && app.detail_pipes.jobs.is_some() {
+                // Back out of the inline jobs view to the pipeline list first.
+                app.detail_pipes.jobs = None;
+            } else {
+                app.screen = Screen::List;
+                app.detail = None;
+                app.detail_pipes.reset();
+                app.force_clear = true;
+            }
         }
         KeyCode::Tab => {
             app.focus = match app.focus {
                 Focus::Tree => Focus::Diff,
-                Focus::Diff => Focus::Tree,
+                Focus::Diff => Focus::Pipeline,
+                Focus::Pipeline => Focus::Tree,
             };
         }
         // Right (or vim l) jumps into the diff to scroll it; Left (or h) back to files.
@@ -453,13 +475,20 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
         KeyCode::Char('j') | KeyCode::Down => match app.focus {
             Focus::Tree => move_file(app, 1),
             Focus::Diff => app.diff_scroll = app.diff_scroll.saturating_add(1),
+            Focus::Pipeline => crate::pipelines::handle_detail_key(app, KeyCode::Char('j')),
         },
         KeyCode::Char('k') | KeyCode::Up => match app.focus {
             Focus::Tree => move_file(app, -1),
             Focus::Diff => app.diff_scroll = app.diff_scroll.saturating_sub(1),
+            Focus::Pipeline => crate::pipelines::handle_detail_key(app, KeyCode::Char('k')),
         },
-        // Actions handled in Task 8.
-        other => crate::actions::handle_action_key(app, other),
+        other => {
+            if app.focus == Focus::Pipeline {
+                crate::pipelines::handle_detail_key(app, other);
+            } else {
+                crate::actions::handle_action_key(app, other);
+            }
+        }
     }
 }
 

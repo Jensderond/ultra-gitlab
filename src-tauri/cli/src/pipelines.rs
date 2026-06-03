@@ -299,6 +299,124 @@ pub fn run_confirmed(app: &mut App, action: PipeAction) {
     }
 }
 
+/// Load jobs for a pipeline shown in the MR-detail panel.
+pub fn spawn_detail_jobs(app: &App, project_id: i64, pipeline_id: i64) {
+    let pool = app.pool.clone();
+    let inst = app.instance_id;
+    let tx = app.tx.clone();
+    tokio::spawn(async move {
+        let r = data::load_pipeline_jobs(&pool, inst, project_id, pipeline_id)
+            .await
+            .map_err(|e| e.to_string());
+        let _ = tx.send(AppEvent::MrPipeJobs(r));
+    });
+}
+
+/// Re-fetch the MR-detail panel's current view (pipeline list or inline jobs).
+pub fn refresh_detail(app: &mut App) {
+    let Some(mr_id) = app.detail.as_ref().map(|d| d.row.id) else { return };
+    if app.detail_pipes.jobs.is_some() {
+        if let Some(pipe) = app.detail_pipes.selected_pipe() {
+            let (pid, plid) = (pipe.project_id, pipe.id);
+            spawn_detail_jobs(app, pid, plid);
+            return;
+        }
+    }
+    let pool = app.pool.clone();
+    let tx = app.tx.clone();
+    tokio::spawn(async move {
+        let r = data::load_mr_pipelines(&pool, mr_id)
+            .await
+            .map_err(|e| e.to_string());
+        let _ = tx.send(AppEvent::MrPipes(r));
+    });
+}
+
+/// Keys while the MR-detail pipelines panel is focused. Esc is handled by the
+/// detail-screen key dispatcher (app.rs), not here.
+pub fn handle_detail_key(app: &mut App, code: KeyCode) {
+    // Inline jobs mode.
+    if app.detail_pipes.jobs.is_some() {
+        let job_len = app.detail_pipes.jobs.as_ref().map(|j| j.len()).unwrap_or(0);
+        let project_id = app
+            .detail_pipes
+            .selected_pipe()
+            .map(|p| p.project_id)
+            .unwrap_or(0);
+        match code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                move_in_list(&mut app.detail_pipes.job_state, job_len, 1)
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                move_in_list(&mut app.detail_pipes.job_state, job_len, -1)
+            }
+            KeyCode::Char('o') => {
+                if let Some(j) = app.detail_pipes.selected_job() {
+                    let _ = crate::util::open_url(&j.web_url);
+                }
+            }
+            KeyCode::Char('p') => {
+                if let Some(j) = app.detail_pipes.selected_job() {
+                    let job_id = j.id;
+                    spawn_action(app, "play", move |pool, inst| async move {
+                        ultra_gitlab_lib::core::pipelines::play_job(&pool, inst, project_id, job_id)
+                            .await
+                            .map(|_| "job started".to_string())
+                            .map_err(|e| e.to_string())
+                    });
+                }
+            }
+            KeyCode::Char('R') => {
+                if let Some(j) = app.detail_pipes.selected_job() {
+                    let job_id = j.id;
+                    spawn_action(app, "retry", move |pool, inst| async move {
+                        ultra_gitlab_lib::core::pipelines::retry_job(&pool, inst, project_id, job_id)
+                            .await
+                            .map(|_| "job retried".to_string())
+                            .map_err(|e| e.to_string())
+                    });
+                }
+            }
+            KeyCode::Char('c') => {
+                if let Some(j) = app.detail_pipes.selected_job() {
+                    app.pipelines.confirm = Some(PipeConfirm {
+                        action: PipeAction::CancelJob {
+                            project_id,
+                            job_id: j.id,
+                        },
+                        prompt: format!("Cancel job {}? (y/N)", j.name),
+                    });
+                    app.status = "Cancel job? Press y to confirm.".into();
+                }
+            }
+            _ => {}
+        }
+        return;
+    }
+
+    // Pipeline list mode.
+    let len = app.detail_pipes.pipelines.len();
+    match code {
+        KeyCode::Char('j') | KeyCode::Down => move_in_list(&mut app.detail_pipes.pipe_state, len, 1),
+        KeyCode::Char('k') | KeyCode::Up => move_in_list(&mut app.detail_pipes.pipe_state, len, -1),
+        KeyCode::Char('o') => {
+            if let Some(p) = app.detail_pipes.selected_pipe() {
+                let _ = crate::util::open_url(&p.web_url);
+            }
+        }
+        KeyCode::Enter => {
+            if let Some(p) = app.detail_pipes.selected_pipe() {
+                let (pid, plid) = (p.project_id, p.id);
+                app.detail_pipes.jobs = Some(Vec::new());
+                app.detail_pipes.job_state = ListState::default();
+                app.status = "Loading jobs…".into();
+                spawn_detail_jobs(app, pid, plid);
+            }
+        }
+        _ => {}
+    }
+}
+
 /// Handle a key while the Pipelines tab is active (and no global key matched).
 pub fn handle_key(app: &mut App, code: KeyCode) {
     if app.pipelines.search.is_some() {
