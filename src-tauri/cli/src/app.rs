@@ -17,6 +17,7 @@ use ultra_gitlab_lib::db::pool::DbPool;
 pub enum Tab {
     Review,
     Mine,
+    Pipelines,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,6 +50,8 @@ pub struct App {
     pub diff_scroll: u16,
     /// new_path of files marked viewed in the current detail (reset per MR).
     pub viewed: HashSet<String>,
+    pub pipelines: crate::pipelines::PipelinesState,
+    pub detail_pipes: crate::pipelines::DetailPipelines,
 
     pub status: String,
     pub busy: bool,
@@ -94,6 +97,8 @@ impl App {
             file_state: ListState::default(),
             diff_scroll: 0,
             viewed: HashSet::new(),
+            pipelines: crate::pipelines::PipelinesState::default(),
+            detail_pipes: crate::pipelines::DetailPipelines::default(),
             status: "Loading…".into(),
             busy: true,
             should_quit: false,
@@ -109,6 +114,7 @@ impl App {
         match self.tab {
             Tab::Review => &self.review,
             Tab::Mine => &self.mine,
+            Tab::Pipelines => &[],
         }
     }
 
@@ -204,6 +210,95 @@ fn handle_event(app: &mut App, ev: AppEvent) {
             // server. Other actions rely on the reload to reflect their result.
             app.load_lists();
         }
+        AppEvent::PipeProjects(Ok(rows)) => {
+            app.busy = false;
+            app.status = "Ready".into();
+            if app.pipelines.proj_state.selected().is_none() && !rows.is_empty() {
+                app.pipelines.proj_state.select(Some(0));
+            }
+            app.pipelines.projects = rows;
+            app.pipelines.loaded = true;
+            crate::pipelines::clamp_selection(
+                &mut app.pipelines.proj_state,
+                app.pipelines.projects.len(),
+            );
+            crate::pipelines::spawn_refresh_statuses(app);
+        }
+        AppEvent::PipeStatuses(Ok(pairs)) => {
+            for (pid, st) in pairs {
+                if let Some(row) = app
+                    .pipelines
+                    .projects
+                    .iter_mut()
+                    .find(|p| p.project_id == pid)
+                {
+                    row.status = Some(st);
+                }
+            }
+        }
+        AppEvent::PipeList(Ok(rows)) => {
+            app.busy = false;
+            app.status = "Ready".into();
+            app.pipelines.pipelines = rows;
+            if app.pipelines.pipe_state.selected().is_none()
+                && !app.pipelines.pipelines.is_empty()
+            {
+                app.pipelines.pipe_state.select(Some(0));
+            }
+            crate::pipelines::clamp_selection(
+                &mut app.pipelines.pipe_state,
+                app.pipelines.pipelines.len(),
+            );
+        }
+        AppEvent::PipeJobs(Ok(rows)) => {
+            app.busy = false;
+            app.status = "Ready".into();
+            app.pipelines.jobs = rows;
+            if app.pipelines.job_state.selected().is_none() && !app.pipelines.jobs.is_empty() {
+                app.pipelines.job_state.select(Some(0));
+            }
+            crate::pipelines::clamp_selection(
+                &mut app.pipelines.job_state,
+                app.pipelines.jobs.len(),
+            );
+        }
+        AppEvent::PipeSearch(Ok(rows)) => {
+            if let Some(s) = app.pipelines.search.as_mut() {
+                s.results = rows;
+                s.searching = false;
+                if s.state.selected().is_none() && !s.results.is_empty() {
+                    s.state.select(Some(0));
+                }
+            }
+        }
+        AppEvent::PipeActionDone(Ok(msg)) => {
+            app.busy = false;
+            app.status = msg;
+            crate::pipelines::reload_active_view(app);
+        }
+        AppEvent::MrPipes(Ok(rows)) => {
+            app.detail_pipes.pipelines = rows;
+            if app.detail_pipes.pipe_state.selected().is_none()
+                && !app.detail_pipes.pipelines.is_empty()
+            {
+                app.detail_pipes.pipe_state.select(Some(0));
+            }
+        }
+        AppEvent::MrPipeJobs(Ok(rows)) => {
+            app.detail_pipes.jobs = Some(rows);
+            app.detail_pipes.job_state.select(Some(0));
+        }
+        AppEvent::PipeProjects(Err(e))
+        | AppEvent::PipeStatuses(Err(e))
+        | AppEvent::PipeList(Err(e))
+        | AppEvent::PipeJobs(Err(e))
+        | AppEvent::PipeSearch(Err(e))
+        | AppEvent::PipeActionDone(Err(e))
+        | AppEvent::MrPipes(Err(e))
+        | AppEvent::MrPipeJobs(Err(e)) => {
+            app.busy = false;
+            app.status = format!("Error: {e}");
+        }
         AppEvent::Review(Err(e))
         | AppEvent::Mine(Err(e))
         | AppEvent::Detail(Err(e)) => {
@@ -223,6 +318,23 @@ fn handle_event(app: &mut App, ev: AppEvent) {
 }
 
 fn handle_key(app: &mut App, code: KeyCode) {
+    // Pipeline cancel confirmation intercepts keys first when active.
+    if app.tab == Tab::Pipelines {
+        if let Some(c) = app.pipelines.confirm.clone() {
+            match code {
+                KeyCode::Char('y') | KeyCode::Char('Y') => {
+                    app.pipelines.confirm = None;
+                    crate::pipelines::run_confirmed(app, c.action);
+                }
+                _ => {
+                    app.pipelines.confirm = None;
+                    app.status = "Cancelled".into();
+                }
+            }
+            return;
+        }
+    }
+
     // Confirmation prompt intercepts keys first.
     if let Some(confirm) = app.confirm.clone() {
         match code {
@@ -245,22 +357,56 @@ fn handle_key(app: &mut App, code: KeyCode) {
 }
 
 fn handle_list_key(app: &mut App, code: KeyCode) {
+    // While the add-project overlay is open, all keys go to the overlay.
+    if app.tab == Tab::Pipelines && app.pipelines.search.is_some() {
+        crate::pipelines::handle_key(app, code);
+        return;
+    }
+
+    // Global keys: tab switch + quit work in every list tab.
     match code {
-        KeyCode::Char('q') => app.should_quit = true,
-        KeyCode::Tab => toggle_tab(app),
+        KeyCode::Char('q') => {
+            app.should_quit = true;
+            return;
+        }
         KeyCode::Char('1') => {
-            app.tab = Tab::Review;
-            app.list_state.select(Some(0));
+            switch_tab(app, Tab::Review);
+            return;
         }
         KeyCode::Char('2') => {
-            app.tab = Tab::Mine;
-            app.list_state.select(Some(0));
+            switch_tab(app, Tab::Mine);
+            return;
         }
+        KeyCode::Char('3') => {
+            switch_tab(app, Tab::Pipelines);
+            return;
+        }
+        KeyCode::Tab => {
+            toggle_tab(app);
+            return;
+        }
+        _ => {}
+    }
+
+    if app.tab == Tab::Pipelines {
+        crate::pipelines::handle_key(app, code);
+        return;
+    }
+
+    match code {
         KeyCode::Char('j') | KeyCode::Down => move_selection(app, 1),
         KeyCode::Char('k') | KeyCode::Up => move_selection(app, -1),
         KeyCode::Char('r') => app.load_lists(),
         KeyCode::Enter => open_detail(app),
         _ => {}
+    }
+}
+
+fn switch_tab(app: &mut App, tab: Tab) {
+    app.tab = tab;
+    app.list_state.select(Some(0));
+    if tab == Tab::Pipelines && !app.pipelines.loaded {
+        crate::pipelines::enter_tab(app);
     }
 }
 
@@ -295,11 +441,12 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
 }
 
 fn toggle_tab(app: &mut App) {
-    app.tab = match app.tab {
+    let next = match app.tab {
         Tab::Review => Tab::Mine,
-        Tab::Mine => Tab::Review,
+        Tab::Mine => Tab::Pipelines,
+        Tab::Pipelines => Tab::Review,
     };
-    app.list_state.select(Some(0));
+    switch_tab(app, next);
 }
 
 fn move_selection(app: &mut App, delta: i32) {

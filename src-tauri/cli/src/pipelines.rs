@@ -4,8 +4,13 @@
 //! in `ui/pipelines.rs`. Async spawns and key handling are added in a later
 //! task and operate on `&App`/`&mut App`.
 
+use crate::app::App;
 use crate::data;
+use crate::event::AppEvent;
+use crossterm::event::KeyCode;
 use ratatui::widgets::ListState;
+use std::sync::Arc;
+use ultra_gitlab_lib::db::pool::DbPool;
 
 /// Which level of the Pipelines tab drill is showing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -162,6 +167,339 @@ pub fn move_in_list(state: &mut ListState, len: usize, delta: i32) {
     let cur = state.selected().unwrap_or(0) as i32;
     let next = (cur + delta).clamp(0, len as i32 - 1) as usize;
     state.select(Some(next));
+}
+
+/// Entering the Pipelines tab: load projects if not yet loaded.
+pub fn enter_tab(app: &mut App) {
+    app.busy = true;
+    app.status = "Loading pipelines…".into();
+    spawn_load_projects(app);
+}
+
+pub fn spawn_load_projects(app: &App) {
+    let pool = app.pool.clone();
+    let inst = app.instance_id;
+    let tx = app.tx.clone();
+    tokio::spawn(async move {
+        let r = data::load_pipeline_projects(&pool, inst)
+            .await
+            .map_err(|e| e.to_string());
+        let _ = tx.send(AppEvent::PipeProjects(r));
+    });
+}
+
+/// Refresh live statuses for all currently-listed projects.
+pub fn spawn_refresh_statuses(app: &App) {
+    let ids: Vec<i64> = app.pipelines.projects.iter().map(|p| p.project_id).collect();
+    if ids.is_empty() {
+        return;
+    }
+    let pool = app.pool.clone();
+    let inst = app.instance_id;
+    let tx = app.tx.clone();
+    tokio::spawn(async move {
+        let r = data::load_project_statuses(&pool, inst, ids)
+            .await
+            .map_err(|e| e.to_string());
+        let _ = tx.send(AppEvent::PipeStatuses(r));
+    });
+}
+
+pub fn spawn_load_pipelines(app: &App, project_id: i64) {
+    let pool = app.pool.clone();
+    let inst = app.instance_id;
+    let tx = app.tx.clone();
+    tokio::spawn(async move {
+        let r = data::load_project_pipelines(&pool, inst, project_id)
+            .await
+            .map_err(|e| e.to_string());
+        let _ = tx.send(AppEvent::PipeList(r));
+    });
+}
+
+pub fn spawn_load_jobs(app: &App, project_id: i64, pipeline_id: i64) {
+    let pool = app.pool.clone();
+    let inst = app.instance_id;
+    let tx = app.tx.clone();
+    tokio::spawn(async move {
+        let r = data::load_pipeline_jobs(&pool, inst, project_id, pipeline_id)
+            .await
+            .map_err(|e| e.to_string());
+        let _ = tx.send(AppEvent::PipeJobs(r));
+    });
+}
+
+pub fn spawn_search(app: &App, query: String) {
+    let pool = app.pool.clone();
+    let inst = app.instance_id;
+    let tx = app.tx.clone();
+    tokio::spawn(async move {
+        let r = data::search_pipeline_projects(&pool, inst, query)
+            .await
+            .map_err(|e| e.to_string());
+        let _ = tx.send(AppEvent::PipeSearch(r));
+    });
+}
+
+/// Spawn a fire-and-reload action (pin/remove/add/play/retry/cancel).
+fn spawn_action<F, Fut>(app: &mut App, label: &str, f: F)
+where
+    F: FnOnce(Arc<DbPool>, i64) -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = Result<String, String>> + Send + 'static,
+{
+    app.busy = true;
+    app.status = format!("{label}…");
+    let pool = app.pool.clone();
+    let inst = app.instance_id;
+    let tx = app.tx.clone();
+    tokio::spawn(async move {
+        let r = f(pool, inst).await;
+        let _ = tx.send(AppEvent::PipeActionDone(r));
+    });
+}
+
+/// After a successful action, reload whichever view is active.
+pub fn reload_active_view(app: &mut App) {
+    match app.pipelines.view {
+        PipeView::Projects => spawn_load_projects(app),
+        PipeView::Pipelines => {
+            if let Some(pid) = app.pipelines.selected_project {
+                spawn_load_pipelines(app, pid);
+            }
+        }
+        PipeView::Jobs => {
+            if let (Some(pid), Some(plid)) =
+                (app.pipelines.selected_project, app.pipelines.selected_pipeline)
+            {
+                spawn_load_jobs(app, pid, plid);
+            }
+        }
+    }
+}
+
+/// Run a confirmed cancel.
+pub fn run_confirmed(app: &mut App, action: PipeAction) {
+    match action {
+        PipeAction::CancelPipeline { project_id, pipeline_id } => {
+            spawn_action(app, "cancel pipeline", move |pool, inst| async move {
+                ultra_gitlab_lib::core::pipelines::cancel_pipeline(&pool, inst, project_id, pipeline_id)
+                    .await
+                    .map(|_| "pipeline canceled".to_string())
+                    .map_err(|e| e.to_string())
+            });
+        }
+        PipeAction::CancelJob { project_id, job_id } => {
+            spawn_action(app, "cancel job", move |pool, inst| async move {
+                ultra_gitlab_lib::core::pipelines::cancel_job(&pool, inst, project_id, job_id)
+                    .await
+                    .map(|_| "job canceled".to_string())
+                    .map_err(|e| e.to_string())
+            });
+        }
+    }
+}
+
+/// Handle a key while the Pipelines tab is active (and no global key matched).
+pub fn handle_key(app: &mut App, code: KeyCode) {
+    if app.pipelines.search.is_some() {
+        handle_search_key(app, code);
+        return;
+    }
+    match app.pipelines.view {
+        PipeView::Projects => handle_projects_key(app, code),
+        PipeView::Pipelines => handle_pipelines_key(app, code),
+        PipeView::Jobs => handle_jobs_key(app, code),
+    }
+}
+
+fn handle_projects_key(app: &mut App, code: KeyCode) {
+    let len = app.pipelines.projects.len();
+    match code {
+        KeyCode::Char('j') | KeyCode::Down => move_in_list(&mut app.pipelines.proj_state, len, 1),
+        KeyCode::Char('k') | KeyCode::Up => move_in_list(&mut app.pipelines.proj_state, len, -1),
+        KeyCode::Char('r') => {
+            spawn_load_projects(app);
+            app.status = "Refreshing…".into();
+        }
+        KeyCode::Char('n') => {
+            app.pipelines.search = Some(SearchState::default());
+            app.status = "Search projects to add (esc to cancel)".into();
+        }
+        KeyCode::Char('p') => {
+            if let Some(pid) = app.pipelines.selected_project_id() {
+                spawn_action(app, "toggle pin", move |pool, inst| async move {
+                    ultra_gitlab_lib::core::pipelines::toggle_pin(&pool, inst, pid)
+                        .await
+                        .map(|_| "pin toggled".to_string())
+                        .map_err(|e| e.to_string())
+                });
+            }
+        }
+        KeyCode::Char('x') => {
+            if let Some(pid) = app.pipelines.selected_project_id() {
+                spawn_action(app, "remove", move |pool, inst| async move {
+                    ultra_gitlab_lib::core::pipelines::remove_project(&pool, inst, pid)
+                        .await
+                        .map(|_| "project removed".to_string())
+                        .map_err(|e| e.to_string())
+                });
+            }
+        }
+        KeyCode::Char('o') => {
+            if let Some(p) = app
+                .pipelines
+                .proj_state
+                .selected()
+                .and_then(|i| app.pipelines.projects.get(i))
+            {
+                let _ = crate::util::open_url(&p.web_url);
+            }
+        }
+        KeyCode::Enter => {
+            if let Some(pid) = app.pipelines.selected_project_id() {
+                app.pipelines.selected_project = Some(pid);
+                app.pipelines.view = PipeView::Pipelines;
+                app.pipelines.pipelines.clear();
+                app.pipelines.pipe_state.select(None);
+                app.busy = true;
+                app.status = "Loading pipelines…".into();
+                spawn_load_pipelines(app, pid);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn handle_pipelines_key(app: &mut App, code: KeyCode) {
+    let len = app.pipelines.pipelines.len();
+    match code {
+        KeyCode::Char('j') | KeyCode::Down => move_in_list(&mut app.pipelines.pipe_state, len, 1),
+        KeyCode::Char('k') | KeyCode::Up => move_in_list(&mut app.pipelines.pipe_state, len, -1),
+        KeyCode::Esc => {
+            app.pipelines.view = PipeView::Projects;
+        }
+        KeyCode::Char('o') => {
+            if let Some(p) = app.pipelines.selected_pipe() {
+                let _ = crate::util::open_url(&p.web_url);
+            }
+        }
+        KeyCode::Char('c') => {
+            if let Some(p) = app.pipelines.selected_pipe() {
+                app.pipelines.confirm = Some(PipeConfirm {
+                    action: PipeAction::CancelPipeline {
+                        project_id: p.project_id,
+                        pipeline_id: p.id,
+                    },
+                    prompt: format!("Cancel pipeline #{}? (y/N)", p.id),
+                });
+                app.status = "Cancel pipeline? Press y to confirm.".into();
+            }
+        }
+        KeyCode::Enter => {
+            if let Some(p) = app.pipelines.selected_pipe() {
+                let (pid, plid) = (p.project_id, p.id);
+                app.pipelines.selected_pipeline = Some(plid);
+                app.pipelines.view = PipeView::Jobs;
+                app.pipelines.jobs.clear();
+                app.pipelines.job_state.select(None);
+                app.busy = true;
+                app.status = "Loading jobs…".into();
+                spawn_load_jobs(app, pid, plid);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn handle_jobs_key(app: &mut App, code: KeyCode) {
+    let len = app.pipelines.jobs.len();
+    let project_id = app.pipelines.selected_project.unwrap_or(0);
+    match code {
+        KeyCode::Char('j') | KeyCode::Down => move_in_list(&mut app.pipelines.job_state, len, 1),
+        KeyCode::Char('k') | KeyCode::Up => move_in_list(&mut app.pipelines.job_state, len, -1),
+        KeyCode::Esc => {
+            app.pipelines.view = PipeView::Pipelines;
+        }
+        KeyCode::Char('o') => {
+            if let Some(j) = app.pipelines.selected_job() {
+                let _ = crate::util::open_url(&j.web_url);
+            }
+        }
+        KeyCode::Char('p') => {
+            if let Some(j) = app.pipelines.selected_job() {
+                let job_id = j.id;
+                spawn_action(app, "play", move |pool, inst| async move {
+                    ultra_gitlab_lib::core::pipelines::play_job(&pool, inst, project_id, job_id)
+                        .await
+                        .map(|_| "job started".to_string())
+                        .map_err(|e| e.to_string())
+                });
+            }
+        }
+        KeyCode::Char('R') => {
+            if let Some(j) = app.pipelines.selected_job() {
+                let job_id = j.id;
+                spawn_action(app, "retry", move |pool, inst| async move {
+                    ultra_gitlab_lib::core::pipelines::retry_job(&pool, inst, project_id, job_id)
+                        .await
+                        .map(|_| "job retried".to_string())
+                        .map_err(|e| e.to_string())
+                });
+            }
+        }
+        KeyCode::Char('c') => {
+            if let Some(j) = app.pipelines.selected_job() {
+                app.pipelines.confirm = Some(PipeConfirm {
+                    action: PipeAction::CancelJob {
+                        project_id,
+                        job_id: j.id,
+                    },
+                    prompt: format!("Cancel job {}? (y/N)", j.name),
+                });
+                app.status = "Cancel job? Press y to confirm.".into();
+            }
+        }
+        _ => {}
+    }
+}
+
+fn handle_search_key(app: &mut App, code: KeyCode) {
+    let Some(search) = app.pipelines.search.as_mut() else { return };
+    match code {
+        KeyCode::Esc => {
+            app.pipelines.search = None;
+            app.status = "Ready".into();
+        }
+        KeyCode::Backspace => {
+            search.query.pop();
+        }
+        KeyCode::Char(c) => {
+            search.query.push(c);
+        }
+        KeyCode::Down => move_in_list(&mut search.state, search.results.len(), 1),
+        KeyCode::Up => move_in_list(&mut search.state, search.results.len(), -1),
+        KeyCode::Enter => {
+            if !search.results.is_empty() {
+                if let Some(hit) = search.state.selected().and_then(|i| search.results.get(i)) {
+                    let pid = hit.id;
+                    app.pipelines.search = None;
+                    spawn_action(app, "add project", move |pool, inst| async move {
+                        ultra_gitlab_lib::core::pipelines::add_project(&pool, inst, pid)
+                            .await
+                            .map(|_| "project added".to_string())
+                            .map_err(|e| e.to_string())
+                    });
+                    return;
+                }
+            }
+            let q = search.query.clone();
+            if !q.is_empty() {
+                search.searching = true;
+                spawn_search(app, q);
+            }
+        }
+        _ => {}
+    }
 }
 
 #[cfg(test)]
