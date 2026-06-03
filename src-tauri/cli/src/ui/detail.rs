@@ -2,6 +2,7 @@
 
 use crate::app::{App, Focus};
 use crate::ui::diff;
+use crate::ui::status_style;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -29,7 +30,13 @@ pub fn render(f: &mut Frame, app: &mut App, area: Rect) {
         .constraints([Constraint::Percentage(32), Constraint::Percentage(68)])
         .split(rows[1]);
 
-    render_tree(f, app, &detail, panes[0]);
+    let left = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+        .split(panes[0]);
+
+    render_tree(f, app, &detail, left[0]);
+    render_pipelines_panel(f, app, left[1]);
     render_diff(f, app, &detail, panes[1]);
 }
 
@@ -115,6 +122,73 @@ fn render_diff(f: &mut Frame, app: &App, detail: &crate::data::DetailData, area:
         Paragraph::new(text).block(block).scroll((app.diff_scroll, 0)),
         area,
     );
+}
+
+fn render_pipelines_panel(f: &mut Frame, app: &mut App, area: Rect) {
+    let focused = app.focus == Focus::Pipeline;
+    let glyph = |status: Option<&str>| {
+        let (sym, color) = status_style(status);
+        Span::styled(sym, Style::default().fg(color))
+    };
+
+    // Inline jobs mode.
+    if let Some(jobs) = app.detail_pipes.jobs.clone() {
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title(" Pipeline jobs · esc back ")
+            .border_style(border_style(focused));
+        if jobs.is_empty() {
+            f.render_widget(Paragraph::new("Loading…").block(block), area);
+            return;
+        }
+        let items: Vec<ListItem> = jobs
+            .iter()
+            .map(|j| {
+                ListItem::new(Line::from(vec![
+                    glyph(Some(j.status.as_str())),
+                    Span::raw(" "),
+                    Span::styled(format!("{:<8}", j.stage), Style::default().fg(Color::DarkGray)),
+                    Span::raw(" "),
+                    Span::raw(j.name.clone()),
+                ]))
+            })
+            .collect();
+        let list = List::new(items)
+            .block(block)
+            .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+            .highlight_symbol("▌");
+        f.render_stateful_widget(list, area, &mut app.detail_pipes.job_state);
+        return;
+    }
+
+    // Pipeline list mode.
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Pipelines · enter jobs ")
+        .border_style(border_style(focused));
+    if app.detail_pipes.pipelines.is_empty() {
+        f.render_widget(Paragraph::new("No pipelines").block(block), area);
+        return;
+    }
+    let items: Vec<ListItem> = app
+        .detail_pipes
+        .pipelines
+        .iter()
+        .map(|p| {
+            ListItem::new(Line::from(vec![
+                glyph(Some(p.status.as_str())),
+                Span::raw(" "),
+                Span::styled(format!("#{}", p.id), Style::default().fg(Color::Cyan)),
+                Span::raw("  "),
+                Span::styled(p.status.clone(), Style::default().fg(Color::DarkGray)),
+            ]))
+        })
+        .collect();
+    let list = List::new(items)
+        .block(block)
+        .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+        .highlight_symbol("▌");
+    f.render_stateful_widget(list, area, &mut app.detail_pipes.pipe_state);
 }
 
 fn border_style(focused: bool) -> Style {
