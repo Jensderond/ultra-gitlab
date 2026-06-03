@@ -1,8 +1,8 @@
 //! Pipeline orchestration shared between the Tauri commands and the `ultra` CLI.
 //!
 //! Functions take `&DbPool` (not Tauri `State`) and return domain types
-//! (`GitLabPipeline`, `GitLabJob`, `PipelineProject`, `Project`). The Tauri
-//! command layer maps these into camelCase DTOs; the CLI uses them directly.
+//! (`GitLabPipeline`, `PipelineProject`, `Project`). The Tauri command layer
+//! maps these into camelCase DTOs; the CLI uses them directly.
 
 use crate::core::create_client;
 use crate::db::pipeline_cache;
@@ -91,6 +91,7 @@ pub async fn add_project(
         };
         project::upsert_project(pool, &p).await?;
     }
+    // note: callee takes (pool, project_id, instance_id)
     pipeline_project::upsert_pipeline_project(pool, project_id, instance_id).await?;
     Ok(())
 }
@@ -101,6 +102,7 @@ pub async fn toggle_pin(
     instance_id: i64,
     project_id: i64,
 ) -> Result<(), AppError> {
+    // note: callee takes (pool, project_id, instance_id)
     pipeline_project::toggle_pin(pool, project_id, instance_id).await?;
     Ok(())
 }
@@ -111,6 +113,7 @@ pub async fn remove_project(
     instance_id: i64,
     project_id: i64,
 ) -> Result<(), AppError> {
+    // note: callee takes (pool, project_id, instance_id)
     pipeline_project::remove_pipeline_project(pool, project_id, instance_id).await?;
     Ok(())
 }
@@ -239,5 +242,29 @@ mod tests {
         assert_eq!(got[0].id, 999);
         assert_eq!(got[0].status, "success");
         assert_eq!(got[0].duration, Some(42));
+    }
+
+    #[tokio::test]
+    async fn search_matches_local_by_namespace() {
+        // seed(true) inserts project id=10 with name_with_namespace='group/proj'
+        let (_dir, pool, inst) = seed(true).await;
+
+        // "proj" matches locally; API fallback errors (fake token/URL) but is
+        // swallowed by the `if let Ok(api) = ...` guard, so local results still
+        // come back.
+        let results = search_projects(&pool, inst, "proj").await.unwrap();
+        assert!(
+            results.iter().any(|p| p.id == 10),
+            "expected project id=10 in results for 'proj', got {:?}",
+            results.iter().map(|p| p.id).collect::<Vec<_>>()
+        );
+
+        // "zzznomatch" finds nothing locally; API fallback also errors/returns
+        // nothing, so id=10 must not appear.
+        let no_results = search_projects(&pool, inst, "zzznomatch").await.unwrap();
+        assert!(
+            !no_results.iter().any(|p| p.id == 10),
+            "did not expect project id=10 in results for 'zzznomatch'"
+        );
     }
 }
