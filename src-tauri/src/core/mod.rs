@@ -6,6 +6,7 @@
 
 pub mod mr_actions;
 pub mod mr_query;
+pub mod pipelines;
 
 use crate::db::pool::DbPool;
 use crate::error::AppError;
