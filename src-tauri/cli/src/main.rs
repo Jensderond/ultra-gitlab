@@ -5,6 +5,7 @@ mod app;
 mod data;
 mod db_path;
 mod event;
+mod pipelines;
 mod syntax;
 mod ui;
 mod update;
