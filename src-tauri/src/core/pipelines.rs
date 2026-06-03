@@ -204,8 +204,11 @@ pub async fn pipeline_jobs(
 ) -> Result<Vec<GitLabJob>, AppError> {
     let client = create_client(pool, instance_id).await?;
     let mut jobs = client.get_pipeline_jobs(project_id, pipeline_id).await?;
-    let bridges = client.get_pipeline_bridges(project_id, pipeline_id).await?;
-    jobs.extend(bridges);
+    // Bridges are best-effort: get_pipeline_bridges already maps errors to an
+    // empty vec, but guard here too so job display never depends on bridges.
+    if let Ok(bridges) = client.get_pipeline_bridges(project_id, pipeline_id).await {
+        jobs.extend(bridges);
+    }
     Ok(jobs)
 }
 
