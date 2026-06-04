@@ -107,7 +107,7 @@ fn render_tree(f: &mut Frame, app: &mut App, detail: &crate::data::DetailData, a
     f.render_stateful_widget(list, area, &mut app.file_state);
 }
 
-fn render_diff(f: &mut Frame, app: &App, detail: &crate::data::DetailData, area: Rect) {
+fn render_diff(f: &mut Frame, app: &mut App, detail: &crate::data::DetailData, area: Rect) {
     let focused = app.focus == Focus::Diff;
     let sel = app.file_state.selected().unwrap_or(0);
     let block = Block::default()
@@ -116,12 +116,20 @@ fn render_diff(f: &mut Frame, app: &App, detail: &crate::data::DetailData, area:
         .border_style(border_style(focused));
 
     let Some(file) = detail.files.get(sel) else {
+        app.diff_hscroll_max = 0;
         f.render_widget(Paragraph::new("No file selected").block(block), area);
         return;
     };
     let text = diff::render_diff(&app.highlighter, &file.new_path, &file.diff_content);
+    // Diff lines are not wrapped, so clamp the horizontal pan to the widest line
+    // that actually overflows the pane — panning past it would show only blanks.
+    let inner_w = area.width.saturating_sub(2);
+    let max_w = text.lines.iter().map(|l| l.width()).max().unwrap_or(0) as u16;
+    app.diff_hscroll_max = max_w.saturating_sub(inner_w);
+    let hscroll = app.diff_hscroll.min(app.diff_hscroll_max);
+    app.diff_hscroll = hscroll;
     f.render_widget(
-        Paragraph::new(text).block(block).scroll((app.diff_scroll, 0)),
+        Paragraph::new(text).block(block).scroll((app.diff_scroll, hscroll)),
         area,
     );
 }

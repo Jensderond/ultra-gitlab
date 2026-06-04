@@ -49,9 +49,15 @@ pub struct App {
     pub detail: Option<data::DetailData>,
     pub file_state: ListState,
     pub diff_scroll: u16,
+    /// Horizontal scroll offset (columns) for the diff. Lets the user pan to see
+    /// content cut off past the right border, since diff lines are not wrapped.
+    pub diff_hscroll: u16,
     /// Visible height of the diff pane (inside borders), updated each render.
     /// Used to page the diff by PgUp/PgDn in viewport-sized steps.
     pub diff_viewport: u16,
+    /// Furthest the diff can pan right (widest line minus pane width), updated
+    /// each render so left/right panning can be clamped to actual content.
+    pub diff_hscroll_max: u16,
     /// new_path of files marked viewed in the current detail (reset per MR).
     pub viewed: HashSet<String>,
     pub pipelines: crate::pipelines::PipelinesState,
@@ -100,7 +106,9 @@ impl App {
             detail: None,
             file_state: ListState::default(),
             diff_scroll: 0,
+            diff_hscroll: 0,
             diff_viewport: 0,
+            diff_hscroll_max: 0,
             viewed: HashSet::new(),
             pipelines: crate::pipelines::PipelinesState::default(),
             detail_pipes: crate::pipelines::DetailPipelines::default(),
@@ -241,6 +249,7 @@ fn handle_event(app: &mut App, ev: AppEvent) {
             app.status = if d.live { "Loaded diff (live)".into() } else { "Ready".into() };
             app.file_state.select(Some(0));
             app.diff_scroll = 0;
+            app.diff_hscroll = 0;
             app.viewed.clear();
             app.detail = Some(d);
         }
@@ -472,9 +481,23 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
                 Focus::Pipeline => Focus::Tree,
             };
         }
-        // Right (or vim l) jumps into the diff to scroll it; Left (or h) back to files.
-        KeyCode::Right | KeyCode::Char('l') => app.focus = Focus::Diff,
-        KeyCode::Left | KeyCode::Char('h') => app.focus = Focus::Tree,
+        // In the diff, Right/Left pan horizontally to reveal content cut off past
+        // the borders; from elsewhere they jump focus (l→diff, h→files). Once the
+        // diff is panned fully back to column 0, Left returns to the file tree.
+        KeyCode::Right | KeyCode::Char('l') => match app.focus {
+            Focus::Diff => {
+                app.diff_hscroll =
+                    app.diff_hscroll.saturating_add(HSCROLL_STEP).min(app.diff_hscroll_max);
+            }
+            _ => app.focus = Focus::Diff,
+        },
+        KeyCode::Left | KeyCode::Char('h') => match app.focus {
+            Focus::Diff if app.diff_hscroll > 0 => {
+                app.diff_hscroll = app.diff_hscroll.saturating_sub(HSCROLL_STEP);
+            }
+            _ => app.focus = Focus::Tree,
+        },
+        KeyCode::Home if app.focus == Focus::Diff => app.diff_hscroll = 0,
         KeyCode::Char('V') => mark_viewed_and_advance(app),
         KeyCode::Char('j') | KeyCode::Down => match app.focus {
             Focus::Tree => move_file(app, 1),
@@ -521,6 +544,10 @@ fn move_selection(app: &mut App, delta: i32) {
     app.list_state.select(Some(next));
 }
 
+/// Columns panned per Left/Right press in the diff. A few columns at a time
+/// feels responsive without overshooting short lines.
+const HSCROLL_STEP: u16 = 8;
+
 /// One PgUp/PgDn jump: a near-full page of the diff pane, keeping a line of
 /// overlap for context. Falls back to a sane default before the first render.
 fn diff_page_step(app: &App) -> u16 {
@@ -537,6 +564,7 @@ fn move_file(app: &mut App, delta: i32) {
     let next = (cur + delta).clamp(0, len as i32 - 1) as usize;
     app.file_state.select(Some(next));
     app.diff_scroll = 0;
+    app.diff_hscroll = 0;
     app.force_clear = true;
 }
 
@@ -556,6 +584,7 @@ fn mark_viewed_and_advance(app: &mut App) {
     if let Some(i) = next {
         app.file_state.select(Some(i));
         app.diff_scroll = 0;
+        app.diff_hscroll = 0;
         app.force_clear = true;
     } else {
         app.status = "All files viewed".into();
