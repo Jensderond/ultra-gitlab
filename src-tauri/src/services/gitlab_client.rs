@@ -163,13 +163,29 @@ pub struct GitLabUser {
 }
 
 /// GitLab diff from API (version endpoint).
+///
+/// Empty MRs (state "empty", no commits) return `null` for the base/start SHAs,
+/// so those fields tolerate null by deserializing to an empty string.
 #[derive(Debug, Clone, Deserialize)]
 pub struct GitLabDiffVersion {
     pub id: i64,
+    #[serde(default, deserialize_with = "null_to_empty_string")]
     pub head_commit_sha: String,
+    #[serde(default, deserialize_with = "null_to_empty_string")]
     pub base_commit_sha: String,
+    #[serde(default, deserialize_with = "null_to_empty_string")]
     pub start_commit_sha: String,
+    #[serde(default)]
     pub diffs: Vec<GitLabFileDiff>,
+}
+
+/// Deserialize a possibly-null JSON string into an owned `String`, mapping
+/// `null` (or a missing key) to an empty string.
+fn null_to_empty_string<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(Option::<String>::deserialize(deserializer)?.unwrap_or_default())
 }
 
 /// GitLab file diff from API.
