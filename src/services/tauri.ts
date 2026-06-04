@@ -1092,7 +1092,7 @@ export async function refreshAvatars(instanceId: number): Promise<number> {
 
 /**
  * Download and install the ultra CLI binary to ~/.local/bin.
- * Returns the installed version, path, whether it is on PATH, and a human message.
+ * Returns the installed version, path, and a human message.
  */
 export async function downloadAndInstallCli(): Promise<CliInstallResult> {
   return invoke<CliInstallResult>('download_and_install_cli');

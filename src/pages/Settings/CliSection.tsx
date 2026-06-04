@@ -20,7 +20,7 @@ export default function CliSection() {
     try {
       setInstalling(true);
       const result = await downloadAndInstallCli();
-      setStatus({ installed: true, path: result.path, onPath: result.onPath });
+      setStatus({ installed: true, path: result.path });
       addToast({ type: 'info', title: 'CLI Installed', body: result.message });
     } catch (err) {
       addToast({
@@ -48,12 +48,10 @@ export default function CliSection() {
               <span className="update-current-version">
                 Installed at: <strong>{status.path}</strong>
               </span>
-              {!status.onPath && (
-                <span className="update-error" style={{ display: 'inline' }}>
-                  Not on PATH — add <code>{status.path.replace(/\/ultra$/, '')}</code> to your{' '}
-                  <code>$PATH</code>.
-                </span>
-              )}
+              <span className="update-up-to-date" style={{ display: 'inline' }}>
+                If <code>ultra</code> isn't found in your shell, make sure{' '}
+                <code>{status.path.replace(/\/ultra$/, '')}</code> is on your <code>$PATH</code>.
+              </span>
             </>
           ) : (
             <span className="update-up-to-date">Not installed</span>

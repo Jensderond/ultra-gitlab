@@ -14,7 +14,6 @@ const BIN_NAME: &str = "ultra";
 pub struct CliInstallResult {
     pub version: String,
     pub path: String,
-    pub on_path: bool,
     pub message: String,
 }
 
@@ -23,7 +22,6 @@ pub struct CliInstallResult {
 pub struct CliStatus {
     pub installed: bool,
     pub path: String,
-    pub on_path: bool,
 }
 
 #[derive(Deserialize)]
@@ -44,13 +42,12 @@ fn install_dir() -> Result<PathBuf, AppError> {
     Ok(PathBuf::from(home).join(".local/bin"))
 }
 
-fn dir_on_path(dir: &std::path::Path) -> bool {
-    std::env::var("PATH")
-        .map(|p| std::env::split_paths(&p).any(|d| d == dir))
-        .unwrap_or(false)
-}
-
 /// Report whether the CLI is already installed in ~/.local/bin.
+///
+/// Note: we deliberately do not report whether the install dir is on the
+/// user's `$PATH`. A GUI app launched via `launchd` inherits a stripped-down
+/// environment that omits PATH entries set in shell rc files, so any such
+/// check yields false positives. We only report what we can verify.
 #[tauri::command]
 pub async fn cli_status() -> Result<CliStatus, AppError> {
     let dir = install_dir()?;
@@ -58,7 +55,6 @@ pub async fn cli_status() -> Result<CliStatus, AppError> {
     Ok(CliStatus {
         installed: bin.exists(),
         path: bin.to_string_lossy().into_owned(),
-        on_path: dir_on_path(&dir),
     })
 }
 
@@ -122,21 +118,12 @@ pub async fn download_and_install_cli() -> Result<CliInstallResult, AppError> {
             .map_err(|e| AppError::internal(format!("chmod: {e}")))?;
     }
 
-    let on_path = dir_on_path(&dir);
     let version = rel.tag_name.trim_start_matches('v').to_string();
-    let message = if on_path {
-        format!("Installed ultra {version} to {}", bin_path.display())
-    } else {
-        format!(
-            "Installed ultra {version} to {}. Add it to your PATH: echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.zshrc",
-            bin_path.display()
-        )
-    };
+    let message = format!("Installed ultra {version} to {}", bin_path.display());
 
     Ok(CliInstallResult {
         version,
         path: bin_path.to_string_lossy().into_owned(),
-        on_path,
         message,
     })
 }
