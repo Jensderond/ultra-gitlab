@@ -6862,7 +6862,7 @@ dependencies = [
 
 [[package]]
 name = "ultra-gitlab-cli"
-version = "0.21.1"
+version = "0.21.0"
 dependencies = [
  "anyhow",
  "chrono",
