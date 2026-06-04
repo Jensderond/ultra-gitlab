@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number (e.g. 0.14.0)'
+        description: 'Version number. Use X.Y.Z for a real release (e.g. 0.21.0) or X.Y.Z-rc.N for a release candidate (e.g. 0.21.0-rc.1).'
         required: true
         type: string
       prerelease:
-        description: 'Publish as a pre-release (not marked Latest; promote manually in the GitHub UI when ready). The auto-updater only serves the Latest release.'
+        description: 'Publish as a pre-release (not marked Latest; promote manually in the GitHub UI when ready). The auto-updater only serves the Latest release. Always forced on for -rc.N versions.'
         required: false
         default: true
         type: boolean
@@ -19,8 +19,8 @@ jobs:
     steps:
       - name: Validate version format
         run: |
-          if ! echo "${{ inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "::error::Invalid version format '${{ inputs.version }}'. Expected format: X.Y.Z (e.g. 0.14.0)"
+          if ! echo "${{ inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$'; then
+            echo "::error::Invalid version format '${{ inputs.version }}'. Expected X.Y.Z (e.g. 0.21.0) or X.Y.Z-rc.N (e.g. 0.21.0-rc.1)"
             exit 1
           fi
 
@@ -90,14 +90,25 @@ jobs:
       - name: Bump version
         run: bun run scripts/bump-version.ts ${{ inputs.version }}
 
-      - name: Commit version bump
+      - name: Commit version bump and tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
-          git diff --cached --quiet || git commit -m "chore: bump version to ${{ inputs.version }}"
-          git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
-          git push origin HEAD:master --follow-tags
+          git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/cli/Cargo.toml src-tauri/Cargo.lock
+          if [[ "${{ inputs.version }}" == *-* ]]; then
+            # Release candidate: tag a throwaway bump commit so the build is
+            # versioned correctly, but do NOT advance master. This leaves the
+            # final vX.Y.Z tag free and keeps master's version untouched until
+            # the real release.
+            git commit -m "chore: prerelease v${{ inputs.version }}"
+            git tag -a "v${{ inputs.version }}" -m "Prerelease v${{ inputs.version }}"
+            git push origin "v${{ inputs.version }}"
+          else
+            # Final release: commit the bump to master and push it with the tag.
+            git diff --cached --quiet || git commit -m "chore: bump version to ${{ inputs.version }}"
+            git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
+            git push origin HEAD:master --follow-tags
+          fi
 
   changelog:
     needs: bump-and-tag
@@ -163,7 +174,8 @@ jobs:
           releaseName: 'Ultra GitLab v${{ inputs.version }}'
           releaseBody: ${{ needs.changelog.outputs.content }}
           releaseDraft: false
-          prerelease: ${{ inputs.prerelease }}
+          # Always a pre-release for -rc.N versions; otherwise honor the input.
+          prerelease: ${{ inputs.prerelease || contains(inputs.version, '-') }}
           args: --target aarch64-apple-darwin
 
       - name: Build ultra CLI binary

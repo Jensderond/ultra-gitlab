@@ -6,13 +6,15 @@
  *
  * Example:
  *   bun run scripts/bump-version.ts 0.2.0
+ *   bun run scripts/bump-version.ts 0.21.0-rc.1
  */
 
 const version = process.argv[2];
 
-if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
+if (!version || !/^\d+\.\d+\.\d+(-rc\.\d+)?$/.test(version)) {
   console.error("Usage: bun run scripts/bump-version.ts <version>");
   console.error("Example: bun run scripts/bump-version.ts 0.2.0");
+  console.error("Example: bun run scripts/bump-version.ts 0.21.0-rc.1");
   process.exit(1);
 }
 
