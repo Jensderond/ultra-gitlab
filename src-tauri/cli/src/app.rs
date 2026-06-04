@@ -49,6 +49,9 @@ pub struct App {
     pub detail: Option<data::DetailData>,
     pub file_state: ListState,
     pub diff_scroll: u16,
+    /// Visible height of the diff pane (inside borders), updated each render.
+    /// Used to page the diff by PgUp/PgDn in viewport-sized steps.
+    pub diff_viewport: u16,
     /// new_path of files marked viewed in the current detail (reset per MR).
     pub viewed: HashSet<String>,
     pub pipelines: crate::pipelines::PipelinesState,
@@ -97,6 +100,7 @@ impl App {
             detail: None,
             file_state: ListState::default(),
             diff_scroll: 0,
+            diff_viewport: 0,
             viewed: HashSet::new(),
             pipelines: crate::pipelines::PipelinesState::default(),
             detail_pipes: crate::pipelines::DetailPipelines::default(),
@@ -482,6 +486,12 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
             Focus::Diff => app.diff_scroll = app.diff_scroll.saturating_sub(1),
             Focus::Pipeline => crate::pipelines::handle_detail_key(app, KeyCode::Char('k')),
         },
+        KeyCode::PageDown if app.focus == Focus::Diff => {
+            app.diff_scroll = app.diff_scroll.saturating_add(diff_page_step(app));
+        }
+        KeyCode::PageUp if app.focus == Focus::Diff => {
+            app.diff_scroll = app.diff_scroll.saturating_sub(diff_page_step(app));
+        }
         other => {
             if app.focus == Focus::Pipeline {
                 crate::pipelines::handle_detail_key(app, other);
@@ -509,6 +519,12 @@ fn move_selection(app: &mut App, delta: i32) {
     let cur = app.list_state.selected().unwrap_or(0) as i32;
     let next = (cur + delta).clamp(0, len as i32 - 1) as usize;
     app.list_state.select(Some(next));
+}
+
+/// One PgUp/PgDn jump: a near-full page of the diff pane, keeping a line of
+/// overlap for context. Falls back to a sane default before the first render.
+fn diff_page_step(app: &App) -> u16 {
+    app.diff_viewport.saturating_sub(1).max(10)
 }
 
 fn move_file(app: &mut App, delta: i32) {

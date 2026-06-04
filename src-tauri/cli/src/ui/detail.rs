@@ -37,6 +37,8 @@ pub fn render(f: &mut Frame, app: &mut App, area: Rect) {
 
     render_tree(f, app, &detail, left[0]);
     render_pipelines_panel(f, app, left[1]);
+    // Track the diff pane's inner height (minus borders) so PgUp/PgDn can page.
+    app.diff_viewport = panes[1].height.saturating_sub(2);
     render_diff(f, app, &detail, panes[1]);
 }
 
