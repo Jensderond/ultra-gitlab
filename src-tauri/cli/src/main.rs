@@ -2,8 +2,10 @@
 
 mod actions;
 mod app;
+mod comments;
 mod data;
 mod db_path;
+mod editor;
 mod event;
 mod pipelines;
 mod syntax;
