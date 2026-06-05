@@ -59,6 +59,33 @@ pub fn position_for(row: &RowMeta) -> Option<(Option<i64>, Option<i64>)> {
     }
 }
 
+/// New-side line span for a suggestion; anchor is the line GitLab attaches to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SuggestionSeed {
+    pub start_line: i64,
+    pub end_line: i64,
+    pub anchor_line: i64,
+}
+
+/// Extract the new-side source lines covered by the cursor/range, plus the
+/// suggestion anchor's new line number. Returns `None` if the selection has no
+/// new-side line (pure deletions — GitLab suggestions replace new-file content).
+///
+/// `rows` is the diff's row metadata; `lo`/`hi` are inclusive row indices.
+pub fn suggestion_seed(rows: &[RowMeta], lo: usize, hi: usize) -> Option<SuggestionSeed> {
+    let mut new_lines: Vec<i64> = Vec::new();
+    for row in &rows[lo..=hi.min(rows.len().saturating_sub(1))] {
+        if matches!(row.kind, RowKind::Add | RowKind::Context) {
+            if let Some(n) = row.new_line {
+                new_lines.push(n);
+            }
+        }
+    }
+    let start = *new_lines.first()?;
+    let end = *new_lines.last()?;
+    Some(SuggestionSeed { start_line: start, end_line: end, anchor_line: end })
+}
+
 async fn run_post(
     pool: &ultra_gitlab_lib::db::pool::DbPool,
     p: PendingCompose,
@@ -101,5 +128,27 @@ mod tests {
     fn context_line_uses_both() {
         let r = RowMeta { kind: RowKind::Context, old_line: Some(3), new_line: Some(4) };
         assert_eq!(position_for(&r), Some((Some(3), Some(4))));
+    }
+}
+
+#[cfg(test)]
+mod suggestion_tests {
+    use super::suggestion_seed;
+    use crate::ui::diff::{RowKind, RowMeta};
+
+    fn add(n: i64) -> RowMeta { RowMeta { kind: RowKind::Add, old_line: None, new_line: Some(n) } }
+    fn del() -> RowMeta { RowMeta { kind: RowKind::Remove, old_line: Some(9), new_line: None } }
+
+    #[test]
+    fn spans_new_lines_anchor_at_end() {
+        let rows = vec![add(13), add(14), add(15)];
+        let s = super::suggestion_seed(&rows, 0, 2).unwrap();
+        assert_eq!((s.start_line, s.end_line, s.anchor_line), (13, 15, 15));
+    }
+
+    #[test]
+    fn pure_deletion_has_no_seed() {
+        let rows = vec![del(), del()];
+        assert!(suggestion_seed(&rows, 0, 1).is_none());
     }
 }
