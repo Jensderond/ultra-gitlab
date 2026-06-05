@@ -35,6 +35,19 @@ hint to sign in via the desktop app first.
 - **Review detail:** `a` approve / unapprove
 - **Mine detail:** `R` rebase · `M` merge (confirm with `y`) · `U` undraft · `A` auto-merge
 
+### Comments & suggestions (detail screen)
+
+- `c` — post a comment: on the file tree it opens a general MR comment; on the diff it posts an inline comment on the cursor line (or selected range in visual mode)
+- `v` — start / clear a visual line-range selection in the diff (select a range, then `c` or `s` to act on it)
+- `s` — open a suggestion on the diff cursor line or selected range (opens `$EDITOR` to write the replacement, then shows a preview before posting)
+- `C` — open the discussions overlay showing all threads on the MR
+  - `j`/`k` — move between threads
+  - `r` — reply to the focused thread
+  - `R` — resolve / unresolve the focused thread
+  - `esc` — close the overlay
+
+Lines in the diff that already have a discussion are marked with a `●` in the gutter (shown in yellow).
+
 ## Tabs
 
 - **Review** — merge requests assigned to you or awaiting your review (excludes your own authored MRs).
