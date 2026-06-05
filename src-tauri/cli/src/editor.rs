@@ -50,7 +50,6 @@ use crossterm::terminal::{
 /// `strip_comments` controls whether `#`-prefixed lines are dropped: true for
 /// comment/reply bodies (which carry a `#` banner), false for suggestion seeds
 /// (which are real source that may legitimately start with `#`).
-#[allow(dead_code)]
 pub fn compose(seed: &str, ext: &str, strip_comments: bool) -> io::Result<Option<String>> {
     let mut path = std::env::temp_dir();
     let pid = std::process::id();

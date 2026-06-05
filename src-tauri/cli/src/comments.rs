@@ -94,6 +94,9 @@ pub struct SuggestionSeed {
 ///
 /// `rows` is the diff's row metadata; `lo`/`hi` are inclusive row indices.
 pub fn suggestion_seed(rows: &[RowMeta], lo: usize, hi: usize) -> Option<SuggestionSeed> {
+    if rows.is_empty() || lo > hi || lo >= rows.len() {
+        return None;
+    }
     let mut new_lines: Vec<i64> = Vec::new();
     for row in &rows[lo..=hi.min(rows.len().saturating_sub(1))] {
         if matches!(row.kind, RowKind::Add | RowKind::Context) {

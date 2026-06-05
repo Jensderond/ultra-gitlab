@@ -1064,6 +1064,8 @@ fn open_detail(app: &mut App) {
     app.screen = Screen::Detail;
     app.focus = Focus::Tree;
     app.detail = None;
+    app.discussions = None;
+    app.overlay = None;
     app.busy = true;
     app.status = "Loading diff…".into();
     app.detail_pipes.reset();

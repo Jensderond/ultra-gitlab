@@ -37,7 +37,7 @@ hint to sign in via the desktop app first.
 
 ### Comments & suggestions (detail screen)
 
-- `c` — post a comment: on the file tree it opens a general MR comment; on the diff it posts an inline comment on the cursor line (or selected range in visual mode)
+- `c` — post a comment: on the file tree it opens a general MR comment; on the diff it posts an inline comment on the diff cursor line
 - `v` — start / clear a visual line-range selection in the diff (select a range, then `c` or `s` to act on it)
 - `s` — open a suggestion on the diff cursor line or selected range (opens `$EDITOR` to write the replacement, then shows a preview before posting)
 - `C` — open the discussions overlay showing all threads on the MR

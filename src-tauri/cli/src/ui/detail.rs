@@ -206,12 +206,11 @@ fn render_diff(f: &mut Frame, app: &mut App, detail: &crate::data::DetailData, a
     }
 
     // Clamp the cursor to a selectable row after a re-render.
-    if !app.diff_rows.is_empty() {
-        if app.diff_cursor >= app.diff_rows.len()
-            || !app.diff_rows[app.diff_cursor].selectable()
-        {
-            app.diff_cursor = crate::app::first_selectable(&app.diff_rows);
-        }
+    if !app.diff_rows.is_empty()
+        && (app.diff_cursor >= app.diff_rows.len()
+            || !app.diff_rows[app.diff_cursor].selectable())
+    {
+        app.diff_cursor = crate::app::first_selectable(&app.diff_rows);
     }
     let (lo, hi) = app.diff_selection_bounds();
     for (i, line) in text.lines.iter_mut().enumerate() {
