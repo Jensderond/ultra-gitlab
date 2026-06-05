@@ -432,9 +432,17 @@ fn handle_event(app: &mut App, ev: AppEvent) {
             app.detail_pipes.jobs = Some(rows);
             app.detail_pipes.job_state.select(Some(0));
         }
-        AppEvent::CommentPosted(Ok(_mr_id)) => {
+        AppEvent::CommentPosted(Ok(mr_id)) => {
             app.busy = false;
-            app.status = "Comment posted".into();
+            app.status = "Done".into();
+            let pool = app.pool.clone();
+            let tx = app.tx.clone();
+            tokio::spawn(async move {
+                let r = ultra_gitlab_lib::core::comments::list_discussions(&pool, mr_id)
+                    .await
+                    .map_err(|e| e.to_string());
+                let _ = tx.send(AppEvent::Discussions(r));
+            });
         }
         AppEvent::CommentPosted(Err(e)) => {
             app.busy = false;
@@ -628,6 +636,61 @@ fn switch_tab(app: &mut App, tab: Tab) {
     }
 }
 
+fn resolve_selected_thread(app: &mut App) {
+    // Collect all owned values while the immutable borrows are alive.
+    struct ResolveInfo {
+        mr_id: i64,
+        discussion_id: String,
+        resolved: bool,
+    }
+    let info: Option<Result<ResolveInfo, &'static str>> = {
+        let (Some(d), Some(o)) = (&app.detail, &app.overlay) else {
+            return;
+        };
+        let Some(threads) = &app.discussions else {
+            return;
+        };
+        let idx = o.state.selected().unwrap_or(0);
+        let Some(t) = threads.get(idx) else {
+            return;
+        };
+        if !t.resolvable {
+            Some(Err("Thread is not resolvable"))
+        } else {
+            Some(Ok(ResolveInfo {
+                mr_id: d.row.id,
+                discussion_id: t.id.clone(),
+                resolved: !t.resolved,
+            }))
+        }
+    };
+    // All immutable borrows dropped here. Now we can mutate app.
+    match info {
+        Some(Err(msg)) => {
+            app.status = msg.into();
+        }
+        Some(Ok(ResolveInfo { mr_id, discussion_id, resolved })) => {
+            let pool = app.pool.clone();
+            let tx = app.tx.clone();
+            app.busy = true;
+            app.status = if resolved { "Resolving…".into() } else { "Unresolving…".into() };
+            tokio::spawn(async move {
+                let result = ultra_gitlab_lib::core::comments::resolve(
+                    &pool,
+                    mr_id,
+                    &discussion_id,
+                    resolved,
+                )
+                .await
+                .map(|_| mr_id)
+                .map_err(|e| e.to_string());
+                let _ = tx.send(AppEvent::CommentPosted(result));
+            });
+        }
+        None => {}
+    }
+}
+
 fn overlay_move(app: &mut App, delta: i32) {
     let len = app.discussions.as_ref().map(|d| d.len()).unwrap_or(0);
     if len == 0 { return; }
@@ -644,6 +707,28 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
             KeyCode::Esc | KeyCode::Char('C') => { app.overlay = None; app.force_clear = true; }
             KeyCode::Char('j') | KeyCode::Down => overlay_move(app, 1),
             KeyCode::Char('k') | KeyCode::Up => overlay_move(app, -1),
+            KeyCode::Char('r') => {
+                // Collect owned values while borrows are alive, then drop them
+                // before assigning app.pending (borrow-checker requirement).
+                let compose = if let (Some(d), Some(o)) = (&app.detail, &app.overlay) {
+                    if let Some(threads) = &app.discussions {
+                        let idx = o.state.selected().unwrap_or(0);
+                        threads.get(idx).map(|t| crate::comments::PendingCompose::Reply {
+                            mr_id: d.row.id,
+                            discussion_id: t.id.clone(),
+                        })
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+                // Borrows of app.detail / app.overlay / app.discussions dropped here.
+                if let Some(c) = compose {
+                    app.pending = Some(c);
+                }
+            }
+            KeyCode::Char('R') => resolve_selected_thread(app),
             _ => {}
         }
         return;
