@@ -566,6 +566,9 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
                 app.pending = Some(crate::comments::PendingCompose::General { mr_id: d.row.id });
             }
         }
+        KeyCode::Char('c') if app.focus == Focus::Diff => {
+            start_inline_comment(app);
+        }
         KeyCode::Char('v') if app.focus == Focus::Diff => {
             app.diff_select_anchor = match app.diff_select_anchor {
                 Some(_) => None,
@@ -580,6 +583,54 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
             }
         }
     }
+}
+
+/// Build a pending inline-comment compose from the cursor's anchor row.
+fn start_inline_comment(app: &mut App) {
+    // Collect all needed owned values while the borrow of `app.detail` is active,
+    // then release that borrow before writing `app.pending` / `app.status`.
+    enum Setup {
+        Ready { mr_id: i64, file_path: String, refs: ultra_gitlab_lib::core::comments::DiffRefs },
+        NoRefs,
+        NoDetail,
+    }
+    let setup = match &app.detail {
+        None => Setup::NoDetail,
+        Some(d) => match d.diff_refs.clone() {
+            None => Setup::NoRefs,
+            Some(refs) => {
+                let sel = app.file_state.selected().unwrap_or(0);
+                match d.files.get(sel) {
+                    None => Setup::NoDetail,
+                    Some(file) => Setup::Ready { mr_id: d.row.id, file_path: file.new_path.clone(), refs },
+                }
+            }
+        },
+    };
+    // Borrow of `app.detail` is released here.
+    let (mr_id, file_path, refs) = match setup {
+        Setup::Ready { mr_id, file_path, refs } => (mr_id, file_path, refs),
+        Setup::NoRefs => {
+            app.status = "No diff refs available for inline comments".into();
+            return;
+        }
+        Setup::NoDetail => return,
+    };
+
+    // Anchor is the last row of the selection (matches the desktop default).
+    let (_, hi) = app.diff_selection_bounds();
+    let Some(row) = app.diff_rows.get(hi) else { return };
+    let Some((old_line, new_line)) = crate::comments::position_for(row) else {
+        app.status = "Pick a code line to comment on".into();
+        return;
+    };
+    app.pending = Some(crate::comments::PendingCompose::Inline {
+        mr_id,
+        file_path,
+        old_line,
+        new_line,
+        refs,
+    });
 }
 
 fn toggle_tab(app: &mut App) {

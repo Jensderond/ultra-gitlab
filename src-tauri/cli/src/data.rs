@@ -102,6 +102,8 @@ pub struct DetailData {
     pub files: Vec<FileDiff>,
     /// True when the diff was fetched live (cache miss).
     pub live: bool,
+    /// SHAs needed to position inline comments (cache row or live version).
+    pub diff_refs: Option<ultra_gitlab_lib::core::comments::DiffRefs>,
 }
 
 pub async fn load_review(pool: &DbPool, instance_id: i64) -> Result<Vec<MrRow>, AppError> {
@@ -128,18 +130,24 @@ pub async fn load_detail(pool: &DbPool, mr_id: i64) -> Result<DetailData, AppErr
     let detail = mr_query::get_detail(pool, mr_id).await?;
     let row = MrRow::from(detail.mr);
     if detail.diff_files.is_empty() {
-        // Cache miss — fetch live, in-memory only.
-        let live = mr_actions::get_live_diff(pool, mr_id).await?;
+        let (live, refs) = mr_actions::get_live_diff(pool, mr_id).await?;
         Ok(DetailData {
             row,
             files: live.into_iter().map(FileDiff::from).collect(),
             live: true,
+            diff_refs: Some(refs),
         })
     } else {
+        let diff_refs = detail.diff.as_ref().map(|d| ultra_gitlab_lib::core::comments::DiffRefs {
+            base_sha: d.base_sha.clone(),
+            head_sha: d.head_sha.clone(),
+            start_sha: d.start_sha.clone(),
+        });
         Ok(DetailData {
             row,
             files: detail.diff_files.into_iter().map(FileDiff::from).collect(),
             live: false,
+            diff_refs,
         })
     }
 }

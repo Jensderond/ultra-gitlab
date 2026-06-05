@@ -136,14 +136,21 @@ pub struct LiveDiffFile {
     pub diff_content: String,
 }
 
-/// Fetch an MR's diff live from GitLab and return per-file unified diffs.
-/// Used when the local cache has no diff for an MR. Not written back to the DB;
-/// the desktop sync engine persists diffs on its own cycle.
-pub async fn get_live_diff(pool: &DbPool, mr_id: i64) -> Result<Vec<LiveDiffFile>, AppError> {
+/// Fetch an MR's diff live from GitLab. Returns per-file unified diffs plus the
+/// version SHAs (needed to position inline comments on a live-only diff).
+pub async fn get_live_diff(
+    pool: &DbPool,
+    mr_id: i64,
+) -> Result<(Vec<LiveDiffFile>, crate::core::comments::DiffRefs), AppError> {
     let (instance_id, project_id, iid) = mr_api_ids(pool, mr_id).await?;
     let client = create_client(pool, instance_id).await?;
     let version = client.get_merge_request_diff(project_id, iid).await?;
-    Ok(version
+    let refs = crate::core::comments::DiffRefs {
+        base_sha: version.base_commit_sha.clone(),
+        head_sha: version.head_commit_sha.clone(),
+        start_sha: version.start_commit_sha.clone(),
+    };
+    let files = version
         .diffs
         .into_iter()
         .map(|d| LiveDiffFile {
@@ -157,15 +164,12 @@ pub async fn get_live_diff(pool: &DbPool, mr_id: i64) -> Result<Vec<LiveDiffFile
                 "modified"
             }
             .to_string(),
-            old_path: if d.old_path == d.new_path {
-                None
-            } else {
-                Some(d.old_path)
-            },
+            old_path: if d.old_path == d.new_path { None } else { Some(d.old_path) },
             new_path: d.new_path,
             diff_content: d.diff,
         })
-        .collect())
+        .collect();
+    Ok((files, refs))
 }
 
 #[cfg(test)]

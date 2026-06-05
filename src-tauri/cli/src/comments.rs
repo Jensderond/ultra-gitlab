@@ -2,6 +2,7 @@
 
 use crate::app::App;
 use crate::event::AppEvent;
+use crate::ui::diff::{RowKind, RowMeta};
 use ultra_gitlab_lib::core::comments;
 
 /// A compose request raised by a keypress, performed by the run loop (which owns
@@ -14,6 +15,7 @@ pub enum PendingCompose {
         file_path: String,
         old_line: Option<i64>,
         new_line: Option<i64>,
+        refs: comments::DiffRefs,
     },
     Reply { mr_id: i64, discussion_id: String },
 }
@@ -44,6 +46,19 @@ pub fn post(app: &App, p: PendingCompose, body: String) {
     });
 }
 
+/// Derive the inline-comment position from a selected diff row. Suggestions and
+/// comments attach to a single anchor row (the range's last row). Added/context
+/// rows use `new_line`; deletion rows use `old_line`. Returns `None` for a
+/// non-selectable row.
+pub fn position_for(row: &RowMeta) -> Option<(Option<i64>, Option<i64>)> {
+    match row.kind {
+        RowKind::Add => Some((None, row.new_line)),
+        RowKind::Context => Some((row.old_line, row.new_line)),
+        RowKind::Remove => Some((row.old_line, None)),
+        _ => None,
+    }
+}
+
 async fn run_post(
     pool: &ultra_gitlab_lib::db::pool::DbPool,
     p: PendingCompose,
@@ -54,10 +69,7 @@ async fn run_post(
             comments::post_general_comment(pool, mr_id, &body).await?;
             Ok(mr_id)
         }
-        PendingCompose::Inline { mr_id, file_path, old_line, new_line } => {
-            let refs = comments::diff_refs_from_cache(pool, mr_id)
-                .await?
-                .ok_or_else(|| ultra_gitlab_lib::error::AppError::not_found("diff refs"))?;
+        PendingCompose::Inline { mr_id, file_path, old_line, new_line, refs } => {
             comments::post_inline_comment(pool, mr_id, &body, &file_path, old_line, new_line, &refs).await?;
             Ok(mr_id)
         }
@@ -65,5 +77,29 @@ async fn run_post(
             comments::reply(pool, mr_id, &discussion_id, &body).await?;
             Ok(mr_id)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::position_for;
+    use crate::ui::diff::{RowKind, RowMeta};
+
+    #[test]
+    fn added_line_uses_new_only() {
+        let r = RowMeta { kind: RowKind::Add, old_line: None, new_line: Some(5) };
+        assert_eq!(position_for(&r), Some((None, Some(5))));
+    }
+
+    #[test]
+    fn deleted_line_uses_old_only() {
+        let r = RowMeta { kind: RowKind::Remove, old_line: Some(7), new_line: None };
+        assert_eq!(position_for(&r), Some((Some(7), None)));
+    }
+
+    #[test]
+    fn context_line_uses_both() {
+        let r = RowMeta { kind: RowKind::Context, old_line: Some(3), new_line: Some(4) };
+        assert_eq!(position_for(&r), Some((Some(3), Some(4))));
     }
 }
