@@ -25,4 +25,7 @@ pub enum AppEvent {
     // MR detail pipelines panel
     MrPipes(Result<Vec<PipeRow>, String>),
     MrPipeJobs(Result<Vec<JobRow>, String>),
+
+    /// Result of posting a comment/reply (Ok(mr_id) to refresh, or error).
+    CommentPosted(Result<i64, String>),
 }

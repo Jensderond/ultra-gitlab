@@ -64,6 +64,8 @@ pub struct App {
     pub diff_cursor: usize,
     /// Visual-range anchor row; `Some` while a range selection is active.
     pub diff_select_anchor: Option<usize>,
+    /// A compose request to run after the current key handler returns.
+    pub pending: Option<crate::comments::PendingCompose>,
     /// new_path of files marked viewed in the current detail (reset per MR).
     pub viewed: HashSet<String>,
     pub pipelines: crate::pipelines::PipelinesState,
@@ -118,6 +120,7 @@ impl App {
             diff_rows: Vec::new(),
             diff_cursor: 0,
             diff_select_anchor: None,
+            pending: None,
             viewed: HashSet::new(),
             pipelines: crate::pipelines::PipelinesState::default(),
             detail_pipes: crate::pipelines::DetailPipelines::default(),
@@ -189,6 +192,9 @@ pub async fn run(
                 if let Some(Ok(Event::Key(key))) = maybe_key {
                     if key.kind == KeyEventKind::Press {
                         handle_key(&mut app, key.code);
+                        if let Some(p) = app.pending.take() {
+                            run_compose(&mut terminal, &mut app, p)?;
+                        }
                     }
                 }
             }
@@ -239,6 +245,27 @@ fn on_tick(app: &mut App) {
             crate::pipelines::refresh_detail(app);
         }
     }
+}
+
+/// Suspend the TUI, run the editor for a pending compose, and dispatch the post.
+fn run_compose(
+    terminal: &mut DefaultTerminal,
+    app: &mut App,
+    p: crate::comments::PendingCompose,
+) -> anyhow::Result<()> {
+    let iid = app.detail.as_ref().map(|d| d.row.iid).unwrap_or(0);
+    let (seed, ext, strip) = crate::comments::seed_for(&p, iid);
+    match crate::editor::compose(&seed, ext, strip)? {
+        Some(body) => {
+            crate::comments::post(app, p, body);
+            app.busy = true;
+            app.status = "Posting comment…".into();
+        }
+        None => app.status = "Cancelled".into(),
+    }
+    app.force_clear = true;
+    terminal.clear()?;
+    Ok(())
 }
 
 fn handle_event(app: &mut App, ev: AppEvent) {
@@ -349,6 +376,14 @@ fn handle_event(app: &mut App, ev: AppEvent) {
         AppEvent::MrPipeJobs(Ok(rows)) => {
             app.detail_pipes.jobs = Some(rows);
             app.detail_pipes.job_state.select(Some(0));
+        }
+        AppEvent::CommentPosted(Ok(_mr_id)) => {
+            app.busy = false;
+            app.status = "Comment posted".into();
+        }
+        AppEvent::CommentPosted(Err(e)) => {
+            app.busy = false;
+            app.status = format!("Comment failed: {e}");
         }
         AppEvent::PipeProjects(Err(e))
         | AppEvent::PipeStatuses(Err(e))
@@ -525,6 +560,11 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
         }
         KeyCode::PageUp if app.focus == Focus::Diff => {
             app.diff_scroll = app.diff_scroll.saturating_sub(diff_page_step(app));
+        }
+        KeyCode::Char('c') if app.focus == Focus::Tree => {
+            if let Some(d) = &app.detail {
+                app.pending = Some(crate::comments::PendingCompose::General { mr_id: d.row.id });
+            }
         }
         other => {
             if app.focus == Focus::Pipeline {
