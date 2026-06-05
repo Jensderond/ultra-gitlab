@@ -120,9 +120,24 @@ fn render_diff(f: &mut Frame, app: &mut App, detail: &crate::data::DetailData, a
         f.render_widget(Paragraph::new("No file selected").block(block), area);
         return;
     };
-    let text = diff::render_diff(&app.highlighter, &file.new_path, &file.diff_content);
-    // Diff lines are not wrapped, so clamp the horizontal pan to the widest line
-    // that actually overflows the pane — panning past it would show only blanks.
+    let model = diff::render_diff(&app.highlighter, &file.new_path, &file.diff_content);
+    let mut text = model.text;
+    app.diff_rows = model.rows;
+    // Clamp the cursor to a selectable row after a re-render.
+    if !app.diff_rows.is_empty() {
+        if app.diff_cursor >= app.diff_rows.len()
+            || !app.diff_rows[app.diff_cursor].selectable()
+        {
+            app.diff_cursor = crate::app::first_selectable(&app.diff_rows);
+        }
+    }
+    let (lo, hi) = app.diff_selection_bounds();
+    for (i, line) in text.lines.iter_mut().enumerate() {
+        if i >= lo && i <= hi {
+            let bg = if i == app.diff_cursor { Color::Rgb(60, 60, 90) } else { Color::Rgb(40, 40, 60) };
+            line.spans.iter_mut().for_each(|s| s.style = s.style.bg(bg));
+        }
+    }
     let inner_w = area.width.saturating_sub(2);
     let max_w = text.lines.iter().map(|l| l.width()).max().unwrap_or(0) as u16;
     app.diff_hscroll_max = max_w.saturating_sub(inner_w);

@@ -58,6 +58,12 @@ pub struct App {
     /// Furthest the diff can pan right (widest line minus pane width), updated
     /// each render so left/right panning can be clamped to actual content.
     pub diff_hscroll_max: u16,
+    /// Per-row metadata for the current file's diff, refreshed each render.
+    pub diff_rows: Vec<crate::ui::diff::RowMeta>,
+    /// Cursor row index into `diff_rows` (the line a comment would target).
+    pub diff_cursor: usize,
+    /// Visual-range anchor row; `Some` while a range selection is active.
+    pub diff_select_anchor: Option<usize>,
     /// new_path of files marked viewed in the current detail (reset per MR).
     pub viewed: HashSet<String>,
     pub pipelines: crate::pipelines::PipelinesState,
@@ -109,6 +115,9 @@ impl App {
             diff_hscroll: 0,
             diff_viewport: 0,
             diff_hscroll_max: 0,
+            diff_rows: Vec::new(),
+            diff_cursor: 0,
+            diff_select_anchor: None,
             viewed: HashSet::new(),
             pipelines: crate::pipelines::PipelinesState::default(),
             detail_pipes: crate::pipelines::DetailPipelines::default(),
@@ -250,6 +259,8 @@ fn handle_event(app: &mut App, ev: AppEvent) {
             app.file_state.select(Some(0));
             app.diff_scroll = 0;
             app.diff_hscroll = 0;
+            app.diff_cursor = 0;
+            app.diff_select_anchor = None;
             app.viewed.clear();
             app.detail = Some(d);
         }
@@ -501,12 +512,12 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
         KeyCode::Char('V') => mark_viewed_and_advance(app),
         KeyCode::Char('j') | KeyCode::Down => match app.focus {
             Focus::Tree => move_file(app, 1),
-            Focus::Diff => app.diff_scroll = app.diff_scroll.saturating_add(1),
+            Focus::Diff => move_cursor(app, 1),
             Focus::Pipeline => crate::pipelines::handle_detail_key(app, KeyCode::Char('j')),
         },
         KeyCode::Char('k') | KeyCode::Up => match app.focus {
             Focus::Tree => move_file(app, -1),
-            Focus::Diff => app.diff_scroll = app.diff_scroll.saturating_sub(1),
+            Focus::Diff => move_cursor(app, -1),
             Focus::Pipeline => crate::pipelines::handle_detail_key(app, KeyCode::Char('k')),
         },
         KeyCode::PageDown if app.focus == Focus::Diff => {
@@ -554,6 +565,59 @@ fn diff_page_step(app: &App) -> u16 {
     app.diff_viewport.saturating_sub(1).max(10)
 }
 
+/// First selectable row index, or 0 if none.
+pub fn first_selectable(rows: &[crate::ui::diff::RowMeta]) -> usize {
+    rows.iter().position(|r| r.selectable()).unwrap_or(0)
+}
+
+impl App {
+    /// Inclusive `(low, high)` highlight bounds: the visual range if active,
+    /// else just the cursor row.
+    pub fn diff_selection_bounds(&self) -> (usize, usize) {
+        match self.diff_select_anchor {
+            Some(a) => (a.min(self.diff_cursor), a.max(self.diff_cursor)),
+            None => (self.diff_cursor, self.diff_cursor),
+        }
+    }
+}
+
+/// Move the diff cursor by `delta`, skipping non-selectable rows (hunk headers,
+/// blanks). Returns the new cursor index. Pure over the rows so it is testable.
+fn next_selectable(rows: &[crate::ui::diff::RowMeta], from: usize, delta: i32) -> usize {
+    if rows.is_empty() {
+        return 0;
+    }
+    let len = rows.len() as i32;
+    let mut i = from as i32;
+    loop {
+        let n = i + delta;
+        if n < 0 || n >= len {
+            // No selectable row found in that direction; stay at `from`.
+            return from;
+        }
+        i = n;
+        if rows[i as usize].selectable() {
+            return i as usize;
+        }
+    }
+}
+
+fn move_cursor(app: &mut App, delta: i32) {
+    if app.diff_rows.is_empty() {
+        return;
+    }
+    app.diff_cursor = next_selectable(&app.diff_rows, app.diff_cursor, delta);
+    // Keep the cursor within the viewport by nudging the scroll offset.
+    let cur = app.diff_cursor as u16;
+    let top = app.diff_scroll;
+    let h = app.diff_viewport.max(1);
+    if cur < top {
+        app.diff_scroll = cur;
+    } else if cur >= top + h {
+        app.diff_scroll = cur.saturating_sub(h - 1);
+    }
+}
+
 fn move_file(app: &mut App, delta: i32) {
     let Some(d) = &app.detail else { return };
     let len = d.files.len();
@@ -565,6 +629,8 @@ fn move_file(app: &mut App, delta: i32) {
     app.file_state.select(Some(next));
     app.diff_scroll = 0;
     app.diff_hscroll = 0;
+    app.diff_cursor = 0;
+    app.diff_select_anchor = None;
     app.force_clear = true;
 }
 
@@ -585,6 +651,8 @@ fn mark_viewed_and_advance(app: &mut App) {
         app.file_state.select(Some(i));
         app.diff_scroll = 0;
         app.diff_hscroll = 0;
+        app.diff_cursor = 0;
+        app.diff_select_anchor = None;
         app.force_clear = true;
     } else {
         app.status = "All files viewed".into();
@@ -615,4 +683,32 @@ fn open_detail(app: &mut App) {
             .map_err(|e| e.to_string());
         let _ = tx2.send(AppEvent::MrPipes(r));
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::next_selectable;
+    use crate::ui::diff::{RowKind, RowMeta};
+
+    fn r(kind: RowKind) -> RowMeta {
+        RowMeta { kind, old_line: None, new_line: None }
+    }
+
+    #[test]
+    fn cursor_skips_hunk_and_blank() {
+        let rows = vec![
+            r(RowKind::Hunk),
+            r(RowKind::Context),
+            r(RowKind::Add),
+            r(RowKind::Blank),
+            r(RowKind::Hunk),
+            r(RowKind::Context),
+        ];
+        // from index 2 (Add), +1 skips Blank+Hunk to land on index 5 (Context).
+        assert_eq!(next_selectable(&rows, 2, 1), 5);
+        // moving up from 5 lands on 2.
+        assert_eq!(next_selectable(&rows, 5, -1), 2);
+        // at the top, moving up stays put.
+        assert_eq!(next_selectable(&rows, 1, -1), 1);
+    }
 }
