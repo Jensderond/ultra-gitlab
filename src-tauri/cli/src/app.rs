@@ -66,6 +66,11 @@ pub struct App {
     pub diff_select_anchor: Option<usize>,
     /// A compose request to run after the current key handler returns.
     pub pending: Option<crate::comments::PendingCompose>,
+    /// State for the suggestion preview overlay (after editing, before posting).
+    pub suggestion: Option<SuggestionPreview>,
+    /// Set when the user pressed `m` in the preview to attach a message; the run
+    /// loop opens the editor for the message and clears this.
+    pub suggestion_message_pending: bool,
     /// new_path of files marked viewed in the current detail (reset per MR).
     pub viewed: HashSet<String>,
     pub pipelines: crate::pipelines::PipelinesState,
@@ -82,6 +87,22 @@ pub struct App {
 
     pub tx: mpsc::UnboundedSender<AppEvent>,
     pub highlighter: Highlighter,
+}
+
+/// State for the suggestion preview overlay (after editing, before posting).
+#[derive(Debug, Clone)]
+pub struct SuggestionPreview {
+    pub mr_id: i64,
+    pub file_path: String,
+    pub original: String,
+    pub edited: String,
+    pub above: i64,
+    pub below: i64,
+    pub anchor_old: Option<i64>,
+    pub anchor_new: Option<i64>,
+    pub refs: ultra_gitlab_lib::core::comments::DiffRefs,
+    /// Optional accompanying message note typed via `m`.
+    pub message: Option<String>,
 }
 
 /// A pending y/n confirmation for a destructive action.
@@ -121,6 +142,8 @@ impl App {
             diff_cursor: 0,
             diff_select_anchor: None,
             pending: None,
+            suggestion: None,
+            suggestion_message_pending: false,
             viewed: HashSet::new(),
             pipelines: crate::pipelines::PipelinesState::default(),
             detail_pipes: crate::pipelines::DetailPipelines::default(),
@@ -192,6 +215,19 @@ pub async fn run(
                 if let Some(Ok(Event::Key(key))) = maybe_key {
                     if key.kind == KeyEventKind::Press {
                         handle_key(&mut app, key.code);
+                        if app.suggestion_message_pending {
+                            app.suggestion_message_pending = false;
+                            if let Some(mut p) = app.suggestion.take() {
+                                if let Some(m) = crate::editor::compose(
+                                    "# Message to accompany the suggestion\n\n", "md", true,
+                                )? {
+                                    p.message = Some(m);
+                                }
+                                app.suggestion = Some(p);
+                                app.force_clear = true;
+                                terminal.clear()?;
+                            }
+                        }
                         if let Some(p) = app.pending.take() {
                             run_compose(&mut terminal, &mut app, p)?;
                         }
@@ -255,16 +291,24 @@ fn run_compose(
 ) -> anyhow::Result<()> {
     let iid = app.detail.as_ref().map(|d| d.row.iid).unwrap_or(0);
     let (seed, ext, strip) = crate::comments::seed_for(&p, iid);
-    match crate::editor::compose(&seed, ext, strip)? {
-        Some(body) => {
+    let edited = crate::editor::compose(&seed, ext, strip)?;
+    app.force_clear = true;
+    terminal.clear()?;
+    match (p, edited) {
+        (_, None) => app.status = "Cancelled".into(),
+        (crate::comments::PendingCompose::Suggestion {
+            mr_id, file_path, original, above, below, anchor_old, anchor_new, refs,
+        }, Some(edited)) => {
+            app.suggestion = Some(crate::app::SuggestionPreview {
+                mr_id, file_path, original, edited, above, below, anchor_old, anchor_new, refs, message: None,
+            });
+        }
+        (p, Some(body)) => {
             crate::comments::post(app, p, body);
             app.busy = true;
             app.status = "Posting comment…".into();
         }
-        None => app.status = "Cancelled".into(),
     }
-    app.force_clear = true;
-    terminal.clear()?;
     Ok(())
 }
 
@@ -447,9 +491,69 @@ fn handle_key(app: &mut App, code: KeyCode) {
         return;
     }
 
+    // The suggestion preview overlay captures keys while open, before the normal
+    // screen dispatch (so its keys aren't also read as detail-screen actions).
+    if app.suggestion.is_some() {
+        handle_suggestion_key(app, code);
+        return;
+    }
+
     match app.screen {
         Screen::List => handle_list_key(app, code),
         Screen::Detail => handle_detail_key(app, code),
+    }
+}
+
+fn handle_suggestion_key(app: &mut App, code: KeyCode) {
+    match code {
+        KeyCode::Char('p') => {
+            if let Some(p) = app.suggestion.take() {
+                let body = build_suggestion_body(&p);
+                let pending = crate::comments::PendingCompose::Inline {
+                    mr_id: p.mr_id,
+                    file_path: p.file_path,
+                    old_line: p.anchor_old,
+                    new_line: p.anchor_new,
+                    refs: p.refs,
+                };
+                crate::comments::post(app, pending, body);
+                app.busy = true;
+                app.status = "Posting suggestion…".into();
+            }
+        }
+        KeyCode::Char('e') => {
+            // Re-open the editor on the edited content; rebuild the preview.
+            if let Some(p) = app.suggestion.take() {
+                app.pending = Some(crate::comments::PendingCompose::Suggestion {
+                    mr_id: p.mr_id,
+                    file_path: p.file_path,
+                    original: p.edited, // edit again starts from the current edit
+                    above: p.above,
+                    below: p.below,
+                    anchor_old: p.anchor_old,
+                    anchor_new: p.anchor_new,
+                    refs: p.refs,
+                });
+            }
+        }
+        KeyCode::Char('m') => {
+            app.suggestion_message_pending = true;
+        }
+        KeyCode::Esc => {
+            app.suggestion = None;
+            app.status = "Cancelled".into();
+        }
+        _ => {}
+    }
+}
+
+/// Combine the optional message note and the suggestion block into one note body.
+fn build_suggestion_body(p: &SuggestionPreview) -> String {
+    use ultra_gitlab_lib::core::comments::build_suggestion_block;
+    let block = build_suggestion_block(&p.edited, p.above, p.below);
+    match &p.message {
+        Some(m) if !m.is_empty() => format!("{m}\n\n{block}"),
+        _ => block,
     }
 }
 
@@ -575,6 +679,7 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
                 None => Some(app.diff_cursor),
             };
         }
+        KeyCode::Char('s') if app.focus == Focus::Diff => start_suggestion(app),
         other => {
             if app.focus == Focus::Pipeline {
                 crate::pipelines::handle_detail_key(app, other);
@@ -629,6 +734,68 @@ fn start_inline_comment(app: &mut App) {
         file_path,
         old_line,
         new_line,
+        refs,
+    });
+}
+
+/// Build a pending suggestion compose from the cursor's range, seeded with the
+/// selected new-side source so the editor opens on the existing code.
+fn start_suggestion(app: &mut App) {
+    // Extract all owned values from the `app.detail` borrow first, then release
+    // it before reading other `app` fields / mutating `app` (borrow checker).
+    enum Setup {
+        Ready { mr_id: i64, file_path: String, diff_content: String, refs: ultra_gitlab_lib::core::comments::DiffRefs },
+        NoRefs,
+        NoDetail,
+    }
+    let setup = match &app.detail {
+        None => Setup::NoDetail,
+        Some(d) => match d.diff_refs.clone() {
+            None => Setup::NoRefs,
+            Some(refs) => {
+                let sel = app.file_state.selected().unwrap_or(0);
+                match d.files.get(sel) {
+                    None => Setup::NoDetail,
+                    Some(file) => Setup::Ready {
+                        mr_id: d.row.id,
+                        file_path: file.new_path.clone(),
+                        diff_content: file.diff_content.clone(),
+                        refs,
+                    },
+                }
+            }
+        },
+    };
+    // Borrow of `app.detail` is released here.
+    let (mr_id, file_path, diff_content, refs) = match setup {
+        Setup::Ready { mr_id, file_path, diff_content, refs } => (mr_id, file_path, diff_content, refs),
+        Setup::NoRefs => {
+            app.status = "No diff refs available for suggestions".into();
+            return;
+        }
+        Setup::NoDetail => return,
+    };
+
+    let (lo, hi) = app.diff_selection_bounds();
+    let Some(seed) = crate::comments::suggestion_seed(&app.diff_rows, lo, hi) else {
+        app.status = "Suggestions need a new-side line (not a pure deletion)".into();
+        return;
+    };
+    // Gather the original new-side text from the selected rows for the preview.
+    let original = crate::comments::selection_text(&app.diff_rows, &diff_content, lo, hi);
+    let (above, below) = ultra_gitlab_lib::core::comments::suggestion_offsets(
+        seed.start_line,
+        seed.end_line,
+        seed.anchor_line,
+    );
+    app.pending = Some(crate::comments::PendingCompose::Suggestion {
+        mr_id,
+        file_path,
+        original,
+        above,
+        below,
+        anchor_old: None,
+        anchor_new: Some(seed.anchor_line),
         refs,
     });
 }

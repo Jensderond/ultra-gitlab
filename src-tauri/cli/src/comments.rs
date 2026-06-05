@@ -18,6 +18,16 @@ pub enum PendingCompose {
         refs: comments::DiffRefs,
     },
     Reply { mr_id: i64, discussion_id: String },
+    Suggestion {
+        mr_id: i64,
+        file_path: String,
+        original: String,
+        above: i64,
+        below: i64,
+        anchor_old: Option<i64>,
+        anchor_new: Option<i64>,
+        refs: comments::DiffRefs,
+    },
 }
 
 /// Seed text + temp-file extension + comment-stripping flag for a compose.
@@ -32,6 +42,17 @@ pub fn seed_for(p: &PendingCompose, iid: i64) -> (String, &'static str, bool) {
         }
         PendingCompose::Reply { .. } => {
             ("# Reply\n# Lines starting with # are ignored.\n\n".to_string(), "md", true)
+        }
+        PendingCompose::Suggestion { original, file_path, .. } => {
+            let ext = file_path.rsplit('.').next().unwrap_or("txt").to_string();
+            // ext must be 'static for the return type; fall back to a small set.
+            let ext: &'static str = match ext.as_str() {
+                "rs" => "rs", "ts" => "ts", "tsx" => "tsx", "js" => "js", "jsx" => "jsx",
+                "py" => "py", "go" => "go", "json" => "json", "css" => "css", "html" => "html",
+                "md" => "md", "toml" => "toml", "yaml" | "yml" => "yaml",
+                _ => "txt",
+            };
+            (original.clone(), ext, false)
         }
     }
 }
@@ -104,7 +125,43 @@ async fn run_post(
             comments::reply(pool, mr_id, &discussion_id, &body).await?;
             Ok(mr_id)
         }
+        PendingCompose::Suggestion { .. } => {
+            // Suggestions are turned into an Inline post by the preview overlay;
+            // they never reach run_post directly.
+            unreachable!("PendingCompose::Suggestion is posted via the preview overlay")
+        }
     }
+}
+
+/// Concatenate the new-side content of rows `lo..=hi` from the file's unified
+/// diff (added + context lines), for seeding the editor and the preview.
+pub fn selection_text(rows: &[RowMeta], diff_content: &str, lo: usize, hi: usize) -> String {
+    use ultra_gitlab_lib::commands::mr::parse_unified_diff_public;
+    // Flatten the diff into the same row order the renderer used: hunk header,
+    // body lines, trailing blank — so row indices line up with `rows`.
+    let hunks = parse_unified_diff_public(diff_content);
+    let mut flat: Vec<Option<String>> = Vec::new();
+    for h in &hunks {
+        flat.push(None); // hunk header row
+        for dl in &h.lines {
+            let is_new_side = dl.line_type == "add" || dl.line_type != "remove";
+            flat.push(if is_new_side { Some(dl.content.clone()) } else { None });
+        }
+        flat.push(None); // trailing blank row
+    }
+    let hi = hi.min(flat.len().saturating_sub(1));
+    let mut out: Vec<String> = Vec::new();
+    for (i, cell) in flat.iter().enumerate() {
+        if i >= lo && i <= hi {
+            if let Some(text) = cell {
+                // Only include rows that are selectable code lines.
+                if rows.get(i).map(|r| r.selectable()).unwrap_or(false) {
+                    out.push(text.clone());
+                }
+            }
+        }
+    }
+    out.join("\n")
 }
 
 #[cfg(test)]

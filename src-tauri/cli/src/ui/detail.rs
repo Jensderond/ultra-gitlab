@@ -40,6 +40,45 @@ pub fn render(f: &mut Frame, app: &mut App, area: Rect) {
     // Track the diff pane's inner height (minus borders) so PgUp/PgDn can page.
     app.diff_viewport = panes[1].height.saturating_sub(2);
     render_diff(f, app, &detail, panes[1]);
+
+    if let Some(prev) = app.suggestion.clone() {
+        render_suggestion_preview(f, &prev, area);
+    }
+}
+
+fn render_suggestion_preview(f: &mut Frame, p: &crate::app::SuggestionPreview, area: Rect) {
+    use ratatui::widgets::Clear;
+    use ultra_gitlab_lib::core::comments::build_suggestion_block;
+    let block_text = build_suggestion_block(&p.edited, p.above, p.below);
+    let mut lines: Vec<Line> = Vec::new();
+    for l in p.original.lines() {
+        lines.push(Line::from(Span::styled(format!("- {l}"), Style::default().fg(Color::Red))));
+    }
+    for l in p.edited.lines() {
+        lines.push(Line::from(Span::styled(format!("+ {l}"), Style::default().fg(Color::Green))));
+    }
+    lines.push(Line::from(""));
+    if let Some(m) = &p.message {
+        lines.push(Line::from(Span::styled(format!("message: {m}"), Style::default().fg(Color::Cyan))));
+        lines.push(Line::from(""));
+    }
+    for l in block_text.lines() {
+        lines.push(Line::from(Span::styled(l.to_string(), Style::default().fg(Color::DarkGray))));
+    }
+    let title = format!(" Suggestion preview · {} ", p.file_path);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(title)
+        .title_bottom(" p:post  e:edit  m:message  esc:cancel ")
+        .border_style(Style::default().fg(Color::Cyan));
+    // Centered popup covering most of the area.
+    let w = area.width.saturating_sub(8).min(100);
+    let h = (lines.len() as u16 + 2).min(area.height.saturating_sub(4));
+    let x = area.x + (area.width.saturating_sub(w)) / 2;
+    let y = area.y + (area.height.saturating_sub(h)) / 2;
+    let popup = Rect { x, y, width: w, height: h };
+    f.render_widget(Clear, popup);
+    f.render_widget(Paragraph::new(lines).block(block).wrap(Wrap { trim: false }), popup);
 }
 
 fn render_header(f: &mut Frame, detail: &crate::data::DetailData, area: Rect) {
