@@ -4,6 +4,7 @@
 //! process. The Tauri command handlers delegate to these; the CLI calls them
 //! directly against the same SQLite database.
 
+pub mod comments;
 pub mod mr_actions;
 pub mod mr_query;
 pub mod pipelines;
