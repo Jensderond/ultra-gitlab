@@ -166,6 +166,45 @@ fn render_diff(f: &mut Frame, app: &mut App, detail: &crate::data::DetailData, a
     let model = diff::render_diff(&app.highlighter, &file.new_path, &file.diff_content);
     let mut text = model.text;
     app.diff_rows = model.rows;
+
+    // Gutter markers: place a ● on lines that have a discussion thread.
+    let marks: std::collections::HashSet<(bool, i64)> = app
+        .discussions
+        .as_ref()
+        .map(|threads| {
+            threads
+                .iter()
+                .filter(|t| t.file_path.as_deref() == Some(file.new_path.as_str()))
+                .filter_map(|t| {
+                    t.new_line
+                        .map(|n| (false, n))
+                        .or_else(|| t.old_line.map(|o| (true, o)))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    if !marks.is_empty() {
+        for (i, line) in text.lines.iter_mut().enumerate() {
+            let Some(meta) = app.diff_rows.get(i) else { continue };
+            let has = meta
+                .new_line
+                .map(|n| marks.contains(&(false, n)))
+                .unwrap_or(false)
+                || meta.old_line.map(|o| marks.contains(&(true, o))).unwrap_or(false);
+            if has {
+                if let Some(first) = line.spans.first_mut() {
+                    // The gutter span is "{:>4} {:>4} " (10 chars); place a ● at col 0.
+                    let mut g: String = first.content.to_string();
+                    if !g.is_empty() {
+                        g.replace_range(0..1, "●");
+                        first.content = g.into();
+                        first.style = first.style.fg(Color::Yellow);
+                    }
+                }
+            }
+        }
+    }
+
     // Clamp the cursor to a selectable row after a re-render.
     if !app.diff_rows.is_empty() {
         if app.diff_cursor >= app.diff_rows.len()
