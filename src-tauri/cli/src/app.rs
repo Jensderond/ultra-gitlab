@@ -566,6 +566,12 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
                 app.pending = Some(crate::comments::PendingCompose::General { mr_id: d.row.id });
             }
         }
+        KeyCode::Char('v') if app.focus == Focus::Diff => {
+            app.diff_select_anchor = match app.diff_select_anchor {
+                Some(_) => None,
+                None => Some(app.diff_cursor),
+            };
+        }
         other => {
             if app.focus == Focus::Pipeline {
                 crate::pipelines::handle_detail_key(app, other);
