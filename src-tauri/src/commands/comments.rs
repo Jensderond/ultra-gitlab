@@ -173,74 +173,6 @@ async fn get_mr_info(pool: &DbPool, mr_id: i64) -> Result<MrInfo, AppError> {
     })
 }
 
-/// Resolve context line numbers from a unified diff.
-///
-/// Given a line number on one side, find the corresponding line on the other side
-/// by parsing the unified diff hunk headers and counting lines.
-///
-/// Returns (old_line, new_line).
-fn resolve_context_lines(
-    diff_content: &str,
-    known_line: i64,
-    is_old_side: bool,
-) -> Option<(i64, i64)> {
-    // Parse unified diff hunk headers: @@ -old_start,old_count +new_start,new_count @@
-    let mut old_line: i64 = 0;
-    let mut new_line: i64 = 0;
-
-    for line in diff_content.lines() {
-        if line.starts_with("@@") {
-            // Parse hunk header
-            let parts: Vec<&str> = line.splitn(4, ' ').collect();
-            if parts.len() >= 3 {
-                if let Some(old_start) = parts[1].strip_prefix('-') {
-                    old_line = old_start
-                        .split(',')
-                        .next()
-                        .and_then(|s| s.parse::<i64>().ok())
-                        .unwrap_or(0)
-                        - 1; // will be incremented on first context/deletion line
-                }
-                if let Some(new_start) = parts[2].strip_prefix('+') {
-                    new_line = new_start
-                        .split(',')
-                        .next()
-                        .and_then(|s| s.parse::<i64>().ok())
-                        .unwrap_or(0)
-                        - 1;
-                }
-            }
-            continue;
-        }
-
-        if line.starts_with("---") || line.starts_with("+++") || line.starts_with("diff ") || line.starts_with("index ") {
-            continue;
-        }
-
-        if line.starts_with('-') {
-            old_line += 1;
-        } else if line.starts_with('+') {
-            new_line += 1;
-        } else {
-            // Context line — both sides advance
-            old_line += 1;
-            new_line += 1;
-
-            let target_matches = if is_old_side {
-                old_line == known_line
-            } else {
-                new_line == known_line
-            };
-
-            if target_matches {
-                return Some((old_line, new_line));
-            }
-        }
-    }
-
-    None
-}
-
 /// Look up the other side's line number for a context line comment.
 async fn resolve_context_line_numbers(
     pool: &DbPool,
@@ -260,7 +192,7 @@ async fn resolve_context_line_numbers(
     if let Some(row) = row {
         let diff_content: Option<String> = row.get("diff_content");
         if let Some(diff) = diff_content {
-            if let Some(pair) = resolve_context_lines(&diff, known_line, is_old_side) {
+            if let Some(pair) = crate::core::comments::resolve_context_lines(&diff, known_line, is_old_side) {
                 return Ok(pair);
             }
         }
