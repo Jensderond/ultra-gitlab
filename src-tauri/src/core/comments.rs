@@ -86,6 +86,159 @@ pub fn resolve_context_lines(
     None
 }
 
+use crate::core::create_client;
+use crate::core::mr_actions::mr_api_ids;
+use crate::db::pool::DbPool;
+use crate::error::AppError;
+
+/// The three SHAs GitLab needs to position an inline note.
+#[derive(Debug, Clone)]
+pub struct DiffRefs {
+    pub base_sha: String,
+    pub head_sha: String,
+    pub start_sha: String,
+}
+
+/// One discussion thread for the CLI overlay.
+#[derive(Debug, Clone)]
+pub struct Thread {
+    pub id: String,
+    pub resolvable: bool,
+    pub resolved: bool,
+    /// Present for inline threads.
+    pub file_path: Option<String>,
+    pub old_line: Option<i64>,
+    pub new_line: Option<i64>,
+    pub notes: Vec<ThreadNote>,
+}
+
+/// One note within a thread.
+#[derive(Debug, Clone)]
+pub struct ThreadNote {
+    pub author: String,
+    pub body: String,
+    pub system: bool,
+}
+
+/// Read cached diff SHAs for an MR from the `diffs` table. Returns `None` when
+/// the MR has no cached diff (e.g. a live-only detail), in which case the caller
+/// supplies refs from the live API version instead.
+pub async fn diff_refs_from_cache(pool: &DbPool, mr_id: i64) -> Result<Option<DiffRefs>, AppError> {
+    let row: Option<(String, String, String)> = sqlx::query_as(
+        "SELECT base_sha, head_sha, start_sha FROM diffs WHERE mr_id = ?",
+    )
+    .bind(mr_id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|(base_sha, head_sha, start_sha)| DiffRefs {
+        base_sha,
+        head_sha,
+        start_sha,
+    }))
+}
+
+/// Fetch and flatten discussions for the CLI overlay (live from GitLab).
+pub async fn list_discussions(pool: &DbPool, mr_id: i64) -> Result<Vec<Thread>, AppError> {
+    let (instance_id, project_id, iid) = mr_api_ids(pool, mr_id).await?;
+    let client = create_client(pool, instance_id).await?;
+    let discussions = client.list_discussions(project_id, iid).await?;
+    Ok(discussions
+        .into_iter()
+        .map(|d| {
+            let first_pos = d.notes.iter().find_map(|n| n.position.clone());
+            let resolvable = d.notes.iter().any(|n| n.resolvable);
+            let resolved = d.notes.iter().any(|n| n.resolved.unwrap_or(false));
+            Thread {
+                id: d.id,
+                resolvable,
+                resolved,
+                file_path: first_pos
+                    .as_ref()
+                    .and_then(|p| p.new_path.clone().or_else(|| p.old_path.clone())),
+                old_line: first_pos.as_ref().and_then(|p| p.old_line),
+                new_line: first_pos.as_ref().and_then(|p| p.new_line),
+                notes: d
+                    .notes
+                    .into_iter()
+                    .map(|n| ThreadNote {
+                        author: n.author.username,
+                        body: n.body,
+                        system: n.system,
+                    })
+                    .collect(),
+            }
+        })
+        .collect())
+}
+
+/// Post a general (MR-level) comment.
+pub async fn post_general_comment(pool: &DbPool, mr_id: i64, body: &str) -> Result<(), AppError> {
+    let (instance_id, project_id, iid) = mr_api_ids(pool, mr_id).await?;
+    let client = create_client(pool, instance_id).await?;
+    client.add_comment(project_id, iid, body).await?;
+    Ok(())
+}
+
+/// Post an inline comment at a position. `old_line`/`new_line` follow the GitLab
+/// convention: added lines set only `new_line`, deleted only `old_line`, context
+/// both.
+pub async fn post_inline_comment(
+    pool: &DbPool,
+    mr_id: i64,
+    body: &str,
+    file_path: &str,
+    old_line: Option<i64>,
+    new_line: Option<i64>,
+    refs: &DiffRefs,
+) -> Result<(), AppError> {
+    let (instance_id, project_id, iid) = mr_api_ids(pool, mr_id).await?;
+    let client = create_client(pool, instance_id).await?;
+    client
+        .add_inline_comment(
+            project_id,
+            iid,
+            body,
+            file_path,
+            old_line,
+            new_line,
+            &refs.base_sha,
+            &refs.head_sha,
+            &refs.start_sha,
+        )
+        .await?;
+    Ok(())
+}
+
+/// Reply to an existing discussion thread.
+pub async fn reply(
+    pool: &DbPool,
+    mr_id: i64,
+    discussion_id: &str,
+    body: &str,
+) -> Result<(), AppError> {
+    let (instance_id, project_id, iid) = mr_api_ids(pool, mr_id).await?;
+    let client = create_client(pool, instance_id).await?;
+    client
+        .reply_to_discussion(project_id, iid, discussion_id, body)
+        .await?;
+    Ok(())
+}
+
+/// Resolve or unresolve a discussion thread.
+pub async fn resolve(
+    pool: &DbPool,
+    mr_id: i64,
+    discussion_id: &str,
+    resolved: bool,
+) -> Result<(), AppError> {
+    let (instance_id, project_id, iid) = mr_api_ids(pool, mr_id).await?;
+    let client = create_client(pool, instance_id).await?;
+    client
+        .resolve_discussion(project_id, iid, discussion_id, resolved)
+        .await?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -131,5 +284,14 @@ mod tests {
     fn resolve_context_returns_none_for_changed_line() {
         let diff = "@@ -1,2 +1,2 @@\n-old\n+new\n";
         assert_eq!(resolve_context_lines(diff, 1, false), None);
+    }
+
+    #[tokio::test]
+    async fn diff_refs_none_when_absent() {
+        use crate::db;
+        use tempfile::tempdir;
+        let dir = tempdir().unwrap();
+        let pool = db::initialize(&dir.path().join("t.db")).await.unwrap();
+        assert!(diff_refs_from_cache(&pool, 1).await.unwrap().is_none());
     }
 }
