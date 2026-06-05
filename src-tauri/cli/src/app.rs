@@ -87,6 +87,9 @@ pub struct App {
 
     pub tx: mpsc::UnboundedSender<AppEvent>,
     pub highlighter: Highlighter,
+
+    pub discussions: Option<Vec<ultra_gitlab_lib::core::comments::Thread>>,
+    pub overlay: Option<CommentsOverlay>,
 }
 
 /// State for the suggestion preview overlay (after editing, before posting).
@@ -103,6 +106,12 @@ pub struct SuggestionPreview {
     pub refs: ultra_gitlab_lib::core::comments::DiffRefs,
     /// Optional accompanying message note typed via `m`.
     pub message: Option<String>,
+}
+
+/// State for the discussions overlay.
+#[derive(Debug, Clone)]
+pub struct CommentsOverlay {
+    pub state: ratatui::widgets::ListState,
 }
 
 /// A pending y/n confirmation for a destructive action.
@@ -154,6 +163,8 @@ impl App {
             force_clear: false,
             tx,
             highlighter: Highlighter::new(),
+            discussions: None,
+            overlay: None,
         }
     }
 
@@ -429,6 +440,12 @@ fn handle_event(app: &mut App, ev: AppEvent) {
             app.busy = false;
             app.status = format!("Comment failed: {e}");
         }
+        AppEvent::Discussions(Ok(threads)) => {
+            app.discussions = Some(threads);
+        }
+        AppEvent::Discussions(Err(e)) => {
+            app.status = format!("Discussions: {e}");
+        }
         AppEvent::PipeProjects(Err(e))
         | AppEvent::PipeStatuses(Err(e))
         | AppEvent::PipeList(Err(e))
@@ -611,7 +628,27 @@ fn switch_tab(app: &mut App, tab: Tab) {
     }
 }
 
+fn overlay_move(app: &mut App, delta: i32) {
+    let len = app.discussions.as_ref().map(|d| d.len()).unwrap_or(0);
+    if len == 0 { return; }
+    if let Some(o) = app.overlay.as_mut() {
+        let cur = o.state.selected().unwrap_or(0) as i32;
+        let next = (cur + delta).clamp(0, len as i32 - 1) as usize;
+        o.state.select(Some(next));
+    }
+}
+
 fn handle_detail_key(app: &mut App, code: KeyCode) {
+    if app.overlay.is_some() {
+        match code {
+            KeyCode::Esc | KeyCode::Char('C') => { app.overlay = None; app.force_clear = true; }
+            KeyCode::Char('j') | KeyCode::Down => overlay_move(app, 1),
+            KeyCode::Char('k') | KeyCode::Up => overlay_move(app, -1),
+            _ => {}
+        }
+        return;
+    }
+
     match code {
         KeyCode::Esc | KeyCode::Char('q') => {
             if app.focus == Focus::Pipeline && app.detail_pipes.jobs.is_some() {
@@ -621,6 +658,8 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
                 app.screen = Screen::List;
                 app.detail = None;
                 app.detail_pipes.reset();
+                app.discussions = None;
+                app.overlay = None;
                 app.force_clear = true;
             }
         }
@@ -680,6 +719,16 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
             };
         }
         KeyCode::Char('s') if app.focus == Focus::Diff => start_suggestion(app),
+        KeyCode::Char('C') => {
+            if app.overlay.is_some() {
+                app.overlay = None;
+            } else {
+                let mut state = ratatui::widgets::ListState::default();
+                state.select(Some(0));
+                app.overlay = Some(CommentsOverlay { state });
+            }
+            app.force_clear = true;
+        }
         other => {
             if app.focus == Focus::Pipeline {
                 crate::pipelines::handle_detail_key(app, other);
@@ -946,6 +995,14 @@ fn open_detail(app: &mut App) {
             .await
             .map_err(|e| e.to_string());
         let _ = tx2.send(AppEvent::MrPipes(r));
+    });
+    let pool3 = app.pool.clone();
+    let tx3 = app.tx.clone();
+    tokio::spawn(async move {
+        let r = ultra_gitlab_lib::core::comments::list_discussions(&pool3, mr_id)
+            .await
+            .map_err(|e| e.to_string());
+        let _ = tx3.send(AppEvent::Discussions(r));
     });
 }
 

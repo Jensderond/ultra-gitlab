@@ -6,7 +6,7 @@ use crate::ui::status_style;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap};
 use ratatui::Frame;
 
 pub fn render(f: &mut Frame, app: &mut App, area: Rect) {
@@ -43,6 +43,10 @@ pub fn render(f: &mut Frame, app: &mut App, area: Rect) {
 
     if let Some(prev) = app.suggestion.clone() {
         render_suggestion_preview(f, &prev, area);
+    }
+
+    if app.overlay.is_some() {
+        render_discussions(f, app, area);
     }
 }
 
@@ -264,5 +268,52 @@ fn border_style(focused: bool) -> Style {
         Style::default().fg(Color::Cyan)
     } else {
         Style::default().fg(Color::DarkGray)
+    }
+}
+
+fn render_discussions(f: &mut Frame, app: &mut App, area: Rect) {
+    let threads = app.discussions.clone().unwrap_or_default();
+    let items: Vec<ListItem> = if threads.is_empty() {
+        vec![ListItem::new("No discussions")]
+    } else {
+        threads
+            .iter()
+            .map(|t| {
+                let loc = match (&t.file_path, t.new_line.or(t.old_line)) {
+                    (Some(f), Some(l)) => format!("{f}:{l}"),
+                    _ => "General".to_string(),
+                };
+                let status = if t.resolvable {
+                    if t.resolved { "  [resolved]" } else { "  [unresolved]" }
+                } else { "" };
+                let mut lines = vec![Line::from(vec![
+                    Span::styled(loc, Style::default().fg(Color::Blue)),
+                    Span::styled(status.to_string(), Style::default().fg(Color::DarkGray)),
+                ])];
+                for n in t.notes.iter().filter(|n| !n.system) {
+                    let first = n.body.lines().next().unwrap_or("");
+                    lines.push(Line::from(format!("  @{}: {}", n.author, first)));
+                }
+                ListItem::new(lines)
+            })
+            .collect()
+    };
+    let w = area.width.saturating_sub(6).min(110);
+    let h = area.height.saturating_sub(4);
+    let x = area.x + (area.width.saturating_sub(w)) / 2;
+    let y = area.y + (area.height.saturating_sub(h)) / 2;
+    let popup = Rect { x, y, width: w, height: h };
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(format!(" Discussions ({}) ", threads.len()))
+        .title_bottom(" j/k move · r reply · R resolve · esc close ")
+        .border_style(Style::default().fg(Color::Cyan));
+    f.render_widget(Clear, popup);
+    let list = List::new(items)
+        .block(block)
+        .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+        .highlight_symbol("▌");
+    if let Some(o) = app.overlay.as_mut() {
+        f.render_stateful_widget(list, popup, &mut o.state);
     }
 }

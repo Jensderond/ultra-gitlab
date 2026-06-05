@@ -28,4 +28,7 @@ pub enum AppEvent {
 
     /// Result of posting a comment/reply (Ok(mr_id) to refresh, or error).
     CommentPosted(Result<i64, String>),
+
+    /// Live-fetched discussions for the open MR detail.
+    Discussions(Result<Vec<ultra_gitlab_lib::core::comments::Thread>, String>),
 }
