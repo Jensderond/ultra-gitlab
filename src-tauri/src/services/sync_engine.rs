@@ -798,8 +798,47 @@ impl SyncEngine {
             format!("Fetching MRs from {}", instance.url),
         );
 
-        // Fetch MRs based on scope — reuse username from validate_token above
-        let (mrs, fetch_complete) = match self.fetch_mrs_for_instance(&client, &config, current_username.as_deref().unwrap_or("unknown")).await {
+        // The batched GraphQL state fetch (approvals + pipeline) needs MR iids,
+        // but waiting for the list fetches would serialize two network round
+        // trips. Instead, speculate with the open MRs cached from the previous
+        // sync and run the batch CONCURRENTLY with the list fetches; MRs new
+        // since then are covered by a top-up batch below (usually empty).
+        let speculative_groups: Vec<(String, Vec<i64>)> = {
+            let rows: Vec<(String, i64)> = sqlx::query_as(
+                "SELECT project_name, iid FROM merge_requests
+                 WHERE instance_id = ? AND state = 'opened'
+                   AND project_name IS NOT NULL AND project_name != ''",
+            )
+            .bind(instance.id)
+            .fetch_all(&self.pool)
+            .await
+            .unwrap_or_default();
+
+            let mut groups: HashMap<String, Vec<i64>> = HashMap::new();
+            for (path, iid) in rows {
+                groups.entry(path).or_default().push(iid);
+            }
+            groups.into_iter().collect()
+        };
+
+        // Fetch MR lists and the speculative state batch concurrently —
+        // reuse username from validate_token above
+        let (fetch_result, batch_result) = tokio::join!(
+            self.fetch_mrs_for_instance(
+                &client,
+                &config,
+                current_username.as_deref().unwrap_or("unknown")
+            ),
+            async {
+                if speculative_groups.is_empty() {
+                    Ok(HashMap::new())
+                } else {
+                    client.batch_fetch_mr_states(&speculative_groups).await
+                }
+            }
+        );
+
+        let (mrs, fetch_complete) = match fetch_result {
             Ok(fetched) => (fetched.mrs, fetched.complete),
             Err(e) => {
                 // If auth expired, propagate the error with instance info
@@ -823,33 +862,42 @@ impl SyncEngine {
         let mr_ids: Vec<i64> = mrs.iter().map(|mr| mr.id).collect();
         let pre_sync_ready = self.get_ready_states(&mr_ids).await;
 
-        // Batch-fetch approval + head-pipeline state for all MRs via GraphQL:
-        // 1-2 calls per instance instead of 2 REST calls per MR. MRs missing
-        // from the result (or the whole batch on error) fall back to per-MR REST.
-        let mut mr_states: HashMap<(String, i64), BatchedMrState> = {
-            let mut groups: HashMap<String, Vec<i64>> = HashMap::new();
+        // Collect the speculative batch result. On error every MR falls back
+        // to per-MR REST inside sync_mr.
+        let mut mr_states: HashMap<(String, i64), BatchedMrState> = match batch_result {
+            Ok(states) => states,
+            Err(e) => {
+                log::warn!(
+                    "[sync] Batched MR state fetch failed, falling back to per-MR REST: {}",
+                    e
+                );
+                HashMap::new()
+            }
+        };
+
+        // Top-up batch for MRs the speculation didn't cover (new since the
+        // last sync, or first run with an empty cache). Usually empty.
+        {
+            let mut missing: HashMap<String, Vec<i64>> = HashMap::new();
             for mr in mrs.iter() {
                 let path = extract_project_path(&mr.web_url);
-                if !path.is_empty() {
-                    groups.entry(path).or_default().push(mr.iid);
+                if !path.is_empty() && !mr_states.contains_key(&(path.clone(), mr.iid)) {
+                    missing.entry(path).or_default().push(mr.iid);
                 }
             }
-            if groups.is_empty() {
-                HashMap::new()
-            } else {
-                let groups: Vec<(String, Vec<i64>)> = groups.into_iter().collect();
+            if !missing.is_empty() {
+                let groups: Vec<(String, Vec<i64>)> = missing.into_iter().collect();
                 match client.batch_fetch_mr_states(&groups).await {
-                    Ok(states) => states,
+                    Ok(states) => mr_states.extend(states),
                     Err(e) => {
                         log::warn!(
-                            "[sync] Batched MR state fetch failed, falling back to per-MR REST: {}",
+                            "[sync] Top-up MR state fetch failed, falling back to per-MR REST: {}",
                             e
                         );
-                        HashMap::new()
                     }
                 }
             }
-        };
+        }
 
         // Process MRs concurrently with bounded parallelism
         let instance_id = instance.id;
