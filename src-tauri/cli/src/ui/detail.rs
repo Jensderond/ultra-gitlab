@@ -105,18 +105,22 @@ fn render_header(f: &mut Frame, detail: &crate::data::DetailData, area: Rect) {
 }
 
 fn render_tree(f: &mut Frame, app: &mut App, detail: &crate::data::DetailData, area: Rect) {
-    let items: Vec<ListItem> = detail
-        .files
+    let vis = crate::app::visible_indices(detail, app.show_ignored);
+    let items: Vec<ListItem> = vis
         .iter()
-        .map(|file| {
+        .map(|&i| {
+            let file = &detail.files[i];
             let viewed = app.viewed.contains(&file.new_path);
+            let is_ignored = detail.ignored.contains(&file.new_path);
             let sym = match file.change_type.as_str() {
                 "added" => Span::styled("A ", Style::default().fg(Color::Green)),
                 "deleted" => Span::styled("D ", Style::default().fg(Color::Red)),
                 "renamed" => Span::styled("R ", Style::default().fg(Color::Yellow)),
                 _ => Span::styled("M ", Style::default().fg(Color::Cyan)),
             };
-            let path_style = if viewed {
+            // Ignored files are only ever rendered here when revealed; dim them
+            // so they read as secondary, mirroring the desktop's greyed-out look.
+            let path_style = if viewed || is_ignored {
                 Style::default().fg(Color::DarkGray)
             } else {
                 Style::default()
@@ -132,6 +136,12 @@ fn render_tree(f: &mut Frame, app: &mut App, detail: &crate::data::DetailData, a
                     Style::default().fg(Color::Red),
                 ));
             }
+            if is_ignored {
+                spans.push(Span::styled(
+                    "  ignored",
+                    Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
+                ));
+            }
             if viewed {
                 spans.push(Span::styled("  ✓", Style::default().fg(Color::Green)));
             }
@@ -139,9 +149,19 @@ fn render_tree(f: &mut Frame, app: &mut App, detail: &crate::data::DetailData, a
         })
         .collect();
     let focused = app.focus == Focus::Tree;
+    // Surface how many files are ignored and the toggle, like the desktop's
+    // "+N hidden" / "N generated" affordance.
+    let ignored_count = detail.ignored.len();
+    let title = if ignored_count == 0 {
+        " Files ".to_string()
+    } else if app.show_ignored {
+        format!(" Files · {ignored_count} ignored (g) ")
+    } else {
+        format!(" Files · +{ignored_count} hidden (g) ")
+    };
     let block = Block::default()
         .borders(Borders::ALL)
-        .title(" Files ")
+        .title(title)
         .border_style(border_style(focused));
     let list = List::new(items)
         .block(block)
@@ -152,15 +172,22 @@ fn render_tree(f: &mut Frame, app: &mut App, detail: &crate::data::DetailData, a
 
 fn render_diff(f: &mut Frame, app: &mut App, detail: &crate::data::DetailData, area: Rect) {
     let focused = app.focus == Focus::Diff;
-    let sel = app.file_state.selected().unwrap_or(0);
     let block = Block::default()
         .borders(Borders::ALL)
         .title(" Diff ")
         .border_style(border_style(focused));
 
-    let Some(file) = detail.files.get(sel) else {
+    let file = crate::app::selected_file_index(app, detail).and_then(|i| detail.files.get(i));
+    let Some(file) = file else {
         app.diff_hscroll_max = 0;
-        f.render_widget(Paragraph::new("No file selected").block(block), area);
+        // Distinguish "all files are ignored and hidden" from a plain empty
+        // selection, pointing the user at the toggle.
+        let msg = if !detail.files.is_empty() && !app.show_ignored {
+            "All files are ignored — press g to show them."
+        } else {
+            "No file selected"
+        };
+        f.render_widget(Paragraph::new(msg).block(block), area);
         return;
     };
     let model = diff::render_diff(&app.highlighter, &file.new_path, &file.diff_content);

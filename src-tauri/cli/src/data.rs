@@ -104,6 +104,10 @@ pub struct DetailData {
     pub live: bool,
     /// SHAs needed to position inline comments (cache row or live version).
     pub diff_refs: Option<ultra_gitlab_lib::core::comments::DiffRefs>,
+    /// `new_path`s classified as ignored/generated (lock files, `.gitattributes`
+    /// linguist-generated entries, user collapse patterns). Hidden by default in
+    /// the file tree, mirroring the desktop's collapse-generated behaviour.
+    pub ignored: std::collections::HashSet<String>,
 }
 
 pub async fn load_review(pool: &DbPool, instance_id: i64) -> Result<Vec<MrRow>, AppError> {
@@ -126,30 +130,52 @@ pub async fn load_mine(pool: &DbPool, instance_id: i64) -> Result<Vec<MrRow>, Ap
     Ok(rows)
 }
 
-pub async fn load_detail(pool: &DbPool, mr_id: i64) -> Result<DetailData, AppError> {
+/// Load an MR's detail, classifying its files as ignored/reviewable.
+///
+/// `instance_id` and `user_patterns` (the desktop's collapse patterns) are
+/// passed in so the ignore set is computed exactly like the desktop: the
+/// project's cached `.gitattributes` patterns combined with the user patterns,
+/// matched against each file's `new_path`.
+pub async fn load_detail(
+    pool: &DbPool,
+    mr_id: i64,
+    instance_id: i64,
+    user_patterns: &[String],
+) -> Result<DetailData, AppError> {
     let detail = mr_query::get_detail(pool, mr_id).await?;
+    let project_id = detail.mr.project_id;
     let row = MrRow::from(detail.mr);
-    if detail.diff_files.is_empty() {
+
+    let (files, live, diff_refs) = if detail.diff_files.is_empty() {
         let (live, refs) = mr_actions::get_live_diff(pool, mr_id).await?;
-        Ok(DetailData {
-            row,
-            files: live.into_iter().map(FileDiff::from).collect(),
-            live: true,
-            diff_refs: Some(refs),
-        })
+        let files: Vec<FileDiff> = live.into_iter().map(FileDiff::from).collect();
+        (files, true, Some(refs))
     } else {
         let diff_refs = detail.diff.as_ref().map(|d| ultra_gitlab_lib::core::comments::DiffRefs {
             base_sha: d.base_sha.clone(),
             head_sha: d.head_sha.clone(),
             start_sha: d.start_sha.clone(),
         });
-        Ok(DetailData {
-            row,
-            files: detail.diff_files.into_iter().map(FileDiff::from).collect(),
-            live: false,
-            diff_refs,
-        })
-    }
+        let files: Vec<FileDiff> = detail.diff_files.into_iter().map(FileDiff::from).collect();
+        (files, false, diff_refs)
+    };
+
+    // Combine the project's gitattributes patterns with the user's collapse
+    // patterns, then classify each file's new_path — same as the desktop.
+    let mut patterns = ultra_gitlab_lib::core::cached_gitattributes(pool, instance_id, project_id)
+        .await
+        .unwrap_or_default();
+    patterns.extend(user_patterns.iter().cloned());
+    let paths: Vec<String> = files.iter().map(|f| f.new_path.clone()).collect();
+    let ignored = crate::filter::ignored_paths(&paths, &patterns);
+
+    Ok(DetailData {
+        row,
+        files,
+        live,
+        diff_refs,
+        ignored,
+    })
 }
 
 /// Truncate a git SHA to its short 8-char form for display.

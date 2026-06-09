@@ -33,8 +33,8 @@ pub fn render(f: &mut Frame, app: &App, area: Rect) {
                 }
             } else {
                 match app.tab {
-                    Tab::Review => "Tab focus · j/k scroll · ←/→ pan · PgUp/PgDn page · V viewed · a approve/unapprove · c comment · v select · s suggest · C threads · esc back",
-                    Tab::Mine => "Tab focus · j/k scroll · ←/→ pan · PgUp/PgDn page · V viewed · R rebase · M merge · U undraft · A auto-merge · c comment · v select · s suggest · C threads · esc back",
+                    Tab::Review => "Tab focus · j/k scroll · ←/→ pan · PgUp/PgDn page · V viewed · g ignored · a approve/unapprove · c comment · v select · s suggest · C threads · esc back",
+                    Tab::Mine => "Tab focus · j/k scroll · ←/→ pan · PgUp/PgDn page · V viewed · g ignored · R rebase · M merge · U undraft · A auto-merge · c comment · v select · s suggest · C threads · esc back",
                     Tab::Pipelines => "esc back",
                 }
             }

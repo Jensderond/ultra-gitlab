@@ -37,6 +37,11 @@ pub struct App {
     pub pool: Arc<DbPool>,
     pub instance_id: i64,
     pub username: Option<String>,
+    /// User collapse (ignore) glob patterns from the desktop settings store.
+    pub collapse_patterns: Vec<String>,
+    /// When true, show ignored/generated files in the tree; otherwise hide them.
+    /// Hidden by default (matching the desktop), reset per MR open.
+    pub show_ignored: bool,
 
     pub tab: Tab,
     pub screen: Screen,
@@ -127,6 +132,7 @@ impl App {
         pool: Arc<DbPool>,
         instance_id: i64,
         username: Option<String>,
+        collapse_patterns: Vec<String>,
         tx: mpsc::UnboundedSender<AppEvent>,
     ) -> Self {
         let mut list_state = ListState::default();
@@ -135,6 +141,8 @@ impl App {
             pool,
             instance_id,
             username,
+            collapse_patterns,
+            show_ignored: false,
             tab: Tab::Review,
             screen: Screen::List,
             focus: Focus::Tree,
@@ -338,6 +346,9 @@ fn handle_event(app: &mut App, ev: AppEvent) {
         AppEvent::Detail(Ok(d)) => {
             app.busy = false;
             app.status = if d.live { "Loaded diff (live)".into() } else { "Ready".into() };
+            // Hide ignored files by default; selection 0 lands on the first
+            // reviewable file since the tree indexes the visible list.
+            app.show_ignored = false;
             app.file_state.select(Some(0));
             app.diff_scroll = 0;
             app.diff_hscroll = 0;
@@ -772,6 +783,7 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
             _ => app.focus = Focus::Tree,
         },
         KeyCode::Home if app.focus == Focus::Diff => app.diff_hscroll = 0,
+        KeyCode::Char('g') => toggle_show_ignored(app),
         KeyCode::Char('V') => mark_viewed_and_advance(app),
         KeyCode::Char('j') | KeyCode::Down => match app.focus {
             Focus::Tree => move_file(app, 1),
@@ -838,8 +850,10 @@ fn start_inline_comment(app: &mut App) {
         Some(d) => match d.diff_refs.clone() {
             None => Setup::NoRefs,
             Some(refs) => {
-                let sel = app.file_state.selected().unwrap_or(0);
-                match d.files.get(sel) {
+                let idx = visible_indices(d, app.show_ignored)
+                    .get(app.file_state.selected().unwrap_or(0))
+                    .copied();
+                match idx.and_then(|i| d.files.get(i)) {
                     None => Setup::NoDetail,
                     Some(file) => Setup::Ready { mr_id: d.row.id, file_path: file.new_path.clone(), refs },
                 }
@@ -887,8 +901,10 @@ fn start_suggestion(app: &mut App) {
         Some(d) => match d.diff_refs.clone() {
             None => Setup::NoRefs,
             Some(refs) => {
-                let sel = app.file_state.selected().unwrap_or(0);
-                match d.files.get(sel) {
+                let idx = visible_indices(d, app.show_ignored)
+                    .get(app.file_state.selected().unwrap_or(0))
+                    .copied();
+                match idx.and_then(|i| d.files.get(i)) {
                     None => Setup::NoDetail,
                     Some(file) => Setup::Ready {
                         mr_id: d.row.id,
@@ -968,6 +984,57 @@ pub fn first_selectable(rows: &[crate::ui::diff::RowMeta]) -> usize {
     rows.iter().position(|r| r.selectable()).unwrap_or(0)
 }
 
+/// Indices into `detail.files` that are currently visible in the tree. When
+/// `show_ignored` is false, ignored/generated files are filtered out; the file
+/// tree and diff navigation index into this list, so hidden files are skipped.
+pub fn visible_indices(detail: &data::DetailData, show_ignored: bool) -> Vec<usize> {
+    detail
+        .files
+        .iter()
+        .enumerate()
+        .filter(|(_, f)| show_ignored || !detail.ignored.contains(&f.new_path))
+        .map(|(i, _)| i)
+        .collect()
+}
+
+/// Resolve the selected tree position to an index into `detail.files`,
+/// accounting for hidden ignored files.
+pub fn selected_file_index(app: &App, detail: &data::DetailData) -> Option<usize> {
+    let vis = visible_indices(detail, app.show_ignored);
+    let pos = app.file_state.selected().unwrap_or(0);
+    vis.get(pos).copied()
+}
+
+/// Toggle whether ignored/generated files are shown, keeping the selection
+/// pinned to the same file across the visibility change where possible.
+fn toggle_show_ignored(app: &mut App) {
+    let Some(detail) = app.detail.as_ref() else { return };
+    let ignored_count = detail.ignored.len();
+    if ignored_count == 0 {
+        app.status = "No ignored files in this MR".into();
+        return;
+    }
+    // Remember the currently selected file so we can restore it after toggling.
+    let current = selected_file_index(app, detail);
+    app.show_ignored = !app.show_ignored;
+    let vis = visible_indices(detail, app.show_ignored);
+    let new_pos = current
+        .and_then(|cur| vis.iter().position(|&i| i == cur))
+        .unwrap_or(0);
+    app.file_state
+        .select(if vis.is_empty() { None } else { Some(new_pos) });
+    app.diff_scroll = 0;
+    app.diff_hscroll = 0;
+    app.diff_cursor = 0;
+    app.diff_select_anchor = None;
+    app.force_clear = true;
+    app.status = if app.show_ignored {
+        format!("Showing {ignored_count} ignored files")
+    } else {
+        format!("Hiding {ignored_count} ignored files")
+    };
+}
+
 impl App {
     /// Inclusive `(low, high)` highlight bounds: the visual range if active,
     /// else just the cursor row.
@@ -1018,7 +1085,8 @@ fn move_cursor(app: &mut App, delta: i32) {
 
 fn move_file(app: &mut App, delta: i32) {
     let Some(d) = &app.detail else { return };
-    let len = d.files.len();
+    // Navigate over the visible (non-hidden) files only.
+    let len = visible_indices(d, app.show_ignored).len();
     if len == 0 {
         return;
     }
@@ -1035,10 +1103,18 @@ fn move_file(app: &mut App, delta: i32) {
 /// Mark the selected file viewed, then select the next not-yet-viewed file
 /// (wrapping around). If every file is viewed, the selection stays put.
 fn mark_viewed_and_advance(app: &mut App) {
+    // Operate over the visible files only, so hidden ignored files neither get
+    // marked nor become selected by the advance.
     let paths: Vec<String> = match &app.detail {
-        Some(d) if !d.files.is_empty() => d.files.iter().map(|f| f.new_path.clone()).collect(),
-        _ => return,
+        Some(d) => visible_indices(d, app.show_ignored)
+            .into_iter()
+            .map(|i| d.files[i].new_path.clone())
+            .collect(),
+        None => return,
     };
+    if paths.is_empty() {
+        return;
+    }
     let len = paths.len();
     let cur = app.file_state.selected().unwrap_or(0).min(len - 1);
     app.viewed.insert(paths[cur].clone());
@@ -1071,8 +1147,12 @@ fn open_detail(app: &mut App) {
     app.detail_pipes.reset();
     let pool = app.pool.clone();
     let tx = app.tx.clone();
+    let instance_id = app.instance_id;
+    let patterns = app.collapse_patterns.clone();
     tokio::spawn(async move {
-        let r = data::load_detail(&pool, mr_id).await.map_err(|e| e.to_string());
+        let r = data::load_detail(&pool, mr_id, instance_id, &patterns)
+            .await
+            .map_err(|e| e.to_string());
         let _ = tx.send(AppEvent::Detail(r));
     });
     let pool2 = app.pool.clone();

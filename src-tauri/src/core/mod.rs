@@ -51,6 +51,30 @@ pub async fn default_instance_id(pool: &DbPool) -> Result<Option<i64>, AppError>
     Ok(id)
 }
 
+/// Read cached `.gitattributes` `linguist-generated` glob patterns for a project.
+///
+/// Returns an empty vec when nothing is cached yet — the desktop sync engine
+/// populates and refreshes the `gitattributes_cache` table, so this is a pure
+/// read against the shared database and never touches the network. Callers
+/// combine these with the user's collapse patterns to classify generated files.
+pub async fn cached_gitattributes(
+    pool: &DbPool,
+    instance_id: i64,
+    project_id: i64,
+) -> Result<Vec<String>, AppError> {
+    let row: Option<(String,)> = sqlx::query_as(
+        "SELECT patterns FROM gitattributes_cache WHERE instance_id = ? AND project_id = ?",
+    )
+    .bind(instance_id)
+    .bind(project_id)
+    .fetch_optional(pool)
+    .await?;
+    match row {
+        Some((patterns_json,)) => Ok(serde_json::from_str(&patterns_json).unwrap_or_default()),
+        None => Ok(Vec::new()),
+    }
+}
+
 /// Return the authenticated username stored for an instance, if any.
 pub async fn authenticated_username(
     pool: &DbPool,
@@ -117,6 +141,31 @@ mod tests {
         assert_eq!(
             authenticated_username(&pool, id).await.unwrap(),
             Some("me".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn cached_gitattributes_empty_when_missing() {
+        let (pool, id) = seed_instance(true).await;
+        assert!(cached_gitattributes(&pool, id, 42).await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn cached_gitattributes_parses_stored_patterns() {
+        let (pool, id) = seed_instance(true).await;
+        sqlx::query(
+            "INSERT INTO gitattributes_cache (instance_id, project_id, patterns, fetched_at) VALUES (?, ?, ?, ?)",
+        )
+        .bind(id)
+        .bind(42i64)
+        .bind(r#"["*.lock","dist/**/*"]"#)
+        .bind(0i64)
+        .execute(&pool)
+        .await
+        .unwrap();
+        assert_eq!(
+            cached_gitattributes(&pool, id, 42).await.unwrap(),
+            vec!["*.lock".to_string(), "dist/**/*".to_string()]
         );
     }
 }

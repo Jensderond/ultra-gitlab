@@ -7,7 +7,9 @@ mod data;
 mod db_path;
 mod editor;
 mod event;
+mod filter;
 mod pipelines;
+mod settings;
 mod syntax;
 mod ui;
 mod update;
@@ -53,8 +55,13 @@ async fn main() -> anyhow::Result<()> {
         .context("No GitLab instance configured. Sign in via the desktop app first.")?;
     let username = core::authenticated_username(&pool, instance_id).await?;
 
+    // Collapse (ignore) patterns the desktop persists; honoured when classifying
+    // generated files in the diff view. Read once at startup from the store next
+    // to the database.
+    let collapse_patterns = settings::load_collapse_patterns(&path);
+
     let (tx, rx) = mpsc::unbounded_channel();
-    let app = app::App::new(Arc::new(pool), instance_id, username, tx);
+    let app = app::App::new(Arc::new(pool), instance_id, username, collapse_patterns, tx);
 
     let terminal = ratatui::init();
     let result = app::run(terminal, app, rx).await;

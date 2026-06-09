@@ -31,7 +31,7 @@ hint to sign in via the desktop app first.
 ## Keys
 
 - **Lists:** `1`/`2`/`Tab` switch tabs · `j`/`k` move · `enter` open · `r` refresh · `q` quit
-- **Detail:** `→`/`l` focus diff · `←`/`h` focus files · `tab` toggle focus · `j`/`k` scroll/file · `V` mark file viewed (jumps to next unviewed) · `esc` back
+- **Detail:** `→`/`l` focus diff · `←`/`h` focus files · `tab` toggle focus · `j`/`k` scroll/file · `V` mark file viewed (jumps to next unviewed) · `g` show / hide ignored files · `esc` back
 - **Review detail:** `a` approve / unapprove
 - **Mine detail:** `R` rebase · `M` merge (confirm with `y`) · `U` undraft · `A` auto-merge
 
@@ -47,6 +47,10 @@ hint to sign in via the desktop app first.
   - `esc` — close the overlay
 
 Lines in the diff that already have a discussion are marked with a `●` in the gutter (shown in yellow).
+
+### Ignored files
+
+Generated and lock files are hidden from the file tree by default — the same check the desktop app applies. A file is ignored when its path matches the project's `.gitattributes` `linguist-generated` entries (read from the shared cache the desktop keeps fresh) or any of the user's collapse glob patterns from the desktop settings (e.g. `project/**/*.yaml`, `*.lock`). The file tree shows a `+N hidden (g)` count; press `g` to reveal the ignored files (rendered dimmed with an `ignored` label) and `g` again to hide them. Glob matching mirrors the desktop: `*` stops at `/`, `**` crosses directories, and `{a,b}` / `[a-z]` work.
 
 ## Tabs
 
