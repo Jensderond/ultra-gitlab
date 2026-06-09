@@ -24,7 +24,7 @@ use crate::services::sync_events::{
     AUTH_EXPIRED_EVENT, AUTO_MERGE_UPDATED_EVENT, ISSUES_UPDATED_EVENT, MR_READY_EVENT,
     MR_UPDATED_EVENT, PIPELINE_STATUS_CHANGED_EVENT, SYNC_PROGRESS_EVENT,
 };
-use crate::services::sync_processor::{self, ProcessResult};
+use crate::services::sync_processor;
 use crate::services::sync_queue;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -290,6 +290,20 @@ pub struct SyncEngine {
     /// Last time the issue cache was refreshed, keyed by instance id.
     /// Empty key means "never synced this session" so the next run will fetch.
     last_issue_sync: Arc<RwLock<HashMap<i64, Instant>>>,
+
+    /// Authenticated user per instance, keyed by instance id and the token it
+    /// was validated with. Avoids a validate_token API call on every sync tick;
+    /// invalidated automatically when the stored token changes (re-auth).
+    cached_instance_users: Arc<RwLock<HashMap<i64, CachedInstanceUser>>>,
+}
+
+/// Cached result of validate_token for one instance.
+#[derive(Debug, Clone)]
+struct CachedInstanceUser {
+    /// Token the user was validated with (cache is stale if it changes).
+    token: String,
+    user_id: i64,
+    username: String,
 }
 
 impl SyncEngine {
@@ -303,6 +317,7 @@ impl SyncEngine {
             notified_mr_ready: Arc::new(RwLock::new(HashSet::new())),
             previous_pipeline_statuses: Arc::new(RwLock::new(HashMap::new())),
             last_issue_sync: Arc::new(RwLock::new(HashMap::new())),
+            cached_instance_users: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -372,6 +387,7 @@ impl SyncEngine {
                 notified_mr_ready: Arc::new(RwLock::new(HashSet::new())),
                 previous_pipeline_statuses: Arc::new(RwLock::new(HashMap::new())),
                 last_issue_sync: Arc::new(RwLock::new(HashMap::new())),
+                cached_instance_users: Arc::new(RwLock::new(HashMap::new())),
             };
 
             // Recover any actions stuck in 'syncing' state from a previous crash
@@ -496,8 +512,17 @@ impl SyncEngine {
         // Track total API calls across all instances
         let mut total_api_calls: u64 = 0;
 
-        for instance in instances {
-            match self.sync_instance(&instance, &sync_run_id, force).await {
+        // Sync all instances concurrently — they're independent of each other.
+        // The sync-queue action push deliberately happens once afterwards, not
+        // per instance (see below).
+        let run_id: &str = &sync_run_id;
+        let instance_results = futures::future::join_all(instances.iter().map(
+            |instance| async move { (instance, self.sync_instance(instance, run_id, force).await) },
+        ))
+        .await;
+
+        for (instance, instance_result) in instance_results {
+            match instance_result {
                 Ok(instance_result) => {
                     result.mr_count += instance_result.mr_count;
                     result.purged_count += instance_result.purged_count;
@@ -527,6 +552,28 @@ impl SyncEngine {
                         .errors
                         .push(format!("Instance {}: {}", instance.url, e));
                 }
+            }
+        }
+
+        // Push pending local actions once for the whole run, resolving the
+        // right client per action. This used to live inside sync_instance,
+        // but the queue isn't scoped per instance: every instance pass pushed
+        // ALL pending actions with its own client (wrong instance for some),
+        // and with instances now syncing concurrently that would also race.
+        self.emit_progress(SyncPhase::PushingActions, "Processing sync queue");
+        match sync_queue::get_pending_actions(&self.pool).await {
+            Ok(pending) if !pending.is_empty() => {
+                let (pushed, push_errors, push_api_calls) =
+                    self.process_actions_resolving_instances(&pending).await;
+                result.actions_pushed = pushed;
+                result.errors.extend(push_errors);
+                total_api_calls += push_api_calls;
+            }
+            Ok(_) => {}
+            Err(e) => {
+                result
+                    .errors
+                    .push(format!("Failed to load pending actions: {}", e));
             }
         }
 
@@ -682,7 +729,7 @@ impl SyncEngine {
         // Create GitLab client
         let client = GitLabClient::new(GitLabClientConfig {
             base_url: instance.url.clone(),
-            token,
+            token: token.clone(),
             timeout_secs: 30,
         })
         .map_err(|e| {
@@ -707,21 +754,42 @@ impl SyncEngine {
             api_calls: 0,
         };
 
-        // Validate token ONCE per instance — also used for approval checks in sync_mr()
-        // to avoid per-MR API calls and transient-failure false negatives.
-        let (current_user_id, current_username): (Option<i64>, Option<String>) = match client.validate_token().await {
-            Ok(user) => {
-                let _ = sqlx::query(
-                    "UPDATE gitlab_instances SET authenticated_username = ? WHERE id = ? AND (authenticated_username IS NULL OR authenticated_username != ?)"
-                )
-                .bind(&user.username)
-                .bind(instance.id)
-                .bind(&user.username)
-                .execute(&self.pool)
-                .await;
-                (Some(user.id), Some(user.username))
-            }
-            Err(_) => (None, None),
+        // Resolve the authenticated user ONCE per instance — also used for
+        // approval checks in sync_mr() to avoid per-MR API calls and
+        // transient-failure false negatives. The result is cached for the
+        // session (keyed by token) so validate_token only hits the API on the
+        // first sync after startup or after a re-authentication.
+        let cached_user = {
+            let cache = self.cached_instance_users.read().await;
+            cache
+                .get(&instance.id)
+                .filter(|c| c.token == token)
+                .map(|c| (c.user_id, c.username.clone()))
+        };
+        let (current_user_id, current_username): (Option<i64>, Option<String>) = match cached_user {
+            Some((user_id, username)) => (Some(user_id), Some(username)),
+            None => match client.validate_token().await {
+                Ok(user) => {
+                    let _ = sqlx::query(
+                        "UPDATE gitlab_instances SET authenticated_username = ? WHERE id = ? AND (authenticated_username IS NULL OR authenticated_username != ?)"
+                    )
+                    .bind(&user.username)
+                    .bind(instance.id)
+                    .bind(&user.username)
+                    .execute(&self.pool)
+                    .await;
+                    self.cached_instance_users.write().await.insert(
+                        instance.id,
+                        CachedInstanceUser {
+                            token: token.clone(),
+                            user_id: user.id,
+                            username: user.username.clone(),
+                        },
+                    );
+                    (Some(user.id), Some(user.username))
+                }
+                Err(_) => (None, None),
+            },
         };
 
         // Emit fetching_mrs event
@@ -886,35 +954,9 @@ impl SyncEngine {
             );
         }
 
-        // Emit pushing_actions event
-        self.emit_progress(SyncPhase::PushingActions, "Processing sync queue");
-
-        // Push pending actions for this instance
-        let push_results = self.push_pending_actions(&client).await?;
-        result.actions_pushed = push_results.iter().filter(|r| r.success).count() as i64;
-
-        for push_result in &push_results {
-            // Emit action-synced event for each processed action
-            self.emit_event(
-                ACTION_SYNCED_EVENT,
-                &ActionSyncedPayload {
-                    action_id: push_result.action.id,
-                    action_type: push_result.action.action_type.clone(),
-                    success: push_result.success,
-                    error: push_result.error.clone(),
-                    mr_id: push_result.action.mr_id,
-                    local_reference_id: push_result.action.local_reference_id,
-                },
-            );
-
-            if !push_result.success {
-                if let Some(err) = &push_result.error {
-                    result
-                        .errors
-                        .push(format!("Action {}: {}", push_result.action.id, err));
-                }
-            }
-        }
+        // NOTE: pending sync-queue actions are pushed once per sync run in
+        // run_sync() (not per instance) — instances sync concurrently and the
+        // queue has no per-instance claim, so pushing here would double-process.
 
         // Refresh cached issues on a slower cadence than MRs.
         self.maybe_sync_issues(instance, &mut result).await;
@@ -1003,26 +1045,60 @@ impl SyncEngine {
             }
         }
 
-        // Fetch authored MRs
-        {
-            let query = MergeRequestsQuery {
-                state: Some("opened".to_string()),
-                scope: Some("created_by_me".to_string()),
-                per_page: Some(100),
-                ..Default::default()
-            };
+        // The three scopes:
+        // - authored: the user's own MRs
+        // - reviewing: MRs where the user is a reviewer (excluding own, drafts,
+        //   and ones already approved by the user)
+        // - assigned: covers MRs authored by someone else (e.g. Renovate bot)
+        //   but assigned to the user — not picked up by the other scopes.
+        //   Drafts are intentionally included; the "My MRs" view applies its
+        //   own draft toggle.
+        let authored_query = MergeRequestsQuery {
+            state: Some("opened".to_string()),
+            scope: Some("created_by_me".to_string()),
+            per_page: Some(100),
+            ..Default::default()
+        };
+        let reviewing_query = MergeRequestsQuery {
+            state: Some("opened".to_string()),
+            scope: Some("all".to_string()),
+            reviewer_username: Some(username.to_string()),
+            draft: Some("no".to_string()), // Exclude draft/WIP MRs
+            not_author_username: Some(username.to_string()), // Exclude own MRs
+            not_approved_by_usernames: Some(username.to_string()), // Exclude already approved
+            per_page: Some(100),
+            ..Default::default()
+        };
+        let assigned_query = MergeRequestsQuery {
+            state: Some("opened".to_string()),
+            scope: Some("assigned_to_me".to_string()),
+            per_page: Some(100),
+            ..Default::default()
+        };
 
-            eprintln!(
-                "[sync] Fetching authored MRs for user '{}', query: {}",
-                username,
-                serde_json::to_string(&query).unwrap_or_default()
-            );
+        eprintln!(
+            "[sync] Fetching authored/reviewing/assigned MRs for user '{}' concurrently",
+            username
+        );
 
-            match client.list_merge_requests(&query).await {
+        // All three are independent — fetch them concurrently.
+        let (authored, reviewing, assigned) = tokio::join!(
+            client.list_merge_requests(&authored_query),
+            client.list_merge_requests(&reviewing_query),
+            client.list_merge_requests(&assigned_query),
+        );
+
+        for (scope, result) in [
+            ("authored", authored),
+            ("reviewing", reviewing),
+            ("assigned", assigned),
+        ] {
+            match result {
                 Ok(response) => {
                     eprintln!(
-                        "[sync] Received {} authored MRs from GitLab",
-                        response.data.len()
+                        "[sync] Received {} {} MRs from GitLab",
+                        response.data.len(),
+                        scope
                     );
                     merge_unique(&mut all_mrs, response.data);
                 }
@@ -1030,76 +1106,7 @@ impl SyncEngine {
                 Err(e) if e.is_authentication_expired() => return Err(e),
                 Err(e) => {
                     complete = false;
-                    eprintln!("[sync] Authored MR fetch failed (continuing): {}", e);
-                }
-            }
-        }
-
-        // Fetch reviewing MRs
-        {
-            let query = MergeRequestsQuery {
-                state: Some("opened".to_string()),
-                scope: Some("all".to_string()),
-                reviewer_username: Some(username.to_string()),
-                draft: Some("no".to_string()), // Exclude draft/WIP MRs
-                not_author_username: Some(username.to_string()), // Exclude own MRs
-                not_approved_by_usernames: Some(username.to_string()), // Exclude already approved
-                per_page: Some(100),
-                ..Default::default()
-            };
-
-            eprintln!(
-                "[sync] Fetching reviewing MRs for user '{}', query: {}",
-                username,
-                serde_json::to_string(&query).unwrap_or_default()
-            );
-
-            match client.list_merge_requests(&query).await {
-                Ok(response) => {
-                    eprintln!(
-                        "[sync] Received {} reviewing MRs from GitLab",
-                        response.data.len()
-                    );
-                    merge_unique(&mut all_mrs, response.data);
-                }
-                Err(e) if e.is_authentication_expired() => return Err(e),
-                Err(e) => {
-                    complete = false;
-                    eprintln!("[sync] Reviewing MR fetch failed (continuing): {}", e);
-                }
-            }
-        }
-
-        // Fetch MRs assigned to the user. Covers MRs authored by someone else
-        // (e.g. Renovate bot) but assigned to the user — these aren't picked up
-        // by the authored or reviewing scopes above. Drafts are intentionally
-        // included; the "My MRs" view applies its own draft toggle.
-        {
-            let query = MergeRequestsQuery {
-                state: Some("opened".to_string()),
-                scope: Some("assigned_to_me".to_string()),
-                per_page: Some(100),
-                ..Default::default()
-            };
-
-            eprintln!(
-                "[sync] Fetching assigned MRs for user '{}', query: {}",
-                username,
-                serde_json::to_string(&query).unwrap_or_default()
-            );
-
-            match client.list_merge_requests(&query).await {
-                Ok(response) => {
-                    eprintln!(
-                        "[sync] Received {} assigned MRs from GitLab",
-                        response.data.len()
-                    );
-                    merge_unique(&mut all_mrs, response.data);
-                }
-                Err(e) if e.is_authentication_expired() => return Err(e),
-                Err(e) => {
-                    complete = false;
-                    eprintln!("[sync] Assigned MR fetch failed (continuing): {}", e);
+                    eprintln!("[sync] {} MR fetch failed (continuing): {}", scope, e);
                 }
             }
         }
@@ -2323,14 +2330,6 @@ impl SyncEngine {
         Ok(purged)
     }
 
-    /// Push pending actions to GitLab.
-    async fn push_pending_actions(
-        &self,
-        client: &GitLabClient,
-    ) -> Result<Vec<ProcessResult>, AppError> {
-        sync_processor::process_pending_actions(client, &self.pool).await
-    }
-
     /// Flush only approval-type pending actions immediately.
     ///
     /// Fetches pending actions matching any of the given types, creates a
@@ -2359,16 +2358,57 @@ impl SyncEngine {
             action_types
         );
 
-        // Get all instances to create clients
-        let instances = self.get_gitlab_instances().await?;
+        self.process_actions_resolving_instances(&actions).await;
 
-        for action in &actions {
+        Ok(())
+    }
+
+    /// Process queued actions, resolving the correct GitLab client for each
+    /// action's instance (one client per instance, reused across actions).
+    ///
+    /// Used by both the per-run action push in run_sync() and the immediate
+    /// flush commands. Emits an action-synced event per processed action.
+    ///
+    /// Local comments are intentionally NOT deleted here — upsert_discussions
+    /// cleans them up once the GitLab version has been fetched, preventing a
+    /// flash where the comment disappears before the server version is in the DB.
+    ///
+    /// Returns (success_count, errors, api_calls).
+    async fn process_actions_resolving_instances(
+        &self,
+        actions: &[crate::models::sync_action::SyncAction],
+    ) -> (i64, Vec<String>, u64) {
+        let mut success_count = 0i64;
+        let mut errors: Vec<String> = Vec::new();
+
+        let instances = match self.get_gitlab_instances().await {
+            Ok(i) => i,
+            Err(e) => {
+                errors.push(format!("Failed to load GitLab instances: {}", e));
+                return (0, errors, 0);
+            }
+        };
+
+        let mut clients: HashMap<i64, GitLabClient> = HashMap::new();
+
+        for action in actions {
             // Find the instance for this action's MR
-            let instance_id: Option<i64> =
-                sqlx::query_scalar("SELECT instance_id FROM merge_requests WHERE id = ?")
-                    .bind(action.mr_id)
-                    .fetch_optional(&self.pool)
-                    .await?;
+            let instance_id: Option<i64> = match sqlx::query_scalar(
+                "SELECT instance_id FROM merge_requests WHERE id = ?",
+            )
+            .bind(action.mr_id)
+            .fetch_optional(&self.pool)
+            .await
+            {
+                Ok(id) => id,
+                Err(e) => {
+                    errors.push(format!(
+                        "Action {}: failed to resolve instance: {}",
+                        action.id, e
+                    ));
+                    continue;
+                }
+            };
 
             let Some(instance_id) = instance_id else {
                 eprintln!(
@@ -2378,42 +2418,44 @@ impl SyncEngine {
                 continue;
             };
 
-            let Some(instance) = instances.iter().find(|i| i.id == instance_id) else {
-                eprintln!(
-                    "[sync] Instance {} not found for action {}, skipping",
-                    instance_id, action.id
-                );
-                continue;
-            };
-
-            let Some(token) = &instance.token else {
-                eprintln!(
-                    "[sync] No token for instance {} (action {}), skipping",
-                    instance.url, action.id
-                );
-                continue;
-            };
-
-            let client = match GitLabClient::new(GitLabClientConfig {
-                base_url: instance.url.clone(),
-                token: token.clone(),
-                timeout_secs: 30,
-            }) {
-                Ok(c) => c,
-                Err(e) => {
+            // Reuse one client per instance across actions
+            if !clients.contains_key(&instance_id) {
+                let Some(instance) = instances.iter().find(|i| i.id == instance_id) else {
                     eprintln!(
-                        "[sync] Failed to create client for instance {}: {}",
-                        instance.url, e
+                        "[sync] Instance {} not found for action {}, skipping",
+                        instance_id, action.id
                     );
                     continue;
+                };
+
+                let Some(token) = &instance.token else {
+                    eprintln!(
+                        "[sync] No token for instance {} (action {}), skipping",
+                        instance.url, action.id
+                    );
+                    continue;
+                };
+
+                match GitLabClient::new(GitLabClientConfig {
+                    base_url: instance.url.clone(),
+                    token: token.clone(),
+                    timeout_secs: 30,
+                }) {
+                    Ok(c) => {
+                        clients.insert(instance_id, c);
+                    }
+                    Err(e) => {
+                        eprintln!(
+                            "[sync] Failed to create client for instance {}: {}",
+                            instance.url, e
+                        );
+                        continue;
+                    }
                 }
-            };
+            }
+            let client = clients.get(&instance_id).expect("client inserted above");
 
-            let result = sync_processor::process_action(&client, &self.pool, action).await;
-
-            // Don't delete local comments here — upsert_discussions will clean them
-            // up once the GitLab version has been fetched, preventing a flash where
-            // the comment disappears before the server version is in the DB.
+            let result = sync_processor::process_action(client, &self.pool, action).await;
 
             // Emit action-synced event
             self.emit_event(
@@ -2429,11 +2471,13 @@ impl SyncEngine {
             );
 
             if result.success {
+                success_count += 1;
                 eprintln!(
-                    "[sync] Flushed action {} ({}) successfully",
+                    "[sync] Pushed action {} ({}) successfully",
                     action.id, action.action_type
                 );
             } else if let Some(err) = &result.error {
+                errors.push(format!("Action {}: {}", action.id, err));
                 eprintln!(
                     "[sync] Action {} ({}) failed: {}",
                     action.id, action.action_type, err
@@ -2441,7 +2485,8 @@ impl SyncEngine {
             }
         }
 
-        Ok(())
+        let api_calls = clients.values().map(|c| c.call_count()).sum();
+        (success_count, errors, api_calls)
     }
 
     /// Check pinned pipeline project statuses and emit notification events on transitions.
