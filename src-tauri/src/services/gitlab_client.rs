@@ -248,6 +248,17 @@ pub struct ApprovedBy {
     pub user: GitLabUser,
 }
 
+/// Per-MR approval + pipeline state fetched in bulk via GraphQL.
+///
+/// Replaces the per-MR REST calls to `/approvals` and the MR detail endpoint
+/// during sync. One GraphQL query covers every MR of an instance.
+#[derive(Debug, Clone)]
+pub struct BatchedMrState {
+    pub approvals: MergeRequestApprovals,
+    /// Head pipeline status in REST casing (e.g. "success", "running").
+    pub head_pipeline_status: Option<String>,
+}
+
 /// Position information for inline comments.
 #[derive(Debug, Clone, Deserialize)]
 pub struct GitLabNotePosition {
@@ -1236,6 +1247,91 @@ impl GitLabClient {
         self.handle_response(response, &endpoint).await
     }
 
+    /// Execute a GraphQL query against the instance's `/api/graphql` endpoint.
+    ///
+    /// Returns the `data` payload. GraphQL-level errors are mapped to `AppError`.
+    async fn graphql(&self, query: &str) -> Result<serde_json::Value, AppError> {
+        let url = format!(
+            "{}/api/graphql",
+            self.config.base_url.trim_end_matches('/')
+        );
+        let response = self
+            .send_with_retry(
+                self.client
+                    .post(&url)
+                    .json(&serde_json::json!({ "query": query })),
+            )
+            .await?;
+        let body: serde_json::Value = self.handle_response(response, "/api/graphql").await?;
+
+        if let Some(errors) = body.get("errors").and_then(|e| e.as_array()) {
+            if !errors.is_empty() {
+                return Err(AppError::internal(format!(
+                    "GraphQL errors: {}",
+                    serde_json::Value::Array(errors.clone())
+                )));
+            }
+        }
+
+        body.get("data")
+            .cloned()
+            .ok_or_else(|| AppError::internal("GraphQL response missing 'data'"))
+    }
+
+    /// Maximum MRs per batched GraphQL request, keeping query complexity
+    /// well under GitLab's default limit.
+    const GRAPHQL_BATCH_SIZE: usize = 25;
+
+    /// Fetch approval + head-pipeline state for many MRs in O(1) GraphQL queries
+    /// instead of 2 REST calls per MR.
+    ///
+    /// `groups` maps a project's full path (e.g. "group/project") to the MR iids
+    /// to fetch for it. Returns a map keyed by (project_full_path, iid). MRs
+    /// missing from the result (permissions, not found) should fall back to REST.
+    pub async fn batch_fetch_mr_states(
+        &self,
+        groups: &[(String, Vec<i64>)],
+    ) -> Result<std::collections::HashMap<(String, i64), BatchedMrState>, AppError> {
+        let mut result = std::collections::HashMap::new();
+
+        // Flatten into (path, iid) pairs so chunking can split large projects too.
+        let pairs: Vec<(&str, i64)> = groups
+            .iter()
+            .flat_map(|(path, iids)| iids.iter().map(move |iid| (path.as_str(), *iid)))
+            .collect();
+
+        for chunk in pairs.chunks(Self::GRAPHQL_BATCH_SIZE) {
+            // Re-group the chunk by project path, preserving one alias per project.
+            let mut chunk_groups: Vec<(&str, Vec<i64>)> = Vec::new();
+            for (path, iid) in chunk {
+                match chunk_groups.iter_mut().find(|(p, _)| p == path) {
+                    Some((_, iids)) => iids.push(*iid),
+                    None => chunk_groups.push((path, vec![*iid])),
+                }
+            }
+
+            let query = build_mr_states_query(&chunk_groups);
+            let data = self.graphql(&query).await?;
+
+            for (idx, (path, _)) in chunk_groups.iter().enumerate() {
+                let nodes = data
+                    .get(format!("p{}", idx))
+                    .and_then(|p| p.get("mergeRequests"))
+                    .and_then(|m| m.get("nodes"))
+                    .and_then(|n| n.as_array());
+                let Some(nodes) = nodes else { continue };
+
+                for node in nodes {
+                    if let Some((iid, state)) = parse_mr_state_node(node) {
+                        result.insert((path.to_string(), iid), state);
+                    }
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
     /// Delete a note (comment) from a merge request.
     ///
     /// GitLab API: DELETE /projects/:id/merge_requests/:iid/notes/:note_id
@@ -1411,6 +1507,117 @@ impl GitLabClient {
     }
 }
 
+/// Build the aliased GraphQL query fetching approval + pipeline state for
+/// several projects' MRs at once.
+fn build_mr_states_query(groups: &[(&str, Vec<i64>)]) -> String {
+    use std::fmt::Write;
+
+    let mut query = String::from("query {\n");
+    for (idx, (path, iids)) in groups.iter().enumerate() {
+        let iids_list = iids
+            .iter()
+            .map(|iid| format!("\"{}\"", iid))
+            .collect::<Vec<_>>()
+            .join(", ");
+        // serde_json::to_string produces a quoted, escaped GraphQL string literal
+        let path_literal =
+            serde_json::to_string(path).unwrap_or_else(|_| format!("\"{}\"", path));
+        let _ = write!(
+            query,
+            "  p{idx}: project(fullPath: {path_literal}) {{\n\
+             \x20   mergeRequests(iids: [{iids_list}], first: {count}) {{\n\
+             \x20     nodes {{\n\
+             \x20       iid\n\
+             \x20       approved\n\
+             \x20       approvalsRequired\n\
+             \x20       approvalsLeft\n\
+             \x20       approvedBy(first: 50) {{ nodes {{ id username name avatarUrl }} }}\n\
+             \x20       headPipeline {{ status }}\n\
+             \x20     }}\n\
+             \x20   }}\n\
+             \x20 }}\n",
+            idx = idx,
+            path_literal = path_literal,
+            iids_list = iids_list,
+            count = iids.len(),
+        );
+    }
+    query.push('}');
+    query
+}
+
+/// Parse one `nodes` entry of the batched MR-state query into (iid, state).
+/// Returns None when required fields are missing or malformed.
+fn parse_mr_state_node(node: &serde_json::Value) -> Option<(i64, BatchedMrState)> {
+    let iid: i64 = node.get("iid")?.as_str()?.parse().ok()?;
+
+    let approved_by: Vec<ApprovedBy> = node
+        .get("approvedBy")
+        .and_then(|a| a.get("nodes"))
+        .and_then(|n| n.as_array())
+        .map(|nodes| {
+            nodes
+                .iter()
+                .filter_map(|u| {
+                    Some(ApprovedBy {
+                        user: GitLabUser {
+                            id: parse_graphql_user_id(u.get("id")?.as_str()?)?,
+                            username: u.get("username")?.as_str()?.to_string(),
+                            name: u
+                                .get("name")
+                                .and_then(|n| n.as_str())
+                                .unwrap_or_default()
+                                .to_string(),
+                            avatar_url: u
+                                .get("avatarUrl")
+                                .and_then(|a| a.as_str())
+                                .map(String::from),
+                        },
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let approvals_required = node
+        .get("approvalsRequired")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+    let approvals_left = node
+        .get("approvalsLeft")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+    let approved = node
+        .get("approved")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    // GraphQL pipeline statuses are uppercase enums; REST uses lowercase.
+    let head_pipeline_status = node
+        .get("headPipeline")
+        .and_then(|p| p.get("status"))
+        .and_then(|s| s.as_str())
+        .map(|s| s.to_lowercase());
+
+    Some((
+        iid,
+        BatchedMrState {
+            approvals: MergeRequestApprovals {
+                approved,
+                approvals_required,
+                approvals_left,
+                approved_by,
+            },
+            head_pipeline_status,
+        },
+    ))
+}
+
+/// Parse a GraphQL global user id ("gid://gitlab/User/123") into the numeric id.
+fn parse_graphql_user_id(gid: &str) -> Option<i64> {
+    gid.rsplit('/').next()?.parse().ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1463,5 +1670,64 @@ mod tests {
         assert!(json.contains("\"per_page\":50"));
         // author_username should not be present (None)
         assert!(!json.contains("author_username"));
+    }
+
+    #[test]
+    fn test_build_mr_states_query_aliases_projects() {
+        let groups = vec![
+            ("group/proj-a", vec![12, 34]),
+            ("group/sub/proj-b", vec![5]),
+        ];
+        let query = build_mr_states_query(&groups);
+
+        assert!(query.contains("p0: project(fullPath: \"group/proj-a\")"));
+        assert!(query.contains("iids: [\"12\", \"34\"]"));
+        assert!(query.contains("p1: project(fullPath: \"group/sub/proj-b\")"));
+        assert!(query.contains("iids: [\"5\"]"));
+        assert!(query.contains("headPipeline { status }"));
+    }
+
+    #[test]
+    fn test_parse_mr_state_node() {
+        let node = serde_json::json!({
+            "iid": "42",
+            "approved": true,
+            "approvalsRequired": 2,
+            "approvalsLeft": 0,
+            "approvedBy": { "nodes": [
+                { "id": "gid://gitlab/User/7", "username": "alice", "name": "Alice", "avatarUrl": "/uploads/a.png" }
+            ]},
+            "headPipeline": { "status": "SUCCESS" }
+        });
+
+        let (iid, state) = parse_mr_state_node(&node).unwrap();
+        assert_eq!(iid, 42);
+        assert!(state.approvals.approved);
+        assert_eq!(state.approvals.approvals_required, 2);
+        assert_eq!(state.approvals.approvals_left, 0);
+        assert_eq!(state.approvals.approved_by.len(), 1);
+        assert_eq!(state.approvals.approved_by[0].user.id, 7);
+        assert_eq!(state.approvals.approved_by[0].user.username, "alice");
+        assert_eq!(state.head_pipeline_status.as_deref(), Some("success"));
+    }
+
+    #[test]
+    fn test_parse_mr_state_node_nulls() {
+        // CE instances and MRs without pipelines return nulls for these fields.
+        let node = serde_json::json!({
+            "iid": "9",
+            "approved": false,
+            "approvalsRequired": null,
+            "approvalsLeft": null,
+            "approvedBy": { "nodes": [] },
+            "headPipeline": null
+        });
+
+        let (iid, state) = parse_mr_state_node(&node).unwrap();
+        assert_eq!(iid, 9);
+        assert!(!state.approvals.approved);
+        assert_eq!(state.approvals.approvals_required, 0);
+        assert!(state.approvals.approved_by.is_empty());
+        assert!(state.head_pipeline_status.is_none());
     }
 }

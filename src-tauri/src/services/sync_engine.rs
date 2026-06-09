@@ -14,8 +14,8 @@ use crate::error::AppError;
 use crate::models::project::{self, Project};
 use crate::models::sync_action::ActionType;
 use crate::services::gitlab_client::{
-    GitLabClient, GitLabClientConfig, GitLabDiffVersion, GitLabDiscussion, GitLabMergeRequest,
-    MergeRequestsQuery,
+    BatchedMrState, GitLabClient, GitLabClientConfig, GitLabDiffVersion, GitLabDiscussion,
+    GitLabMergeRequest, MergeRequestsQuery,
 };
 use crate::services::sync_events::{
     ActionSyncedPayload, AuthExpiredPayload, AutoMergeUpdatedPayload, EventEmitter,
@@ -755,6 +755,34 @@ impl SyncEngine {
         let mr_ids: Vec<i64> = mrs.iter().map(|mr| mr.id).collect();
         let pre_sync_ready = self.get_ready_states(&mr_ids).await;
 
+        // Batch-fetch approval + head-pipeline state for all MRs via GraphQL:
+        // 1-2 calls per instance instead of 2 REST calls per MR. MRs missing
+        // from the result (or the whole batch on error) fall back to per-MR REST.
+        let mut mr_states: HashMap<(String, i64), BatchedMrState> = {
+            let mut groups: HashMap<String, Vec<i64>> = HashMap::new();
+            for mr in mrs.iter() {
+                let path = extract_project_path(&mr.web_url);
+                if !path.is_empty() {
+                    groups.entry(path).or_default().push(mr.iid);
+                }
+            }
+            if groups.is_empty() {
+                HashMap::new()
+            } else {
+                let groups: Vec<(String, Vec<i64>)> = groups.into_iter().collect();
+                match client.batch_fetch_mr_states(&groups).await {
+                    Ok(states) => states,
+                    Err(e) => {
+                        log::warn!(
+                            "[sync] Batched MR state fetch failed, falling back to per-MR REST: {}",
+                            e
+                        );
+                        HashMap::new()
+                    }
+                }
+            }
+        };
+
         // Process MRs concurrently with bounded parallelism
         let instance_id = instance.id;
         let mut synced_local_mr_ids: Vec<i64> = Vec::new();
@@ -767,11 +795,12 @@ impl SyncEngine {
             let engine = self.clone();
             let client = client.clone();
             let sync_run_id = sync_run_id.to_string();
+            let state = mr_states.remove(&(extract_project_path(&mr.web_url), mr.iid));
             let mr = mr.clone();
             join_set.spawn(async move {
                 let mr_iid = mr.iid;
                 let res = engine
-                    .sync_mr(instance_id, &client, &mr, current_user_id, &sync_run_id, force)
+                    .sync_mr(instance_id, &client, &mr, current_user_id, &sync_run_id, force, state)
                     .await;
                 drop(permit);
                 (mr_iid, res)
@@ -1090,6 +1119,10 @@ impl SyncEngine {
     }
 
     /// Sync a single MR (metadata, diff, comments, approval status).
+    ///
+    /// `prefetched_state` carries approval + pipeline data already fetched in
+    /// bulk via GraphQL; when None the data is fetched per-MR over REST.
+    #[allow(clippy::too_many_arguments)]
     async fn sync_mr(
         &self,
         instance_id: i64,
@@ -1098,6 +1131,7 @@ impl SyncEngine {
         current_user_id: Option<i64>,
         sync_run_id: &str,
         force: bool,
+        prefetched_state: Option<BatchedMrState>,
     ) -> Result<i64, AppError> {
         let start = Instant::now();
 
@@ -1120,29 +1154,44 @@ impl SyncEngine {
             e
         })?;
 
-        // Always fetch approvals — GitLab doesn't update updated_at on approve/unapprove,
-        // so the skip-unchanged optimization below can't cover approvals safely.
+        // Approval state must be refreshed every sync — GitLab doesn't update
+        // updated_at on approve/unapprove, so the skip-unchanged optimization
+        // below can't cover approvals safely. The same goes for head pipeline
+        // status, which the list endpoint no longer includes (GitLab 14.5+)
+        // and which the "MR ready to merge" notification depends on.
         //
-        // Also fetch individual MR when head_pipeline is missing from list endpoint
-        // (GitLab 14.5+ no longer includes it in list responses). This is needed for
-        // the "MR ready to merge" notification which checks head_pipeline_status.
-        let needs_pipeline_fetch = mr.head_pipeline.is_none();
-        let (approvals_result, pipeline_status) = tokio::join!(
-            client.get_mr_approvals(mr.project_id, mr.iid),
-            async {
-                if needs_pipeline_fetch {
-                    match client.get_merge_request(mr.project_id, mr.iid).await {
-                        Ok(detail) => detail.head_pipeline.map(|p| p.status),
-                        Err(e) => {
-                            log::warn!("Failed to fetch MR detail for pipeline status (MR !{}): {}", mr.iid, e);
+        // Normally both arrive via the instance-wide batched GraphQL query
+        // (prefetched_state). The REST path below is the fallback when the
+        // batch failed or didn't cover this MR.
+        let (approvals_result, pipeline_status) = match prefetched_state {
+            Some(state) => {
+                let pipeline_status = if mr.head_pipeline.is_none() {
+                    state.head_pipeline_status
+                } else {
+                    None
+                };
+                (Ok(state.approvals), pipeline_status)
+            }
+            None => {
+                let needs_pipeline_fetch = mr.head_pipeline.is_none();
+                tokio::join!(
+                    client.get_mr_approvals(mr.project_id, mr.iid),
+                    async {
+                        if needs_pipeline_fetch {
+                            match client.get_merge_request(mr.project_id, mr.iid).await {
+                                Ok(detail) => detail.head_pipeline.map(|p| p.status),
+                                Err(e) => {
+                                    log::warn!("Failed to fetch MR detail for pipeline status (MR !{}): {}", mr.iid, e);
+                                    None
+                                }
+                            }
+                        } else {
                             None
                         }
                     }
-                } else {
-                    None
-                }
+                )
             }
-        );
+        };
 
         // Update head_pipeline_status from individual MR fetch if list didn't include it
         if let Some(status) = &pipeline_status {
