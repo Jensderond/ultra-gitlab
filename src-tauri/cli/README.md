@@ -30,15 +30,21 @@ hint to sign in via the desktop app first.
 
 ## Keys
 
-- **Lists:** `1`/`2`/`Tab` switch tabs · `j`/`k` move · `enter` open · `r` refresh · `q` quit
-- **Detail:** `→`/`l` focus diff · `←`/`h` focus files · `tab` toggle focus · `j`/`k` scroll/file · `V` mark file viewed (jumps to next unviewed) · `g` show / hide ignored files · `esc` back
+Press `?` anywhere for the full keybinding overlay. The essentials:
+
+- **Lists:** `1`/`2`/`Tab` switch tabs · `j`/`k` move · `enter` open · `o` open in browser · `r` refresh · `q` quit
+- **Detail:** `→`/`l` focus diff · `←`/`h` focus files · `tab` toggle focus · `j`/`k` scroll/file · `g` show / hide ignored files · `o` open MR in browser · `q`/`esc` back
 - **Review detail:** `a` approve / unapprove
-- **Mine detail:** `R` rebase · `M` merge (confirm with `y`) · `U` undraft · `A` auto-merge
+- **Mine detail:** `R` rebase · `M` merge (confirm with `y`) · `U` undraft · `A` toggle auto-merge
+
+`q` always means "back one level" except at the top level, where it quits. `o`
+opens the focused thing on GitLab in the browser — an MR in the lists or detail
+view, a project/pipeline/job in the Pipelines tab or the detail pipelines panel.
 
 ### Comments & suggestions (detail screen)
 
 - `c` — post a comment: on the file tree it opens a general MR comment; on the diff it posts an inline comment on the diff cursor line
-- `v` — start / clear a visual line-range selection in the diff (select a range, then `c` or `s` to act on it)
+- `v` / `V` — start / clear a visual line-range selection in the diff, like vim's visual modes (select a range, then `c` or `s` to act on it)
 - `s` — open a suggestion on the diff cursor line or selected range (opens `$EDITOR` to write the replacement, then shows a preview before posting)
 - `C` — open the discussions overlay showing all threads on the MR
   - `j`/`k` — move between threads
@@ -64,3 +70,5 @@ Generated and lock files are hidden from the file tree by default — the same c
   "Loaded diff (live)").
 - `auto-merge` records a claim that the **desktop app's** sync engine processes —
   it merges once GitLab reports the MR mergeable. Keep the desktop app running.
+  MRs with an active claim show a cyan `[auto-merge]` tag in the lists and an
+  `auto-merge ✓` indicator in the detail header; `A` toggles the claim on/off.

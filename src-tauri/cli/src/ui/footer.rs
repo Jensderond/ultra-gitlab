@@ -9,16 +9,16 @@ use ratatui::Frame;
 pub fn render(f: &mut Frame, app: &App, area: Rect) {
     let hints = match app.screen {
         Screen::List => match app.tab {
-            Tab::Review | Tab::Mine => "1/2/3 tabs · j/k move · enter open · r refresh · q quit",
+            Tab::Review | Tab::Mine => "1/2/3 tabs · enter open · o browser · r refresh · ? help · q quit",
             Tab::Pipelines => match app.pipelines.view {
                 crate::pipelines::PipeView::Projects => {
-                    "1/2/3 tabs · j/k · enter open · p pin · x remove · n add · o browser · r refresh · q quit"
+                    "1/2/3 tabs · enter open · n add · o browser · ? help · q quit"
                 }
                 crate::pipelines::PipeView::Pipelines => {
-                    "j/k · enter jobs · c cancel · o browser · esc back · q quit"
+                    "enter jobs · c cancel · o browser · ? help · q/esc back"
                 }
                 crate::pipelines::PipeView::Jobs => {
-                    "j/k · p play · R retry · c cancel · o browser · esc back · q quit"
+                    "p play · R retry · c cancel · o browser · ? help · q/esc back"
                 }
             },
         },
@@ -27,15 +27,15 @@ pub fn render(f: &mut Frame, app: &App, area: Rect) {
             // file/diff hints so the panel's actions are discoverable.
             if app.focus == Focus::Pipeline {
                 if app.detail_pipes.jobs.is_some() {
-                    "j/k · p play · R retry · c cancel · o browser · esc back"
+                    "p play · R retry · c cancel · o browser · ? help · esc back"
                 } else {
-                    "Tab focus · j/k · enter jobs · o browser · esc back"
+                    "Tab focus · enter jobs · o browser · ? help · esc back"
                 }
             } else {
                 match app.tab {
-                    Tab::Review => "Tab focus · j/k scroll · ←/→ pan · PgUp/PgDn page · V viewed · g ignored · a approve/unapprove · c comment · v select · s suggest · C threads · esc back",
-                    Tab::Mine => "Tab focus · j/k scroll · ←/→ pan · PgUp/PgDn page · V viewed · g ignored · R rebase · M merge · U undraft · A auto-merge · c comment · v select · s suggest · C threads · esc back",
-                    Tab::Pipelines => "esc back",
+                    Tab::Review => "a approve · c comment · v select · s suggest · C threads · o browser · ? help · q/esc back",
+                    Tab::Mine => "R rebase · M merge · c comment · v select · s suggest · C threads · o browser · ? help · q/esc back",
+                    Tab::Pipelines => "? help · esc back",
                 }
             }
         }

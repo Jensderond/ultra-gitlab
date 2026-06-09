@@ -384,9 +384,8 @@ pub fn handle_detail_key(app: &mut App, code: KeyCode) {
                             project_id,
                             job_id: j.id,
                         },
-                        prompt: format!("Cancel job {}? (y/N)", j.name),
+                        prompt: format!("Cancel job {}?", j.name),
                     });
-                    app.status = "Cancel job? Press y to confirm.".into();
                 }
             }
             _ => {}
@@ -493,7 +492,7 @@ fn handle_pipelines_key(app: &mut App, code: KeyCode) {
     match code {
         KeyCode::Char('j') | KeyCode::Down => move_in_list(&mut app.pipelines.pipe_state, len, 1),
         KeyCode::Char('k') | KeyCode::Up => move_in_list(&mut app.pipelines.pipe_state, len, -1),
-        KeyCode::Esc => {
+        KeyCode::Esc | KeyCode::Char('q') => {
             app.pipelines.view = PipeView::Projects;
         }
         KeyCode::Char('o') => {
@@ -508,9 +507,8 @@ fn handle_pipelines_key(app: &mut App, code: KeyCode) {
                         project_id: p.project_id,
                         pipeline_id: p.id,
                     },
-                    prompt: format!("Cancel pipeline #{}? (y/N)", p.id),
+                    prompt: format!("Cancel pipeline #{}?", p.id),
                 });
-                app.status = "Cancel pipeline? Press y to confirm.".into();
             }
         }
         KeyCode::Enter => {
@@ -535,7 +533,7 @@ fn handle_jobs_key(app: &mut App, code: KeyCode) {
     match code {
         KeyCode::Char('j') | KeyCode::Down => move_in_list(&mut app.pipelines.job_state, len, 1),
         KeyCode::Char('k') | KeyCode::Up => move_in_list(&mut app.pipelines.job_state, len, -1),
-        KeyCode::Esc => {
+        KeyCode::Esc | KeyCode::Char('q') => {
             app.pipelines.view = PipeView::Pipelines;
         }
         KeyCode::Char('o') => {
@@ -572,9 +570,8 @@ fn handle_jobs_key(app: &mut App, code: KeyCode) {
                         project_id,
                         job_id: j.id,
                     },
-                    prompt: format!("Cancel job {}? (y/N)", j.name),
+                    prompt: format!("Cancel job {}?", j.name),
                 });
-                app.status = "Cancel job? Press y to confirm.".into();
             }
         }
         _ => {}

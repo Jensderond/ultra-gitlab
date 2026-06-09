@@ -26,6 +26,10 @@ pub struct MrRow {
     pub user_has_approved: bool,
     /// GitLab MR state: `opened`, `merged`, or `closed`.
     pub state: String,
+    pub web_url: String,
+    /// True when an auto-merge claim is active for this MR (the desktop's sync
+    /// engine merges it once GitLab reports it mergeable).
+    pub auto_merge: bool,
 }
 
 impl MrRow {
@@ -57,6 +61,8 @@ impl From<MergeRequest> for MrRow {
             is_draft,
             user_has_approved: m.user_has_approved,
             state: m.state,
+            web_url: m.web_url,
+            auto_merge: false, // filled from auto_merge_claims by the loaders
         }
     }
 }
@@ -110,19 +116,41 @@ pub struct DetailData {
     pub ignored: std::collections::HashSet<String>,
 }
 
+/// MR ids with an active auto-merge claim, for tagging list rows. Best-effort:
+/// a read failure just leaves rows untagged.
+async fn auto_merge_ids(pool: &DbPool) -> std::collections::HashSet<i64> {
+    ultra_gitlab_lib::db::auto_merge::list_active_claims_with_mr(pool)
+        .await
+        .map(|claims| claims.into_iter().map(|c| c.mr_id).collect())
+        .unwrap_or_default()
+}
+
 pub async fn load_review(pool: &DbPool, instance_id: i64) -> Result<Vec<MrRow>, AppError> {
     let rows = mr_query::list_review_mrs(pool, instance_id, ReviewFilter::default()).await?;
+    let claimed = auto_merge_ids(pool).await;
     // Hide MRs the user has already approved — once reviewed, they drop off the list.
     Ok(rows
         .into_iter()
         .map(MrRow::from)
         .filter(|r| !r.user_has_approved)
+        .map(|mut r| {
+            r.auto_merge = claimed.contains(&r.id);
+            r
+        })
         .collect())
 }
 
 pub async fn load_mine(pool: &DbPool, instance_id: i64) -> Result<Vec<MrRow>, AppError> {
     let rows = mr_query::list_my_mrs(pool, instance_id, true, true).await?;
-    let mut rows: Vec<MrRow> = rows.into_iter().map(MrRow::from).collect();
+    let claimed = auto_merge_ids(pool).await;
+    let mut rows: Vec<MrRow> = rows
+        .into_iter()
+        .map(MrRow::from)
+        .map(|mut r| {
+            r.auto_merge = claimed.contains(&r.id);
+            r
+        })
+        .collect();
     // Open, non-draft MRs sort to the top (actionable); drafts and recently
     // merged drop below. Stable sort preserves the query's updated_at order
     // within each group. The list UI renders the two groups as separate boxes.
@@ -144,7 +172,11 @@ pub async fn load_detail(
 ) -> Result<DetailData, AppError> {
     let detail = mr_query::get_detail(pool, mr_id).await?;
     let project_id = detail.mr.project_id;
-    let row = MrRow::from(detail.mr);
+    let mut row = MrRow::from(detail.mr);
+    row.auto_merge = ultra_gitlab_lib::db::auto_merge::get_claim(pool, mr_id)
+        .await
+        .map(|c| c.is_some())
+        .unwrap_or(false);
 
     let (files, live, diff_refs) = if detail.diff_files.is_empty() {
         let (live, refs) = mr_actions::get_live_diff(pool, mr_id).await?;

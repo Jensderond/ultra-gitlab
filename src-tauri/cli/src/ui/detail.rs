@@ -91,7 +91,7 @@ fn render_header(f: &mut Frame, detail: &crate::data::DetailData, area: Rect) {
         Span::styled(format!("!{} ", r.iid), Style::default().fg(Color::DarkGray)),
         Span::styled(r.title.clone(), Style::default().add_modifier(Modifier::BOLD)),
     ]);
-    let meta = Line::from(vec![
+    let mut meta_spans = vec![
         Span::styled(r.project_name.clone(), Style::default().fg(Color::Blue)),
         Span::raw("  "),
         Span::styled(format!("{} → {}", r.source_branch, r.target_branch), Style::default().fg(Color::DarkGray)),
@@ -99,7 +99,14 @@ fn render_header(f: &mut Frame, detail: &crate::data::DetailData, area: Rect) {
         Span::raw(format!("approvals {}/{}", r.approvals_count, r.approvals_required.max(0))),
         Span::raw("  "),
         Span::raw(format!("pipeline {}", r.pipeline.as_deref().unwrap_or("-"))),
-    ]);
+    ];
+    if r.auto_merge {
+        meta_spans.push(Span::styled(
+            "  auto-merge ✓",
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+        ));
+    }
+    let meta = Line::from(meta_spans);
     let block = Block::default().borders(Borders::ALL);
     f.render_widget(Paragraph::new(vec![title, meta]).block(block).wrap(Wrap { trim: true }), area);
 }
@@ -110,7 +117,6 @@ fn render_tree(f: &mut Frame, app: &mut App, detail: &crate::data::DetailData, a
         .iter()
         .map(|&i| {
             let file = &detail.files[i];
-            let viewed = app.viewed.contains(&file.new_path);
             let is_ignored = detail.ignored.contains(&file.new_path);
             let sym = match file.change_type.as_str() {
                 "added" => Span::styled("A ", Style::default().fg(Color::Green)),
@@ -120,7 +126,7 @@ fn render_tree(f: &mut Frame, app: &mut App, detail: &crate::data::DetailData, a
             };
             // Ignored files are only ever rendered here when revealed; dim them
             // so they read as secondary, mirroring the desktop's greyed-out look.
-            let path_style = if viewed || is_ignored {
+            let path_style = if is_ignored {
                 Style::default().fg(Color::DarkGray)
             } else {
                 Style::default()
@@ -141,9 +147,6 @@ fn render_tree(f: &mut Frame, app: &mut App, detail: &crate::data::DetailData, a
                     "  ignored",
                     Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
                 ));
-            }
-            if viewed {
-                spans.push(Span::styled("  ✓", Style::default().fg(Color::Green)));
             }
             ListItem::new(Line::from(spans))
         })

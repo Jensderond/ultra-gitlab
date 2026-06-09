@@ -8,7 +8,6 @@ use crossterm::event::{Event, EventStream, KeyCode, KeyEventKind};
 use futures::StreamExt;
 use ratatui::widgets::ListState;
 use ratatui::DefaultTerminal;
-use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use ultra_gitlab_lib::db::pool::DbPool;
@@ -76,8 +75,6 @@ pub struct App {
     /// Set when the user pressed `m` in the preview to attach a message; the run
     /// loop opens the editor for the message and clears this.
     pub suggestion_message_pending: bool,
-    /// new_path of files marked viewed in the current detail (reset per MR).
-    pub viewed: HashSet<String>,
     pub pipelines: crate::pipelines::PipelinesState,
     pub detail_pipes: crate::pipelines::DetailPipelines,
 
@@ -85,6 +82,8 @@ pub struct App {
     pub busy: bool,
     pub should_quit: bool,
     pub confirm: Option<Confirm>,
+    /// When true, the `?` keybinding-help overlay is showing.
+    pub help: bool,
     /// Request a full terminal clear before the next draw. Set on transitions
     /// (file switch, leaving the detail view) where the frame-diff can leave
     /// stale diff cells behind — clearing forces a complete repaint.
@@ -161,13 +160,13 @@ impl App {
             pending: None,
             suggestion: None,
             suggestion_message_pending: false,
-            viewed: HashSet::new(),
             pipelines: crate::pipelines::PipelinesState::default(),
             detail_pipes: crate::pipelines::DetailPipelines::default(),
             status: "Loading…".into(),
             busy: true,
             should_quit: false,
             confirm: None,
+            help: false,
             force_clear: false,
             tx,
             highlighter: Highlighter::new(),
@@ -354,7 +353,6 @@ fn handle_event(app: &mut App, ev: AppEvent) {
             app.diff_hscroll = 0;
             app.diff_cursor = 0;
             app.diff_select_anchor = None;
-            app.viewed.clear();
             app.detail = Some(d);
         }
         AppEvent::ActionDone(verb, Ok(msg)) => {
@@ -490,6 +488,12 @@ fn handle_event(app: &mut App, ev: AppEvent) {
             if verb == "approve" {
                 app.load_lists();
             }
+            // Roll back the optimistic auto-merge toggle on the open detail.
+            if verb == "auto-merge" || verb == "cancel auto-merge" {
+                if let Some(d) = app.detail.as_mut() {
+                    d.row.auto_merge = verb == "cancel auto-merge";
+                }
+            }
         }
     }
 }
@@ -498,13 +502,13 @@ fn handle_key(app: &mut App, code: KeyCode) {
     // Pipeline cancel confirmation intercepts keys first when active.
     if app.tab == Tab::Pipelines || app.screen == Screen::Detail {
         if let Some(c) = app.pipelines.confirm.clone() {
+            app.pipelines.confirm = None;
+            app.force_clear = true; // the dialog overlay must be repainted away
             match code {
                 KeyCode::Char('y') | KeyCode::Char('Y') => {
-                    app.pipelines.confirm = None;
                     crate::pipelines::run_confirmed(app, c.action);
                 }
                 _ => {
-                    app.pipelines.confirm = None;
                     app.status = "Cancelled".into();
                 }
             }
@@ -514,13 +518,13 @@ fn handle_key(app: &mut App, code: KeyCode) {
 
     // Confirmation prompt intercepts keys first.
     if let Some(confirm) = app.confirm.clone() {
+        app.confirm = None;
+        app.force_clear = true; // the dialog overlay must be repainted away
         match code {
             KeyCode::Char('y') | KeyCode::Char('Y') => {
-                app.confirm = None;
                 crate::actions::dispatch(app, &confirm.verb, confirm.mr_id);
             }
             _ => {
-                app.confirm = None;
                 app.status = "Cancelled".into();
             }
         }
@@ -531,6 +535,15 @@ fn handle_key(app: &mut App, code: KeyCode) {
     // screen dispatch (so its keys aren't also read as detail-screen actions).
     if app.suggestion.is_some() {
         handle_suggestion_key(app, code);
+        return;
+    }
+
+    // The help overlay swallows all keys until dismissed.
+    if app.help {
+        if matches!(code, KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('q')) {
+            app.help = false;
+            app.force_clear = true;
+        }
         return;
     }
 
@@ -603,7 +616,18 @@ fn handle_list_key(app: &mut App, code: KeyCode) {
     // Global keys: tab switch + quit work in every list tab.
     match code {
         KeyCode::Char('q') => {
-            app.should_quit = true;
+            // `q` quits only at the top level; inside the Pipelines drill-down it
+            // backs out one level (handled by the pipelines key handler below),
+            // matching `q` on the detail screen.
+            if app.tab != Tab::Pipelines
+                || app.pipelines.view == crate::pipelines::PipeView::Projects
+            {
+                app.should_quit = true;
+                return;
+            }
+        }
+        KeyCode::Char('?') => {
+            app.help = true;
             return;
         }
         KeyCode::Char('1') => {
@@ -634,6 +658,11 @@ fn handle_list_key(app: &mut App, code: KeyCode) {
         KeyCode::Char('j') | KeyCode::Down => move_selection(app, 1),
         KeyCode::Char('k') | KeyCode::Up => move_selection(app, -1),
         KeyCode::Char('r') => app.load_lists(),
+        KeyCode::Char('o') => {
+            if let Some(row) = app.list_state.selected().and_then(|i| app.rows().get(i)) {
+                let _ = crate::util::open_url(&row.web_url);
+            }
+        }
         KeyCode::Enter => open_detail(app),
         _ => {}
     }
@@ -713,11 +742,17 @@ fn overlay_move(app: &mut App, delta: i32) {
 }
 
 fn handle_detail_key(app: &mut App, code: KeyCode) {
+    if code == KeyCode::Char('?') {
+        app.help = true;
+        return;
+    }
+
     if app.overlay.is_some() {
         match code {
             KeyCode::Esc | KeyCode::Char('C') => { app.overlay = None; app.force_clear = true; }
             KeyCode::Char('j') | KeyCode::Down => overlay_move(app, 1),
             KeyCode::Char('k') | KeyCode::Up => overlay_move(app, -1),
+            KeyCode::Char('o') => open_mr_in_browser(app),
             KeyCode::Char('r') => {
                 // Collect owned values while borrows are alive, then drop them
                 // before assigning app.pending (borrow-checker requirement).
@@ -784,7 +819,6 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
         },
         KeyCode::Home if app.focus == Focus::Diff => app.diff_hscroll = 0,
         KeyCode::Char('g') => toggle_show_ignored(app),
-        KeyCode::Char('V') => mark_viewed_and_advance(app),
         KeyCode::Char('j') | KeyCode::Down => match app.focus {
             Focus::Tree => move_file(app, 1),
             Focus::Diff => move_cursor(app, 1),
@@ -809,13 +843,18 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
         KeyCode::Char('c') if app.focus == Focus::Diff => {
             start_inline_comment(app);
         }
-        KeyCode::Char('v') if app.focus == Focus::Diff => {
+        // Both `v` and `V` toggle the line-range selection, mirroring vim's
+        // visual modes (in a line-based diff they are the same thing).
+        KeyCode::Char('v') | KeyCode::Char('V') if app.focus == Focus::Diff => {
             app.diff_select_anchor = match app.diff_select_anchor {
                 Some(_) => None,
                 None => Some(app.diff_cursor),
             };
         }
         KeyCode::Char('s') if app.focus == Focus::Diff => start_suggestion(app),
+        // `o` opens the MR in the browser; with the pipelines panel focused it
+        // falls through to that panel's handler (selected pipeline/job) instead.
+        KeyCode::Char('o') if app.focus != Focus::Pipeline => open_mr_in_browser(app),
         KeyCode::Char('C') => {
             if app.overlay.is_some() {
                 app.overlay = None;
@@ -1100,36 +1139,10 @@ fn move_file(app: &mut App, delta: i32) {
     app.force_clear = true;
 }
 
-/// Mark the selected file viewed, then select the next not-yet-viewed file
-/// (wrapping around). If every file is viewed, the selection stays put.
-fn mark_viewed_and_advance(app: &mut App) {
-    // Operate over the visible files only, so hidden ignored files neither get
-    // marked nor become selected by the advance.
-    let paths: Vec<String> = match &app.detail {
-        Some(d) => visible_indices(d, app.show_ignored)
-            .into_iter()
-            .map(|i| d.files[i].new_path.clone())
-            .collect(),
-        None => return,
-    };
-    if paths.is_empty() {
-        return;
-    }
-    let len = paths.len();
-    let cur = app.file_state.selected().unwrap_or(0).min(len - 1);
-    app.viewed.insert(paths[cur].clone());
-    let next = (1..=len)
-        .map(|off| (cur + off) % len)
-        .find(|&i| !app.viewed.contains(&paths[i]));
-    if let Some(i) = next {
-        app.file_state.select(Some(i));
-        app.diff_scroll = 0;
-        app.diff_hscroll = 0;
-        app.diff_cursor = 0;
-        app.diff_select_anchor = None;
-        app.force_clear = true;
-    } else {
-        app.status = "All files viewed".into();
+/// Open the detail screen's MR on GitLab in the default browser.
+fn open_mr_in_browser(app: &mut App) {
+    if let Some(d) = &app.detail {
+        let _ = crate::util::open_url(&d.row.web_url);
     }
 }
 

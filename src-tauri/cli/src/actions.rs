@@ -1,7 +1,8 @@
 //! Action dispatch on the detail screen.
 //!
 //! Review tab: `a` approve / unapprove (toggles on the row's current state).
-//! Mine tab:   `R` rebase, `M` merge (confirmed), `U` undraft, `A` auto-merge.
+//! Mine tab:   `R` rebase, `M` merge (confirmed), `U` undraft,
+//!             `A` toggle the auto-merge claim.
 //! All actions run as background tasks; results arrive via AppEvent::ActionDone.
 
 use crate::app::{App, Confirm, Focus, Screen, Tab};
@@ -30,14 +31,24 @@ pub fn handle_action_key(app: &mut App, code: KeyCode) {
         }
         (Tab::Mine, KeyCode::Char('R')) => dispatch(app, "rebase", mr_id),
         (Tab::Mine, KeyCode::Char('U')) => dispatch(app, "undraft", mr_id),
-        (Tab::Mine, KeyCode::Char('A')) => dispatch(app, "auto-merge", mr_id),
+        (Tab::Mine, KeyCode::Char('A')) => {
+            // Toggle on the claim state the detail loaded. Flip the header
+            // indicator right away; the list reload on ActionDone reconciles,
+            // and a failure rolls the flag back (see handle_event).
+            let claimed = app.detail.as_ref().map(|d| d.row.auto_merge).unwrap_or(false);
+            if let Some(d) = app.detail.as_mut() {
+                d.row.auto_merge = !claimed;
+            }
+            let verb = if claimed { "cancel auto-merge" } else { "auto-merge" };
+            dispatch(app, verb, mr_id);
+        }
         (Tab::Mine, KeyCode::Char('M')) => {
-            app.confirm = Some(Confirm {
-                verb: "merge".into(),
-                mr_id,
-                prompt: "Merge this MR now? (y/N)".into(),
-            });
-            app.status = "Merge this MR now? Press y to confirm.".into();
+            let prompt = app
+                .detail
+                .as_ref()
+                .map(|d| format!("Merge !{} into {} now?", d.row.iid, d.row.target_branch))
+                .unwrap_or_else(|| "Merge this MR now?".into());
+            app.confirm = Some(Confirm { verb: "merge".into(), mr_id, prompt });
         }
         _ => {}
     }
@@ -88,6 +99,11 @@ async fn run(pool: &Arc<DbPool>, verb: &str, mr_id: i64) -> Result<String, Strin
             let now = chrono::Utc::now().timestamp();
             auto_merge::upsert_claim(pool, mr_id, now).await
                 .map(|_| "auto-merge claimed (desktop will process)".to_string())
+                .map_err(|e| e.to_string())
+        }
+        "cancel auto-merge" => {
+            auto_merge::delete_claim(pool, mr_id).await
+                .map(|_| "auto-merge claim removed".to_string())
                 .map_err(|e| e.to_string())
         }
         other => Err(format!("unknown action {other}")),

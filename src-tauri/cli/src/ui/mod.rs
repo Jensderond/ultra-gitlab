@@ -1,8 +1,10 @@
 //! Top-level rendering: tab bar, body, footer.
 
+pub mod confirm;
 pub mod detail;
 pub mod diff;
 pub mod footer;
+pub mod help;
 pub mod list;
 pub mod pipelines;
 
@@ -30,6 +32,20 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     }
 
     footer::render(f, app, chunks[2]);
+
+    if app.help {
+        help::render(f, app, chunks[1]);
+    }
+
+    // A pending y/N confirmation renders as a dialog on top of everything.
+    let prompt = app
+        .confirm
+        .as_ref()
+        .map(|c| c.prompt.clone())
+        .or_else(|| app.pipelines.confirm.as_ref().map(|c| c.prompt.clone()));
+    if let Some(p) = prompt {
+        confirm::render(f, &p, chunks[1]);
+    }
 }
 
 fn render_tabs(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {

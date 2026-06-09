@@ -42,6 +42,9 @@ fn row_line(row: &MrRow, mine: bool) -> Line<'static> {
     if mine && row.is_merged() {
         spans.push(Span::styled(" [merged]", Style::default().fg(Color::Magenta)));
     }
+    if row.auto_merge && row.state == "opened" {
+        spans.push(Span::styled(" [auto-merge]", Style::default().fg(Color::Cyan)));
+    }
     if !mine {
         spans.push(Span::styled(
             format!("  @{}", row.author),
@@ -153,6 +156,8 @@ mod tests {
             is_draft: false,
             user_has_approved: false,
             state: "opened".into(),
+            web_url: "http://x".into(),
+            auto_merge: false,
         }
     }
 
