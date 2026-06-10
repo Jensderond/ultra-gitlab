@@ -11,6 +11,8 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { List, useDynamicRowHeight, useListCallbackRef } from 'react-window';
+import type { RowComponentProps } from 'react-window';
 import BackButton from '../components/BackButton';
 import { openExternalUrl } from '../services/transport';
 import { trackShortcut } from '../services/analytics';
@@ -85,34 +87,52 @@ function LogLineRow({ line, showTimestamp }: { line: LogLine; showTimestamp?: bo
   );
 }
 
-/** Render a collapsible log section. */
-function LogSectionBlock({
-  section,
-  expanded,
-  onToggle,
+/**
+ * Flattened virtual row: either a section header or a plain log line.
+ * Lines inside collapsed sections are omitted from the row list entirely.
+ */
+type LogRow =
+  | { kind: 'line'; line: LogLine }
+  | { kind: 'section'; section: LogSection; expanded: boolean };
+
+interface LogRowProps {
+  rows: LogRow[];
+  showTimestamp: boolean;
+  onToggleSection: (name: string) => void;
+}
+
+/** Render one virtualized row: a section header button or a log line. */
+function VirtualLogRow({
+  index,
+  style,
+  ariaAttributes,
+  rows,
   showTimestamp,
-}: {
-  section: LogSection;
-  expanded: boolean;
-  onToggle: () => void;
-  showTimestamp?: boolean;
-}) {
+  onToggleSection,
+}: RowComponentProps<LogRowProps>) {
+  const row = rows[index];
+  if (row.kind === 'section') {
+    const { section, expanded } = row;
+    return (
+      <div style={style} className="log-section" {...ariaAttributes}>
+        <button
+          type="button"
+          className="log-section-header"
+          onClick={() => onToggleSection(section.name)}
+          aria-expanded={expanded}
+        >
+          <span className="log-section-chevron">{expanded ? '\u25BE' : '\u25B8'}</span>
+          <span className="log-section-name">{formatSectionName(section.name)}</span>
+          {section.duration && (
+            <span className="log-duration-badge">{section.duration}</span>
+          )}
+        </button>
+      </div>
+    );
+  }
   return (
-    <div className={`log-section${expanded ? ' log-section--expanded' : ''}`}>
-      <button type="button" className="log-section-header" onClick={onToggle} aria-expanded={expanded}>
-        <span className="log-section-chevron">{expanded ? '\u25BE' : '\u25B8'}</span>
-        <span className="log-section-name">{formatSectionName(section.name)}</span>
-        {section.duration && (
-          <span className="log-duration-badge">{section.duration}</span>
-        )}
-      </button>
-      {expanded && (
-        <div className="log-section-body">
-          {section.lines.map((line) => (
-            <LogLineRow key={line.lineNumber} line={line} showTimestamp={showTimestamp} />
-          ))}
-        </div>
-      )}
+    <div style={style} {...ariaAttributes}>
+      <LogLineRow line={row.line} showTimestamp={showTimestamp} />
     </div>
   );
 }
@@ -148,10 +168,12 @@ export default function JobLogPage() {
 
   const isActive = ACTIVE_STATUSES.has(currentStatus);
 
-  // Ref for the scrollable log content container
-  const logContentRef = useRef<HTMLElement>(null);
+  // Imperative API of the virtualized list (its element is the scroll container)
+  const [listApi, setListApi] = useListCallbackRef(null);
   // Ref to suppress scroll handler when auto-scrolling
   const isAutoScrollingRef = useRef(false);
+  // Measured heights for wrapped log lines (default matches .log-line min-height)
+  const rowHeight = useDynamicRowHeight({ defaultRowHeight: 20 });
 
   // TQ-backed trace query — polls every 3s when job is active, stops when complete
   const traceQuery = useJobTraceQuery(instanceId, pid, jid, currentStatus);
@@ -193,24 +215,42 @@ export default function JobLogPage() {
     });
   }, []);
 
+  // Flatten entries into virtual rows; collapsed section bodies are excluded
+  const rows = useMemo<LogRow[]>(() => {
+    const out: LogRow[] = [];
+    for (const entry of parsedLog.entries) {
+      if (entry.type === 'line') {
+        out.push({ kind: 'line', line: entry.data });
+        continue;
+      }
+      const expanded = !collapsedSections.has(entry.data.name);
+      out.push({ kind: 'section', section: entry.data, expanded });
+      if (expanded) {
+        for (const line of entry.data.lines) {
+          out.push({ kind: 'line', line });
+        }
+      }
+    }
+    return out;
+  }, [parsedLog, collapsedSections]);
+
   const backParams = new URLSearchParams({ instance: String(instanceId) });
   if (projectName) backParams.set('project', projectName);
   if (pipelineRef) backParams.set('ref', pipelineRef);
   if (pipelineWebUrl) backParams.set('url', pipelineWebUrl);
   const backUrl = `/pipelines/${projectId}/${pipelineId}?${backParams.toString()}`;
 
-  // Auto-scroll to bottom when follow mode is on and trace updates
+  // Auto-scroll to bottom when follow mode is on and rows are added
   useEffect(() => {
-    if (!followMode || !logContentRef.current) return;
-    const el = logContentRef.current;
+    if (!followMode || !listApi || rows.length === 0) return;
     isAutoScrollingRef.current = true;
-    el.scrollTop = el.scrollHeight;
+    listApi.scrollToRow({ index: rows.length - 1, align: 'end' });
     requestAnimationFrame(() => { isAutoScrollingRef.current = false; });
-  }, [followMode, trace]);
+  }, [followMode, rows.length, listApi]);
 
   // Detect manual scroll to toggle follow mode
   useEffect(() => {
-    const el = logContentRef.current;
+    const el = listApi?.element;
     if (!el) return;
 
     function handleScroll() {
@@ -222,7 +262,7 @@ export default function JobLogPage() {
 
     el.addEventListener('scroll', handleScroll, { passive: true });
     return () => el.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [listApi]);
 
   // Escape key navigates back
   useEffect(() => {
@@ -293,7 +333,7 @@ export default function JobLogPage() {
         </div>
       </header>
 
-      <main className="job-log-content" ref={logContentRef}>
+      <main className="job-log-content">
         {loading ? (
           <div className="job-log-loading">
             <span className="job-log-spinner" />
@@ -305,21 +345,18 @@ export default function JobLogPage() {
           <div className="job-log-empty">No log output for this job.</div>
         ) : (
           <div className={`job-log-trace${parsedLog.timestamped ? ' job-log-trace--timestamped' : ''}`}>
-            {parsedLog.entries.map((entry) => {
-              if (entry.type === 'line') {
-                return <LogLineRow key={`line-${entry.data.lineNumber}`} line={entry.data} showTimestamp={parsedLog.timestamped} />;
-              }
-              const section = entry.data;
-              return (
-                <LogSectionBlock
-                  key={`section-${section.name}`}
-                  section={section}
-                  expanded={!collapsedSections.has(section.name)}
-                  onToggle={() => toggleSection(section.name)}
-                  showTimestamp={parsedLog.timestamped}
-                />
-              );
-            })}
+            <List
+              listRef={setListApi}
+              rowComponent={VirtualLogRow}
+              rowCount={rows.length}
+              rowHeight={rowHeight}
+              rowProps={{
+                rows,
+                showTimestamp: parsedLog.timestamped,
+                onToggleSection: toggleSection,
+              }}
+              overscanCount={20}
+            />
           </div>
         )}
       </main>
