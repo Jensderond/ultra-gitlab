@@ -77,7 +77,7 @@ pub fn status_style(status: Option<&str>) -> (&'static str, Color) {
         Some("failed") => ("●", Color::Red),
         Some("running") => ("●", Color::Yellow),
         Some("pending") | Some("created") | Some("waiting_for_resource") | Some("preparing")
-        | Some("scheduled") => ("●", Color::Cyan),
+        | Some("scheduled") => ("●", Color::DarkGray),
         Some("canceled") | Some("skipped") => ("●", Color::DarkGray),
         Some("manual") => ("◆", Color::Magenta),
         Some(_) => ("●", Color::DarkGray),
