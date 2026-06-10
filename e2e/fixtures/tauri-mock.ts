@@ -334,11 +334,30 @@ export async function mockTauriIPC(page: Page) {
         console.warn(`[Tauri Mock] Unhandled command: ${cmd}`, args);
         return undefined;
       },
+      // Register a JS callback and return its numeric id, mirroring Tauri's
+      // real internals. The event plugin's `listen()` calls this; without it
+      // the import throws "transformCallback is not a function", producing an
+      // unhandled rejection on every page load (a flake source). Events never
+      // fire in tests, so the stored callback is never invoked.
+      transformCallback: (callback: unknown, _once?: boolean) => {
+        const w = window as Record<string, unknown>;
+        const id = ((w.__TAURI_CB_ID__ as number) || 0) + 1;
+        w.__TAURI_CB_ID__ = id;
+        w[`_${id}`] = callback;
+        return id;
+      },
       metadata: {
         currentWindow: { label: 'main' },
         currentWebview: { label: 'main', windowLabel: 'main' },
       },
       convertFileSrc: (path: string) => path,
+    };
+
+    // The event plugin's unlisten path calls
+    // `__TAURI_EVENT_PLUGIN_INTERNALS__.unregisterListener`. Without this,
+    // tearing down a listener throws an unhandled rejection on unmount.
+    (window as Record<string, unknown>).__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+      unregisterListener: () => {},
     };
   }, seedJSON);
 }
