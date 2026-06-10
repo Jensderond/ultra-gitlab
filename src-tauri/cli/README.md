@@ -32,12 +32,13 @@ hint to sign in via the desktop app first.
 
 Press `?` anywhere for the full keybinding overlay. The essentials:
 
-- **Lists:** `1`/`2`/`Tab` switch tabs · `j`/`k` move · `enter` open · `o` open in browser · `r` refresh · `q` quit
-- **Detail:** `→`/`l` focus diff · `←`/`h` focus files · `tab` toggle focus · `j`/`k` scroll/file · `g` show / hide ignored files · `o` open MR in browser · `q`/`esc` back
+- **Lists:** `1`/`2`/`Tab` switch tabs · `j`/`k` move · `enter` open · `o` open in browser · `r` refresh · `esc` quit
+- **Detail:** `→`/`l` focus diff · `←`/`h` focus files · `tab` toggle focus · `j`/`k` scroll/file · `g` show / hide ignored files · `o` open MR in browser · `esc` back
 - **Review detail:** `a` approve / unapprove
 - **Mine detail:** `R` rebase · `M` merge (confirm with `y`) · `U` undraft · `A` toggle auto-merge
 
-`q` always means "back one level" except at the top level, where it quits. `o`
+`esc` always means "back one level" except at the top level, where it quits;
+`ctrl+c` quits from anywhere. `o`
 opens the focused thing on GitLab in the browser — an MR in the lists or detail
 view, a project/pipeline/job in the Pipelines tab or the detail pipelines panel.
 

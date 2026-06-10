@@ -492,7 +492,7 @@ fn handle_pipelines_key(app: &mut App, code: KeyCode) {
     match code {
         KeyCode::Char('j') | KeyCode::Down => move_in_list(&mut app.pipelines.pipe_state, len, 1),
         KeyCode::Char('k') | KeyCode::Up => move_in_list(&mut app.pipelines.pipe_state, len, -1),
-        KeyCode::Esc | KeyCode::Char('q') => {
+        KeyCode::Esc => {
             app.pipelines.view = PipeView::Projects;
         }
         KeyCode::Char('o') => {
@@ -533,7 +533,7 @@ fn handle_jobs_key(app: &mut App, code: KeyCode) {
     match code {
         KeyCode::Char('j') | KeyCode::Down => move_in_list(&mut app.pipelines.job_state, len, 1),
         KeyCode::Char('k') | KeyCode::Up => move_in_list(&mut app.pipelines.job_state, len, -1),
-        KeyCode::Esc | KeyCode::Char('q') => {
+        KeyCode::Esc => {
             app.pipelines.view = PipeView::Pipelines;
         }
         KeyCode::Char('o') => {

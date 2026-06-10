@@ -4,7 +4,7 @@ use crate::data;
 use crate::event::AppEvent;
 use crate::syntax::Highlighter;
 use crate::ui;
-use crossterm::event::{Event, EventStream, KeyCode, KeyEventKind};
+use crossterm::event::{Event, EventStream, KeyCode, KeyEventKind, KeyModifiers};
 use futures::StreamExt;
 use ratatui::widgets::ListState;
 use ratatui::DefaultTerminal;
@@ -232,7 +232,14 @@ pub async fn run(
             maybe_key = keys.next() => {
                 if let Some(Ok(Event::Key(key))) = maybe_key {
                     if key.kind == KeyEventKind::Press {
-                        handle_key(&mut app, key.code);
+                        // Ctrl+C quits from anywhere, regardless of overlays.
+                        if key.code == KeyCode::Char('c')
+                            && key.modifiers.contains(KeyModifiers::CONTROL)
+                        {
+                            app.should_quit = true;
+                        } else {
+                            handle_key(&mut app, key.code);
+                        }
                         if app.suggestion_message_pending {
                             app.suggestion_message_pending = false;
                             if let Some(mut p) = app.suggestion.take() {
@@ -540,7 +547,7 @@ fn handle_key(app: &mut App, code: KeyCode) {
 
     // The help overlay swallows all keys until dismissed.
     if app.help {
-        if matches!(code, KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('q')) {
+        if matches!(code, KeyCode::Esc | KeyCode::Char('?')) {
             app.help = false;
             app.force_clear = true;
         }
@@ -615,10 +622,10 @@ fn handle_list_key(app: &mut App, code: KeyCode) {
 
     // Global keys: tab switch + quit work in every list tab.
     match code {
-        KeyCode::Char('q') => {
-            // `q` quits only at the top level; inside the Pipelines drill-down it
+        KeyCode::Esc => {
+            // `esc` quits only at the top level; inside the Pipelines drill-down it
             // backs out one level (handled by the pipelines key handler below),
-            // matching `q` on the detail screen.
+            // matching `esc` on the detail screen.
             if app.tab != Tab::Pipelines
                 || app.pipelines.view == crate::pipelines::PipeView::Projects
             {
@@ -781,7 +788,7 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
     }
 
     match code {
-        KeyCode::Esc | KeyCode::Char('q') => {
+        KeyCode::Esc => {
             if app.focus == Focus::Pipeline && app.detail_pipes.jobs.is_some() {
                 // Back out of the inline jobs view to the pipeline list first.
                 app.detail_pipes.jobs = None;

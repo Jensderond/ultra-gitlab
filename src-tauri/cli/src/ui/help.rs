@@ -15,7 +15,7 @@ const LIST_SECTIONS: &[Section] = &[
     ("Global", &[
         ("1 / 2 / 3", "switch tab"),
         ("tab", "cycle tabs"),
-        ("q", "quit"),
+        ("esc / ctrl+c", "quit"),
     ]),
     ("Merge requests", &[
         ("j / k, ↓ / ↑", "move selection"),
@@ -29,7 +29,8 @@ const PIPELINES_SECTIONS: &[Section] = &[
     ("Global", &[
         ("1 / 2 / 3", "switch tab"),
         ("tab", "cycle tabs"),
-        ("q", "quit (projects) / back (drill-down)"),
+        ("esc", "quit (projects) / back (drill-down)"),
+        ("ctrl+c", "quit"),
     ]),
     ("Projects", &[
         ("j / k, ↓ / ↑", "move selection"),
@@ -44,14 +45,14 @@ const PIPELINES_SECTIONS: &[Section] = &[
         ("enter", "open jobs"),
         ("c", "cancel pipeline"),
         ("o", "open in browser"),
-        ("q / esc", "back to projects"),
+        ("esc", "back to projects"),
     ]),
     ("Jobs", &[
         ("p", "play manual job"),
         ("R", "retry job"),
         ("c", "cancel job"),
         ("o", "open in browser"),
-        ("q / esc", "back to pipelines"),
+        ("esc", "back to pipelines"),
     ]),
 ];
 
@@ -62,7 +63,7 @@ const DETAIL_COMMON: &[Section] = &[
         ("j / k, ↓ / ↑", "move file / diff cursor"),
         ("PgUp / PgDn", "page the diff"),
         ("home", "reset diff panning"),
-        ("q / esc", "back"),
+        ("esc", "back"),
     ]),
     ("Files & diff", &[
         ("g", "show / hide ignored files"),
