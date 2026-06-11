@@ -30,16 +30,18 @@ pub fn decide(pipeline_status: &str, job_status: &str) -> AutoRunDecision {
     }
     match job_status {
         "manual" => match pipeline_status {
-            // `success`: pipeline done, the manual job was allow_failure so
-            // it didn't block. `manual`: pipeline blocked waiting on it.
+            // `success`: pipeline finished and our job is still playable.
+            // `manual`: pipeline blocked waiting on it.
             "success" | "manual" => AutoRunDecision::Play,
             _ => AutoRunDecision::Wait,
         },
         // Job's stage not reached yet (earlier stages running, or blocked on
         // an earlier manual job).
         "created" | "scheduled" => AutoRunDecision::Wait,
-        // Anything else (running, success, pending, ...) means someone or
-        // something already started it.
+        // Anything else (running, success, pending, canceled, unknown
+        // future statuses, ...) means the job left the manual state some
+        // other way. Intentionally terminal: the arm is dropped, not
+        // retried, so an unrecognized status can't poll forever.
         _ => AutoRunDecision::DisarmJobGone,
     }
 }
@@ -61,6 +63,7 @@ mod tests {
         assert_eq!(decide("created", "manual"), AutoRunDecision::Wait);
         assert_eq!(decide("waiting_for_resource", "manual"), AutoRunDecision::Wait);
         assert_eq!(decide("preparing", "manual"), AutoRunDecision::Wait);
+        assert_eq!(decide("scheduled", "manual"), AutoRunDecision::Wait);
     }
 
     #[test]
@@ -87,5 +90,7 @@ mod tests {
         assert_eq!(decide("success", "success"), AutoRunDecision::DisarmJobGone);
         assert_eq!(decide("running", "pending"), AutoRunDecision::DisarmJobGone);
         assert_eq!(decide("success", "skipped"), AutoRunDecision::DisarmJobGone);
+        // Armed deploy played then canceled mid-run: deliberate silent disarm.
+        assert_eq!(decide("running", "canceled"), AutoRunDecision::DisarmJobGone);
     }
 }

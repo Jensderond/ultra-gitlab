@@ -73,7 +73,7 @@ decide(pipeline_status, job_status) -> Play | Wait | Disarm(reason)
 |---|---|
 | pipeline `success` or `manual`, job `manual` | **Play** the job, delete claim, notify success |
 | pipeline `failed` / `canceled` / `skipped` | **Disarm**, delete claim, notify "pipeline failed, job not run" |
-| pipeline `running` / `pending` / `created` / `waiting_for_resource` / `preparing` | **Wait** for next tick |
+| pipeline `running` / `pending` / `created` / `waiting_for_resource` / `preparing` / `scheduled` | **Wait** for next tick |
 | job no longer `manual` (played in GitLab UI, succeeded, superseded) | **Disarm silently** (no notification) |
 
 Rationale: a `when: manual` job only reaches status `manual` once its stage is
