@@ -587,6 +587,10 @@ button.pipeline-job-info--clickable {
   border-color: var(--accent-color);
 }
 
+.pipeline-job-action-btn--auto-armed:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-color) 25%, transparent);
+}
+
 .pipeline-job-action-btn--retry {
   color: var(--accent-color);
 }

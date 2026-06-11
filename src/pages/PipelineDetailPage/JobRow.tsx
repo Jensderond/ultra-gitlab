@@ -92,6 +92,7 @@ export default function JobRow({ job, loading, onPlay, onRetry, onCancel, onNavi
         {canAutoRun && (
           <button
             className={`pipeline-job-action-btn pipeline-job-action-btn--auto${autoRunArmed ? ' pipeline-job-action-btn--auto-armed' : ''}`}
+            aria-pressed={autoRunArmed}
             onClick={() => onToggleAutoRun(job)}
             disabled={loading}
             title={

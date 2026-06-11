@@ -51,12 +51,50 @@ export function useAutoRun(
   const claimMutation = useMutation({
     mutationFn: (job: PipelineJob) =>
       claimAutoRun(instanceId, projectId, pipelineId, job.id, job.name, refName),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    // Optimistically add the claim so the button flips to "Armed" on click
+    // instead of after the round-trip + refetch.
+    onMutate: async (job) => {
+      await queryClient.cancelQueries({ queryKey: [...queryKey] });
+      const previous = queryClient.getQueryData<AutoRunClaim[]>([...queryKey]);
+      queryClient.setQueryData<AutoRunClaim[]>([...queryKey], (old = []) => [
+        ...old,
+        {
+          instanceId,
+          projectId,
+          pipelineId,
+          jobId: job.id,
+          jobName: job.name,
+          refName,
+          claimedAt: Math.floor(Date.now() / 1000),
+          lastStatus: null,
+          lastError: null,
+          lastAttemptAt: null,
+          attempts: 0,
+        },
+      ]);
+      return { previous };
+    },
+    onError: (_err, _job, context) => {
+      if (context?.previous) queryClient.setQueryData([...queryKey], context.previous);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: [...queryKey] }),
   });
 
   const unclaimMutation = useMutation({
     mutationFn: (job: PipelineJob) => unclaimAutoRun(instanceId, projectId, job.id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    // Optimistically remove the claim so the button flips back immediately.
+    onMutate: async (job) => {
+      await queryClient.cancelQueries({ queryKey: [...queryKey] });
+      const previous = queryClient.getQueryData<AutoRunClaim[]>([...queryKey]);
+      queryClient.setQueryData<AutoRunClaim[]>([...queryKey], (old = []) =>
+        old.filter((c) => c.jobId !== job.id),
+      );
+      return { previous };
+    },
+    onError: (_err, _job, context) => {
+      if (context?.previous) queryClient.setQueryData([...queryKey], context.previous);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: [...queryKey] }),
   });
 
   const toggleAutoRun = useCallback(
