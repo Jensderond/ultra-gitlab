@@ -91,6 +91,8 @@ pub struct App {
 
     pub tx: mpsc::UnboundedSender<AppEvent>,
     pub highlighter: Highlighter,
+    /// Memoized rendered diffs for the open detail; cleared on detail load.
+    pub diff_cache: crate::ui::diff::DiffCache,
 
     pub discussions: Option<Vec<ultra_gitlab_lib::core::comments::Thread>>,
     pub overlay: Option<CommentsOverlay>,
@@ -170,6 +172,7 @@ impl App {
             force_clear: false,
             tx,
             highlighter: Highlighter::new(),
+            diff_cache: crate::ui::diff::DiffCache::default(),
             discussions: None,
             overlay: None,
         }
@@ -351,6 +354,7 @@ fn handle_event(app: &mut App, ev: AppEvent) {
         }
         AppEvent::Detail(Ok(d)) => {
             app.busy = false;
+            app.diff_cache.clear();
             app.status = if d.live { "Loaded diff (live)".into() } else { "Ready".into() };
             // Hide ignored files by default; selection 0 lands on the first
             // reviewable file since the tree indexes the visible list.

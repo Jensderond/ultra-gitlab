@@ -18,6 +18,11 @@ pub struct Highlighter {
     themes: ThemeSet,
 }
 
+/// Lines longer than this are rendered plain. Grammars with heavy inline
+/// backtracking (markdown especially) can take tens of milliseconds on a
+/// single long line, which is far worse than losing its colors.
+const MAX_HIGHLIGHT_LINE_LEN: usize = 400;
+
 impl Highlighter {
     pub fn new() -> Self {
         Highlighter {
@@ -39,6 +44,13 @@ impl Highlighter {
 
         let mut out = Vec::new();
         for line in LinesWithEndings::from(source) {
+            if line.len() > MAX_HIGHLIGHT_LINE_LEN {
+                out.push(vec![Segment {
+                    text: line.trim_end_matches('\n').to_string(),
+                    color: Color::Reset,
+                }]);
+                continue;
+            }
             let ranges: Vec<(SynStyle, &str)> =
                 hl.highlight_line(line, &self.syntaxes).unwrap_or_default();
             let segs = ranges
@@ -64,6 +76,27 @@ mod tests {
         let lines = hl.highlight("main.rs", "fn main() {}\nlet x = 1;\n");
         assert_eq!(lines.len(), 2);
         assert!(!lines[0].is_empty());
+    }
+
+    #[test]
+    fn very_long_lines_skip_highlighting() {
+        let hl = Highlighter::new();
+        // Inline-code-heavy markdown lines trigger pathological regex
+        // backtracking in syntect; past the cutoff they must come back as a
+        // single plain segment instead.
+        let long = "`code` and **bold** ".repeat(40); // 800 chars
+        let lines = hl.highlight("CLAUDE.md", &format!("{long}\n"));
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].len(), 1, "expected one plain segment");
+        assert_eq!(lines[0][0].text, long);
+        assert_eq!(lines[0][0].color, Color::Reset);
+    }
+
+    #[test]
+    fn short_lines_still_highlighted() {
+        let hl = Highlighter::new();
+        let lines = hl.highlight("main.rs", "let x = \"str\";\n");
+        assert!(lines[0].len() > 1, "short line should get real highlighting");
     }
 
     #[test]

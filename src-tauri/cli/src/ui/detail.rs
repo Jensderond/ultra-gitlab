@@ -1,7 +1,6 @@
 //! Detail screen: MR header on top, file tree (left) + diff (right) below.
 
 use crate::app::{App, Focus};
-use crate::ui::diff;
 use crate::ui::status_style;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -193,9 +192,13 @@ fn render_diff(f: &mut Frame, app: &mut App, detail: &crate::data::DetailData, a
         f.render_widget(Paragraph::new(msg).block(block), area);
         return;
     };
-    let model = diff::render_diff(&app.highlighter, &file.new_path, &file.diff_content);
-    let mut text = model.text;
-    app.diff_rows = model.rows;
+    let model = app
+        .diff_cache
+        .get_or_render(&app.highlighter, &file.new_path, &file.diff_content);
+    // The cached model stays immutable; this frame's decorations (gutter
+    // marks, cursor/selection backgrounds) are applied to a per-frame clone.
+    let mut text = model.text.clone();
+    app.diff_rows = model.rows.clone();
 
     // Gutter markers: place a ● on lines that have a discussion thread.
     let marks: std::collections::HashSet<(bool, i64)> = app
