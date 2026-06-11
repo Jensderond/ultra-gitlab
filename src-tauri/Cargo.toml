@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "ultra-gitlab"
-version = "0.21.2"
+version = "0.22.0-rc.1"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
