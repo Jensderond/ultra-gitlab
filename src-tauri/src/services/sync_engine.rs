@@ -3339,26 +3339,36 @@ impl SyncEngine {
             }
         };
 
-        // Find the armed job's current status. Bridges live on a separate
-        // endpoint, so fall back to it when the job isn't in the jobs list.
-        let job_status = match client.get_pipeline_jobs(claim.project_id, claim.pipeline_id).await {
-            Ok(jobs) => match jobs.into_iter().find(|j| j.id == claim.job_id) {
-                Some(j) => Some(j.status),
-                None => client
-                    .get_pipeline_bridges(claim.project_id, claim.pipeline_id)
-                    .await
-                    .ok()
-                    .and_then(|bridges| bridges.into_iter().find(|j| j.id == claim.job_id))
-                    .map(|j| j.status),
-            },
-            Err(e) => {
-                self.record_auto_run_error(claim, &e.to_string()).await;
-                return;
-            }
+        // Find the armed job's current status — but only when the pipeline
+        // status alone can't decide. For in-progress pipelines decide()
+        // returns Wait and for failed ones DisarmPipelineFailed regardless
+        // of the job, so skip the (paginated) jobs fetch on those ticks.
+        // A job played manually mid-pipeline is still disarmed once the
+        // pipeline settles and the fetched status shows it left `manual`.
+        let job_status = if matches!(pipeline.status.as_str(), "success" | "manual") {
+            let found = match client.get_pipeline_jobs(claim.project_id, claim.pipeline_id).await {
+                Ok(jobs) => match jobs.into_iter().find(|j| j.id == claim.job_id) {
+                    Some(j) => Some(j.status),
+                    // Bridges live on a separate endpoint, so fall back to it
+                    // when the job isn't in the jobs list.
+                    None => client
+                        .get_pipeline_bridges(claim.project_id, claim.pipeline_id)
+                        .await
+                        .ok()
+                        .and_then(|bridges| bridges.into_iter().find(|j| j.id == claim.job_id))
+                        .map(|j| j.status),
+                },
+                Err(e) => {
+                    self.record_auto_run_error(claim, &e.to_string()).await;
+                    return;
+                }
+            };
+            // Job vanished from the pipeline (e.g. pipeline deleted/recreated):
+            // treat like "gone" so the claim doesn't poll forever.
+            found.unwrap_or_else(|| "gone".to_string())
+        } else {
+            "manual".to_string()
         };
-        // Job vanished from the pipeline (e.g. pipeline deleted/recreated):
-        // treat like "gone" so the claim doesn't poll forever.
-        let job_status = job_status.unwrap_or_else(|| "gone".to_string());
 
         match crate::services::auto_run::decide(&pipeline.status, &job_status) {
             crate::services::auto_run::AutoRunDecision::Wait => {
@@ -3366,11 +3376,14 @@ impl SyncEngine {
                     "[auto-run] {} (job {}): pipeline {}, waiting",
                     claim.job_name, claim.job_id, pipeline.status
                 );
+                let status_changed = claim.last_status.as_deref() != Some(pipeline.status.as_str());
                 let _ = auto_run::record_status(
                     &self.pool, claim.instance_id, claim.project_id, claim.job_id,
                     now(), &pipeline.status,
                 ).await;
-                self.emit_auto_run_updated(claim, false, false, Some(pipeline.status), None);
+                if status_changed {
+                    self.emit_auto_run_updated(claim, false, false, Some(pipeline.status), None);
+                }
             }
             crate::services::auto_run::AutoRunDecision::Play => {
                 eprintln!(
@@ -3393,6 +3406,10 @@ impl SyncEngine {
                                 None,
                             )
                             .await;
+                        // Not atomic with play_job: if this delete fails the
+                        // next tick re-plays and gets a 4xx, which lands in
+                        // the error path. Acceptable — local deletes are
+                        // effectively reliable.
                         let _ = auto_run::delete_claim(
                             &self.pool, claim.instance_id, claim.project_id, claim.job_id,
                         ).await;
