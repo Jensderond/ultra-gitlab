@@ -7,6 +7,7 @@ import PipelineHeader from './PipelineHeader';
 import JobsTab from './JobsTab';
 import HistoryTab from './HistoryTab';
 import { usePipelineData } from './usePipelineData';
+import { useAutoRun } from '../../hooks/useAutoRun';
 import { groupJobsByStage } from './utils';
 import {
   trackPipelineHistoryTabOpened,
@@ -74,6 +75,13 @@ export default function PipelineDetailView({
     projectId,
     pipelineId,
   });
+
+  const { armedJobIds, toggleAutoRun } = useAutoRun(
+    instanceId,
+    projectId,
+    pipelineId,
+    pipelineRef || null,
+  );
 
   useEffect(() => {
     setActiveTab('jobs');
@@ -166,6 +174,8 @@ export default function PipelineDetailView({
           onRetry={handleRetryJob}
           onCancel={handleCancelJob}
           onNavigate={onSelectJob}
+          armedJobIds={armedJobIds}
+          onToggleAutoRun={toggleAutoRun}
         />
       )}
 

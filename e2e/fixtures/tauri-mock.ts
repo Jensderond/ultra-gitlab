@@ -269,6 +269,8 @@ export async function mockTauriIPC(page: Page) {
       retry_pipeline_job: () => data.pipelineJobs[0],
       cancel_pipeline_job: () => data.pipelineJobs[0],
       cancel_pipeline: () => ({ ...data.pipelineStatuses[0], status: 'canceled' }),
+      // Auto-run claims — minimal stub; full mock comes in a later task.
+      list_auto_run_claims: () => [],
 
       // -- Notifications --
       get_notification_settings: () => data.notificationSettings,

@@ -12,6 +12,8 @@ interface JobsTabProps {
   onRetry: (jobId: number) => void;
   onCancel: (jobId: number) => void;
   onNavigate: (job: PipelineJob) => void;
+  armedJobIds: Set<number>;
+  onToggleAutoRun: (job: PipelineJob) => void;
 }
 
 export default function JobsTab({
@@ -24,6 +26,8 @@ export default function JobsTab({
   onRetry,
   onCancel,
   onNavigate,
+  armedJobIds,
+  onToggleAutoRun,
 }: JobsTabProps) {
   return (
     <>
@@ -67,6 +71,8 @@ export default function JobsTab({
                       onRetry={onRetry}
                       onCancel={onCancel}
                       onNavigate={onNavigate}
+                      autoRunArmed={armedJobIds.has(job.id)}
+                      onToggleAutoRun={onToggleAutoRun}
                     />
                   ))}
                 </div>
