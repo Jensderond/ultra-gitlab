@@ -42,6 +42,17 @@ pub enum PipeAction {
     CancelJob { project_id: i64, job_id: i64 },
 }
 
+/// One level of the Jobs view: a pipeline whose jobs are showing. The Jobs
+/// view keeps a stack of these so bridge (trigger) jobs can drill into their
+/// downstream pipeline and esc backs out one level at a time.
+#[derive(Debug, Clone)]
+pub struct JobsCtx {
+    pub project_id: i64,
+    pub pipeline_id: i64,
+    /// Breadcrumb label: "#<id>" for the root, the bridge name for downstreams.
+    pub label: String,
+}
+
 /// All Pipelines-tab state, held on `App`.
 pub struct PipelinesState {
     pub view: PipeView,
@@ -53,6 +64,8 @@ pub struct PipelinesState {
     pub selected_pipeline: Option<i64>,
     pub jobs: Vec<data::JobRow>,
     pub job_state: ListState,
+    /// Drill-down stack for the Jobs view; last entry is the pipeline showing.
+    pub jobs_stack: Vec<JobsCtx>,
     pub search: Option<SearchState>,
     pub confirm: Option<PipeConfirm>,
     pub loaded: bool,
@@ -70,6 +83,7 @@ impl Default for PipelinesState {
             selected_pipeline: None,
             jobs: Vec::new(),
             job_state: ListState::default(),
+            jobs_stack: Vec::new(),
             search: None,
             confirm: None,
             loaded: false,
@@ -102,10 +116,15 @@ impl PipelinesState {
             .pipelines
             .iter()
             .any(|r| r.status == "running" || r.status == "pending");
-        let j = self
-            .jobs
-            .iter()
-            .any(|r| r.status == "running" || r.status == "pending");
+        // A bridge can finish before its downstream pipeline does, so
+        // downstream statuses count as in-flight too.
+        let j = self.jobs.iter().any(|r| {
+            r.status == "running"
+                || r.status == "pending"
+                || r.downstream
+                    .as_ref()
+                    .is_some_and(|d| d.status == "running" || d.status == "pending")
+        });
         let proj = self.projects.iter().any(|r| {
             matches!(
                 r.status.as_ref().map(|s| s.status.as_str()),
@@ -128,6 +147,8 @@ pub struct DetailPipelines {
     /// `Some` => the panel is showing the selected pipeline's jobs inline.
     pub jobs: Option<Vec<data::JobRow>>,
     pub job_state: ListState,
+    /// Drill-down stack for the inline jobs panel; last entry is showing.
+    pub jobs_stack: Vec<JobsCtx>,
 }
 
 impl DetailPipelines {
@@ -136,6 +157,7 @@ impl DetailPipelines {
         self.pipe_state = ListState::default();
         self.jobs = None;
         self.job_state = ListState::default();
+        self.jobs_stack.clear();
     }
 
     pub fn selected_pipe(&self) -> Option<&data::PipeRow> {
@@ -268,9 +290,8 @@ pub fn reload_active_view(app: &mut App) {
             }
         }
         PipeView::Jobs => {
-            if let (Some(pid), Some(plid)) =
-                (app.pipelines.selected_project, app.pipelines.selected_pipeline)
-            {
+            if let Some(ctx) = app.pipelines.jobs_stack.last() {
+                let (pid, plid) = (ctx.project_id, ctx.pipeline_id);
                 spawn_load_jobs(app, pid, plid);
             }
         }
@@ -316,6 +337,11 @@ pub fn spawn_detail_jobs(app: &App, project_id: i64, pipeline_id: i64) {
 pub fn refresh_detail(app: &mut App) {
     let Some(mr_id) = app.detail.as_ref().map(|d| d.row.id) else { return };
     if app.detail_pipes.jobs.is_some() {
+        if let Some(ctx) = app.detail_pipes.jobs_stack.last() {
+            let (pid, plid) = (ctx.project_id, ctx.pipeline_id);
+            spawn_detail_jobs(app, pid, plid);
+            return;
+        }
         if let Some(pipe) = app.detail_pipes.selected_pipe() {
             let (pid, plid) = (pipe.project_id, pipe.id);
             spawn_detail_jobs(app, pid, plid);
@@ -340,10 +366,38 @@ pub fn handle_detail_key(app: &mut App, code: KeyCode) {
         let job_len = app.detail_pipes.jobs.as_ref().map(|j| j.len()).unwrap_or(0);
         let project_id = app
             .detail_pipes
-            .selected_pipe()
-            .map(|p| p.project_id)
+            .jobs_stack
+            .last()
+            .map(|c| c.project_id)
+            .or_else(|| app.detail_pipes.selected_pipe().map(|p| p.project_id))
             .unwrap_or(0);
         match code {
+            KeyCode::Enter => {
+                // Drill into a bridge (trigger) job's downstream pipeline.
+                if let Some(j) = app.detail_pipes.selected_job() {
+                    if !j.is_bridge {
+                        return;
+                    }
+                    let Some(ds) = j.downstream.as_ref() else {
+                        app.status = "No downstream pipeline was created".into();
+                        return;
+                    };
+                    let Some(ds_project) = ds.project_id else {
+                        app.status = "Downstream project unknown (GitLab too old)".into();
+                        return;
+                    };
+                    let (plid, label) = (ds.pipeline_id, j.name.clone());
+                    app.detail_pipes.jobs_stack.push(JobsCtx {
+                        project_id: ds_project,
+                        pipeline_id: plid,
+                        label,
+                    });
+                    app.detail_pipes.jobs = Some(Vec::new());
+                    app.detail_pipes.job_state = ListState::default();
+                    app.status = "Loading downstream jobs…".into();
+                    spawn_detail_jobs(app, ds_project, plid);
+                }
+            }
             KeyCode::Char('j') | KeyCode::Down => {
                 move_in_list(&mut app.detail_pipes.job_state, job_len, 1)
             }
@@ -408,6 +462,11 @@ pub fn handle_detail_key(app: &mut App, code: KeyCode) {
                 let (pid, plid) = (p.project_id, p.id);
                 app.detail_pipes.jobs = Some(Vec::new());
                 app.detail_pipes.job_state = ListState::default();
+                app.detail_pipes.jobs_stack = vec![JobsCtx {
+                    project_id: pid,
+                    pipeline_id: plid,
+                    label: format!("#{plid}"),
+                }];
                 app.status = "Loading jobs…".into();
                 spawn_detail_jobs(app, pid, plid);
             }
@@ -518,6 +577,11 @@ fn handle_pipelines_key(app: &mut App, code: KeyCode) {
                 app.pipelines.view = PipeView::Jobs;
                 app.pipelines.jobs.clear();
                 app.pipelines.job_state.select(None);
+                app.pipelines.jobs_stack = vec![JobsCtx {
+                    project_id: pid,
+                    pipeline_id: plid,
+                    label: format!("#{plid}"),
+                }];
                 app.busy = true;
                 app.status = "Loading jobs…".into();
                 spawn_load_jobs(app, pid, plid);
@@ -529,12 +593,56 @@ fn handle_pipelines_key(app: &mut App, code: KeyCode) {
 
 fn handle_jobs_key(app: &mut App, code: KeyCode) {
     let len = app.pipelines.jobs.len();
-    let project_id = app.pipelines.selected_project.unwrap_or(0);
+    let project_id = app
+        .pipelines
+        .jobs_stack
+        .last()
+        .map(|c| c.project_id)
+        .or(app.pipelines.selected_project)
+        .unwrap_or(0);
     match code {
         KeyCode::Char('j') | KeyCode::Down => move_in_list(&mut app.pipelines.job_state, len, 1),
         KeyCode::Char('k') | KeyCode::Up => move_in_list(&mut app.pipelines.job_state, len, -1),
         KeyCode::Esc => {
-            app.pipelines.view = PipeView::Pipelines;
+            // Back out one drill-down level; leave the Jobs view from the root.
+            app.pipelines.jobs_stack.pop();
+            if let Some(ctx) = app.pipelines.jobs_stack.last() {
+                let (pid, plid) = (ctx.project_id, ctx.pipeline_id);
+                app.pipelines.jobs.clear();
+                app.pipelines.job_state.select(None);
+                app.busy = true;
+                app.status = "Loading jobs…".into();
+                spawn_load_jobs(app, pid, plid);
+            } else {
+                app.pipelines.view = PipeView::Pipelines;
+            }
+        }
+        KeyCode::Enter => {
+            // Drill into a bridge (trigger) job's downstream pipeline.
+            if let Some(j) = app.pipelines.selected_job() {
+                if !j.is_bridge {
+                    return;
+                }
+                let Some(ds) = j.downstream.as_ref() else {
+                    app.status = "No downstream pipeline was created".into();
+                    return;
+                };
+                let Some(ds_project) = ds.project_id else {
+                    app.status = "Downstream project unknown (GitLab too old)".into();
+                    return;
+                };
+                let (plid, label) = (ds.pipeline_id, j.name.clone());
+                app.pipelines.jobs_stack.push(JobsCtx {
+                    project_id: ds_project,
+                    pipeline_id: plid,
+                    label,
+                });
+                app.pipelines.jobs.clear();
+                app.pipelines.job_state.select(None);
+                app.busy = true;
+                app.status = "Loading downstream jobs…".into();
+                spawn_load_jobs(app, ds_project, plid);
+            }
         }
         KeyCode::Char('o') => {
             if let Some(j) = app.pipelines.selected_job() {

@@ -534,6 +534,19 @@ export interface PipelineJob {
   queuedDuration: number | null;
   allowFailure: boolean;
   runnerDescription: string | null;
+  /** True for bridge (trigger) jobs that start a downstream pipeline. */
+  isBridge: boolean;
+  /** Pipeline triggered by a bridge job; null until/unless GitLab created it. */
+  downstreamPipeline: DownstreamPipeline | null;
+}
+
+export interface DownstreamPipeline {
+  id: number;
+  /** Null on GitLab versions that omit project_id; drill-down is disabled then. */
+  projectId: number | null;
+  status: string;
+  refName: string | null;
+  webUrl: string;
 }
 
 // ============================================================================

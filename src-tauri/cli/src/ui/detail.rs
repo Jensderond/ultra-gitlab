@@ -273,9 +273,20 @@ fn render_pipelines_panel(f: &mut Frame, app: &mut App, area: Rect) {
 
     // Inline jobs mode.
     if let Some(jobs) = app.detail_pipes.jobs.clone() {
+        let crumbs: Vec<String> = app
+            .detail_pipes
+            .jobs_stack
+            .iter()
+            .map(|c| c.label.clone())
+            .collect();
+        let title = if crumbs.len() > 1 {
+            format!(" Pipeline jobs · {} · esc back ", crumbs.join(" › "))
+        } else {
+            " Pipeline jobs · esc back ".to_string()
+        };
         let block = Block::default()
             .borders(Borders::ALL)
-            .title(" Pipeline jobs · esc back ")
+            .title(title)
             .border_style(border_style(focused));
         if jobs.is_empty() {
             // Enter seeds `Some(vec![])` before the fetch resolves, so distinguish
@@ -287,13 +298,24 @@ fn render_pipelines_panel(f: &mut Frame, app: &mut App, area: Rect) {
         let items: Vec<ListItem> = jobs
             .iter()
             .map(|j| {
-                ListItem::new(Line::from(vec![
+                let mut spans = vec![
                     glyph(Some(j.status.as_str())),
                     Span::raw(" "),
                     Span::styled(format!("{:<8}", j.stage), Style::default().fg(Color::DarkGray)),
                     Span::raw(" "),
-                    Span::raw(j.name.clone()),
-                ]))
+                ];
+                if j.is_bridge {
+                    spans.push(Span::styled("» ", Style::default().fg(Color::Cyan)));
+                }
+                spans.push(Span::raw(j.name.clone()));
+                if let Some(ds) = &j.downstream {
+                    let (_, color) = status_style(Some(ds.status.as_str()));
+                    spans.push(Span::styled(
+                        format!("  ↓ {}", ds.status),
+                        Style::default().fg(color),
+                    ));
+                }
+                ListItem::new(Line::from(spans))
             })
             .collect();
         let list = List::new(items)

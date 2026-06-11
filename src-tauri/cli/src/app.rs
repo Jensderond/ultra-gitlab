@@ -794,8 +794,18 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
     match code {
         KeyCode::Esc => {
             if app.focus == Focus::Pipeline && app.detail_pipes.jobs.is_some() {
-                // Back out of the inline jobs view to the pipeline list first.
-                app.detail_pipes.jobs = None;
+                // Back out one downstream drill-down level first, then leave
+                // the inline jobs view for the pipeline list.
+                app.detail_pipes.jobs_stack.pop();
+                if let Some(ctx) = app.detail_pipes.jobs_stack.last() {
+                    let (pid, plid) = (ctx.project_id, ctx.pipeline_id);
+                    app.detail_pipes.jobs = Some(Vec::new());
+                    app.detail_pipes.job_state = ratatui::widgets::ListState::default();
+                    app.status = "Loading jobs…".into();
+                    crate::pipelines::spawn_detail_jobs(app, pid, plid);
+                } else {
+                    app.detail_pipes.jobs = None;
+                }
             } else {
                 app.screen = Screen::List;
                 app.detail = None;

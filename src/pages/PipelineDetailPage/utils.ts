@@ -35,6 +35,16 @@ export function jobStatusLabel(status: PipelineJobStatus): string {
   }
 }
 
+/**
+ * Extract the project path from a GitLab pipeline web URL
+ * (`{base}/{path/with/namespace}/-/pipelines/{id}`). Used to label downstream
+ * pipelines, whose project name we don't otherwise know.
+ */
+export function projectPathFromPipelineUrl(url: string): string | null {
+  const match = url.match(/^https?:\/\/[^/]+\/(.+?)\/-\/pipelines\/\d+/);
+  return match ? match[1] : null;
+}
+
 export interface StageGroup {
   name: string;
   jobs: PipelineJob[];

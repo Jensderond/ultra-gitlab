@@ -132,38 +132,63 @@ fn render_jobs(f: &mut Frame, app: &mut App, area: Rect) {
         f.render_widget(Paragraph::new(msg).block(block), area);
         return;
     }
-    let items: Vec<ListItem> = app
+    let items: Vec<ListItem> = app.pipelines.jobs.iter().map(job_line).collect();
+    let crumbs: Vec<String> = app
         .pipelines
-        .jobs
+        .jobs_stack
         .iter()
-        .map(|j| {
-            let mut spans = vec![
-                glyph(Some(j.status.as_str())),
-                Span::raw(" "),
-                Span::styled(format!("{:<10}", j.stage), Style::default().fg(Color::DarkGray)),
-                Span::raw(" "),
-                Span::raw(j.name.clone()),
-                Span::raw("  "),
-                Span::styled(j.status.clone(), Style::default().fg(Color::DarkGray)),
-            ];
-            if j.allow_failure {
-                spans.push(Span::styled(
-                    " (allowed to fail)",
-                    Style::default().fg(Color::DarkGray),
-                ));
-            }
-            ListItem::new(Line::from(spans))
-        })
+        .map(|c| c.label.clone())
         .collect();
+    let title = if crumbs.len() > 1 {
+        format!(" Jobs · {} · p play · R retry · c cancel · esc back ", crumbs.join(" › "))
+    } else {
+        " Jobs · p play · R retry · c cancel · esc back ".to_string()
+    };
     let list = List::new(items)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(" Jobs · p play · R retry · c cancel · esc back "),
-        )
+        .block(Block::default().borders(Borders::ALL).title(title))
         .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
         .highlight_symbol("▌");
     f.render_stateful_widget(list, area, &mut app.pipelines.job_state);
+}
+
+/// Render one job row; bridge (trigger) jobs show a `»` marker and their
+/// downstream pipeline's status.
+pub fn job_line(j: &crate::data::JobRow) -> ListItem<'static> {
+    let mut spans = vec![
+        glyph(Some(j.status.as_str())),
+        Span::raw(" "),
+        Span::styled(format!("{:<10}", j.stage), Style::default().fg(Color::DarkGray)),
+        Span::raw(" "),
+    ];
+    if j.is_bridge {
+        spans.push(Span::styled("» ", Style::default().fg(Color::Cyan)));
+    }
+    spans.push(Span::raw(j.name.clone()));
+    spans.push(Span::raw("  "));
+    spans.push(Span::styled(j.status.clone(), Style::default().fg(Color::DarkGray)));
+    if let Some(ds) = &j.downstream {
+        let (_, color) = crate::ui::status_style(Some(ds.status.as_str()));
+        spans.push(Span::styled(
+            format!("  ↓ #{} {}", ds.pipeline_id, ds.status),
+            Style::default().fg(color),
+        ));
+        spans.push(Span::styled(
+            "  enter: downstream",
+            Style::default().fg(Color::DarkGray),
+        ));
+    } else if j.is_bridge {
+        spans.push(Span::styled(
+            "  (trigger · no downstream)",
+            Style::default().fg(Color::DarkGray),
+        ));
+    }
+    if j.allow_failure {
+        spans.push(Span::styled(
+            " (allowed to fail)",
+            Style::default().fg(Color::DarkGray),
+        ));
+    }
+    ListItem::new(Line::from(spans))
 }
 
 fn render_search(f: &mut Frame, app: &mut App, area: Rect) {

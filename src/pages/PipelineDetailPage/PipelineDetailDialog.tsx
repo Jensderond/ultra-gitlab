@@ -2,6 +2,7 @@ import { useCallback, useState, type AnimationEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { PipelineJob, PipelineStatus } from '../../types';
 import PipelineDetailView from './PipelineDetailView';
+import { projectPathFromPipelineUrl } from './utils';
 import '../PipelineDetailPage.css';
 
 interface Props {
@@ -16,9 +17,9 @@ interface Props {
 
 export function PipelineDetailDialog({
   instanceId,
-  projectId,
+  projectId: initialProjectId,
   pipelineId: initialPipelineId,
-  projectName,
+  projectName: initialProjectName,
   pipelineRef: initialRef,
   pipelineWebUrl: initialWebUrl,
   onClose,
@@ -26,7 +27,11 @@ export function PipelineDetailDialog({
   const navigate = useNavigate();
   const [isClosing, setIsClosing] = useState(false);
 
-  // History clicks swap which pipeline is displayed without leaving the dialog.
+  // History clicks swap which pipeline is displayed without leaving the
+  // dialog; trigger-job clicks also swap the project (downstream pipelines
+  // can live in another project).
+  const [projectId, setProjectId] = useState(initialProjectId);
+  const [projectName, setProjectName] = useState(initialProjectName);
   const [pipelineId, setPipelineId] = useState(initialPipelineId);
   const [pipelineRef, setPipelineRef] = useState(initialRef);
   const [pipelineWebUrl, setPipelineWebUrl] = useState(initialWebUrl);
@@ -56,6 +61,17 @@ export function PipelineDetailDialog({
 
   const handleSelectJob = useCallback(
     (job: PipelineJob) => {
+      // Trigger jobs swap the dialog to the downstream pipeline in place.
+      if (job.isBridge) {
+        const ds = job.downstreamPipeline;
+        if (!ds?.projectId) return;
+        setProjectId(ds.projectId);
+        setProjectName(projectPathFromPipelineUrl(ds.webUrl) ?? projectName);
+        setPipelineId(ds.id);
+        setPipelineRef(ds.refName ?? '');
+        setPipelineWebUrl(ds.webUrl);
+        return;
+      }
       const params = new URLSearchParams({
         instance: String(instanceId),
         name: job.name,

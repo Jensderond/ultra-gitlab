@@ -314,6 +314,14 @@ pub struct GitLabJob {
     pub allow_failure: bool,
     pub pipeline: Option<GitLabJobPipeline>,
     pub runner: Option<GitLabJobRunner>,
+    /// Pipeline triggered by this job. Only present on bridge (trigger) jobs
+    /// from the bridges endpoint; null there when downstream creation failed.
+    #[serde(default)]
+    pub downstream_pipeline: Option<GitLabDownstreamPipeline>,
+    /// Set by core::pipelines when the job came from the bridges endpoint;
+    /// never present in API responses.
+    #[serde(default)]
+    pub is_bridge: bool,
 }
 
 /// Nested pipeline ref inside a job response.
@@ -321,6 +329,18 @@ pub struct GitLabJob {
 pub struct GitLabJobPipeline {
     pub id: i64,
     pub status: String,
+}
+
+/// Downstream (child or multi-project) pipeline triggered by a bridge job.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitLabDownstreamPipeline {
+    pub id: i64,
+    /// Omitted by older GitLab versions.
+    pub project_id: Option<i64>,
+    pub status: String,
+    #[serde(rename = "ref")]
+    pub ref_name: Option<String>,
+    pub web_url: String,
 }
 
 /// Runner info attached to a job.
@@ -1670,6 +1690,74 @@ mod tests {
         assert!(json.contains("\"per_page\":50"));
         // author_username should not be present (None)
         assert!(!json.contains("author_username"));
+    }
+
+    #[test]
+    fn test_bridge_job_deserializes_downstream_pipeline() {
+        // Trimmed-down bridges endpoint payload (GET /pipelines/:id/bridges).
+        let json = r#"{
+            "id": 7100,
+            "name": "Life",
+            "stage": "triggers",
+            "status": "success",
+            "ref": "master",
+            "created_at": "2026-06-11T10:00:00Z",
+            "started_at": "2026-06-11T10:00:05Z",
+            "finished_at": "2026-06-11T10:05:00Z",
+            "duration": 295.0,
+            "queued_duration": 2.0,
+            "web_url": "https://gitlab.example.com/customers/life/webshop/-/jobs/7100",
+            "allow_failure": false,
+            "pipeline": { "id": 323692, "status": "success" },
+            "downstream_pipeline": {
+                "id": 323693,
+                "project_id": 42,
+                "status": "running",
+                "ref": "master",
+                "sha": "abc123",
+                "web_url": "https://gitlab.example.com/customers/life/webshop/-/pipelines/323693"
+            }
+        }"#;
+        let job: GitLabJob = serde_json::from_str(json).unwrap();
+        assert!(!job.is_bridge, "is_bridge is set by core, not the API");
+        let ds = job.downstream_pipeline.expect("downstream pipeline parsed");
+        assert_eq!(ds.id, 323693);
+        assert_eq!(ds.project_id, Some(42));
+        assert_eq!(ds.status, "running");
+        assert_eq!(ds.ref_name.as_deref(), Some("master"));
+    }
+
+    #[test]
+    fn test_regular_job_deserializes_without_downstream_fields() {
+        let json = r#"{
+            "id": 7001,
+            "name": "lint",
+            "stage": "test",
+            "status": "success",
+            "created_at": "2026-06-11T10:00:00Z",
+            "web_url": "https://gitlab.example.com/p/-/jobs/7001",
+            "allow_failure": false
+        }"#;
+        let job: GitLabJob = serde_json::from_str(json).unwrap();
+        assert!(!job.is_bridge);
+        assert!(job.downstream_pipeline.is_none());
+    }
+
+    #[test]
+    fn test_bridge_job_with_null_downstream_pipeline() {
+        // Downstream creation can fail; the bridge still exists with null downstream.
+        let json = r#"{
+            "id": 7101,
+            "name": "Docs",
+            "stage": "triggers",
+            "status": "failed",
+            "created_at": "2026-06-11T10:00:00Z",
+            "web_url": "https://gitlab.example.com/p/-/jobs/7101",
+            "allow_failure": false,
+            "downstream_pipeline": null
+        }"#;
+        let job: GitLabJob = serde_json::from_str(json).unwrap();
+        assert!(job.downstream_pipeline.is_none());
     }
 
     #[test]

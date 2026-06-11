@@ -29,8 +29,9 @@ test.describe('Pipeline detail dialog (from MR detail)', () => {
     const overlay = page.locator('.pipeline-detail-dialog-overlay');
     await expect(overlay).toBeVisible();
 
-    // Jobs tab is the default; seeded jobs from the "test" stage should appear
-    await expect(overlay.locator('.pipeline-stage-name')).toContainText('test');
+    // Jobs tab is the default; seeded stages ("test" + the bridge job's
+    // "triggers" stage) should appear
+    await expect(overlay.locator('.pipeline-stage-name')).toHaveText(['test', 'triggers']);
     await expect(overlay.getByText('lint')).toBeVisible();
     await expect(overlay.getByText('test', { exact: true }).first()).toBeVisible();
   });

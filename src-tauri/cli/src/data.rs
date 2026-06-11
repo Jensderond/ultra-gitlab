@@ -262,6 +262,15 @@ impl From<GitLabPipeline> for PipeRow {
     }
 }
 
+/// Downstream pipeline reference on a bridge (trigger) job.
+#[derive(Debug, Clone)]
+pub struct DownstreamRef {
+    pub pipeline_id: i64,
+    /// None on GitLab versions that omit project_id; drill-down is disabled then.
+    pub project_id: Option<i64>,
+    pub status: String,
+}
+
 /// A job row within a pipeline.
 #[derive(Debug, Clone)]
 pub struct JobRow {
@@ -271,6 +280,8 @@ pub struct JobRow {
     pub status: String,
     pub web_url: String,
     pub allow_failure: bool,
+    pub is_bridge: bool,
+    pub downstream: Option<DownstreamRef>,
 }
 
 impl From<GitLabJob> for JobRow {
@@ -282,6 +293,12 @@ impl From<GitLabJob> for JobRow {
             status: j.status,
             web_url: j.web_url,
             allow_failure: j.allow_failure,
+            is_bridge: j.is_bridge,
+            downstream: j.downstream_pipeline.map(|d| DownstreamRef {
+                pipeline_id: d.id,
+                project_id: d.project_id,
+                status: d.status,
+            }),
         }
     }
 }
@@ -425,5 +442,40 @@ mod tests {
         let row = PipeRow::from(p);
         assert_eq!(row.sha, "abcdef01");
         assert_eq!(row.status, "success");
+    }
+
+    #[test]
+    fn job_row_maps_bridge_downstream() {
+        use ultra_gitlab_lib::services::gitlab_client::{GitLabDownstreamPipeline, GitLabJob};
+        let j = GitLabJob {
+            id: 7100,
+            name: "Life".into(),
+            stage: "triggers".into(),
+            status: "success".into(),
+            ref_name: Some("master".into()),
+            created_at: "2026-06-11T00:00:00Z".into(),
+            started_at: None,
+            finished_at: None,
+            duration: None,
+            queued_duration: None,
+            web_url: "http://x/-/jobs/7100".into(),
+            allow_failure: false,
+            pipeline: None,
+            runner: None,
+            downstream_pipeline: Some(GitLabDownstreamPipeline {
+                id: 323693,
+                project_id: Some(42),
+                status: "running".into(),
+                ref_name: Some("master".into()),
+                web_url: "http://x/-/pipelines/323693".into(),
+            }),
+            is_bridge: true,
+        };
+        let row = JobRow::from(j);
+        assert!(row.is_bridge);
+        let ds = row.downstream.expect("downstream mapped");
+        assert_eq!(ds.pipeline_id, 323693);
+        assert_eq!(ds.project_id, Some(42));
+        assert_eq!(ds.status, "running");
     }
 }

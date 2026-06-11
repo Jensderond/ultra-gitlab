@@ -37,6 +37,7 @@ export async function mockTauriIPC(page: Page) {
     pipelineProjects: seed.pipelineProjects,
     pipelineStatuses: seed.pipelineStatuses,
     pipelineJobs: seed.pipelineJobs,
+    downstreamPipelineJobs: seed.downstreamPipelineJobs,
     notificationSettings: seed.notificationSettings,
     companionStatus: seed.companionStatus,
     companionSettings: seed.companionSettings,
@@ -260,7 +261,9 @@ export async function mockTauriIPC(page: Page) {
       get_pipeline_statuses: () => data.pipelineStatuses,
       get_project_pipelines: () => data.pipelineStatuses,
       get_mr_pipelines: () => data.pipelineStatuses,
-      get_pipeline_jobs: () => data.pipelineJobs,
+      // Pipeline 3002 is the downstream pipeline triggered by the Docs bridge job.
+      get_pipeline_jobs: (args) =>
+        args.pipelineId === 3002 ? data.downstreamPipelineJobs : data.pipelineJobs,
       get_job_trace: () => 'Job log output mock\nLine 2\nLine 3',
       play_pipeline_job: () => data.pipelineJobs[0],
       retry_pipeline_job: () => data.pipelineJobs[0],

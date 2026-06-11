@@ -6,26 +6,30 @@
  */
 
 import { useCallback } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import type { PipelineJob, PipelineStatus } from '../../types';
 import PipelineDetailView from './PipelineDetailView';
+import { projectPathFromPipelineUrl } from './utils';
 import '../PipelineDetailPage.css';
 
 export default function PipelineDetailPage() {
   const { projectId, pipelineId } = useParams<{ projectId: string; pipelineId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const instanceId = Number(searchParams.get('instance') || 0);
   const projectName = searchParams.get('project') || '';
   const pipelineRef = searchParams.get('ref') || '';
   const pipelineWebUrl = searchParams.get('url') || '';
+  // Set when this view was opened from a parent pipeline's trigger job.
+  const backRoute = searchParams.get('back') || '';
 
   const pid = Number(projectId);
   const plid = Number(pipelineId);
 
   const handleClose = useCallback(() => {
-    navigate('/pipelines');
-  }, [navigate]);
+    navigate(backRoute || '/pipelines');
+  }, [navigate, backRoute]);
 
   const handleSelectPipeline = useCallback(
     (pipeline: PipelineStatus) => {
@@ -42,6 +46,20 @@ export default function PipelineDetailPage() {
 
   const handleSelectJob = useCallback(
     (job: PipelineJob) => {
+      // Bridges have no log: drill into the downstream pipeline instead.
+      if (job.isBridge) {
+        const ds = job.downstreamPipeline;
+        if (!ds?.projectId) return;
+        const params = new URLSearchParams({
+          instance: String(instanceId),
+          project: projectPathFromPipelineUrl(ds.webUrl) ?? projectName,
+          ref: ds.refName ?? '',
+          url: ds.webUrl,
+          back: `${location.pathname}${location.search}`,
+        });
+        navigate(`/pipelines/${ds.projectId}/${ds.id}?${params.toString()}`);
+        return;
+      }
       const params = new URLSearchParams({
         instance: String(instanceId),
         name: job.name,
@@ -61,7 +79,7 @@ export default function PipelineDetailPage() {
       }
       navigate(`/pipelines/${pid}/${plid}/jobs/${job.id}?${params.toString()}`);
     },
-    [navigate, instanceId, pid, plid, projectName, pipelineRef, pipelineWebUrl]
+    [navigate, instanceId, pid, plid, projectName, pipelineRef, pipelineWebUrl, location]
   );
 
   return (
@@ -76,6 +94,7 @@ export default function PipelineDetailPage() {
       onClose={handleClose}
       onSelectPipeline={handleSelectPipeline}
       onSelectJob={handleSelectJob}
+      backTitle={backRoute ? 'Back to parent pipeline' : undefined}
     />
   );
 }

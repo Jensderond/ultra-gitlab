@@ -617,6 +617,8 @@ export const pipelineJobs: PipelineJob[] = [
     queuedDuration: 5,
     allowFailure: false,
     runnerDescription: 'shared-runner-01',
+    isBridge: false,
+    downstreamPipeline: null,
   },
   {
     id: 7002,
@@ -631,6 +633,50 @@ export const pipelineJobs: PipelineJob[] = [
     queuedDuration: 5,
     allowFailure: false,
     runnerDescription: 'shared-runner-02',
+    isBridge: false,
+    downstreamPipeline: null,
+  },
+  {
+    id: 7003,
+    name: 'Docs',
+    stage: 'triggers',
+    status: 'success',
+    webUrl: 'https://gitlab.example.com/frontend/web-app/-/jobs/7003',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    startedAt: new Date(Date.now() - 3500000).toISOString(),
+    finishedAt: new Date(Date.now() - 3100000).toISOString(),
+    duration: 400,
+    queuedDuration: 2,
+    allowFailure: false,
+    runnerDescription: null,
+    isBridge: true,
+    downstreamPipeline: {
+      id: 3002,
+      projectId: 11,
+      status: 'success',
+      refName: 'main',
+      webUrl: 'https://gitlab.example.com/pipelines/docs/-/pipelines/3002',
+    },
+  },
+];
+
+/** Jobs of the downstream pipeline (#3002) triggered by the `Docs` bridge job. */
+export const downstreamPipelineJobs: PipelineJob[] = [
+  {
+    id: 7101,
+    name: 'build-docs',
+    stage: 'docs',
+    status: 'success',
+    webUrl: 'https://gitlab.example.com/pipelines/docs/-/jobs/7101',
+    createdAt: new Date(Date.now() - 3500000).toISOString(),
+    startedAt: new Date(Date.now() - 3450000).toISOString(),
+    finishedAt: new Date(Date.now() - 3150000).toISOString(),
+    duration: 300,
+    queuedDuration: 3,
+    allowFailure: false,
+    runnerDescription: 'docs-runner',
+    isBridge: false,
+    downstreamPipeline: null,
   },
 ];
 

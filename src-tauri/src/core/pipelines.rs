@@ -207,7 +207,10 @@ pub async fn pipeline_jobs(
     // Bridges are best-effort: get_pipeline_bridges already maps errors to an
     // empty vec, but guard here too so job display never depends on bridges.
     if let Ok(bridges) = client.get_pipeline_bridges(project_id, pipeline_id).await {
-        jobs.extend(bridges);
+        jobs.extend(bridges.into_iter().map(|mut b| {
+            b.is_bridge = true;
+            b
+        }));
     }
     Ok(jobs)
 }

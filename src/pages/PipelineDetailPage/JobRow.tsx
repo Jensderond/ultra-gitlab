@@ -16,32 +16,63 @@ export default function JobRow({ job, loading, onPlay, onRetry, onCancel, onNavi
   const canPlay = job.status === 'manual' || job.status === 'scheduled';
   const canRetry = job.status === 'failed' || job.status === 'canceled';
   const canCancel = job.status === 'running' || job.status === 'pending' || job.status === 'created';
+  // Bridges have no log; the row drills into the downstream pipeline instead,
+  // which needs a project id to fetch jobs from.
+  const navigable = !job.isBridge || job.downstreamPipeline?.projectId != null;
+
+  const info = (
+    <>
+      <span className="pipeline-job-name">
+        {job.name}
+        {job.isBridge && (
+          <span className="pipeline-job-trigger-badge" title="Trigger job — starts a downstream pipeline">
+            trigger
+          </span>
+        )}
+        {job.allowFailure && <span className="pipeline-job-allow-failure" title="Allowed to fail">!</span>}
+      </span>
+      <div className="pipeline-job-meta">
+        <span className={`pipeline-job-status-label pipeline-job-status-label--${job.status}`}>
+          {jobStatusLabel(job.status)}
+        </span>
+        {job.downstreamPipeline && (
+          <span
+            className={`pipeline-job-downstream pipeline-job-status-label--${job.downstreamPipeline.status}`}
+            title={`Downstream pipeline #${job.downstreamPipeline.id}`}
+          >
+            ↓ #{job.downstreamPipeline.id} {job.downstreamPipeline.status}
+          </span>
+        )}
+        {job.duration != null && (
+          <span className="pipeline-job-duration">{formatDuration(job.duration)}</span>
+        )}
+        {job.startedAt && (
+          <span className="pipeline-job-time">{formatRelativeTime(job.startedAt)}</span>
+        )}
+        {job.runnerDescription && (
+          <span className="pipeline-job-runner" title={`Runner: ${job.runnerDescription}`}>
+            {job.runnerDescription}
+          </span>
+        )}
+      </div>
+    </>
+  );
 
   return (
     <div className={`pipeline-job-row pipeline-job-row--${job.status}`}>
       <span className={`pipeline-job-status-dot pipeline-job-status-dot--${job.status}`} />
-      <button type="button" className="pipeline-job-info pipeline-job-info--clickable" onClick={() => onNavigate(job)}>
-        <span className="pipeline-job-name">
-          {job.name}
-          {job.allowFailure && <span className="pipeline-job-allow-failure" title="Allowed to fail">!</span>}
-        </span>
-        <div className="pipeline-job-meta">
-          <span className={`pipeline-job-status-label pipeline-job-status-label--${job.status}`}>
-            {jobStatusLabel(job.status)}
-          </span>
-          {job.duration != null && (
-            <span className="pipeline-job-duration">{formatDuration(job.duration)}</span>
-          )}
-          {job.startedAt && (
-            <span className="pipeline-job-time">{formatRelativeTime(job.startedAt)}</span>
-          )}
-          {job.runnerDescription && (
-            <span className="pipeline-job-runner" title={`Runner: ${job.runnerDescription}`}>
-              {job.runnerDescription}
-            </span>
-          )}
-        </div>
-      </button>
+      {navigable ? (
+        <button
+          type="button"
+          className="pipeline-job-info pipeline-job-info--clickable"
+          title={job.isBridge ? 'View downstream pipeline' : undefined}
+          onClick={() => onNavigate(job)}
+        >
+          {info}
+        </button>
+      ) : (
+        <div className="pipeline-job-info">{info}</div>
+      )}
       <div className="pipeline-job-actions">
         {canPlay && (
           <button

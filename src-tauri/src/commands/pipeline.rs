@@ -51,6 +51,20 @@ pub struct PipelineJob {
     pub queued_duration: Option<f64>,
     pub allow_failure: bool,
     pub runner_description: Option<String>,
+    pub is_bridge: bool,
+    pub downstream_pipeline: Option<DownstreamPipeline>,
+}
+
+/// Downstream (child or multi-project) pipeline triggered by a bridge job.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownstreamPipeline {
+    pub id: i64,
+    /// None on GitLab versions that omit project_id; drill-down is disabled then.
+    pub project_id: Option<i64>,
+    pub status: String,
+    pub ref_name: Option<String>,
+    pub web_url: String,
 }
 
 fn to_status_dto(p: GitLabPipeline) -> PipelineStatus {
@@ -81,6 +95,14 @@ fn to_job_dto(j: GitLabJob) -> PipelineJob {
         queued_duration: j.queued_duration,
         allow_failure: j.allow_failure,
         runner_description: j.runner.and_then(|r| r.description),
+        is_bridge: j.is_bridge,
+        downstream_pipeline: j.downstream_pipeline.map(|d| DownstreamPipeline {
+            id: d.id,
+            project_id: d.project_id,
+            status: d.status,
+            ref_name: d.ref_name,
+            web_url: d.web_url,
+        }),
     }
 }
 
