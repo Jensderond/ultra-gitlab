@@ -13,6 +13,7 @@
 pub mod approval;
 pub mod auth;
 pub mod auto_merge;
+pub mod auto_run;
 pub mod cli;
 pub mod avatar;
 pub mod comments;
@@ -36,6 +37,7 @@ pub use approval::{approve_mr, get_approval_status, unapprove_mr};
 pub use auto_merge::{
     claim_auto_merge, get_auto_merge_claim, process_auto_merge_now, unclaim_auto_merge,
 };
+pub use auto_run::{claim_auto_run, list_auto_run_claims, unclaim_auto_run};
 pub use auth::{
     delete_gitlab_instance, get_gitlab_instances, get_token_info, rename_instance,
     set_default_instance, setup_gitlab_instance, update_instance_token,
