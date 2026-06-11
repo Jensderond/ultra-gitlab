@@ -722,6 +722,18 @@ impl GitLabClient {
         Ok(pipelines.into_iter().next())
     }
 
+    /// Get a single pipeline by id.
+    pub async fn get_pipeline(
+        &self,
+        project_id: i64,
+        pipeline_id: i64,
+    ) -> Result<GitLabPipeline, AppError> {
+        let endpoint = format!("/projects/{}/pipelines/{}", project_id, pipeline_id);
+        let url = self.api_url(&endpoint);
+        let response = self.send_with_retry(self.client.get(&url)).await?;
+        self.handle_response(response, &endpoint).await
+    }
+
     /// Get pipelines associated with a merge request.
     ///
     /// Returns both MR-context pipelines and source-branch pipelines that
