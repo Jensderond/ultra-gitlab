@@ -31,7 +31,7 @@ test.describe('Pipeline detail dialog (from MR detail)', () => {
 
     // Jobs tab is the default; seeded stages ("test" + the bridge job's
     // "triggers" stage) should appear
-    await expect(overlay.locator('.pipeline-stage-name')).toHaveText(['test', 'triggers']);
+    await expect(overlay.locator('.pipeline-stage-name')).toHaveText(['test', 'triggers', 'deploy']);
     await expect(overlay.getByText('lint')).toBeVisible();
     await expect(overlay.getByText('test', { exact: true }).first()).toBeVisible();
   });

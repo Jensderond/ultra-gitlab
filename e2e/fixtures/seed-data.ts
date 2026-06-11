@@ -658,6 +658,22 @@ export const pipelineJobs: PipelineJob[] = [
       webUrl: 'https://gitlab.example.com/pipelines/docs/-/pipelines/3002',
     },
   },
+  {
+    id: 7004,
+    name: 'Deploy production',
+    stage: 'deploy',
+    status: 'manual',
+    webUrl: 'https://gitlab.example.com/frontend/web-app/-/jobs/7004',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    startedAt: null,
+    finishedAt: null,
+    duration: null,
+    queuedDuration: null,
+    allowFailure: false,
+    runnerDescription: null,
+    isBridge: false,
+    downstreamPipeline: null,
+  },
 ];
 
 /** Jobs of the downstream pipeline (#3002) triggered by the `Docs` bridge job. */

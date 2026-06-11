@@ -50,6 +50,22 @@ export async function mockTauriIPC(page: Page) {
     const eventListeners = new Map<string, Set<(event: unknown) => void>>();
     let listenerId = 0;
 
+    // -- Auto-run state (per-page, resets on each test navigation) --
+    interface MockAutoRunClaim {
+      instanceId: number;
+      projectId: number;
+      pipelineId: number;
+      jobId: number;
+      jobName: string;
+      refName: string | null;
+      claimedAt: number;
+      lastStatus: string | null;
+      lastError: string | null;
+      lastAttemptAt: number | null;
+      attempts: number;
+    }
+    const autoRunClaims: MockAutoRunClaim[] = [];
+
     // Command handlers — return data matching the Rust backend shape
     const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
       // -- Instances --
@@ -269,8 +285,30 @@ export async function mockTauriIPC(page: Page) {
       retry_pipeline_job: () => data.pipelineJobs[0],
       cancel_pipeline_job: () => data.pipelineJobs[0],
       cancel_pipeline: () => ({ ...data.pipelineStatuses[0], status: 'canceled' }),
-      // Auto-run claims — minimal stub; full mock comes in a later task.
-      list_auto_run_claims: () => [],
+
+      // -- Auto-run --
+      list_auto_run_claims: () => autoRunClaims,
+      claim_auto_run: (args) => {
+        autoRunClaims.push({
+          instanceId: args.instanceId as number,
+          projectId: args.projectId as number,
+          pipelineId: args.pipelineId as number,
+          jobId: args.jobId as number,
+          jobName: args.jobName as string,
+          refName: (args.refName as string | null) ?? null,
+          claimedAt: Math.floor(Date.now() / 1000),
+          lastStatus: null,
+          lastError: null,
+          lastAttemptAt: null,
+          attempts: 0,
+        });
+        return undefined;
+      },
+      unclaim_auto_run: (args) => {
+        const idx = autoRunClaims.findIndex((c) => c.jobId === args.jobId);
+        if (idx >= 0) autoRunClaims.splice(idx, 1);
+        return undefined;
+      },
 
       // -- Notifications --
       get_notification_settings: () => data.notificationSettings,
