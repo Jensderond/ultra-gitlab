@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "ultra-gitlab"
-version = "0.22.0"
+version = "0.23.0"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -64,6 +64,11 @@ tokio-util = "0.7"
 
 # Date/Time
 chrono = { version = "0.4", features = ["serde"] }
+# Transitive dep (via tokio/sqlx/cookie). Pinned because time 0.3.48 fails to
+# build (E0119 in time's own format_item module) on current rustc. Without this
+# pin, `cargo generate-lockfile` in scripts/bump-version.ts re-resolves it
+# forward on every release and reintroduces the broken build.
+time = "=0.3.47"
 
 # URL Encoding
 urlencoding = "2"
