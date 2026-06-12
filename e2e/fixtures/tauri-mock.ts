@@ -41,6 +41,7 @@ export async function mockTauriIPC(page: Page) {
     notificationSettings: seed.notificationSettings,
     companionStatus: seed.companionStatus,
     companionSettings: seed.companionSettings,
+    issues: seed.issues,
   });
 
   await page.addInitScript((dataJSON: string) => {
@@ -163,6 +164,37 @@ export async function mockTauriIPC(page: Page) {
           baseContent: '// base content\nline 2\nline 3\n',
           headContent: '// head content\nline 2 modified\nline 3\nline 4 added\n',
         };
+      },
+
+      // -- Issues --
+      get_cached_issue_detail: (args) =>
+        data.issues.find(
+          (i: { instanceId: number; projectId: number; iid: number }) =>
+            i.instanceId === args.instanceId &&
+            i.projectId === args.projectId &&
+            i.iid === args.issueIid,
+        ) ?? null,
+      refresh_issue_detail: (args) =>
+        data.issues.find(
+          (i: { instanceId: number; projectId: number; iid: number }) =>
+            i.instanceId === args.instanceId &&
+            i.projectId === args.projectId &&
+            i.iid === args.issueIid,
+        ) ?? null,
+      list_cached_issue_notes: () => [],
+      list_cached_issues: () => data.issues,
+      set_issue_description: (args) => {
+        const issue = data.issues.find(
+          (i: { instanceId: number; projectId: number; iid: number }) =>
+            i.instanceId === args.instanceId &&
+            i.projectId === args.projectId &&
+            i.iid === args.issueIid,
+        );
+        if (issue) {
+          issue.description = args.description as string;
+          issue.updatedAt = Math.floor(Date.now() / 1000);
+        }
+        return issue ?? null;
       },
 
       // -- Comments --

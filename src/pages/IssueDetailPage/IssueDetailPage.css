@@ -55,10 +55,59 @@
 }
 
 .issue-description {
+  position: relative;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 16px;
+}
+
+.issue-description-edit {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--accent-color);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.issue-description:hover .issue-description-edit,
+.issue-description-edit:focus-visible {
+  opacity: 1;
+}
+
+.issue-description-edit:hover {
+  text-decoration: underline;
+}
+
+.issue-description-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.issue-description-editor-cm {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.issue-description-editor-cm:focus-within {
+  border-color: var(--accent-color);
+}
+
+.issue-description-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .issue-description-body {

@@ -128,3 +128,21 @@
 .md-body del {
   color: var(--text-tertiary);
 }
+
+.md-body details {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+}
+
+.md-body details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  user-select: none;
+}
+
+.md-body details[open] > summary {
+  margin-bottom: 8px;
+}

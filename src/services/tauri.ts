@@ -867,6 +867,23 @@ export async function setIssueState(
 }
 
 /**
+ * Replace the description of an issue. Empty string clears it.
+ */
+export async function setIssueDescription(
+  instanceId: number,
+  projectId: number,
+  issueIid: number,
+  description: string,
+): Promise<IssueWithProject> {
+  return invoke<IssueWithProject>('set_issue_description', {
+    instanceId,
+    projectId,
+    issueIid,
+    description,
+  });
+}
+
+/**
  * List users who can be assigned to an issue on the given project.
  */
 export async function listIssueAssigneeCandidates(

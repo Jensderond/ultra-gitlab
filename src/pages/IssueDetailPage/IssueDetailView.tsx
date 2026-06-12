@@ -12,17 +12,20 @@ import {
   type IssueCommentComposerHandle,
 } from './IssueCommentComposer';
 import { AssigneePicker } from './AssigneePicker';
+import { IssueDescriptionEditor } from './IssueDescriptionEditor';
 import {
   useIssueDetailQuery,
   useIssueNotesQuery,
   useAddIssueNote,
   useSetIssueAssignees,
+  useSetIssueDescription,
   useSetIssueState,
   useIssueBackgroundRefresh,
 } from './useIssueData';
 
 const shortcuts: ShortcutDef[] = [
   { key: 'c', label: 'comment' },
+  { key: 'e', label: 'edit description' },
   { key: 'a', label: 'assignees' },
   { key: 'o', label: 'open in GitLab' },
   { key: 'y', label: 'yank link' },
@@ -69,12 +72,14 @@ export default function IssueDetailView({
 }: IssueDetailViewProps) {
   const [showCopyToast, copyToClipboard] = useCopyToast();
   const [assigneePickerOpen, setAssigneePickerOpen] = useState(false);
+  const [editingDescription, setEditingDescription] = useState(false);
   const composerRef = useRef<IssueCommentComposerHandle>(null);
 
   const issueQuery = useIssueDetailQuery(instanceId, projectId, issueIid);
   const notesQuery = useIssueNotesQuery(instanceId, projectId, issueIid);
   const addNote = useAddIssueNote(instanceId, projectId, issueIid);
   const setAssignees = useSetIssueAssignees(instanceId, projectId, issueIid);
+  const setDescription = useSetIssueDescription(instanceId, projectId, issueIid);
   const setState = useSetIssueState(instanceId, projectId, issueIid);
   const { isRefreshing } = useIssueBackgroundRefresh(instanceId, projectId, issueIid);
 
@@ -124,18 +129,26 @@ export default function IssueDetailView({
   useEffect(() => {
     if (!isActive) return;
     function handler(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target instanceof HTMLElement && e.target.isContentEditable)
+      ) {
         if (e.key === 'Escape') (e.target as HTMLElement).blur();
         return;
       }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === 'Escape') {
         e.preventDefault();
-        if (assigneePickerOpen) setAssigneePickerOpen(false);
+        if (editingDescription) setEditingDescription(false);
+        else if (assigneePickerOpen) setAssigneePickerOpen(false);
         else onClose();
       } else if (e.key === 'c') {
         e.preventDefault();
         handleFocusComposer();
+      } else if (e.key === 'e') {
+        e.preventDefault();
+        setEditingDescription(true);
       } else if (e.key === 'a') {
         e.preventDefault();
         setAssigneePickerOpen(true);
@@ -152,6 +165,7 @@ export default function IssueDetailView({
   }, [
     isActive,
     assigneePickerOpen,
+    editingDescription,
     onClose,
     handleFocusComposer,
     handleOpenInGitLab,
@@ -235,10 +249,33 @@ export default function IssueDetailView({
       <div className="issue-detail-body">
         <main className="issue-detail-main">
           <section className="issue-description">
-            {issue.description?.trim() ? (
-              <Markdown content={issue.description} issueLinkContext={issueLinkContext} />
+            {editingDescription ? (
+              <IssueDescriptionEditor
+                initialValue={issue.description ?? ''}
+                busy={setDescription.isPending}
+                onSave={(value) => {
+                  setDescription.mutate(value, {
+                    onSuccess: () => setEditingDescription(false),
+                  });
+                }}
+                onCancel={() => setEditingDescription(false)}
+              />
             ) : (
-              <div className="issue-description-empty">No description.</div>
+              <>
+                <button
+                  type="button"
+                  className="issue-description-edit"
+                  onClick={() => setEditingDescription(true)}
+                  title="Edit description (e)"
+                >
+                  Edit
+                </button>
+                {issue.description?.trim() ? (
+                  <Markdown content={issue.description} issueLinkContext={issueLinkContext} />
+                ) : (
+                  <div className="issue-description-empty">No description.</div>
+                )}
+              </>
             )}
           </section>
 

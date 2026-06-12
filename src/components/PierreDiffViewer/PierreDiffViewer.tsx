@@ -3,6 +3,7 @@ import type { FileContents, FileDiffMetadata } from '@pierre/diffs/react';
 import type { DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { TrashIcon } from '../icons';
+import Markdown from '../Markdown';
 import UserAvatar from '../UserAvatar/UserAvatar';
 import { useCopyToast } from '../../hooks/useCopyToast';
 import '../ActivityDrawer/ActivityFeed.css';
@@ -131,7 +132,7 @@ function AnnotationComment({
           </button>
         )}
       </div>
-      <div className="activity-comment__body">{comment.body}</div>
+      <Markdown className="activity-comment__body" content={comment.body} />
     </div>
   );
 }

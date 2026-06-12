@@ -7,6 +7,7 @@
 import { useReducer, useEffect, useCallback, useState } from 'react';
 import type { Comment } from '../../types';
 import { invoke, getGitLabInstances } from '../../services/tauri';
+import Markdown from '../Markdown';
 import CommentThread from './CommentThread';
 import CommentInput from './CommentInput';
 import './CommentPanel.css';
@@ -229,7 +230,7 @@ export default function CommentPanel({
                     </button>
                   )}
                 </div>
-                <div className="comment-body">{comment.body}</div>
+                <Markdown className="comment-body" content={comment.body} />
               </div>
             ))}
           </div>

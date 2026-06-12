@@ -5,6 +5,7 @@
  */
 
 import type { Comment, SyncStatus } from '../../types';
+import Markdown from '../Markdown';
 import CommentInput from './CommentInput';
 import './InlineComment.css';
 
@@ -85,7 +86,7 @@ function CommentDisplay({
           </button>
         )}
       </div>
-      <div className="inline-comment-body">{comment.body}</div>
+      <Markdown className="inline-comment-body" content={comment.body} />
     </div>
   );
 }

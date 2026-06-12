@@ -28,7 +28,7 @@ use commands::{
     add_issue_note, get_cached_issue_detail, get_token_info,
     list_cached_issue_notes, list_cached_issues,
     list_issue_assignee_candidates, list_issue_projects, list_my_merge_requests,
-    refresh_issue_detail, set_issue_assignees, set_issue_state,
+    refresh_issue_detail, set_issue_assignees, set_issue_description, set_issue_state,
     list_pipeline_projects, merge_mr, play_pipeline_job,
     resolve_mr_by_web_url, fetch_mr_by_web_url,
     rebase_mr, refresh_avatars, refresh_gitattributes, regenerate_companion_pin, rename_instance,
@@ -366,6 +366,7 @@ pub fn run() {
             refresh_issue_detail,
             add_issue_note,
             set_issue_assignees,
+            set_issue_description,
             set_issue_state,
             list_issue_assignee_candidates,
             // Pipeline dashboard

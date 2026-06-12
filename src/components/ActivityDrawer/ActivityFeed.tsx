@@ -7,6 +7,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import type { Comment, SyncStatus } from '../../types';
+import Markdown from '../Markdown';
 import { TrashIcon, PendingIcon, WarningIcon } from '../icons';
 import { formatRelativeTime } from '../../utils/formatRelativeTime';
 import './ActivityFeed.css';
@@ -76,7 +77,7 @@ function CommentEntry({ comment, currentUser, onDelete }: CommentEntryProps) {
           </button>
         )}
       </div>
-      <div className="activity-comment__body">{comment.body}</div>
+      <Markdown className="activity-comment__body" content={comment.body} />
     </div>
   );
 }

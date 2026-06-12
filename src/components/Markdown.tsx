@@ -1,7 +1,9 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
 import { Link, useNavigate } from 'react-router-dom';
-import type { MouseEvent } from 'react';
+import { useMemo, type MouseEvent } from 'react';
 import { resolveProjectByPath } from '../services';
 import './Markdown.css';
 
@@ -63,8 +65,50 @@ function normalizePath(p: string): string {
   return p.replace(/^\/+|\/+$/g, '');
 }
 
+/**
+ * Insert a blank line after `</summary>` when the author forgot one.
+ *
+ * Per CommonMark, a raw-HTML block runs until the next blank line, so
+ * `<details>` without a blank line after `</summary>` swallows whatever
+ * follows (typically a code fence) as literal HTML text — GitLab's own
+ * renderer has the same problem. Normalizing here lets the content inside
+ * `<details>` parse as real markdown. Lines inside code fences are left
+ * untouched.
+ */
+export function normalizeDetailsBlocks(content: string): string {
+  if (!content.includes('</summary>')) return content;
+  const lines = content.split('\n');
+  const out: string[] = [];
+  let inFence = false;
+  let fenceMarker = '';
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    out.push(line);
+    const fenceMatch = line.match(/^ {0,3}(`{3,}|~{3,})/);
+    if (fenceMatch) {
+      if (!inFence) {
+        inFence = true;
+        fenceMarker = fenceMatch[1][0];
+      } else if (fenceMatch[1][0] === fenceMarker) {
+        inFence = false;
+      }
+      continue;
+    }
+    if (
+      !inFence &&
+      /<\/summary>\s*$/i.test(line) &&
+      i + 1 < lines.length &&
+      lines[i + 1].trim() !== ''
+    ) {
+      out.push('');
+    }
+  }
+  return out.join('\n');
+}
+
 export default function Markdown({ content, className, issueLinkContext }: Props) {
   const navigate = useNavigate();
+  const normalized = useMemo(() => normalizeDetailsBlocks(content), [content]);
 
   const openIssue = async (
     ctx: IssueLinkContext,
@@ -109,6 +153,10 @@ export default function Markdown({ content, className, issueLinkContext }: Props
     <div className={`md-body${className ? ` ${className}` : ''}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        // GitLab Flavored Markdown allows inline HTML (<details>, <summary>, …).
+        // rehype-raw parses it; rehype-sanitize strips anything unsafe since
+        // comment bodies are untrusted remote content.
+        rehypePlugins={[rehypeRaw, rehypeSanitize]}
         components={{
           a: ({ href, children, ...rest }) => {
             if (issueLinkContext && href) {
@@ -151,7 +199,7 @@ export default function Markdown({ content, className, issueLinkContext }: Props
           },
         }}
       >
-        {content}
+        {normalized}
       </ReactMarkdown>
     </div>
   );
