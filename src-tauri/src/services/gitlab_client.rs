@@ -396,7 +396,7 @@ pub struct IssuesQuery {
     pub per_page: Option<u32>,
 }
 
-/// Body for PUT /projects/:id/issues/:iid when editing assignees or state.
+/// Body for PUT /projects/:id/issues/:iid when editing assignees, state, or description.
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct IssueUpdate {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -405,6 +405,9 @@ pub struct IssueUpdate {
     /// `"close"` or `"reopen"`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state_event: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
 }
 
 /// Personal access token info from GET /personal_access_tokens/self.

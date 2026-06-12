@@ -532,7 +532,7 @@ pub async fn set_issue_assignees(
     let (client, username) = create_client_with_username(pool.inner(), instance_id).await?;
     let update = IssueUpdate {
         assignee_ids: Some(assignee_ids),
-        state_event: None,
+        ..Default::default()
     };
     let gi = client.update_issue(project_id, issue_iid, &update).await?;
     upsert_and_join(pool.inner(), &client, instance_id, gi, &username).await
@@ -554,8 +554,26 @@ pub async fn set_issue_state(
     }
     let (client, username) = create_client_with_username(pool.inner(), instance_id).await?;
     let update = IssueUpdate {
-        assignee_ids: None,
         state_event: Some(state_event),
+        ..Default::default()
+    };
+    let gi = client.update_issue(project_id, issue_iid, &update).await?;
+    upsert_and_join(pool.inner(), &client, instance_id, gi, &username).await
+}
+
+/// Replace the description of an issue. Empty string clears it.
+#[tauri::command]
+pub async fn set_issue_description(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+    project_id: i64,
+    issue_iid: i64,
+    description: String,
+) -> Result<IssueWithProject, AppError> {
+    let (client, username) = create_client_with_username(pool.inner(), instance_id).await?;
+    let update = IssueUpdate {
+        description: Some(description),
+        ..Default::default()
     };
     let gi = client.update_issue(project_id, issue_iid, &update).await?;
     upsert_and_join(pool.inner(), &client, instance_id, gi, &username).await

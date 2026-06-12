@@ -23,6 +23,7 @@ import type {
   NotificationSettings,
   CompanionServerSettings,
   CompanionStatus,
+  IssueWithProject,
 } from '../../src/types';
 
 // ============================================================================
@@ -717,3 +718,37 @@ export const companionSettings: CompanionServerSettings = {
   pin: '1234',
   authorizedDevices: [],
 };
+
+// ============================================================================
+// Issues
+// ============================================================================
+
+export const issues: IssueWithProject[] = [
+  {
+    id: 9001,
+    instanceId: 1,
+    iid: 42,
+    projectId: 7,
+    title: 'Login button misaligned on mobile',
+    description: 'The login button overlaps the footer on small screens.',
+    state: 'open',
+    webUrl: 'https://gitlab.example.com/example/webapp/-/issues/42',
+    authorUsername: 'alice',
+    assigneeUsernames: '["testuser"]',
+    labels: '["bug"]',
+    createdAt: now - 86400 * 3,
+    updatedAt: now - 3600,
+    closedAt: null,
+    dueDate: null,
+    confidential: false,
+    userNotesCount: 0,
+    starred: false,
+    assignedToMe: true,
+    cachedAt: now,
+    projectName: 'WebApp',
+    projectNameWithNamespace: 'Example / WebApp',
+    projectPathWithNamespace: 'example/webapp',
+    projectCustomName: null,
+    projectStarred: false,
+  },
+];

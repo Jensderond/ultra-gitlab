@@ -7,6 +7,7 @@ import {
   listIssueAssigneeCandidates,
   refreshIssueDetail,
   setIssueAssignees,
+  setIssueDescription,
   setIssueState,
 } from '../../services/tauri';
 import { queryKeys } from '../../lib/queryKeys';
@@ -141,6 +142,29 @@ export function useSetIssueAssignees(
   return useMutation({
     mutationFn: (assigneeIds: number[]) =>
       setIssueAssignees(instanceId, projectId, issueIid, assigneeIds),
+    onSuccess: async () => {
+      try {
+        await refreshIssueDetail(instanceId, projectId, issueIid);
+      } catch (err) {
+        console.warn('[issue] post-mutation refresh failed', err);
+      }
+      qc.invalidateQueries({
+        queryKey: queryKeys.issue(instanceId, projectId, issueIid),
+      });
+      qc.invalidateQueries({ queryKey: ['issues', String(instanceId)] });
+    },
+  });
+}
+
+export function useSetIssueDescription(
+  instanceId: number,
+  projectId: number,
+  issueIid: number,
+) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (description: string) =>
+      setIssueDescription(instanceId, projectId, issueIid, description),
     onSuccess: async () => {
       try {
         await refreshIssueDetail(instanceId, projectId, issueIid);
