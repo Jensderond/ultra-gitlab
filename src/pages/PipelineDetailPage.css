@@ -573,6 +573,24 @@ button.pipeline-job-info--clickable {
   border-color: var(--success-color);
 }
 
+.pipeline-job-action-btn--auto {
+  color: var(--accent-color);
+}
+
+.pipeline-job-action-btn--auto:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-color) 15%, transparent);
+  border-color: var(--accent-color);
+}
+
+.pipeline-job-action-btn--auto-armed {
+  background: color-mix(in srgb, var(--accent-color) 15%, transparent);
+  border-color: var(--accent-color);
+}
+
+.pipeline-job-action-btn--auto-armed:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-color) 25%, transparent);
+}
+
 .pipeline-job-action-btn--retry {
   color: var(--accent-color);
 }

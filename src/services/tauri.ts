@@ -377,6 +377,60 @@ export async function processAutoMergeNow(): Promise<void> {
   return invoke<void>('process_auto_merge_now');
 }
 
+/**
+ * Auto-run claim payload from the backend: a manual pipeline job armed to
+ * run automatically once the rest of its pipeline succeeds.
+ */
+export interface AutoRunClaim {
+  instanceId: number;
+  projectId: number;
+  pipelineId: number;
+  jobId: number;
+  jobName: string;
+  refName: string | null;
+  claimedAt: number;
+  lastStatus: string | null;
+  lastError: string | null;
+  lastAttemptAt: number | null;
+  attempts: number;
+}
+
+/**
+ * Arm a manual job for auto-run. The sync engine plays it when ready.
+ */
+export async function claimAutoRun(
+  instanceId: number,
+  projectId: number,
+  pipelineId: number,
+  jobId: number,
+  jobName: string,
+  refName: string | null,
+): Promise<void> {
+  return invoke<void>('claim_auto_run', { instanceId, projectId, pipelineId, jobId, jobName, refName });
+}
+
+/**
+ * Disarm a job.
+ */
+export async function unclaimAutoRun(
+  instanceId: number,
+  projectId: number,
+  jobId: number,
+): Promise<void> {
+  return invoke<void>('unclaim_auto_run', { instanceId, projectId, jobId });
+}
+
+/**
+ * List auto-run claims for one pipeline.
+ */
+export async function listAutoRunClaims(
+  instanceId: number,
+  projectId: number,
+  pipelineId: number,
+): Promise<AutoRunClaim[]> {
+  return invoke<AutoRunClaim[]>('list_auto_run_claims', { instanceId, projectId, pipelineId });
+}
+
 // ============================================================================
 // Comment Commands
 // ============================================================================

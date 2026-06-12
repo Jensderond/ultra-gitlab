@@ -9,6 +9,7 @@
 //! - MR purge on merge/close per FR-005a
 
 use crate::db::auto_merge;
+use crate::db::auto_run;
 use crate::db::pool::DbPool;
 use crate::error::AppError;
 use crate::models::project::{self, Project};
@@ -18,11 +19,12 @@ use crate::services::gitlab_client::{
     GitLabMergeRequest, MergeRequestsQuery,
 };
 use crate::services::sync_events::{
-    ActionSyncedPayload, AuthExpiredPayload, AutoMergeUpdatedPayload, EventEmitter,
-    IssuesUpdatedPayload, MrReadyPayload, MrUpdateType, MrUpdatedPayload,
-    PipelineStatusChangedPayload, SyncPhase, SyncProgressPayload, ACTION_SYNCED_EVENT,
-    AUTH_EXPIRED_EVENT, AUTO_MERGE_UPDATED_EVENT, ISSUES_UPDATED_EVENT, MR_READY_EVENT,
-    MR_UPDATED_EVENT, PIPELINE_STATUS_CHANGED_EVENT, SYNC_PROGRESS_EVENT,
+    ActionSyncedPayload, AuthExpiredPayload, AutoMergeUpdatedPayload, AutoRunNotificationPayload,
+    AutoRunUpdatedPayload, EventEmitter, IssuesUpdatedPayload, MrReadyPayload, MrUpdateType,
+    MrUpdatedPayload, PipelineStatusChangedPayload, SyncPhase, SyncProgressPayload,
+    ACTION_SYNCED_EVENT, AUTH_EXPIRED_EVENT, AUTO_MERGE_UPDATED_EVENT, AUTO_RUN_NOTIFICATION_EVENT,
+    AUTO_RUN_UPDATED_EVENT, ISSUES_UPDATED_EVENT, MR_READY_EVENT, MR_UPDATED_EVENT,
+    PIPELINE_STATUS_CHANGED_EVENT, SYNC_PROGRESS_EVENT,
 };
 use crate::services::sync_processor;
 use crate::services::sync_queue;
@@ -175,6 +177,9 @@ pub enum SyncCommand {
     /// Run the auto-merge processor immediately, without doing a full MR sync.
     ProcessAutoMerge,
 
+    /// Run the auto-run (manual job) processor immediately.
+    ProcessAutoRun,
+
     /// Update the sync configuration.
     UpdateConfig(SyncConfig),
 
@@ -229,6 +234,15 @@ impl SyncHandle {
     pub async fn process_auto_merge_now(&self) -> Result<(), AppError> {
         self.command_tx
             .send(SyncCommand::ProcessAutoMerge)
+            .await
+            .map_err(|_| AppError::internal("Sync engine not running"))
+    }
+
+    /// Process auto-run claims immediately. Useful right after the user arms
+    /// a job so an already-ready pipeline is played without waiting a tick.
+    pub async fn process_auto_run_now(&self) -> Result<(), AppError> {
+        self.command_tx
+            .send(SyncCommand::ProcessAutoRun)
             .await
             .map_err(|_| AppError::internal("Sync engine not running"))
     }
@@ -417,12 +431,23 @@ impl SyncEngine {
             // Consume the first (immediate) tick since we just ran sync
             interval.tick().await;
 
+            // Fast ticker for auto-run claims: a deploy shouldn't wait up to
+            // 5 minutes after the build finishes. Each tick is a cheap local
+            // COUNT(*) and only hits the network while a claim exists.
+            let mut auto_run_interval = time::interval(Duration::from_secs(30));
+            auto_run_interval.tick().await;
+
             loop {
                 tokio::select! {
                     _ = interval.tick() => {
                         eprintln!("[sync] Running periodic background sync...");
                         if let Err(e) = engine.run_sync().await {
                             eprintln!("[sync] Periodic sync error: {}", e);
+                        }
+                    }
+                    _ = auto_run_interval.tick() => {
+                        if let Ok(true) = crate::db::auto_run::has_active_claims(&engine.pool).await {
+                            engine.process_auto_run_claims().await;
                         }
                     }
                     Some(cmd) = rx.recv() => {
@@ -442,6 +467,10 @@ impl SyncEngine {
                             SyncCommand::ProcessAutoMerge => {
                                 eprintln!("[sync] Processing auto-merge claims (on-demand)");
                                 engine.process_auto_merge_claims().await;
+                            }
+                            SyncCommand::ProcessAutoRun => {
+                                eprintln!("[sync] Processing auto-run claims (on-demand)");
+                                engine.process_auto_run_claims().await;
                             }
                         SyncCommand::UpdateConfig(new_config) => {
                                 eprintln!("[sync] Config updated, interval={}s", new_config.interval_secs);
@@ -583,6 +612,9 @@ impl SyncEngine {
         // Process any auto-merge claims the user has set on their own MRs.
         // Runs after MR sync so we have the freshest data to check against.
         self.process_auto_merge_claims().await;
+
+        // Process auto-run (manual job) claims.
+        self.process_auto_run_claims().await;
 
         // Clean up completed sync queue entries to prevent unbounded table growth
         if let Err(e) = sync_queue::cleanup_synced(&self.pool).await {
@@ -3244,6 +3276,262 @@ impl SyncEngine {
                 },
             );
         }
+    }
+
+    /// Process all auto-run claims: play armed manual jobs whose pipeline
+    /// finished successfully, drop claims whose pipeline failed.
+    pub async fn process_auto_run_claims(&self) {
+        let claims = match auto_run::list_active_claims(&self.pool).await {
+            Ok(c) => c,
+            Err(e) => {
+                log::warn!("[auto-run] Failed to list claims: {}", e);
+                return;
+            }
+        };
+        if claims.is_empty() {
+            return;
+        }
+        eprintln!("[auto-run] Processor running — {} active claim(s)", claims.len());
+
+        // Build one GitLab client per instance and reuse across claims.
+        let instances = match self.get_gitlab_instances().await {
+            Ok(v) => v,
+            Err(e) => {
+                log::warn!("[auto-run] Failed to load instances: {}", e);
+                return;
+            }
+        };
+        let mut clients: HashMap<i64, GitLabClient> = HashMap::new();
+        for inst in instances {
+            let Some(token) = inst.token else { continue };
+            if let Ok(client) = GitLabClient::new(GitLabClientConfig {
+                base_url: inst.url,
+                token,
+                timeout_secs: 30,
+            }) {
+                clients.insert(inst.id, client);
+            }
+        }
+
+        for claim in claims {
+            let Some(client) = clients.get(&claim.instance_id) else {
+                log::warn!(
+                    "[auto-run] No client for instance {} (job {})",
+                    claim.instance_id, claim.job_id
+                );
+                continue;
+            };
+            self.process_one_auto_run_claim(&claim, client).await;
+        }
+    }
+
+    /// Run a single tick of the auto-run state machine for one claim.
+    async fn process_one_auto_run_claim(
+        &self,
+        claim: &auto_run::AutoRunClaimRow,
+        client: &GitLabClient,
+    ) {
+        let pipeline = match client.get_pipeline(claim.project_id, claim.pipeline_id).await {
+            Ok(p) => p,
+            Err(e) => {
+                self.record_auto_run_error(claim, &e.to_string()).await;
+                return;
+            }
+        };
+
+        // Find the armed job's current status — but only when the pipeline
+        // status alone can't decide. For in-progress pipelines decide()
+        // returns Wait and for failed ones DisarmPipelineFailed regardless
+        // of the job, so skip the (paginated) jobs fetch on those ticks.
+        // A job played manually mid-pipeline is still disarmed once the
+        // pipeline settles and the fetched status shows it left `manual`.
+        let job_status = if matches!(pipeline.status.as_str(), "success" | "manual") {
+            let found = match client.get_pipeline_jobs(claim.project_id, claim.pipeline_id).await {
+                Ok(jobs) => match jobs.into_iter().find(|j| j.id == claim.job_id) {
+                    Some(j) => Some(j.status),
+                    // Bridges live on a separate endpoint, so fall back to it
+                    // when the job isn't in the jobs list.
+                    None => client
+                        .get_pipeline_bridges(claim.project_id, claim.pipeline_id)
+                        .await
+                        .ok()
+                        .and_then(|bridges| bridges.into_iter().find(|j| j.id == claim.job_id))
+                        .map(|j| j.status),
+                },
+                Err(e) => {
+                    self.record_auto_run_error(claim, &e.to_string()).await;
+                    return;
+                }
+            };
+            // Job vanished from the pipeline (e.g. pipeline deleted/recreated):
+            // treat like "gone" so the claim doesn't poll forever.
+            found.unwrap_or_else(|| "gone".to_string())
+        } else {
+            "manual".to_string()
+        };
+
+        match crate::services::auto_run::decide(&pipeline.status, &job_status) {
+            crate::services::auto_run::AutoRunDecision::Wait => {
+                eprintln!(
+                    "[auto-run] {} (job {}): pipeline {}, waiting",
+                    claim.job_name, claim.job_id, pipeline.status
+                );
+                let status_changed = claim.last_status.as_deref() != Some(pipeline.status.as_str());
+                let _ = auto_run::record_status(
+                    &self.pool, claim.instance_id, claim.project_id, claim.job_id,
+                    now(), &pipeline.status,
+                ).await;
+                if status_changed {
+                    self.emit_auto_run_updated(claim, false, false, Some(pipeline.status), None);
+                }
+            }
+            crate::services::auto_run::AutoRunDecision::Play => {
+                eprintln!(
+                    "[auto-run] {} (job {}): pipeline {} — playing",
+                    claim.job_name, claim.job_id, pipeline.status
+                );
+                match client.play_job(claim.project_id, claim.job_id).await {
+                    Ok(job) => {
+                        let _ = self
+                            .log_sync_operation(
+                                "auto_run",
+                                "success",
+                                None,
+                                Some(format!(
+                                    "Auto-ran job '{}' on {} (pipeline #{})",
+                                    claim.job_name,
+                                    claim.ref_name.as_deref().unwrap_or("?"),
+                                    claim.pipeline_id
+                                )),
+                                None,
+                            )
+                            .await;
+                        // Not atomic with play_job: if this delete fails the
+                        // next tick re-plays and gets a 4xx, which lands in
+                        // the error path. Acceptable — local deletes are
+                        // effectively reliable.
+                        let _ = auto_run::delete_claim(
+                            &self.pool, claim.instance_id, claim.project_id, claim.job_id,
+                        ).await;
+                        self.emit_auto_run_updated(claim, true, true, Some(pipeline.status), None);
+                        self.emit_auto_run_notification(claim, true, Some(job.web_url)).await;
+                    }
+                    Err(e) => self.record_auto_run_error(claim, &e.to_string()).await,
+                }
+            }
+            crate::services::auto_run::AutoRunDecision::DisarmPipelineFailed => {
+                eprintln!(
+                    "[auto-run] {} (job {}): pipeline {} — disarming",
+                    claim.job_name, claim.job_id, pipeline.status
+                );
+                let _ = self
+                    .log_sync_operation(
+                        "auto_run",
+                        "info",
+                        None,
+                        Some(format!(
+                            "Pipeline #{} {} — auto-run of '{}' cancelled",
+                            claim.pipeline_id, pipeline.status, claim.job_name
+                        )),
+                        None,
+                    )
+                    .await;
+                let _ = auto_run::delete_claim(
+                    &self.pool, claim.instance_id, claim.project_id, claim.job_id,
+                ).await;
+                self.emit_auto_run_updated(claim, true, false, Some(pipeline.status.clone()), None);
+                self.emit_auto_run_notification(claim, false, Some(pipeline.web_url)).await;
+            }
+            crate::services::auto_run::AutoRunDecision::DisarmJobGone => {
+                eprintln!(
+                    "[auto-run] {} (job {}): job status {} — dropping claim silently",
+                    claim.job_name, claim.job_id, job_status
+                );
+                let _ = auto_run::delete_claim(
+                    &self.pool, claim.instance_id, claim.project_id, claim.job_id,
+                ).await;
+                self.emit_auto_run_updated(claim, true, false, Some(pipeline.status), None);
+            }
+        }
+    }
+
+    /// Record an API error for a claim; disarm + notify after 10 consecutive
+    /// failures so a dead pipeline doesn't poll forever.
+    async fn record_auto_run_error(&self, claim: &auto_run::AutoRunClaimRow, msg: &str) {
+        log::warn!("[auto-run] job {} ({}): {}", claim.job_id, claim.job_name, msg);
+        let attempts = auto_run::record_error(
+            &self.pool, claim.instance_id, claim.project_id, claim.job_id, now(), msg,
+        )
+        .await
+        .unwrap_or(0);
+        if attempts >= 10 {
+            let _ = auto_run::delete_claim(
+                &self.pool, claim.instance_id, claim.project_id, claim.job_id,
+            ).await;
+            self.emit_auto_run_updated(claim, true, false, None, Some(msg.to_string()));
+            self.emit_auto_run_notification(claim, false, None).await;
+        } else {
+            self.emit_auto_run_updated(claim, false, false, None, Some(msg.to_string()));
+        }
+    }
+
+    /// Emit the query-invalidation event for one claim.
+    fn emit_auto_run_updated(
+        &self,
+        claim: &auto_run::AutoRunClaimRow,
+        removed: bool,
+        played: bool,
+        last_status: Option<String>,
+        last_error: Option<String>,
+    ) {
+        self.emit_event(
+            AUTO_RUN_UPDATED_EVENT,
+            &AutoRunUpdatedPayload {
+                instance_id: claim.instance_id,
+                project_id: claim.project_id,
+                pipeline_id: claim.pipeline_id,
+                job_id: claim.job_id,
+                job_name: claim.job_name.clone(),
+                removed,
+                played,
+                last_status,
+                last_error,
+            },
+        );
+    }
+
+    /// Emit the toast/native-notification event for a played or dropped arm.
+    async fn emit_auto_run_notification(
+        &self,
+        claim: &auto_run::AutoRunClaimRow,
+        played: bool,
+        web_url: Option<String>,
+    ) {
+        let project_name: Option<(String,)> = sqlx::query_as(
+            "SELECT name_with_namespace FROM projects WHERE id = ? AND instance_id = ?",
+        )
+        .bind(claim.project_id)
+        .bind(claim.instance_id)
+        .fetch_optional(&self.pool)
+        .await
+        .ok()
+        .flatten();
+
+        self.emit_event(
+            AUTO_RUN_NOTIFICATION_EVENT,
+            &AutoRunNotificationPayload {
+                played,
+                job_name: claim.job_name.clone(),
+                ref_name: claim.ref_name.clone(),
+                project_name: project_name
+                    .map(|(n,)| n)
+                    .unwrap_or_else(|| format!("project {}", claim.project_id)),
+                web_url,
+                instance_id: claim.instance_id,
+                project_id: claim.project_id,
+                pipeline_id: claim.pipeline_id,
+            },
+        );
     }
 
     /// Get all GitLab instances from the database.

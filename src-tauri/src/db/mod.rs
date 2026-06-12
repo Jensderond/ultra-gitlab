@@ -6,6 +6,7 @@
 //! - Query helpers
 
 pub mod auto_merge;
+pub mod auto_run;
 pub mod file_cache;
 pub mod issue_notes;
 pub mod notification_settings;
@@ -152,6 +153,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0023_add_mr_assigned_to_me",
         include_str!("migrations/0023_add_mr_assigned_to_me.sql"),
+    ),
+    (
+        "0024_auto_run_claims",
+        include_str!("migrations/0024_auto_run_claims.sql"),
     ),
 ];
 

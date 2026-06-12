@@ -1,6 +1,6 @@
 import { openExternalUrl } from '../../services/transport';
 import type { PipelineJob } from '../../types';
-import { ExternalLinkIcon, PlayIcon, RetryIcon, CancelIcon } from './icons';
+import { ExternalLinkIcon, PlayIcon, RetryIcon, CancelIcon, AutoRunIcon } from './icons';
 import { jobStatusLabel, formatDuration, formatRelativeTime } from './utils';
 
 interface JobRowProps {
@@ -10,12 +10,16 @@ interface JobRowProps {
   onRetry: (jobId: number) => void;
   onCancel: (jobId: number) => void;
   onNavigate: (job: PipelineJob) => void;
+  /** True when this manual job is armed for auto-run. */
+  autoRunArmed: boolean;
+  onToggleAutoRun: (job: PipelineJob) => void;
 }
 
-export default function JobRow({ job, loading, onPlay, onRetry, onCancel, onNavigate }: JobRowProps) {
+export default function JobRow({ job, loading, onPlay, onRetry, onCancel, onNavigate, autoRunArmed, onToggleAutoRun }: JobRowProps) {
   const canPlay = job.status === 'manual' || job.status === 'scheduled';
   const canRetry = job.status === 'failed' || job.status === 'canceled';
   const canCancel = job.status === 'running' || job.status === 'pending' || job.status === 'created';
+  const canAutoRun = job.status === 'manual';
   // Bridges have no log; the row drills into the downstream pipeline instead,
   // which needs a project id to fetch jobs from.
   const navigable = !job.isBridge || job.downstreamPipeline?.projectId != null;
@@ -83,6 +87,22 @@ export default function JobRow({ job, loading, onPlay, onRetry, onCancel, onNavi
           >
             {loading ? <span className="pipeline-job-spinner" /> : <PlayIcon />}
             <span>Run</span>
+          </button>
+        )}
+        {canAutoRun && (
+          <button
+            className={`pipeline-job-action-btn pipeline-job-action-btn--auto${autoRunArmed ? ' pipeline-job-action-btn--auto-armed' : ''}`}
+            aria-pressed={autoRunArmed}
+            onClick={() => onToggleAutoRun(job)}
+            disabled={loading}
+            title={
+              autoRunArmed
+                ? 'Armed: runs automatically once all prior stages succeed. Click to disarm.'
+                : 'Run automatically once all prior stages succeed'
+            }
+          >
+            <AutoRunIcon />
+            <span>{autoRunArmed ? 'Armed' : 'Auto'}</span>
           </button>
         )}
         {canRetry && (

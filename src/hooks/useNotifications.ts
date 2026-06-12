@@ -25,6 +25,17 @@ interface PipelineChangedPayload {
   pipelineId: number;
 }
 
+interface AutoRunPayload {
+  played: boolean;
+  jobName: string;
+  refName: string | null;
+  projectName: string;
+  webUrl: string | null;
+  instanceId: number;
+  projectId: number;
+  pipelineId: number;
+}
+
 function pipelineToastType(status: string): 'pipeline-success' | 'pipeline-failed' | 'pipeline-running' {
   if (status === 'success') return 'pipeline-success';
   if (status === 'failed') return 'pipeline-failed';
@@ -108,10 +119,48 @@ export default function useNotifications() {
       }
     });
 
+    const autoRunPromise = tauriListen<AutoRunPayload>('notification:auto-run', async (event) => {
+      if (cancelled) return;
+      try {
+        const { played, jobName, refName, projectName, webUrl, instanceId, projectId, pipelineId } = event.payload;
+        const title = played ? 'Manual Job Started' : 'Auto-run Cancelled';
+        const refSuffix = refName ? ` (${refName})` : '';
+        const body = played
+          ? `${jobName}${refSuffix} in ${projectName}`
+          : `${jobName}${refSuffix} in ${projectName} — pipeline did not succeed`;
+        const params = new URLSearchParams({
+          instance: String(instanceId),
+          project: projectName,
+          ref: refName ?? '',
+          url: webUrl ?? '',
+        });
+        const route = `/pipelines/${projectId}/${pipelineId}?${params.toString()}`;
+
+        addToastRef.current({
+          type: played ? 'pipeline-running' : 'pipeline-failed',
+          title,
+          body,
+          url: webUrl ?? undefined,
+          route,
+        });
+
+        // No settings gate for the toast: the user explicitly armed this
+        // job, so the outcome is always worth surfacing. Native OS
+        // notifications still respect the global toggle.
+        const settings = await getNotificationSettings();
+        if (isTauri && settings.nativeNotificationsEnabled) {
+          sendNativeNotification(title, body, route).catch(console.error);
+        }
+      } catch (err) {
+        console.error('Failed to handle auto-run notification:', err);
+      }
+    });
+
     return () => {
       cancelled = true;
       mrReadyPromise.then((unlisten) => unlisten());
       pipelinePromise.then((unlisten) => unlisten());
+      autoRunPromise.then((unlisten) => unlisten());
     };
   }, []);
 }

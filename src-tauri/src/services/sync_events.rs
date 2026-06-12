@@ -79,6 +79,55 @@ pub struct AutoMergeUpdatedPayload {
     pub last_error: Option<String>,
 }
 
+/// Event: auto-run-updated
+/// Emitted when the sync engine processes an auto-run claim — status
+/// observed, job played, or claim removed. The frontend invalidates its
+/// claim queries on this event.
+pub const AUTO_RUN_UPDATED_EVENT: &str = "auto-run-updated";
+
+/// Payload for auto-run-updated events.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutoRunUpdatedPayload {
+    pub instance_id: i64,
+    pub project_id: i64,
+    pub pipeline_id: i64,
+    pub job_id: i64,
+    pub job_name: String,
+    /// True if the claim was removed (played, disarmed, or job gone).
+    pub removed: bool,
+    /// True if the job was successfully started.
+    pub played: bool,
+    /// Last pipeline status observed, if known.
+    pub last_status: Option<String>,
+    /// Last error string, if any.
+    pub last_error: Option<String>,
+}
+
+/// Event: notification:auto-run
+/// Emitted when an armed job is played (played=true) or the arm is dropped
+/// because the pipeline failed / errors exhausted retries (played=false).
+/// Drives toasts + native notifications.
+pub const AUTO_RUN_NOTIFICATION_EVENT: &str = "notification:auto-run";
+
+/// Payload for notification:auto-run events.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutoRunNotificationPayload {
+    /// True: job was started. False: arm dropped without running the job.
+    pub played: bool,
+    pub job_name: String,
+    /// Git ref the pipeline ran on (tag/branch), if recorded at arm time.
+    pub ref_name: Option<String>,
+    /// Project name with namespace (falls back to "project <id>").
+    pub project_name: String,
+    /// Job URL when played; pipeline URL when disarmed; None on API errors.
+    pub web_url: Option<String>,
+    pub instance_id: i64,
+    pub project_id: i64,
+    pub pipeline_id: i64,
+}
+
 /// Payload for issues-updated events.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

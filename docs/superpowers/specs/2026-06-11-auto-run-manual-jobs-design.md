@@ -26,7 +26,7 @@ Decisions made during brainstorming:
 
 ## Data Model
 
-New migration `src-tauri/src/db/migrations/0023_auto_run_claims.sql`:
+New migration `src-tauri/src/db/migrations/0024_auto_run_claims.sql`:
 
 ```sql
 CREATE TABLE auto_run_claims (
@@ -55,7 +55,8 @@ New DB module `src-tauri/src/db/auto_run.rs` (registered in `db/mod.rs`):
 - `delete_claim(instance_id, project_id, job_id)`
 - `list_active_claims()` — all claims, for the processor
 - `list_claims_for_pipeline(instance_id, project_id, pipeline_id)` — for UI
-- `record_attempt(...)` — bump `attempts`, set `last_status` / `last_error`
+- `record_status(...)` — set `last_status`, clear `last_error`, reset `attempts`
+- `record_error(...)` — set `last_error`, bump `attempts` (consecutive-error count)
 - `has_active_claims()` — cheap existence check for the fast ticker
 
 All functions return `Result<T, AppError>` like the other db modules.
@@ -73,7 +74,7 @@ decide(pipeline_status, job_status) -> Play | Wait | Disarm(reason)
 |---|---|
 | pipeline `success` or `manual`, job `manual` | **Play** the job, delete claim, notify success |
 | pipeline `failed` / `canceled` / `skipped` | **Disarm**, delete claim, notify "pipeline failed, job not run" |
-| pipeline `running` / `pending` / `created` / `waiting_for_resource` / `preparing` | **Wait** for next tick |
+| pipeline `running` / `pending` / `created` / `waiting_for_resource` / `preparing` / `scheduled` | **Wait** for next tick |
 | job no longer `manual` (played in GitLab UI, succeeded, superseded) | **Disarm silently** (no notification) |
 
 Rationale: a `when: manual` job only reaches status `manual` once its stage is
@@ -83,7 +84,7 @@ this is exactly the "all prior stages succeeded" condition.
 ### Error handling
 
 - `play_job()` or status fetch fails transiently (network, 5xx): call
-  `record_attempt` with the error, keep the claim, retry next tick.
+  `record_error`, keep the claim, retry next tick.
 - After **10 consecutive failed attempts**: disarm and notify.
 - Auth expiry: same handling as auto-merge (surfaces `AUTH_EXPIRED_EVENT`).
 
