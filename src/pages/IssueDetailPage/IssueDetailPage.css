@@ -91,22 +91,16 @@
   gap: 12px;
 }
 
-.issue-description-editor-textarea {
+.issue-description-editor-cm {
   width: 100%;
-  resize: vertical;
-  font-family: var(--diffs-font-family, 'IBM Plex Mono', monospace);
-  font-size: 13px;
-  line-height: 1.55;
-  padding: 10px 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   background: var(--bg-primary);
-  color: var(--text-primary);
+  overflow: hidden;
   box-sizing: border-box;
 }
 
-.issue-description-editor-textarea:focus {
-  outline: none;
+.issue-description-editor-cm:focus-within {
   border-color: var(--accent-color);
 }
 

@@ -129,7 +129,11 @@ export default function IssueDetailView({
   useEffect(() => {
     if (!isActive) return;
     function handler(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target instanceof HTMLElement && e.target.isContentEditable)
+      ) {
         if (e.key === 'Escape') (e.target as HTMLElement).blur();
         return;
       }
