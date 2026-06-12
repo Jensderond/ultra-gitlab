@@ -5,6 +5,7 @@
  */
 
 import type { Comment, SyncStatus } from '../../types';
+import Markdown from '../Markdown';
 import CommentInput from './CommentInput';
 import './CommentThread.css';
 
@@ -90,7 +91,7 @@ function CommentItem({
           </button>
         )}
       </div>
-      <div className="comment-body">{comment.body}</div>
+      <Markdown className="comment-body" content={comment.body} />
     </div>
   );
 }

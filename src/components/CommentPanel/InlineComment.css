@@ -75,7 +75,6 @@
   font-size: 13px;
   line-height: 1.4;
   color: var(--text-primary);
-  white-space: pre-wrap;
   word-break: break-word;
 }
 
