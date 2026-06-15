@@ -9,6 +9,7 @@ pub mod auto_merge;
 pub mod auto_run;
 pub mod file_cache;
 pub mod issue_notes;
+pub mod known_users;
 pub mod notification_settings;
 pub mod pipeline_cache;
 pub mod pool;

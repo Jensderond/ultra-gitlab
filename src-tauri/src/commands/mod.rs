@@ -59,7 +59,7 @@ pub use diagnostics::{
 pub use gitattributes::{get_gitattributes, refresh_gitattributes};
 pub use issues::{
     add_issue_note, get_cached_issue_detail, list_cached_issue_notes,
-    list_cached_issues, list_issue_assignee_candidates,
+    list_cached_issues, list_issue_assignee_candidates, list_known_users,
     list_issue_projects, refresh_issue_detail, rename_project,
     set_issue_assignees, set_issue_description, set_issue_state,
     sync_my_issues, sync_project_issues, toggle_issue_star, toggle_project_star,

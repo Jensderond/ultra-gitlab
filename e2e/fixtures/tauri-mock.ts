@@ -183,6 +183,16 @@ export async function mockTauriIPC(page: Page) {
         ) ?? null,
       list_cached_issue_notes: () => [],
       list_cached_issues: () => data.issues,
+      // @mention candidates. `bob` has no cached name (avatar-only); `derond`
+      // carries a real name so typing a first name resolves a different username.
+      list_known_users: () => [
+        { username: 'alice', name: 'Alice Liddell' },
+        { username: 'bob', name: null },
+      ],
+      list_issue_assignee_candidates: () => [
+        { id: 1, username: 'alice', name: 'Alice Liddell', avatarUrl: null },
+        { id: 2, username: 'derond', name: 'Jens de Rond', avatarUrl: null },
+      ],
       set_issue_description: (args) => {
         const issue = data.issues.find(
           (i: { instanceId: number; projectId: number; iid: number }) =>

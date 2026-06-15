@@ -461,6 +461,15 @@ export interface IssueNote {
 }
 
 /**
+ * A user we have cached locally, usable as an @mention candidate.
+ * `name` is null when we have only ever seen the bare username.
+ */
+export interface KnownUser {
+  username: string;
+  name: string | null;
+}
+
+/**
  * A project member that can be picked as an issue assignee.
  */
 export interface IssueAssigneeCandidate {

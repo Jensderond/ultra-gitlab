@@ -44,6 +44,7 @@ import type {
   IssueProject,
   IssueNote,
   IssueAssigneeCandidate,
+  KnownUser,
   CliInstallResult,
   CliStatus,
 } from '../types';
@@ -881,6 +882,14 @@ export async function setIssueDescription(
     issueIid,
     description,
   });
+}
+
+/**
+ * List GitLab users we have cached locally for this instance, for @mention
+ * autocomplete. Purely a local read — no GitLab API call.
+ */
+export async function listKnownUsers(instanceId: number): Promise<KnownUser[]> {
+  return invoke<KnownUser[]>('list_known_users', { instanceId });
 }
 
 /**

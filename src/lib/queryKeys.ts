@@ -42,6 +42,7 @@ export const queryKeys = {
     ["issueNotes", instanceId, projectId, issueIid] as const,
   issueAssigneeCandidates: (instanceId: number, projectId: number) =>
     ["issueAssigneeCandidates", instanceId, projectId] as const,
+  knownUsers: (instanceId: number) => ["knownUsers", instanceId] as const,
   pipelineProjects: (instanceId: string) =>
     ["pipelineProjects", instanceId] as const,
   pipelineStatuses: (instanceId: string, projectIds: number[]) =>

@@ -261,6 +261,67 @@
   justify-content: flex-end;
 }
 
+/* @mention autocomplete */
+.issue-composer-input {
+  position: relative;
+}
+
+.mention-dropdown {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+/* Flip above the textarea when there isn't room below. */
+.mention-dropdown--above {
+  top: auto;
+  bottom: calc(100% + 2px);
+}
+
+.mention-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.mention-option.is-active {
+  background: var(--accent-color);
+  color: #fff;
+}
+
+.mention-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mention-username {
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.mention-option.is-active .mention-username {
+  color: rgba(255, 255, 255, 0.85);
+}
+
 .issue-detail-sidebar {
   display: flex;
   flex-direction: column;

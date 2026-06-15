@@ -5,13 +5,14 @@ import {
   getCachedIssueDetail,
   listCachedIssueNotes,
   listIssueAssigneeCandidates,
+  listKnownUsers,
   refreshIssueDetail,
   setIssueAssignees,
   setIssueDescription,
   setIssueState,
 } from '../../services/tauri';
 import { queryKeys } from '../../lib/queryKeys';
-import type { IssueAssigneeCandidate, IssueNote, IssueWithProject } from '../../types';
+import type { IssueAssigneeCandidate, IssueNote, IssueWithProject, KnownUser } from '../../types';
 
 /**
  * Read the issue from SQLite. Returns `null` when nothing is cached for this
@@ -105,6 +106,23 @@ export function useAssigneeCandidatesQuery(
         : queryKeys.issueAssigneeCandidates(instanceId, projectId),
     queryFn: () => listIssueAssigneeCandidates(instanceId as number, projectId),
     enabled: enabled && instanceId != null && projectId > 0,
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * Cached users for @mention autocomplete in the comment composer. Changes
+ * slowly, so we keep it fresh for a minute and let the list grow as more
+ * notes/avatars get cached on subsequent visits.
+ */
+export function useKnownUsersQuery(instanceId: number | null) {
+  return useQuery<KnownUser[]>({
+    queryKey:
+      instanceId == null
+        ? ['knownUsers', 'disabled']
+        : queryKeys.knownUsers(instanceId),
+    queryFn: () => listKnownUsers(instanceId as number),
+    enabled: instanceId != null,
     staleTime: 60_000,
   });
 }

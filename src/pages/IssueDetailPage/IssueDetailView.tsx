@@ -21,7 +21,16 @@ import {
   useSetIssueDescription,
   useSetIssueState,
   useIssueBackgroundRefresh,
+  useKnownUsersQuery,
+  useAssigneeCandidatesQuery,
 } from './useIssueData';
+import { mergeMentionUsers } from './mention';
+import type { IssueAssigneeCandidate, KnownUser } from '../../types';
+
+// Stable empty arrays so the mention useMemo doesn't re-run every render while
+// the queries are still loading.
+const EMPTY_USERS: KnownUser[] = [];
+const EMPTY_MEMBERS: IssueAssigneeCandidate[] = [];
 
 const shortcuts: ShortcutDef[] = [
   { key: 'c', label: 'comment' },
@@ -78,6 +87,15 @@ export default function IssueDetailView({
   const issueQuery = useIssueDetailQuery(instanceId, projectId, issueIid);
   const notesQuery = useIssueNotesQuery(instanceId, projectId, issueIid);
   const addNote = useAddIssueNote(instanceId, projectId, issueIid);
+  // @mention candidates: locally cached users (instance-wide, names only for
+  // people who've commented) merged with this project's members from GitLab
+  // (always named), so typing a first name matches even when the username differs.
+  const cachedUsers = useKnownUsersQuery(instanceId).data ?? EMPTY_USERS;
+  const projectMembers = useAssigneeCandidatesQuery(instanceId, projectId, true).data ?? EMPTY_MEMBERS;
+  const mentionUsers = useMemo(
+    () => mergeMentionUsers(cachedUsers, projectMembers),
+    [cachedUsers, projectMembers],
+  );
   const setAssignees = useSetIssueAssignees(instanceId, projectId, issueIid);
   const setDescription = useSetIssueDescription(instanceId, projectId, issueIid);
   const setState = useSetIssueState(instanceId, projectId, issueIid);
@@ -290,6 +308,8 @@ export default function IssueDetailView({
             <IssueCommentComposer
               ref={composerRef}
               busy={addNote.isPending}
+              instanceId={instanceId}
+              users={mentionUsers}
               onSubmit={async (body) => {
                 await addNote.mutateAsync(body);
               }}

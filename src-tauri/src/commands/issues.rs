@@ -599,6 +599,31 @@ pub async fn list_issue_assignee_candidates(
         .collect())
 }
 
+/// DTO for an @mention candidate assembled from locally cached users.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnownUserDto {
+    pub username: String,
+    pub name: Option<String>,
+}
+
+/// List GitLab users we have cached locally for the given instance, for use as
+/// @mention candidates. Purely a local read — no GitLab API call.
+#[tauri::command]
+pub async fn list_known_users(
+    pool: State<'_, DbPool>,
+    instance_id: i64,
+) -> Result<Vec<KnownUserDto>, AppError> {
+    let rows = crate::db::known_users::list_known_users(pool.inner(), instance_id).await?;
+    Ok(rows
+        .into_iter()
+        .map(|u| KnownUserDto {
+            username: u.username,
+            name: u.name,
+        })
+        .collect())
+}
+
 /// Load both the client and the authenticated username for an instance.
 async fn create_client_with_username(
     pool: &DbPool,
