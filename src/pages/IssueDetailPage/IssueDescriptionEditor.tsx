@@ -8,11 +8,22 @@
 
 import { useEffect, useRef } from 'react';
 import { Compartment, EditorState, Prec, EditorSelection } from '@codemirror/state';
-import { EditorView, keymap, placeholder, drawSelection } from '@codemirror/view';
+import { EditorView, keymap, placeholder, drawSelection, type Panel } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
-import { search, searchKeymap, highlightSelectionMatches, openSearchPanel } from '@codemirror/search';
+import {
+  search,
+  searchKeymap,
+  highlightSelectionMatches,
+  openSearchPanel,
+  closeSearchPanel,
+  findNext,
+  findPrevious,
+  getSearchQuery,
+  setSearchQuery,
+  SearchQuery,
+} from '@codemirror/search';
 import { tags } from '@lezer/highlight';
 
 export interface IssueDescriptionEditorProps {
@@ -62,35 +73,47 @@ const editorTheme = EditorView.theme({
   '.cm-panels.cm-panels-top': {
     borderBottom: '1px solid var(--border-color)',
   },
-  '.cm-panel.cm-search': {
-    padding: '8px 10px',
+  '.cm-search-bar': {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '6px 8px',
     fontFamily: 'inherit',
-    fontSize: '12px',
   },
-  '.cm-panel.cm-search label': {
-    fontSize: '12px',
-    color: 'var(--text-secondary)',
-  },
-  '.cm-panel.cm-search input, .cm-panel.cm-search button': {
+  '.cm-search-bar-field': {
+    flex: '1',
+    minWidth: '0',
     backgroundColor: 'var(--bg-primary)',
     color: 'var(--text-primary)',
     border: '1px solid var(--border-color)',
     borderRadius: '4px',
-    padding: '2px 6px',
+    padding: '4px 8px',
+    fontSize: '13px',
     fontFamily: 'inherit',
   },
-  '.cm-panel.cm-search button': {
-    cursor: 'pointer',
-    color: 'var(--text-secondary)',
-  },
-  '.cm-panel.cm-search button:hover': {
-    color: 'var(--text-primary)',
+  '.cm-search-bar-field:focus': {
+    outline: 'none',
     borderColor: 'var(--accent-color)',
   },
-  '.cm-panel.cm-search button[name="close"]': {
-    border: 'none',
-    backgroundColor: 'transparent',
-    fontSize: '16px',
+  '.cm-search-bar-button': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '26px',
+    height: '26px',
+    flex: 'none',
+    padding: '0',
+    border: '1px solid var(--border-color)',
+    borderRadius: '4px',
+    backgroundColor: 'var(--bg-primary)',
+    color: 'var(--text-primary)',
+    fontSize: '13px',
+    lineHeight: '1',
+    cursor: 'pointer',
+  },
+  '.cm-search-bar-button:hover': {
+    borderColor: 'var(--accent-color)',
+    color: 'var(--accent-color)',
   },
   '.cm-searchMatch': {
     backgroundColor: 'color-mix(in srgb, var(--accent-color) 28%, transparent)',
@@ -114,18 +137,55 @@ const markdownHighlight = HighlightStyle.define([
 ]);
 
 /**
- * Wrap each selection range in `before`/`after` markers. With an empty
- * selection the markers are inserted and the caret is placed between them.
+ * Toggle `before`/`after` markers around each selection range. If the markers
+ * are already present — either inside the selection (`**bold**` selected) or
+ * immediately flanking it (`bold` selected within `**bold**`) — they are
+ * removed. Otherwise they are added. With an empty selection the markers are
+ * inserted and the caret is placed between them.
  */
 function wrapSelection(view: EditorView, before: string, after: string) {
+  const { doc } = view.state;
   view.dispatch(
     view.state.changeByRange((range) => {
-      const text = view.state.sliceDoc(range.from, range.to);
-      const insert = before + text + after;
+      const selected = view.state.sliceDoc(range.from, range.to);
+
+      // Markers are part of the selection itself — unwrap them.
+      if (
+        selected.length >= before.length + after.length &&
+        selected.startsWith(before) &&
+        selected.endsWith(after)
+      ) {
+        const inner = selected.slice(before.length, selected.length - after.length);
+        return {
+          changes: { from: range.from, to: range.to, insert: inner },
+          range: EditorSelection.range(range.from, range.from + inner.length),
+        };
+      }
+
+      // Markers flank the selection — strip them from around it.
+      const flankFrom = range.from - before.length;
+      const flankTo = range.to + after.length;
+      if (
+        flankFrom >= 0 &&
+        flankTo <= doc.length &&
+        view.state.sliceDoc(flankFrom, range.from) === before &&
+        view.state.sliceDoc(range.to, flankTo) === after
+      ) {
+        return {
+          changes: [
+            { from: flankFrom, to: range.from, insert: '' },
+            { from: range.to, to: flankTo, insert: '' },
+          ],
+          range: EditorSelection.range(flankFrom, range.to - before.length),
+        };
+      }
+
+      // Not wrapped yet — add the markers.
+      const insert = before + selected + after;
       const anchor = range.from + before.length;
       return {
         changes: { from: range.from, to: range.to, insert },
-        range: EditorSelection.range(anchor, anchor + text.length),
+        range: EditorSelection.range(anchor, anchor + selected.length),
       };
     })
   );
@@ -184,6 +244,85 @@ function toggleBulletList(view: EditorView) {
   });
   view.dispatch({ changes });
   view.focus();
+}
+
+/**
+ * A compact find bar shown at the top of the editor. Replaces CodeMirror's
+ * default panel, which is cramped and always exposes the replace row. This one
+ * is find-only and themed with the app's tokens so it reads correctly in dark
+ * mode.
+ */
+function createSearchPanel(view: EditorView): Panel {
+  const dom = document.createElement('div');
+  dom.className = 'cm-search-bar';
+
+  const input = document.createElement('input');
+  input.className = 'cm-search-bar-field';
+  input.placeholder = 'Find in description';
+  input.setAttribute('aria-label', 'Find');
+  const selected = view.state.sliceDoc(
+    view.state.selection.main.from,
+    view.state.selection.main.to
+  );
+  input.value =
+    getSearchQuery(view.state).search || (selected.includes('\n') ? '' : selected);
+
+  const runQuery = () => {
+    view.dispatch({
+      effects: setSearchQuery.of(new SearchQuery({ search: input.value })),
+    });
+  };
+  input.addEventListener('input', runQuery);
+
+  const makeButton = (glyph: string, title: string, onClick: () => void) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'cm-search-bar-button';
+    button.textContent = glyph;
+    button.title = title;
+    button.setAttribute('aria-label', title);
+    // Keep focus in the field so typing keeps driving the query.
+    button.addEventListener('mousedown', (e) => e.preventDefault());
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      onClick();
+    });
+    return button;
+  };
+
+  const prev = makeButton('↑', 'Previous match (⇧↵)', () => findPrevious(view));
+  const next = makeButton('↓', 'Next match (↵)', () => findNext(view));
+  const close = makeButton('✕', 'Close (Esc)', () => {
+    closeSearchPanel(view);
+    view.focus();
+  });
+
+  dom.append(input, prev, next, close);
+
+  // Keep search-field keys from reaching the editor or the page-level Escape
+  // handler that would otherwise close the dialog.
+  dom.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeSearchPanel(view);
+      view.focus();
+    } else if (e.key === 'Enter' && e.target === input) {
+      e.preventDefault();
+      if (e.shiftKey) findPrevious(view);
+      else findNext(view);
+    }
+  });
+
+  return {
+    dom,
+    top: true,
+    mount() {
+      if (input.value) runQuery();
+      input.focus();
+      input.select();
+    },
+  };
 }
 
 export function IssueDescriptionEditor({
@@ -246,7 +385,7 @@ export function IssueDescriptionEditor({
           ),
           history(),
           drawSelection(),
-          search({ top: true }),
+          search({ top: true, createPanel: createSearchPanel }),
           highlightSelectionMatches(),
           keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
           markdown({ base: markdownLanguage }),
