@@ -58,7 +58,6 @@ const editorTheme = EditorView.theme({
   '.cm-panels': {
     backgroundColor: 'var(--bg-secondary)',
     color: 'var(--text-primary)',
-    borderColor: 'var(--border-color)',
   },
   '.cm-panels.cm-panels-top': {
     borderBottom: '1px solid var(--border-color)',
@@ -162,7 +161,12 @@ function toggleBulletList(view: EditorView) {
   const { state } = view;
   const range = state.selection.main;
   const startLine = state.doc.lineAt(range.from);
-  const endLine = state.doc.lineAt(range.to);
+  // A non-empty selection ending exactly at a line's start hasn't really
+  // touched that line, so don't toggle it.
+  const endLine =
+    range.to > range.from && range.to === state.doc.lineAt(range.to).from
+      ? state.doc.lineAt(range.to - 1)
+      : state.doc.lineAt(range.to);
   const lines = [];
   for (let n = startLine.number; n <= endLine.number; n++) {
     lines.push(state.doc.line(n));
