@@ -103,6 +103,32 @@ test.describe('Issue comment @mention autocomplete', () => {
     expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height + 1);
   });
 
+  test('a single result near the bottom is not hidden behind the shortcut footer', async ({
+    page,
+  }) => {
+    // The shortcut footer is pinned at the bottom and paints over the dropdown.
+    // A single short result must still flip above the textarea rather than drop
+    // down into the footer's strip, where it would be covered.
+    await page.setViewportSize({ width: 1000, height: 420 });
+    await page.goto(ISSUE_URL);
+
+    const textarea = page.locator(TEXTAREA);
+    await textarea.scrollIntoViewIfNeeded();
+    await textarea.click();
+    await textarea.pressSequentially('@bo'); // matches only `bob`
+
+    const dropdown = page.locator(DROPDOWN);
+    await expect(dropdown).toBeVisible();
+    await expect(page.locator('.mention-option')).toHaveCount(1);
+
+    const dropBox = await dropdown.boundingBox();
+    const footerBox = await page.locator('.issue-detail-footer').boundingBox();
+    expect(dropBox).not.toBeNull();
+    expect(footerBox).not.toBeNull();
+    // The dropdown must sit entirely above the footer, never overlapping it.
+    expect(dropBox!.y + dropBox!.height).toBeLessThanOrEqual(footerBox!.y + 1);
+  });
+
   test('does not trigger on email-like text', async ({ page }) => {
     await page.goto(ISSUE_URL);
 

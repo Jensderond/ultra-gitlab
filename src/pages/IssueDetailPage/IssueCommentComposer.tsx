@@ -56,7 +56,14 @@ export const IssueCommentComposer = forwardRef<IssueCommentComposerHandle, Props
       if (!ta) return;
       const rect = ta.getBoundingClientRect();
       const estimatedHeight = Math.min(240, matches.length * 36 + 8);
-      const spaceBelow = window.innerHeight - rect.bottom;
+      // The shortcut footer is pinned at the bottom and paints over the dropdown
+      // (its stacking context sits above the scroll area), so the usable space
+      // below ends at the footer's top edge, not the viewport bottom. Without
+      // this, a short single-result list looks like it fits and drops down into
+      // the footer's strip, where it's hidden.
+      const footer = document.querySelector('.issue-detail-footer');
+      const bottomBoundary = footer?.getBoundingClientRect().top ?? window.innerHeight;
+      const spaceBelow = bottomBoundary - rect.bottom;
       const spaceAbove = rect.top;
       setDropUp(spaceBelow < estimatedHeight && spaceAbove > spaceBelow);
     }, [open, matches.length]);
