@@ -76,6 +76,14 @@ const editorTheme = EditorView.theme({
   '&.cm-focused .cm-selectionBackground': {
     backgroundColor: 'var(--wave-glow-strong)',
   },
+  // drawSelection() paints its own layer (above). The contenteditable still has
+  // a native selection, and the app's global ::selection rule would paint it
+  // over the glyphs while focused — stacking into an unreadable wash. Suppress
+  // the native selection inside the editor so only the drawn layer shows.
+  '.cm-content ::selection, .cm-content::selection': {
+    backgroundColor: 'transparent',
+    color: 'inherit',
+  },
   '.cm-panels': {
     backgroundColor: 'var(--bg-secondary)',
     color: 'var(--text-primary)',
