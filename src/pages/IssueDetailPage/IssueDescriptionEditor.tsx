@@ -67,11 +67,14 @@ const editorTheme = EditorView.theme({
   '.cm-placeholder': {
     color: 'var(--text-tertiary)',
   },
+  // Match the app's global ::selection colour so the editor selection looks
+  // the same as everywhere else: dimmer when unfocused, full strength when
+  // focused. These vars are theme-aware (defined for every theme).
   '.cm-selectionBackground': {
-    backgroundColor: 'color-mix(in srgb, var(--accent-color) 22%, transparent)',
+    backgroundColor: 'var(--wave-glow)',
   },
   '&.cm-focused .cm-selectionBackground': {
-    backgroundColor: 'color-mix(in srgb, var(--accent-color) 38%, transparent)',
+    backgroundColor: 'var(--wave-glow-strong)',
   },
   '.cm-panels': {
     backgroundColor: 'var(--bg-secondary)',
