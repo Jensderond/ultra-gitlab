@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { Compartment, EditorState, Prec } from '@codemirror/state';
+import { Compartment, EditorState, Prec, EditorSelection } from '@codemirror/state';
 import { EditorView, keymap, placeholder, drawSelection } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
@@ -116,6 +116,77 @@ const markdownHighlight = HighlightStyle.define([
   { tag: tags.contentSeparator, color: 'var(--text-tertiary)' },
 ]);
 
+/**
+ * Wrap each selection range in `before`/`after` markers. With an empty
+ * selection the markers are inserted and the caret is placed between them.
+ */
+function wrapSelection(view: EditorView, before: string, after: string) {
+  view.dispatch(
+    view.state.changeByRange((range) => {
+      const text = view.state.sliceDoc(range.from, range.to);
+      const insert = before + text + after;
+      const anchor = range.from + before.length;
+      return {
+        changes: { from: range.from, to: range.to, insert },
+        range: EditorSelection.range(anchor, anchor + text.length),
+      };
+    })
+  );
+  view.focus();
+}
+
+/**
+ * Replace the selection with a markdown link, placing the caret on the URL
+ * placeholder so it can be typed over immediately.
+ */
+function insertLink(view: EditorView) {
+  view.dispatch(
+    view.state.changeByRange((range) => {
+      const text = view.state.sliceDoc(range.from, range.to);
+      const label = text || 'text';
+      const insert = `[${label}](url)`;
+      // [ + label + ]( = 3 + label.length chars before the url placeholder.
+      const urlStart = range.from + 3 + label.length;
+      return {
+        changes: { from: range.from, to: range.to, insert },
+        range: EditorSelection.range(urlStart, urlStart + 'url'.length),
+      };
+    })
+  );
+  view.focus();
+}
+
+/**
+ * Toggle a `- ` bullet prefix on every line touched by the main selection.
+ * If every touched line already has a bullet, the bullets are removed.
+ */
+function toggleBulletList(view: EditorView) {
+  const { state } = view;
+  const range = state.selection.main;
+  const startLine = state.doc.lineAt(range.from);
+  const endLine = state.doc.lineAt(range.to);
+  const lines = [];
+  for (let n = startLine.number; n <= endLine.number; n++) {
+    lines.push(state.doc.line(n));
+  }
+  const bulletRe = /^(\s*)- /;
+  const allBulleted = lines.every((line) => bulletRe.test(line.text));
+  const changes = lines.map((line) => {
+    if (allBulleted) {
+      const match = line.text.match(bulletRe);
+      const indent = match ? match[1].length : 0;
+      const markerEnd = match ? match[0].length : 0;
+      return { from: line.from + indent, to: line.from + markerEnd, insert: '' };
+    }
+    return { from: line.from, to: line.from, insert: '- ' };
+  });
+  view.dispatch({ changes });
+  view.focus();
+}
+
+// toggleBulletList is used by the toolbar in a later task (kept to avoid re-adding)
+void (toggleBulletList as unknown);
+
 export function IssueDescriptionEditor({
   initialValue,
   busy,
@@ -148,6 +219,27 @@ export function IssueDescriptionEditor({
                 run: (v) => {
                   const { busy: isBusy, onSave: save } = latestRef.current;
                   if (!isBusy) save(v.state.doc.toString());
+                  return true;
+                },
+              },
+              {
+                key: 'Mod-b',
+                run: (v) => {
+                  if (!latestRef.current.busy) wrapSelection(v, '**', '**');
+                  return true;
+                },
+              },
+              {
+                key: 'Mod-i',
+                run: (v) => {
+                  if (!latestRef.current.busy) wrapSelection(v, '_', '_');
+                  return true;
+                },
+              },
+              {
+                key: 'Mod-k',
+                run: (v) => {
+                  if (!latestRef.current.busy) insertLink(v);
                   return true;
                 },
               },
