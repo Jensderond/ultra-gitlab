@@ -77,6 +77,27 @@ test.describe('Issue description editing', () => {
     await expect(editor).toBeVisible();
   });
 
+  test('the bold shortcut wraps a selection and toggles it back off', async ({ page }) => {
+    await page.goto(ISSUE_URL);
+
+    const description = page.locator('.issue-description');
+    await description.hover();
+    await description.locator('.issue-description-edit').click();
+
+    const editor = description.locator(EDITOR_CONTENT);
+    await editor.fill('bold');
+    await editor.click();
+    await page.keyboard.press('ControlOrMeta+a');
+
+    // First press wraps the selection in ** markers.
+    await page.keyboard.press('ControlOrMeta+b');
+    await expect(editor).toHaveText('**bold**');
+
+    // Second press toggles them back off (must not add more markers).
+    await page.keyboard.press('ControlOrMeta+b');
+    await expect(editor).toHaveText('bold');
+  });
+
   test('markdown syntax is highlighted in the editor', async ({ page }) => {
     await page.goto(ISSUE_URL);
 

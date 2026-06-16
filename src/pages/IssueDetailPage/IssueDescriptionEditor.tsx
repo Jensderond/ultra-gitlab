@@ -54,6 +54,13 @@ const editorTheme = EditorView.theme({
     minHeight: '140px',
     caretColor: 'var(--text-primary)',
   },
+  // drawSelection() hides the native caret and draws its own; the theme isn't
+  // flagged dark, so CodeMirror defaults it to black (invisible on a dark
+  // background). Colour it explicitly.
+  '.cm-cursor, .cm-dropCursor': {
+    borderLeftColor: 'var(--text-primary)',
+    borderLeftWidth: '2px',
+  },
   '.cm-line': {
     padding: '0 12px',
   },
