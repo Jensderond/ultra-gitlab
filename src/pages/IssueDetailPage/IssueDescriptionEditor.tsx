@@ -13,8 +13,6 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { search, searchKeymap, highlightSelectionMatches, openSearchPanel } from '@codemirror/search';
-// openSearchPanel is used in a later task (kept to avoid re-adding the import)
-void (openSearchPanel as unknown);
 import { tags } from '@lezer/highlight';
 
 export interface IssueDescriptionEditorProps {
@@ -184,9 +182,6 @@ function toggleBulletList(view: EditorView) {
   view.focus();
 }
 
-// toggleBulletList is used by the toolbar in a later task (kept to avoid re-adding)
-void (toggleBulletList as unknown);
-
 export function IssueDescriptionEditor({
   initialValue,
   busy,
@@ -289,6 +284,11 @@ export function IssueDescriptionEditor({
     if (!busy && view) onSave(view.state.doc.toString());
   };
 
+  const runCommand = (fn: (view: EditorView) => void) => {
+    const view = viewRef.current;
+    if (!busy && view) fn(view);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Escape') {
       // Always stop the key here so it never reaches the page-level handler
@@ -306,11 +306,97 @@ export function IssueDescriptionEditor({
 
   return (
     <div className="issue-description-editor">
-      <div
-        ref={containerRef}
-        className="issue-description-editor-cm"
-        onKeyDown={handleKeyDown}
-      />
+      <div className="issue-description-editor-shell">
+        <div className="issue-description-editor-toolbar" role="toolbar" aria-label="Formatting">
+          <button
+            type="button"
+            className="editor-tool-button"
+            title="Bold (⌘B)"
+            aria-label="Bold"
+            disabled={busy}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => runCommand((v) => wrapSelection(v, '**', '**'))}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="editor-tool-button"
+            title="Italic (⌘I)"
+            aria-label="Italic"
+            disabled={busy}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => runCommand((v) => wrapSelection(v, '_', '_'))}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M10 5h7M7 19h7M14 5l-4 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="editor-tool-button"
+            title="Inline code"
+            aria-label="Inline code"
+            disabled={busy}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => runCommand((v) => wrapSelection(v, '`', '`'))}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M9 8l-4 4 4 4M15 8l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="editor-tool-button"
+            title="Link (⌘K)"
+            aria-label="Link"
+            disabled={busy}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => runCommand(insertLink)}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M10 14a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1 1M14 10a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1-1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="editor-tool-button"
+            title="Bulleted list"
+            aria-label="Bulleted list"
+            disabled={busy}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => runCommand(toggleBulletList)}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="4.5" cy="6" r="1.5" fill="currentColor" />
+              <circle cx="4.5" cy="12" r="1.5" fill="currentColor" />
+              <circle cx="4.5" cy="18" r="1.5" fill="currentColor" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="editor-tool-button editor-tool-button--end"
+            title="Find (⌘F)"
+            aria-label="Find"
+            disabled={busy}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => runCommand((v) => openSearchPanel(v))}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2" />
+              <path d="M20 20l-4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+        <div
+          ref={containerRef}
+          className="issue-description-editor-cm"
+          onKeyDown={handleKeyDown}
+        />
+      </div>
       <div className="issue-description-editor-actions">
         <button
           type="button"
