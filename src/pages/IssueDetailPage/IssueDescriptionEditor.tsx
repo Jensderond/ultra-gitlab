@@ -8,7 +8,7 @@
 
 import { useEffect, useRef } from 'react';
 import { Compartment, EditorState, Prec } from '@codemirror/state';
-import { EditorView, keymap, placeholder } from '@codemirror/view';
+import { EditorView, keymap, placeholder, drawSelection } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
@@ -47,6 +47,12 @@ const editorTheme = EditorView.theme({
   },
   '.cm-placeholder': {
     color: 'var(--text-tertiary)',
+  },
+  '.cm-selectionBackground': {
+    backgroundColor: 'color-mix(in srgb, var(--accent-color) 22%, transparent)',
+  },
+  '&.cm-focused .cm-selectionBackground': {
+    backgroundColor: 'color-mix(in srgb, var(--accent-color) 38%, transparent)',
   },
 });
 
@@ -101,6 +107,7 @@ export function IssueDescriptionEditor({
             ])
           ),
           history(),
+          drawSelection(),
           keymap.of([...defaultKeymap, ...historyKeymap]),
           markdown({ base: markdownLanguage }),
           syntaxHighlighting(markdownHighlight),
