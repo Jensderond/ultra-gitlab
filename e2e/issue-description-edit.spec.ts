@@ -98,6 +98,30 @@ test.describe('Issue description editing', () => {
     await expect(editor).toHaveText('bold');
   });
 
+  test('focused selection uses the theme colour, not the washed-out default', async ({ page }) => {
+    await page.goto(ISSUE_URL);
+
+    const description = page.locator('.issue-description');
+    await description.hover();
+    await description.locator('.issue-description-edit').click();
+
+    const editor = description.locator(EDITOR_CONTENT);
+    await editor.fill('select me');
+    await editor.click();
+    await page.keyboard.press('ControlOrMeta+a');
+
+    // drawSelection paints .cm-selectionBackground behind the glyphs.
+    const bg = await description
+      .locator('.cm-selectionBackground')
+      .first()
+      .evaluate((el) => getComputedStyle(el).backgroundColor);
+
+    // --wave-glow-strong is the accent blue rgba(126, 156, 216, 0.3); the
+    // washed-out CodeMirror default we are overriding is rgb(215, 212, 240).
+    expect(bg).toContain('126, 156, 216');
+    expect(bg).not.toContain('215, 212, 240');
+  });
+
   test('markdown syntax is highlighted in the editor', async ({ page }) => {
     await page.goto(ISSUE_URL);
 

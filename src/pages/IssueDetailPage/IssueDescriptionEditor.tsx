@@ -70,11 +70,17 @@ const editorTheme = EditorView.theme({
   // Match the app's global ::selection colour so the editor selection looks
   // the same as everywhere else: dimmer when unfocused, full strength when
   // focused. These vars are theme-aware (defined for every theme).
-  '.cm-selectionBackground': {
-    backgroundColor: 'var(--wave-glow)',
+  //
+  // drawSelection()'s default focused selection uses a very specific selector
+  // (`&light.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground`,
+  // colour #d7d4f0 — a light lavender). Our theme isn't flagged dark, so that
+  // default wins over a less-specific rule and washes the text out. Match the
+  // `.cm-selectionLayer` depth and use !important to override it in every state.
+  '.cm-selectionLayer .cm-selectionBackground': {
+    backgroundColor: 'var(--wave-glow) !important',
   },
-  '&.cm-focused .cm-selectionBackground': {
-    backgroundColor: 'var(--wave-glow-strong)',
+  '&.cm-focused .cm-selectionLayer .cm-selectionBackground': {
+    backgroundColor: 'var(--wave-glow-strong) !important',
   },
   // drawSelection() paints its own layer (above). The contenteditable still has
   // a native selection, and the app's global ::selection rule would paint it
