@@ -12,6 +12,9 @@ import { EditorView, keymap, placeholder, drawSelection } from '@codemirror/view
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
+import { search, searchKeymap, highlightSelectionMatches, openSearchPanel } from '@codemirror/search';
+// openSearchPanel is used in a later task (kept to avoid re-adding the import)
+void (openSearchPanel as unknown);
 import { tags } from '@lezer/highlight';
 
 export interface IssueDescriptionEditorProps {
@@ -53,6 +56,50 @@ const editorTheme = EditorView.theme({
   },
   '&.cm-focused .cm-selectionBackground': {
     backgroundColor: 'color-mix(in srgb, var(--accent-color) 38%, transparent)',
+  },
+  '.cm-panels': {
+    backgroundColor: 'var(--bg-secondary)',
+    color: 'var(--text-primary)',
+    borderColor: 'var(--border-color)',
+  },
+  '.cm-panels.cm-panels-top': {
+    borderBottom: '1px solid var(--border-color)',
+  },
+  '.cm-panel.cm-search': {
+    padding: '8px 10px',
+    fontFamily: 'inherit',
+    fontSize: '12px',
+  },
+  '.cm-panel.cm-search label': {
+    fontSize: '12px',
+    color: 'var(--text-secondary)',
+  },
+  '.cm-panel.cm-search input, .cm-panel.cm-search button': {
+    backgroundColor: 'var(--bg-primary)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '4px',
+    padding: '2px 6px',
+    fontFamily: 'inherit',
+  },
+  '.cm-panel.cm-search button': {
+    cursor: 'pointer',
+    color: 'var(--text-secondary)',
+  },
+  '.cm-panel.cm-search button:hover': {
+    color: 'var(--text-primary)',
+    borderColor: 'var(--accent-color)',
+  },
+  '.cm-panel.cm-search button[name="close"]': {
+    border: 'none',
+    backgroundColor: 'transparent',
+    fontSize: '16px',
+  },
+  '.cm-searchMatch': {
+    backgroundColor: 'color-mix(in srgb, var(--accent-color) 28%, transparent)',
+  },
+  '.cm-searchMatch.cm-searchMatch-selected': {
+    backgroundColor: 'color-mix(in srgb, var(--accent-color) 55%, transparent)',
   },
 });
 
@@ -108,7 +155,9 @@ export function IssueDescriptionEditor({
           ),
           history(),
           drawSelection(),
-          keymap.of([...defaultKeymap, ...historyKeymap]),
+          search({ top: true }),
+          highlightSelectionMatches(),
+          keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
           markdown({ base: markdownLanguage }),
           syntaxHighlighting(markdownHighlight),
           EditorView.lineWrapping,
@@ -150,9 +199,13 @@ export function IssueDescriptionEditor({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Escape') {
-      // Must not bubble to the view-level handler, which would close the page.
-      e.preventDefault();
+      // Always stop the key here so it never reaches the page-level handler
+      // (which would close the dialog).
       e.stopPropagation();
+      // CodeMirror's search keymap calls preventDefault when it closes an open
+      // search panel. In that case, swallow the key and keep editing.
+      if (e.defaultPrevented) return;
+      e.preventDefault();
       onCancel();
     } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.stopPropagation();
