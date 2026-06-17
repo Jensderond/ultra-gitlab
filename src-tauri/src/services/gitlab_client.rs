@@ -1658,6 +1658,51 @@ fn parse_graphql_user_id(gid: &str) -> Option<i64> {
     gid.rsplit('/').next()?.parse().ok()
 }
 
+/// Build the GraphQL query fetching `{ id, manualJob }` for every job in one
+/// pipeline. `pipeline_id` is the REST/database pipeline id; GitLab accepts it
+/// as a `CiPipelineID` global id.
+fn build_manual_flags_query(project_full_path: &str, pipeline_id: i64) -> String {
+    // serde_json::to_string produces a quoted, escaped GraphQL string literal.
+    let path_literal = serde_json::to_string(project_full_path)
+        .unwrap_or_else(|_| format!("\"{}\"", project_full_path));
+    format!(
+        "query {{ project(fullPath: {path}) {{ \
+           pipeline(id: \"gid://gitlab/Ci::Pipeline/{pid}\") {{ \
+             jobs(first: 100) {{ nodes {{ id manualJob }} }} \
+           }} }} }}",
+        path = path_literal,
+        pid = pipeline_id,
+    )
+}
+
+/// Parse the manual-flags GraphQL `data` payload into a map of job id -> manual.
+/// Missing/malformed fields are skipped; result is empty when the pipeline or
+/// jobs are absent.
+fn parse_manual_flags(data: &serde_json::Value) -> std::collections::HashMap<i64, bool> {
+    let mut map = std::collections::HashMap::new();
+    let nodes = data
+        .get("project")
+        .and_then(|p| p.get("pipeline"))
+        .and_then(|p| p.get("jobs"))
+        .and_then(|j| j.get("nodes"))
+        .and_then(|n| n.as_array());
+    if let Some(nodes) = nodes {
+        for node in nodes {
+            if let Some(id) = node.get("id").and_then(|i| i.as_str()).and_then(parse_ci_build_id) {
+                let manual = node.get("manualJob").and_then(|m| m.as_bool()).unwrap_or(false);
+                map.insert(id, manual);
+            }
+        }
+    }
+    map
+}
+
+/// Extract the trailing numeric id from a CI job global id
+/// (`gid://gitlab/Ci::Build/<n>`). Returns None if the tail isn't a number.
+fn parse_ci_build_id(gid: &str) -> Option<i64> {
+    gid.rsplit('/').next()?.parse().ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1837,5 +1882,41 @@ mod tests {
         assert_eq!(state.approvals.approvals_required, 0);
         assert!(state.approvals.approved_by.is_empty());
         assert!(state.head_pipeline_status.is_none());
+    }
+
+    #[test]
+    fn parse_ci_build_id_extracts_trailing_number() {
+        assert_eq!(parse_ci_build_id("gid://gitlab/Ci::Build/808382"), Some(808382));
+        assert_eq!(parse_ci_build_id("gid://gitlab/CommitStatus/42"), Some(42));
+        assert_eq!(parse_ci_build_id("not-a-gid"), None);
+        assert_eq!(parse_ci_build_id("gid://gitlab/Ci::Build/"), None);
+    }
+
+    #[test]
+    fn build_manual_flags_query_embeds_path_and_pipeline_gid() {
+        let q = build_manual_flags_query("customers/normec/website", 324844);
+        assert!(q.contains("project(fullPath: \"customers/normec/website\")"));
+        assert!(q.contains("pipeline(id: \"gid://gitlab/Ci::Pipeline/324844\")"));
+        assert!(q.contains("manualJob"));
+    }
+
+    #[test]
+    fn parse_manual_flags_maps_job_id_to_manual_flag() {
+        let data = serde_json::json!({
+            "project": { "pipeline": { "jobs": { "nodes": [
+                { "id": "gid://gitlab/Ci::Build/808382", "manualJob": true },
+                { "id": "gid://gitlab/Ci::Build/808381", "manualJob": false }
+            ]}}}
+        });
+        let flags = parse_manual_flags(&data);
+        assert_eq!(flags.get(&808382), Some(&true));
+        assert_eq!(flags.get(&808381), Some(&false));
+        assert_eq!(flags.len(), 2);
+    }
+
+    #[test]
+    fn parse_manual_flags_empty_on_missing_pipeline() {
+        let data = serde_json::json!({ "project": { "pipeline": null } });
+        assert!(parse_manual_flags(&data).is_empty());
     }
 }
