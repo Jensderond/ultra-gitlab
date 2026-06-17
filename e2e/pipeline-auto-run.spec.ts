@@ -19,6 +19,14 @@ test.describe('Auto-run manual jobs', () => {
     await expect(successRow.locator('.pipeline-job-action-btn--auto')).toHaveCount(0);
   });
 
+  test('created manual job shows Auto; created automatic job does not', async ({ page }) => {
+    const createdManual = page.locator('.pipeline-job-row', { hasText: 'Deploy review' });
+    await expect(createdManual.locator('.pipeline-job-action-btn--auto')).toBeVisible();
+
+    const createdAuto = page.locator('.pipeline-job-row', { hasText: 'build-extra' });
+    await expect(createdAuto.locator('.pipeline-job-action-btn--auto')).toHaveCount(0);
+  });
+
   test('clicking Auto arms the job and clicking again disarms it', async ({ page }) => {
     const manualRow = page.locator('.pipeline-job-row', { hasText: 'Deploy production' });
     const autoBtn = manualRow.locator('.pipeline-job-action-btn--auto');
