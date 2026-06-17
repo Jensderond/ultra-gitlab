@@ -470,6 +470,7 @@ mod tests {
                 web_url: "http://x/-/pipelines/323693".into(),
             }),
             is_bridge: true,
+            manual: false,
         };
         let row = JobRow::from(j);
         assert!(row.is_bridge);
