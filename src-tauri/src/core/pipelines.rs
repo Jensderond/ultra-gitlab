@@ -10,7 +10,7 @@ use crate::db::pool::DbPool;
 use crate::error::AppError;
 use crate::models::pipeline_project::{self, PipelineProject};
 use crate::models::project::{self, Project};
-use crate::services::gitlab_client::{GitLabJob, GitLabPipeline};
+use crate::services::gitlab_client::{GitLabClient, GitLabJob, GitLabPipeline};
 use futures::future::join_all;
 use std::collections::HashSet;
 
@@ -212,7 +212,40 @@ pub async fn pipeline_jobs(
             b
         }));
     }
+
+    // Enrich with `when: manual` flags via GraphQL so the UI can offer auto-run
+    // on jobs still in `created` (REST exposes no manual indicator). Strictly
+    // best-effort: any failure leaves `manual = false` and never fails the list.
+    if let Some(path) = project_full_path(pool, instance_id, project_id, &client).await {
+        if let Ok(flags) = client.fetch_pipeline_manual_flags(&path, pipeline_id).await {
+            for job in jobs.iter_mut() {
+                if let Some(&manual) = flags.get(&job.id) {
+                    job.manual = manual;
+                }
+            }
+        }
+    }
+
     Ok(jobs)
+}
+
+/// Resolve a project's `path_with_namespace` for GraphQL (which keys on full
+/// path, not numeric id). Prefers the local cache; falls back to the API.
+/// Returns None if neither is available — caller then skips manual enrichment.
+async fn project_full_path(
+    pool: &DbPool,
+    instance_id: i64,
+    project_id: i64,
+    client: &GitLabClient,
+) -> Option<String> {
+    if let Ok(Some(p)) = project::get_project(pool, instance_id, project_id).await {
+        return Some(p.path_with_namespace);
+    }
+    client
+        .get_project(project_id)
+        .await
+        .ok()
+        .map(|p| p.path_with_namespace)
 }
 
 /// Play (trigger) a manual job.
