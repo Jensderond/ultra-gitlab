@@ -53,6 +53,7 @@ pub struct PipelineJob {
     pub runner_description: Option<String>,
     pub is_bridge: bool,
     pub downstream_pipeline: Option<DownstreamPipeline>,
+    pub manual: bool,
 }
 
 /// Downstream (child or multi-project) pipeline triggered by a bridge job.
@@ -103,6 +104,7 @@ fn to_job_dto(j: GitLabJob) -> PipelineJob {
             ref_name: d.ref_name,
             web_url: d.web_url,
         }),
+        manual: j.manual,
     }
 }
 
