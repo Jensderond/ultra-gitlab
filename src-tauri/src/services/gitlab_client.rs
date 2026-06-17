@@ -322,6 +322,11 @@ pub struct GitLabJob {
     /// never present in API responses.
     #[serde(default)]
     pub is_bridge: bool,
+    /// True when the job is `when: manual`. Not provided by the REST jobs API;
+    /// populated best-effort from GraphQL in `core::pipelines::pipeline_jobs`.
+    /// Defaults to false so REST-only deserialization is unaffected.
+    #[serde(default)]
+    pub manual: bool,
 }
 
 /// Nested pipeline ref inside a job response.
