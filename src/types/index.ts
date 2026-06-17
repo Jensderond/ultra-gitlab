@@ -547,6 +547,8 @@ export interface PipelineJob {
   isBridge: boolean;
   /** Pipeline triggered by a bridge job; null until/unless GitLab created it. */
   downstreamPipeline: DownstreamPipeline | null;
+  /** True when this is a `when: manual` job (from GraphQL CiJob.manualJob). */
+  manual: boolean;
 }
 
 export interface DownstreamPipeline {

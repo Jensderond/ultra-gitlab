@@ -19,7 +19,9 @@ export default function JobRow({ job, loading, onPlay, onRetry, onCancel, onNavi
   const canPlay = job.status === 'manual' || job.status === 'scheduled';
   const canRetry = job.status === 'failed' || job.status === 'canceled';
   const canCancel = job.status === 'running' || job.status === 'pending' || job.status === 'created';
-  const canAutoRun = job.status === 'manual';
+  // Manual jobs can be armed before their stage is reached: while still
+  // `created`, the backend waits and plays once prior stages succeed.
+  const canAutoRun = job.manual && (job.status === 'manual' || job.status === 'created');
   // Bridges have no log; the row drills into the downstream pipeline instead,
   // which needs a project id to fetch jobs from.
   const navigable = !job.isBridge || job.downstreamPipeline?.projectId != null;
