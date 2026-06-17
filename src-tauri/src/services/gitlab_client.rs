@@ -1372,6 +1372,21 @@ impl GitLabClient {
         Ok(result)
     }
 
+    /// Fetch which jobs in a pipeline are `when: manual`, keyed by REST job id.
+    ///
+    /// GitLab's REST jobs API does not expose a manual indicator, so this uses
+    /// GraphQL `CiJob.manualJob` (config-derived, status-independent). Callers
+    /// treat this as best-effort: on error, fall back to an empty map.
+    pub async fn fetch_pipeline_manual_flags(
+        &self,
+        project_full_path: &str,
+        pipeline_id: i64,
+    ) -> Result<std::collections::HashMap<i64, bool>, AppError> {
+        let query = build_manual_flags_query(project_full_path, pipeline_id);
+        let data = self.graphql(&query).await?;
+        Ok(parse_manual_flags(&data))
+    }
+
     /// Delete a note (comment) from a merge request.
     ///
     /// GitLab API: DELETE /projects/:id/merge_requests/:iid/notes/:note_id
