@@ -1,6 +1,6 @@
 /**
  * Custom instance switcher dropdown with native macOS look and feel.
- * Supports Cmd+1/2/3... keyboard shortcuts for quick switching.
+ * Supports Cmd+Shift+1/2/3... keyboard shortcuts for quick switching.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -46,7 +46,7 @@ export default function InstanceSwitcher({ instances, selectedId, onSelect }: In
     return () => window.removeEventListener('keydown', handleKey);
   }, [open]);
 
-  // Listen for global instance-switch events (from Cmd+1/2/3 shortcuts)
+  // Listen for global instance-switch events (from Cmd+Shift+1/2/3 shortcuts)
   useEffect(() => {
     function handleSwitch(e: Event) {
       const detail = (e as CustomEvent<{ index: number }>).detail;
@@ -152,7 +152,7 @@ export default function InstanceSwitcher({ instances, selectedId, onSelect }: In
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 )}
-                <kbd className="instance-switcher-shortcut">{'\u2318'}{index + 1}</kbd>
+                <kbd className="instance-switcher-shortcut">{'\u21e7'}{'\u2318'}{index + 1}</kbd>
               </span>
             </button>
           ))}

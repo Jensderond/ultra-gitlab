@@ -178,17 +178,23 @@ function AppContent() {
     setKeyboardHelpOpen(true);
   });
 
-  // Cmd+1..9 to switch instance (dynamic keys — not customizable)
+  // Cmd+Shift+1..9 to switch instance (dynamic keys — not customizable)
   useEffect(() => {
     function handleInstanceSwitch(e: KeyboardEvent) {
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
       ) return;
-      if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '9') {
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        e.code.startsWith('Digit') &&
+        e.code !== 'Digit0'
+      ) {
         e.preventDefault();
-        const index = parseInt(e.key, 10) - 1;
-        trackShortcut(`Mod+${e.key}`, 'switch_instance', 'global');
+        const digit = e.code.slice('Digit'.length);
+        const index = parseInt(digit, 10) - 1;
+        trackShortcut(`Mod+Shift+${digit}`, 'switch_instance', 'global');
         window.dispatchEvent(
           new CustomEvent('instance-switch', { detail: { index } })
         );

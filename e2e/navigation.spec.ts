@@ -88,3 +88,28 @@ test.describe('Navigation & Sidebar', () => {
   });
 
 });
+
+test.describe('Instance switch shortcut (Cmd+Shift+digit)', () => {
+  test('Cmd+Shift+1 dispatches instance-switch; plain Cmd+1 does not', async ({ page }) => {
+    await page.goto('/mrs');
+
+    await page.evaluate(() => {
+      (window as unknown as { __instanceSwitchIndexes: number[] }).__instanceSwitchIndexes = [];
+      window.addEventListener('instance-switch', (e) => {
+        (window as unknown as { __instanceSwitchIndexes: number[] }).__instanceSwitchIndexes.push(
+          (e as CustomEvent<{ index: number }>).detail.index
+        );
+      });
+    });
+
+    await page.keyboard.press('ControlOrMeta+Shift+Digit1');
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { __instanceSwitchIndexes: number[] }).__instanceSwitchIndexes))
+      .toEqual([0]);
+
+    await page.keyboard.press('ControlOrMeta+Digit2');
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { __instanceSwitchIndexes: number[] }).__instanceSwitchIndexes))
+      .toEqual([0]);
+  });
+});
