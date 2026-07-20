@@ -84,6 +84,23 @@
   background: var(--success-color, #28a745);
 }
 
+.app-sidebar-number-hint {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 2px;
+  border-radius: 4px;
+  background: var(--accent-color);
+  color: var(--bg-secondary);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 14px;
+  text-align: center;
+  pointer-events: none;
+}
+
 .app-sidebar-item:hover {
   background: var(--bg-hover);
   color: var(--text-secondary);

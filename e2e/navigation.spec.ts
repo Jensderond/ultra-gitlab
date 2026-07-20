@@ -113,3 +113,20 @@ test.describe('Instance switch shortcut (Cmd+Shift+digit)', () => {
       .toEqual([0]);
   });
 });
+
+test.describe('Cmd-hold sidebar number hints', () => {
+  test('holding Cmd shows numbered badges on top nav items only, hidden on release', async ({ page }) => {
+    await page.goto('/mrs');
+
+    const badges = page.locator('.app-sidebar-number-hint');
+    await expect(badges).toHaveCount(0);
+
+    await page.keyboard.down('ControlOrMeta');
+    await expect(badges).toHaveCount(4);
+    await expect(badges).toHaveText(['1', '2', '3', '4']);
+    await expect(page.locator('button[title="Settings"] .app-sidebar-number-hint')).toHaveCount(0);
+
+    await page.keyboard.up('ControlOrMeta');
+    await expect(badges).toHaveCount(0);
+  });
+});

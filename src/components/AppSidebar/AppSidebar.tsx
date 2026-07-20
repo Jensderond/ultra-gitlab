@@ -5,7 +5,7 @@
  */
 
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useRef, useLayoutEffect, useEffect, useCallback } from 'react';
+import { useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react';
 import { isTauri } from '../../services/transport';
 import './AppSidebar.css';
 
@@ -81,6 +81,10 @@ const navItems: NavItem[] = [
 ];
 
 const isBottomPath = (path: string) => navItems.some(item => item.path === path && item.bottom);
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+}
 
 export function AppSidebar({ updateAvailable, hasApprovedMRs, companionEnabled, companionDeviceCount = 0 }: AppSidebarProps) {
   const navigate = useNavigate();
@@ -183,11 +187,34 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs, companionEnabled, 
     };
   }, []);
 
+  const [cmdHeld, setCmdHeld] = useState(false);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (isEditableTarget(e.target)) return;
+      if (e.key === 'Meta' || e.key === 'Control') setCmdHeld(true);
+    }
+    function handleKeyUp(e: KeyboardEvent) {
+      if (e.key === 'Meta' || e.key === 'Control') setCmdHeld(false);
+    }
+    function handleBlur() {
+      setCmdHeld(false);
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, []);
+
   return (
     <nav className="app-sidebar" ref={sidebarRef}>
       <div className="app-sidebar-indicator" ref={indicatorRef} />
       <div className="app-sidebar-top">
-        {topItems.map(item => (
+        {topItems.map((item, index) => (
           <button
             key={item.path}
             data-path={item.path}
@@ -198,6 +225,9 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs, companionEnabled, 
             {item.icon}
             {item.path === '/my-mrs' && hasApprovedMRs && (
               <span className="approved-dot" />
+            )}
+            {cmdHeld && (
+              <span className="app-sidebar-number-hint">{index + 1}</span>
             )}
           </button>
         ))}
