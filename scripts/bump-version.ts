@@ -56,12 +56,17 @@ for (const file of files) {
   console.log(`  done  ${file.path}`);
 }
 
-// Update Cargo.lock to reflect the new version
+// Update Cargo.lock to reflect the new version. Scoped to just the workspace
+// crates so pinned dependency versions (which must stay in lockstep with the
+// npm package versions Tauri checks against) aren't re-resolved.
 console.log("\nUpdating lock files...");
-const cargo = Bun.spawnSync(["cargo", "generate-lockfile", "--manifest-path", "src-tauri/Cargo.toml"], {
-  stdout: "ignore",
-  stderr: "pipe",
-});
+const cargo = Bun.spawnSync(
+  ["cargo", "update", "-p", "ultra-gitlab", "-p", "ultra-gitlab-cli", "--manifest-path", "src-tauri/Cargo.toml"],
+  {
+    stdout: "ignore",
+    stderr: "pipe",
+  },
+);
 if (cargo.exitCode === 0) {
   console.log("  done  Cargo.lock");
 } else {
