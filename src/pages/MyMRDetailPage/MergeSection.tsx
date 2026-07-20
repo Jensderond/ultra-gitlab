@@ -220,23 +220,7 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
   return (
     <section className="my-mr-merge-section">
       <h3>Merge</h3>
-      {autoMergeOn ? (
-        <div className="my-mr-auto-merge-active">
-          <div className="my-mr-auto-merge-status">
-            <span className="my-mr-auto-merge-dot" />
-            <div className="my-mr-auto-merge-text">
-              <strong>Auto-merge enabled</strong>
-              <span className="my-mr-auto-merge-detail">{autoMergeLabel}</span>
-              {autoMergeClaim?.lastError && (
-                <span className="my-mr-auto-merge-error">{autoMergeClaim.lastError}</span>
-              )}
-            </div>
-          </div>
-          <button className="my-mr-merge-cancel" onClick={toggleAutoMerge}>
-            Cancel auto-merge
-          </button>
-        </div>
-      ) : isDraft || mergeStatus === 'draft_status' ? (
+      {isDraft || mergeStatus === 'draft_status' ? (
         <div className="my-mr-merge-actions">
           <span className="my-mr-merge-status draft">Draft</span>
           <button className="my-mr-action-btn rebase" onClick={handleUndraft}>
@@ -304,15 +288,36 @@ export function MergeSection({ mr, mergeState, mergeDispatch, mrId, setMr, actio
       {mergeError && (
         <p className="my-mr-merge-error">{mergeError}</p>
       )}
-      {!autoMergeOn && (
-        <label className="my-mr-auto-merge-toggle">
-          <input type="checkbox" checked={false} onChange={toggleAutoMerge} />
-          <span>Auto-merge when ready</span>
-          <span className="my-mr-auto-merge-hint">
-            Background sync rebases if needed and merges once GitLab reports the MR as mergeable.
-          </span>
-        </label>
-      )}
+      <div className={`my-mr-auto-merge-card${autoMergeOn ? ' active' : ''}`}>
+        <div className="my-mr-auto-merge-header">
+          <span className="my-mr-auto-merge-title">Auto-merge</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={autoMergeOn}
+            aria-label="Auto-merge"
+            className={`my-mr-auto-merge-switch${autoMergeOn ? ' active' : ''}`}
+            onClick={toggleAutoMerge}
+          >
+            <span className="my-mr-auto-merge-knob" />
+          </button>
+        </div>
+        {autoMergeOn ? (
+          <>
+            <div className="my-mr-auto-merge-status">
+              <span className="my-mr-auto-merge-dot" />
+              <span className="my-mr-auto-merge-detail">{autoMergeLabel}</span>
+            </div>
+            {autoMergeClaim?.lastError && (
+              <p className="my-mr-auto-merge-error">{autoMergeClaim.lastError}</p>
+            )}
+          </>
+        ) : (
+          <p className="my-mr-auto-merge-desc">
+            Rebases and merges automatically once GitLab reports the MR as mergeable.
+          </p>
+        )}
+      </div>
     </section>
   );
 }

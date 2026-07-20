@@ -67,6 +67,17 @@ export async function mockTauriIPC(page: Page) {
     }
     const autoRunClaims: MockAutoRunClaim[] = [];
 
+    // -- Auto-merge claim state (per-page, resets on each test navigation) --
+    interface MockAutoMergeClaim {
+      mrId: number;
+      claimedAt: number;
+      lastStatus: string | null;
+      lastError: string | null;
+      lastAttemptAt: number | null;
+      attempts: number;
+    }
+    const autoMergeClaims = new Map<number, MockAutoMergeClaim>();
+
     // Command handlers — return data matching the Rust backend shape
     const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
       // -- Instances --
@@ -111,6 +122,26 @@ export async function mockTauriIPC(page: Page) {
       merge_mr: () => undefined,
       check_merge_status: () => 'mergeable',
       rebase_mr: () => undefined,
+
+      // -- Auto-merge claims (stateful, per page load) --
+      claim_auto_merge: (args) => {
+        const mrId = args.mrId as number;
+        const claim = {
+          mrId,
+          claimedAt: 1700000000,
+          lastStatus: 'not_approved',
+          lastError: null,
+          lastAttemptAt: null,
+          attempts: 0,
+        };
+        autoMergeClaims.set(mrId, claim);
+        return claim;
+      },
+      unclaim_auto_merge: (args) => {
+        autoMergeClaims.delete(args.mrId as number);
+        return undefined;
+      },
+      get_auto_merge_claim: (args) => autoMergeClaims.get(args.mrId as number) ?? null,
 
       // -- Diff --
       get_diff_files: (args) => data.diffFiles[args.mrId as number] || [],
