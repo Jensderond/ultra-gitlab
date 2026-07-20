@@ -7,6 +7,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react';
 import { isTauri } from '../../services/transport';
+import { trackShortcut } from '../../services/analytics';
 import './AppSidebar.css';
 
 interface AppSidebarProps {
@@ -209,6 +210,25 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs, companionEnabled, 
       window.removeEventListener('blur', handleBlur);
     };
   }, []);
+
+  useEffect(() => {
+    function handleDigitNav(e: KeyboardEvent) {
+      if (isEditableTarget(e.target)) return;
+      if (e.repeat) return;
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey) return;
+      if (!e.code.startsWith('Digit') || e.code === 'Digit0') return;
+
+      const digit = e.code.slice('Digit'.length);
+      const index = parseInt(digit, 10) - 1;
+      if (index < 0 || index >= topItems.length) return;
+
+      e.preventDefault();
+      trackShortcut(`Mod+${digit}`, 'navigate_sidebar', 'global');
+      navigate(topItems[index].path);
+    }
+    window.addEventListener('keydown', handleDigitNav);
+    return () => window.removeEventListener('keydown', handleDigitNav);
+  }, [topItems, navigate]);
 
   return (
     <nav className="app-sidebar" ref={sidebarRef}>

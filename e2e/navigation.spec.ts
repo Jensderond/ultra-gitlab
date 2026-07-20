@@ -129,4 +129,28 @@ test.describe('Cmd-hold sidebar number hints', () => {
     await page.keyboard.up('ControlOrMeta');
     await expect(badges).toHaveCount(0);
   });
+
+  test('Cmd+2 navigates to the second visible sidebar item', async ({ page }) => {
+    await page.goto('/mrs');
+    await page.keyboard.press('ControlOrMeta+Digit2');
+    await expect(page).toHaveURL(/\/my-mrs/);
+  });
+
+  test('Cmd+Shift+1 does not trigger sidebar navigation', async ({ page }) => {
+    await page.goto('/my-mrs');
+    await page.keyboard.press('ControlOrMeta+Shift+Digit1');
+    await expect(page).toHaveURL(/\/my-mrs/);
+  });
+
+  test('typing in an input suppresses Cmd+2 sidebar navigation', async ({ page }) => {
+    await page.goto('/mrs');
+    await page.evaluate(() => {
+      const input = document.createElement('input');
+      input.id = 'scratch-input';
+      document.body.appendChild(input);
+      input.focus();
+    });
+    await page.keyboard.press('ControlOrMeta+Digit2');
+    await expect(page).toHaveURL(/\/mrs/);
+  });
 });
