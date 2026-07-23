@@ -57,6 +57,17 @@ pub const MR_READY_EVENT: &str = "notification:mr-ready";
 /// Emitted when a pinned project's pipeline status changes.
 pub const PIPELINE_STATUS_CHANGED_EVENT: &str = "notification:pipeline-changed";
 
+/// Event: notification:clicked
+/// Emitted when the user clicks a native OS notification.
+pub const NOTIFICATION_CLICKED_EVENT: &str = "notification:clicked";
+
+/// Payload for notification:clicked events.
+#[derive(Debug, Clone, Serialize)]
+pub struct NotificationClickedPayload {
+    /// The in-app route to navigate to.
+    pub route: String,
+}
+
 /// Event: issues-updated
 /// Emitted when the background sync refreshes cached issues for an instance.
 pub const ISSUES_UPDATED_EVENT: &str = "issues-updated";

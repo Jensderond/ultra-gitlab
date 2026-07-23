@@ -18,11 +18,13 @@ use commands::{
     claim_auto_run, list_auto_run_claims, unclaim_auto_run,
     delete_comment, delete_gitlab_instance, discard_failed_action, generate_test_data, get_action_counts,
     get_approval_status, get_avatar, get_avatars, get_cache_stats, get_cached_file_pair,
-    get_collapse_patterns, get_comments, get_companion_qr_svg, get_companion_settings,
-    get_companion_status, get_diagnostics_report, get_diff_content, get_diff_file,
+    get_collapse_patterns, get_comments,
+    get_diagnostics_report, get_diff_content, get_diff_file,
     get_diff_file_metadata, get_diff_files, get_diff_hunks, get_diff_refs, get_file_comments,
     get_file_content, get_file_content_base64, get_gitattributes, get_gitlab_instances,
     get_cached_pipeline_statuses, get_job_trace, get_memory_stats, get_merge_request_detail, get_merge_requests, get_mr_pipelines, list_system_fonts,
+    check_notification_permission, get_notification_permission_status,
+    request_notification_permission,
     get_mr_reviewers, get_notification_settings, get_pipeline_jobs, get_pipeline_statuses,
     get_project_pipelines, get_settings, get_sync_config, get_sync_settings, get_sync_status,
     add_issue_note, get_cached_issue_detail, get_token_info,
@@ -31,24 +33,23 @@ use commands::{
     refresh_issue_detail, set_issue_assignees, set_issue_description, set_issue_state,
     list_pipeline_projects, merge_mr, play_pipeline_job,
     resolve_mr_by_web_url, fetch_mr_by_web_url,
-    rebase_mr, refresh_avatars, refresh_gitattributes, regenerate_companion_pin, rename_instance,
+    rebase_mr, refresh_avatars, refresh_gitattributes, rename_instance,
     undraft_mr,
-    rename_project, set_companion_pin,
+    rename_project,
     remove_pipeline_project, reorder_pinned_pipeline_projects, reply_to_comment, resolve_discussion, resolve_project_by_path, retry_failed_actions,
-    retry_pipeline_job, revoke_companion_device, search_projects,
+    retry_pipeline_job, search_projects,
     send_native_notification,
-    set_default_instance, setup_gitlab_instance, start_companion_server_cmd, stop_companion_server_cmd,
+    set_default_instance, setup_gitlab_instance,
     sync_my_issues, sync_project_issues,
     toggle_issue_star, toggle_pin_pipeline_project, toggle_project_star, trigger_sync, unapprove_mr,
     update_collapse_patterns,
-    update_companion_settings, update_custom_theme_colors, update_diffs_font,
+    update_custom_theme_colors, update_diffs_font,
     update_display_font,
     update_instance_token, update_keyboard_shortcuts, update_mr_list_condensed,
     update_notification_settings, update_session_cookie, update_settings,
     update_show_draft_mrs, update_show_recently_merged_mrs, update_sync_config,
     update_sync_settings, update_theme, update_ui_font, visit_pipeline_project,
 };
-use services::companion_server;
 use std::sync::Arc;
 use services::sync_engine::{SyncConfig, SyncEngine};
 use services::sync_events::TauriEmitter;
@@ -63,6 +64,12 @@ use tauri::{
 use tauri_plugin_aptabase::EventTracker;
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_store::StoreExt;
+#[cfg(desktop)]
+use user_notify::NotificationManager;
+
+/// Wrapper around the notification manager for Tauri state management.
+#[cfg(desktop)]
+pub struct NotificationManagerState(pub Arc<dyn NotificationManager>);
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -157,53 +164,43 @@ pub fn run() {
             app.manage(pool.clone());
             app.manage(sync_handle.clone());
 
-            // Auto-start companion server if enabled in settings
+            // Initialize native notification manager (user-notify). Desktop-only:
+            // the crate isn't available on iOS/Android.
+            #[cfg(desktop)]
             {
-                use commands::companion_settings::CompanionServerSettings;
-                let companion_settings: CompanionServerSettings = app
-                    .handle()
-                    .store("settings.json")
-                    .ok()
-                    .and_then(|store| store.get("companion_server"))
-                    .and_then(|v| serde_json::from_value(v.clone()).ok())
-                    .unwrap_or_default();
+                use services::sync_events::NOTIFICATION_CLICKED_EVENT;
+                let notification_manager = user_notify::get_notification_manager(
+                    "com.jens.ultra-gitlab".to_string(),
+                    None,
+                );
 
-                if companion_settings.enabled {
-                    let port = companion_settings.port;
-                    let pool_clone = pool.clone();
-                    let sync_clone = sync_handle.clone();
-                    let app_handle_clone = app.handle().clone();
-
-                    // Resolve frontend dist path (must match resolve_frontend_dist in commands)
-                    let resource_dir = app.path().resource_dir().ok();
-                    let frontend_dist = resource_dir
-                        .map(|p| p.join("companion-dist"))
-                        .filter(|p| p.join("index.html").exists())
-                        .or_else(|| {
-                            let dev = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                                .join("../dist");
-                            dev.join("index.html").exists().then_some(dev)
-                        });
-
-                    if let Some(dist_path) = frontend_dist {
-                        tauri::async_runtime::spawn(async move {
-                            match companion_server::start_companion_server(
-                                port,
-                                dist_path,
-                                pool_clone,
-                                sync_clone,
-                                app_handle_clone,
-                            )
-                            .await
-                            {
-                                Ok(()) => log::info!("[companion] Auto-started on port {}", port),
-                                Err(e) => log::error!("[companion] Auto-start failed: {}", e),
+                // Register click callback — emits a Tauri event so the frontend can navigate.
+                let click_handle = app.handle().clone();
+                if let Err(e) = notification_manager.register(
+                    Box::new(move |response| {
+                        if let Some(route) = response.user_info.get("route") {
+                            use tauri::Emitter;
+                            let payload = serde_json::json!({ "route": route });
+                            if let Err(e) = click_handle.emit(NOTIFICATION_CLICKED_EVENT, payload) {
+                                log::warn!("Failed to emit notification click event: {}", e);
                             }
-                        });
-                    } else {
-                        log::warn!("[companion] Auto-start skipped: frontend dist not found");
-                    }
+                        }
+                    }),
+                    vec![], // no custom action categories for now
+                ) {
+                    log::error!("Failed to register notification callback: {}", e);
                 }
+
+                // Log current permission state at startup (don't request — let the user trigger that from Settings)
+                let perm_manager = notification_manager.clone();
+                tauri::async_runtime::spawn(async move {
+                    match perm_manager.get_notification_permission_state().await {
+                        Ok(granted) => log::info!("[notifications] Permission state: granted={}", granted),
+                        Err(e) => log::warn!("[notifications] Failed to check permission: {}", e),
+                    }
+                });
+
+                app.manage(NotificationManagerState(notification_manager));
             }
 
             // Create window with transparent titlebar (desktop); mobile gets a plain window
@@ -367,6 +364,9 @@ pub fn run() {
             // Notifications
             get_notification_settings,
             update_notification_settings,
+            check_notification_permission,
+            get_notification_permission_status,
+            request_notification_permission,
             send_native_notification,
             // Issues
             sync_my_issues,
@@ -409,16 +409,6 @@ pub fn run() {
             update_display_font,
             update_diffs_font,
             update_custom_theme_colors,
-            // Companion server
-            get_companion_settings,
-            get_companion_qr_svg,
-            get_companion_status,
-            update_companion_settings,
-            regenerate_companion_pin,
-            set_companion_pin,
-            revoke_companion_device,
-            start_companion_server_cmd,
-            stop_companion_server_cmd,
             // Avatars
             get_avatar,
             get_avatars,

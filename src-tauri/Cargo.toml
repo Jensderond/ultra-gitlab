@@ -23,7 +23,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2" }
+tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-store = "2"
 tauri-plugin-process = "2"
@@ -54,12 +54,6 @@ sysinfo = "0.32"
 # Async Runtime
 tokio = { version = "1", features = ["sync", "time", "net", "rt-multi-thread"] }
 
-# HTTP Server (companion server)
-axum = "0.8"
-tower = "0.5"
-tower-http = { version = "0.6", features = ["fs", "cors"] }
-tokio-util = "0.7"
-
 # Date/Time
 chrono = { version = "0.4", features = ["serde"] }
 # Transitive dep (via tokio/sqlx/cookie). Pinned because time 0.3.48 fails to
@@ -84,27 +78,23 @@ fontdb = "0.22"
 keyring = "3"
 futures = "0.3.31"
 
-# Random number generation (companion server PIN)
-rand = "0.8"
-
-# UUID generation (companion server device tokens)
+# UUID generation
 uuid = { version = "1", features = ["v4"] }
 
-# QR code generation (companion server)
-qrcode = "0.14"
-
-# Local network interface detection
-local-ip-address = "0.6"
 tauri-plugin-deep-link = "2"
 
 [target."cfg(target_os = \"macos\")".dependencies]
 cocoa = "0.26"
 notify-rust = "4"
+block2 = "0.6"
+objc2-user-notifications = "0.3"
+objc2-foundation = "0.3"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-updater = "2"
 tauri-plugin-aptabase = "1"
+user-notify = "0.4"
 
 [[bin]]
 name = "bench_sync"

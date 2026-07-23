@@ -17,8 +17,6 @@ pub mod auto_run;
 pub mod cli;
 pub mod avatar;
 pub mod comments;
-pub mod companion_server;
-pub mod companion_settings;
 pub mod diagnostics;
 pub mod fonts;
 pub mod gitattributes;
@@ -47,11 +45,6 @@ pub use comments::{
     add_comment, delete_comment, get_comments, get_file_comments, reply_to_comment,
     resolve_discussion,
 };
-pub use companion_server::{start_companion_server_cmd, stop_companion_server_cmd};
-pub use companion_settings::{
-    get_companion_qr_svg, get_companion_settings, get_companion_status, regenerate_companion_pin,
-    revoke_companion_device, set_companion_pin, update_companion_settings,
-};
 pub use fonts::list_system_fonts;
 pub use diagnostics::{
     clear_test_data, generate_test_data, get_cache_stats, get_diagnostics_report, get_memory_stats,
@@ -71,7 +64,10 @@ pub use mr::{
     list_my_merge_requests, merge_mr, rebase_mr, undraft_mr, resolve_mr_by_web_url, fetch_mr_by_web_url,
 };
 pub use notification_settings::{get_notification_settings, update_notification_settings};
-pub use notifications::send_native_notification;
+pub use notifications::{
+    check_notification_permission, get_notification_permission_status,
+    request_notification_permission, send_native_notification,
+};
 pub use pipeline::{
     cancel_pipeline, cancel_pipeline_job, get_cached_pipeline_statuses, get_job_trace,
     get_pipeline_jobs, get_pipeline_statuses, get_project_pipelines, list_pipeline_projects,

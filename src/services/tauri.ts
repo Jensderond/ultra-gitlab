@@ -1059,6 +1059,27 @@ export async function updateNotificationSettings(settings: NotificationSettings)
 }
 
 /**
+ * Check whether macOS notification permission is currently granted.
+ */
+export async function checkNotificationPermission(): Promise<boolean> {
+  return invoke<boolean>('check_notification_permission');
+}
+
+/**
+ * Get the detailed notification permission status: "granted", "denied", or "not_determined".
+ */
+export async function getNotificationPermissionStatus(): Promise<'granted' | 'denied' | 'not_determined'> {
+  return invoke<'granted' | 'denied' | 'not_determined'>('get_notification_permission_status');
+}
+
+/**
+ * Request notification permission from the OS. Returns whether permission was granted.
+ */
+export async function requestNotificationPermission(): Promise<boolean> {
+  return invoke<boolean>('request_notification_permission');
+}
+
+/**
  * Send a native OS notification.
  */
 export async function sendNativeNotification(title: string, body: string, route?: string): Promise<void> {
