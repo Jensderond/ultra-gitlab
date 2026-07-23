@@ -799,7 +799,7 @@ fieldset.setting-row {
 }
 
 .theme-swatch-text {
-  font-family: var(--font-display, 'Cormorant Garamond', serif);
+  font-family: var(--font-display, 'Inter', system-ui, sans-serif);
   font-size: 22px;
   font-weight: 600;
   line-height: 1;

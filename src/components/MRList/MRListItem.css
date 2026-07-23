@@ -160,7 +160,7 @@
 
 .mr-title {
   margin: 0 0 8px 0;
-  font-family: var(--font-display, 'Cormorant Garamond', serif);
+  font-family: var(--font-display, 'Inter', system-ui, sans-serif);
   font-size: 14px;
   font-weight: 500;
   letter-spacing: 0.005em;
@@ -468,7 +468,7 @@
 .mr-condensed-title {
   flex: 1 1 auto;
   min-width: 0;
-  font-family: var(--font-display, 'Cormorant Garamond', serif);
+  font-family: var(--font-display, 'Inter', system-ui, sans-serif);
   font-size: 13.5px;
   font-weight: 500;
   color: var(--text-primary);

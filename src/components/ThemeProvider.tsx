@@ -20,10 +20,17 @@ import type { Theme } from '../types';
 /** Available UI font options. */
 export const UI_FONTS = [
   { id: 'Noto Sans JP', label: 'Noto Sans JP', family: "'Noto Sans JP', -apple-system, sans-serif", googleFont: 'Noto+Sans+JP:wght@300;400;500;600;700' },
-  { id: 'Cormorant Garamond', label: 'Cormorant Garamond', family: "'Cormorant Garamond', Georgia, serif", googleFont: 'Cormorant+Garamond:wght@300;400;500;600;700' },
-  { id: 'Inter', label: 'Inter', family: "'Inter', -apple-system, sans-serif", googleFont: 'Inter:wght@300;400;500;600;700' },
+  // Bundled locally (see main.tsx) so it renders correctly offline — the default
+  // display (heading) font.
+  { id: 'Inter', label: 'Inter', family: "'Inter', -apple-system, sans-serif", googleFont: null },
   { id: 'SF Pro', label: 'SF Pro', family: "-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif", googleFont: null },
   { id: 'System Default', label: 'System Default', family: "system-ui, -apple-system, sans-serif", googleFont: null },
+  // Bundled locally (see main.tsx) so it renders correctly offline — this is already
+  // the monospace font hardcoded across the app's CSS, so it's the natural default
+  // for general UI mono text.
+  { id: 'IBM Plex Mono', label: 'IBM Plex Mono', family: "'IBM Plex Mono', 'SF Mono', Menlo, monospace", googleFont: null },
+  // Bundled locally (see main.tsx) — the default diffs (code) font.
+  { id: 'Geist Mono', label: 'Geist Mono', family: "'Geist Mono', 'SF Mono', Menlo, monospace", googleFont: null },
 ] as const;
 
 /** All available preset themes keyed by ID. */
@@ -261,7 +268,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     theme: kanagawaWave,
     uiFont: 'Noto Sans JP',
     displayFont: 'Inter',
-    diffsFont: 'SF Mono',
+    diffsFont: 'Geist Mono',
     customColors: null,
   });
 
@@ -274,8 +281,8 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         const id = settings.theme || 'kanagawa-wave';
         const savedColors = settings.customThemeColors ?? null;
         const font = settings.uiFont || 'Noto Sans JP';
-        const dFont = settings.displayFont || 'Cormorant Garamond';
-        const diffFont = settings.diffsFont || 'SF Mono';
+        const dFont = settings.displayFont || 'Inter';
+        const diffFont = settings.diffsFont || 'Geist Mono';
 
         let resolvedTheme: ThemeDefinition = kanagawaWave;
         if (id === 'custom' && savedColors) {

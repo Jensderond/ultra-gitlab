@@ -1,7 +1,7 @@
 /* MR List Page - Kanagawa Wave Theme */
 /* "Floating Scroll" aesthetic - layered ocean depths with ink-wash dividers */
 
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap');
 
 /* ================================================
    PAGE SHELL
@@ -295,7 +295,7 @@
 
 .mr-list-page-empty h2 {
   margin: 0 0 12px 0;
-  font-family: var(--font-display, 'Cormorant Garamond', serif);
+  font-family: var(--font-display, 'Inter', system-ui, sans-serif);
   font-size: 20px;
   font-weight: 700;
   letter-spacing: 0.02em;

@@ -65,11 +65,11 @@ const DEFAULT_THEME: &str = "kanagawa-wave";
 /// Default UI font.
 const DEFAULT_UI_FONT: &str = "Noto Sans JP";
 
-/// Default display font (decorative heading font for page h1s).
-const DEFAULT_DISPLAY_FONT: &str = "Cormorant Garamond";
+/// Default display font (heading font for page h1s).
+const DEFAULT_DISPLAY_FONT: &str = "Inter";
 
 /// Default diffs font (monospace font for code diffs).
-const DEFAULT_DIFFS_FONT: &str = "SF Mono";
+const DEFAULT_DIFFS_FONT: &str = "Geist Mono";
 
 /// Default glob patterns for identifying generated/lock files.
 fn default_collapse_patterns() -> Vec<String> {
@@ -469,7 +469,7 @@ pub async fn update_ui_font(app: AppHandle, font: String) -> Result<(), AppError
 /// Convenience method that updates just the display font family name.
 ///
 /// # Arguments
-/// * `font` - The font family name (e.g. "Cormorant Garamond", "Inter", "System Default")
+/// * `font` - The font family name (e.g. "Inter", "IBM Plex Mono", "System Default")
 #[tauri::command]
 pub async fn update_display_font(app: AppHandle, font: String) -> Result<(), AppError> {
     let mut settings = load_settings(&app).await?;
@@ -484,7 +484,7 @@ pub async fn update_display_font(app: AppHandle, font: String) -> Result<(), App
 /// Convenience method that updates just the diffs (code) font family name.
 ///
 /// # Arguments
-/// * `font` - The font family name (e.g. "SF Mono", "JetBrains Mono", "System Default")
+/// * `font` - The font family name (e.g. "Geist Mono", "JetBrains Mono", "System Default")
 #[tauri::command]
 pub async fn update_diffs_font(app: AppHandle, font: String) -> Result<(), AppError> {
     let mut settings = load_settings(&app).await?;

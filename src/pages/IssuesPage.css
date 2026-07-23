@@ -27,7 +27,7 @@
 
 .issues-page-empty h2 {
   margin: 0;
-  font-family: var(--font-display, 'Cormorant Garamond', serif);
+  font-family: var(--font-display, 'Inter', system-ui, sans-serif);
   font-weight: 500;
   color: var(--text-primary);
 }
@@ -314,7 +314,7 @@
 
 .issues-rename-dialog h3 {
   margin: 0 0 8px 0;
-  font-family: var(--font-display, 'Cormorant Garamond', serif);
+  font-family: var(--font-display, 'Inter', system-ui, sans-serif);
   font-size: 18px;
   font-weight: 500;
 }

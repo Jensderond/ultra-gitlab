@@ -43,7 +43,7 @@
 }
 
 .auth-title {
-  font-family: var(--font-display, 'Cormorant Garamond', serif);
+  font-family: var(--font-display, 'Inter', system-ui, sans-serif);
   font-size: 1.75rem;
   font-weight: 600;
   margin: 0 0 8px;

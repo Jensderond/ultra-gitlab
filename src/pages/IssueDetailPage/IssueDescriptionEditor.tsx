@@ -46,7 +46,7 @@ const editorTheme = EditorView.theme({
   },
   '.cm-scroller': {
     overflow: 'auto',
-    fontFamily: "var(--diffs-font-family, 'IBM Plex Mono', monospace)",
+    fontFamily: "var(--diffs-font-family, 'Geist Mono', monospace)",
     lineHeight: '1.55',
   },
   '.cm-content': {

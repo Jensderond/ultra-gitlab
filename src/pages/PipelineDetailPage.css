@@ -52,7 +52,7 @@
 }
 
 .pipeline-detail-title-group h1 {
-  font-family: var(--font-display, 'Cormorant Garamond', serif);
+  font-family: var(--font-display, 'Inter', system-ui, sans-serif);
   font-size: 22px;
   font-weight: 800;
   letter-spacing: 0.04em;
