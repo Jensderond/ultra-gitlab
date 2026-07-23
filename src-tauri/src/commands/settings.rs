@@ -3,7 +3,6 @@
 //! These commands provide access to sync and other application settings.
 //! Settings are persisted using the tauri-plugin-store.
 
-use crate::commands::companion_settings::CompanionServerSettings;
 use crate::error::AppError;
 use crate::services::sync_engine::{SyncConfig, SyncHandle};
 use serde::{Deserialize, Serialize};
@@ -37,9 +36,6 @@ const DIFFS_FONT_KEY: &str = "diffs_font";
 
 /// Key for custom theme colors in the store.
 const CUSTOM_THEME_COLORS_KEY: &str = "custom_theme_colors";
-
-/// Key for companion server settings in the store.
-const COMPANION_SERVER_KEY: &str = "companion_server";
 
 /// Key for file jump count in the store.
 const FILE_JUMP_COUNT_KEY: &str = "file_jump_count";
@@ -115,8 +111,6 @@ pub struct AppSettings {
     pub diffs_font: String,
     /// Custom theme input colors (bg, text, accent hex strings). None if no custom theme saved.
     pub custom_theme_colors: Option<CustomThemeColors>,
-    /// Companion server settings (mobile web access).
-    pub companion_server: CompanionServerSettings,
     /// Number of files to jump when pressing arrow-left/right in file navigation.
     pub file_jump_count: u32,
     /// Custom keyboard shortcut bindings (shortcut id -> key string).
@@ -139,7 +133,6 @@ impl Default for AppSettings {
             display_font: DEFAULT_DISPLAY_FONT.to_string(),
             diffs_font: DEFAULT_DIFFS_FONT.to_string(),
             custom_theme_colors: None,
-            companion_server: CompanionServerSettings::default(),
             file_jump_count: DEFAULT_FILE_JUMP_COUNT,
             keyboard_shortcuts: HashMap::new(),
             mr_list_condensed: false,
@@ -213,12 +206,6 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         None => None,
     };
 
-    // Try to load companion server settings
-    let companion_server = match store.get(COMPANION_SERVER_KEY) {
-        Some(value) => serde_json::from_value(value.clone()).unwrap_or_default(),
-        None => CompanionServerSettings::default(),
-    };
-
     // Try to load file jump count
     let file_jump_count = match store.get(FILE_JUMP_COUNT_KEY) {
         Some(value) => serde_json::from_value(value.clone()).unwrap_or(DEFAULT_FILE_JUMP_COUNT),
@@ -257,7 +244,6 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         display_font,
         diffs_font,
         custom_theme_colors,
-        companion_server,
         file_jump_count,
         keyboard_shortcuts,
         mr_list_condensed,
@@ -299,10 +285,6 @@ pub(crate) async fn save_settings(app: &AppHandle, settings: &AppSettings) -> Re
     // Save custom theme colors
     let custom_theme_value = serde_json::to_value(&settings.custom_theme_colors)?;
     store.set(CUSTOM_THEME_COLORS_KEY, custom_theme_value);
-
-    // Save companion server settings
-    let companion_value = serde_json::to_value(&settings.companion_server)?;
-    store.set(COMPANION_SERVER_KEY, companion_value);
 
     // Save file jump count
     let file_jump_count_value = serde_json::to_value(&settings.file_jump_count)?;

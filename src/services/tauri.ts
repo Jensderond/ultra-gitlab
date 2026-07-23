@@ -36,8 +36,6 @@ import type {
   ProjectSearchResult,
   PipelineJob,
   NotificationSettings,
-  CompanionServerSettings,
-  CompanionStatus,
   ResolvedMr,
   IssueWithProject,
   IssueFilter,
@@ -1084,75 +1082,6 @@ export async function requestNotificationPermission(): Promise<boolean> {
  */
 export async function sendNativeNotification(title: string, body: string, route?: string): Promise<void> {
   return invoke<void>('send_native_notification', { title, body, route: route ?? null });
-}
-
-// ============================================================================
-// Companion Server Settings Commands
-// ============================================================================
-
-/**
- * Get companion server settings.
- */
-export async function getCompanionSettings(): Promise<CompanionServerSettings> {
-  return invoke<CompanionServerSettings>('get_companion_settings');
-}
-
-/**
- * Update companion server settings.
- */
-export async function updateCompanionSettings(companion: CompanionServerSettings): Promise<void> {
-  return invoke<void>('update_companion_settings', { companion });
-}
-
-/**
- * Regenerate the companion server PIN. Returns the new PIN.
- */
-export async function regenerateCompanionPin(): Promise<string> {
-  return invoke<string>('regenerate_companion_pin');
-}
-
-/**
- * Set a custom companion server PIN (4–8 digits).
- * Clears all authorized devices.
- */
-export async function setCompanionPin(pin: string): Promise<void> {
-  return invoke<void>('set_companion_pin', { pin });
-}
-
-/**
- * Generate QR code SVG for the companion server.
- * Returns an SVG string encoding the connection URL + PIN.
- */
-export async function getCompanionQrSvg(): Promise<string> {
-  return invoke<string>('get_companion_qr_svg');
-}
-
-/**
- * Revoke an authorized companion device.
- */
-export async function revokeCompanionDevice(deviceId: string): Promise<void> {
-  return invoke<void>('revoke_companion_device', { deviceId });
-}
-
-/**
- * Start the companion HTTP server.
- */
-export async function startCompanionServer(): Promise<void> {
-  return invoke<void>('start_companion_server_cmd');
-}
-
-/**
- * Stop the companion HTTP server.
- */
-export async function stopCompanionServer(): Promise<void> {
-  return invoke<void>('stop_companion_server_cmd');
-}
-
-/**
- * Get companion server status (enabled + connected device count).
- */
-export async function getCompanionStatus(): Promise<CompanionStatus> {
-  return invoke<CompanionStatus>('get_companion_status');
 }
 
 // ============================================================================

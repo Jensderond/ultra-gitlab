@@ -3,9 +3,9 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * Playwright configuration for Ultra GitLab.
  *
- * Tests run against the Vite dev server. Since Playwright runs in a real browser
- * (no `__TAURI_INTERNALS__`), the app falls back to companion HTTP mode.
- * Tests use route interception to mock the `/api/*` responses with seeded data.
+ * Tests run against the Vite dev server. `e2e/fixtures/tauri-mock.ts` injects a
+ * fake `__TAURI_INTERNALS__` and mocks the Tauri `invoke()` calls with seeded data,
+ * so the app runs in desktop-Tauri mode without needing a live GitLab instance.
  */
 export default defineConfig({
   testDir: './e2e',

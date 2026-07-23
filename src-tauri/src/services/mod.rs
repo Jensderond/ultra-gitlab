@@ -7,9 +7,6 @@
 
 pub mod auto_run;
 pub mod avatar;
-pub mod companion_api;
-pub mod companion_auth;
-pub mod companion_server;
 pub mod gitattributes;
 pub mod gitlab_client;
 pub mod sync_engine;

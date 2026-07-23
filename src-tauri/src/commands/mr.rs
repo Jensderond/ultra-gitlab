@@ -574,7 +574,7 @@ pub async fn get_diff_hunks(
     })
 }
 
-/// Parse a unified diff into hunks (public alias for companion API).
+/// Parse a unified diff into hunks (public alias for the `cli` crate).
 pub fn parse_unified_diff_public(diff: &str) -> Vec<DiffHunk> {
     parse_unified_diff(diff)
 }

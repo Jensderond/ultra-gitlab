@@ -39,8 +39,6 @@ export async function mockTauriIPC(page: Page) {
     pipelineJobs: seed.pipelineJobs,
     downstreamPipelineJobs: seed.downstreamPipelineJobs,
     notificationSettings: seed.notificationSettings,
-    companionStatus: seed.companionStatus,
-    companionSettings: seed.companionSettings,
     issues: seed.issues,
   });
 
@@ -387,16 +385,6 @@ export async function mockTauriIPC(page: Page) {
       get_notification_settings: () => data.notificationSettings,
       update_notification_settings: () => undefined,
       send_native_notification: () => undefined,
-
-      // -- Companion --
-      get_companion_settings: () => data.companionSettings,
-      update_companion_settings: () => undefined,
-      get_companion_qr_svg: () => '<svg></svg>',
-      get_companion_status: () => data.companionStatus,
-      regenerate_companion_pin: () => '5678',
-      revoke_companion_device: () => undefined,
-      start_companion_server_cmd: () => undefined,
-      stop_companion_server_cmd: () => undefined,
 
       // -- Avatars --
       get_avatar: () => null,

@@ -13,8 +13,6 @@ import './AppSidebar.css';
 interface AppSidebarProps {
   updateAvailable?: boolean;
   hasApprovedMRs?: boolean;
-  companionEnabled?: boolean;
-  companionDeviceCount?: number;
 }
 
 interface NavItem {
@@ -59,13 +57,6 @@ const IssueIcon = () => (
   </svg>
 );
 
-const SmartphoneIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
-    <line x1="12" y1="18" x2="12.01" y2="18" />
-  </svg>
-);
-
 const GearIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="3" />
@@ -87,7 +78,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 }
 
-export function AppSidebar({ updateAvailable, hasApprovedMRs, companionEnabled, companionDeviceCount = 0 }: AppSidebarProps) {
+export function AppSidebar({ updateAvailable, hasApprovedMRs }: AppSidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const sidebarRef = useRef<HTMLElement>(null);
@@ -253,17 +244,6 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs, companionEnabled, 
         ))}
       </div>
       <div className="app-sidebar-bottom">
-        {companionEnabled && (
-          <div
-            className="app-sidebar-companion app-sidebar-desktop-only"
-            title={`Companion: ${companionDeviceCount} device${companionDeviceCount !== 1 ? 's' : ''} connected`}
-          >
-            <SmartphoneIcon />
-            {companionDeviceCount > 0 && (
-              <span className="companion-dot" />
-            )}
-          </div>
-        )}
         {bottomItems.map(item => (
           <button
             key={item.path}

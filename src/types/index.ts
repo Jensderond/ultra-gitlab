@@ -586,30 +586,6 @@ export interface CliStatus {
 }
 
 // ============================================================================
-// Companion Server Settings
-// ============================================================================
-
-export interface AuthorizedDevice {
-  id: string;
-  name: string;
-  token: string;
-  lastActive: string;
-  createdAt: string;
-}
-
-export interface CompanionServerSettings {
-  enabled: boolean;
-  port: number;
-  pin: string;
-  authorizedDevices: AuthorizedDevice[];
-}
-
-export interface CompanionStatus {
-  enabled: boolean;
-  connectedDevices: number;
-}
-
-// ============================================================================
 // Deep Link
 // ============================================================================
 

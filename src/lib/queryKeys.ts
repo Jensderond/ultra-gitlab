@@ -53,7 +53,5 @@ export const queryKeys = {
     ["pipelineHistory", instanceId, projectId] as const,
   jobTrace: (instanceId: string, projectId: number, jobId: number) =>
     ["jobTrace", instanceId, projectId, jobId] as const,
-  companionStatus: () => ["companionStatus"] as const,
-  companionSettings: () => ["companionSettings"] as const,
   syncSettings: () => ["syncSettings"] as const,
 };

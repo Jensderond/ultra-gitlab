@@ -2,9 +2,9 @@
  * Seeded mock data for Playwright E2E tests.
  *
  * This file provides deterministic test data that mirrors what the SQLite
- * database would contain. Since Playwright runs in a browser (no Tauri IPC),
- * the app uses companion HTTP mode. We intercept the /api/* routes with
- * this data so tests don't depend on a live GitLab instance.
+ * database would contain. `tauri-mock.ts` injects a fake `__TAURI_INTERNALS__`
+ * so the app runs in desktop-Tauri mode against this seeded data, so tests
+ * don't depend on a live GitLab instance.
  */
 
 import type {
@@ -21,8 +21,6 @@ import type {
   PipelineStatus,
   PipelineJob,
   NotificationSettings,
-  CompanionServerSettings,
-  CompanionStatus,
   IssueWithProject,
 } from '../../src/types';
 
@@ -737,25 +735,13 @@ export const downstreamPipelineJobs: PipelineJob[] = [
 ];
 
 // ============================================================================
-// Notification & Companion
+// Notifications
 // ============================================================================
 
 export const notificationSettings: NotificationSettings = {
   mrReadyToMerge: true,
   pipelineStatusPinned: true,
   nativeNotificationsEnabled: false,
-};
-
-export const companionStatus: CompanionStatus = {
-  enabled: false,
-  connectedDevices: 0,
-};
-
-export const companionSettings: CompanionServerSettings = {
-  enabled: false,
-  port: 8080,
-  pin: '1234',
-  authorizedDevices: [],
 };
 
 // ============================================================================

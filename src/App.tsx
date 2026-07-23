@@ -19,7 +19,6 @@ import PipelineDetailPage from './pages/PipelineDetailPage';
 import IssuesPage from './pages/IssuesPage';
 import IssueDetailPage from './pages/IssueDetailPage';
 import JobLogPage from './pages/JobLogPage';
-import AuthPage from './pages/AuthPage';
 import { AppSidebar } from './components/AppSidebar';
 import { CommandPalette, type Command } from './components/CommandPalette';
 import { KeyboardHelp } from './components/KeyboardHelp';
@@ -27,8 +26,6 @@ import { ReAuthPrompt } from './components/ReAuthPrompt';
 import useUpdateChecker from './hooks/useUpdateChecker';
 import { useHasApprovedMRsQuery } from './hooks/queries/useHasApprovedMRsQuery';
 import useNotifications from './hooks/useNotifications';
-import { useCompanionStatusQuery } from './hooks/queries/useCompanionStatusQuery';
-import useCompanionAuth from './hooks/useCompanionAuth';
 import useDeepLink from './hooks/useDeepLink';
 import { CommandId, CommandCategory, commandDefinitions } from './commands/registry';
 import { manualSync } from './services/storage';
@@ -66,13 +63,11 @@ function AppContent() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
   const [authExpired, setAuthExpired] = useState<AuthExpiredState | null>(null);
-  const companionAuth = useCompanionAuth(isTauri || location.pathname === '/auth');
   const updateChecker = useUpdateChecker();
   const hasApprovedMRs = useHasApprovedMRsQuery();
   const { getKey } = useShortcuts();
   useNotifications();
   useDeepLink();
-  const companionStatusQuery = useCompanionStatusQuery();
   const instancesQuery = useInstancesQuery();
 
   // Track screen views for main overview screens
@@ -86,13 +81,6 @@ function AppContent() {
     const screen = screenNames[location.pathname];
     if (screen) trackEvent('screen_view', { screen_name: screen });
   }, [location.pathname]);
-
-  // In browser mode, redirect to /auth if not authenticated
-  useEffect(() => {
-    if (companionAuth.isAuthenticated === false) {
-      navigate('/auth', { replace: true });
-    }
-  }, [companionAuth.isAuthenticated, navigate]);
 
   // Listen for auth-expired events from the backend (Tauri-only)
   useEffect(() => {
@@ -117,14 +105,12 @@ function AppContent() {
   }, []);
 
   // Load pipeline projects for command palette via TQ
-  const isAuthed = companionAuth.isAuthenticated;
   const instances = instancesQuery.data ?? [];
   const pipelineProjectQueries = useQueries({
     queries: instances.map((inst) => ({
       queryKey: queryKeys.pipelineProjects(String(inst.id)),
       queryFn: () => listPipelineProjects(inst.id),
       staleTime: 60_000,
-      enabled: isTauri || isAuthed === true,
     })),
   });
   const pipelineProjects = useMemo(
@@ -278,26 +264,10 @@ function AppContent() {
     return [...staticCommands, ...pipelineCommands];
   }, [location.pathname, navigate, pipelineProjects]);
 
-  // Auth page renders without sidebar (mobile companion flow)
-  const isAuthPage = location.pathname === '/auth';
-
-  if (isAuthPage) {
-    return (
-      <Routes>
-        <Route path="/auth" element={<AuthPage />} />
-      </Routes>
-    );
-  }
-
-  // In browser mode, wait for auth check before rendering main app
-  if (!isTauri && companionAuth.isAuthenticated !== true) {
-    return null;
-  }
-
   return (
     <div className="app">
       {isTauri && <div className="titlebar-drag-region" data-tauri-drag-region />}
-      <AppSidebar updateAvailable={updateChecker.available} hasApprovedMRs={hasApprovedMRs} companionEnabled={companionStatusQuery.data?.enabled ?? false} companionDeviceCount={companionStatusQuery.data?.connectedDevices ?? 0} />
+      <AppSidebar updateAvailable={updateChecker.available} hasApprovedMRs={hasApprovedMRs} />
       <div className="app-content">
         <Routes>
           {/* Redirect root to MR list */}

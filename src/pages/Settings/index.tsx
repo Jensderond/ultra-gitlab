@@ -17,7 +17,6 @@ import CollapsibleSection from './CollapsibleSection';
 import UpdatesSection from './UpdatesSection';
 import InstancesSection from './InstancesSection';
 import SyncSettingsSection from './SyncSettingsSection';
-import CompanionServerSection from './CompanionServerSection';
 import CliSection from './CliSection';
 import AppearanceSection from './AppearanceSection';
 import NotificationsSection from './NotificationsSection';
@@ -85,12 +84,6 @@ export default function Settings({ updateChecker }: SettingsProps) {
         <CollapsibleSection title="Sync Settings" subtitle={syncSubtitle}>
           <SyncSettingsSection />
         </CollapsibleSection>
-
-        {isTauri && (
-          <CollapsibleSection title={<>Companion Server <span className="beta-badge">Beta</span></>}>
-            <CompanionServerSection />
-          </CollapsibleSection>
-        )}
 
         {isTauri && (
           <CollapsibleSection title="Command Line">

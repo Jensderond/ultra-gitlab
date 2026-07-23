@@ -26,10 +26,6 @@
       "icons/icon.ico"
     ],
     "createUpdaterArtifacts": true,
-    "resources": {
-      "../dist/*": "companion-dist/",
-      "../dist/assets/*": "companion-dist/assets/"
-    },
     "iOS": {
       "developmentTeam": "7ZBFS4P4K2"
     }
