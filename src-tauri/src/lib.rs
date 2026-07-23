@@ -52,11 +52,14 @@ use services::companion_server;
 use std::sync::Arc;
 use services::sync_engine::{SyncConfig, SyncEngine};
 use services::sync_events::TauriEmitter;
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+#[cfg(desktop)]
 use tauri::{
-    Manager, TitleBarStyle, WebviewUrl, WebviewWindowBuilder,
+    TitleBarStyle,
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
+#[cfg(desktop)]
 use tauri_plugin_aptabase::EventTracker;
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_store::StoreExt;
@@ -80,7 +83,7 @@ pub fn run() {
     tauri::async_runtime::set(rt.handle().clone());
     let _rt_guard = rt.enter();
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(
             tauri_plugin_log::Builder::new()
                 .targets([
@@ -95,12 +98,17 @@ pub fn run() {
                 .level_for("reqwest", log::LevelFilter::Warn)
                 .build(),
         )
-        .plugin(tauri_plugin_aptabase::Builder::new("A-EU-7406096367").build())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_store::Builder::new().build());
+
+    #[cfg(desktop)]
+    let builder = builder
+        .plugin(tauri_plugin_aptabase::Builder::new("A-EU-7406096367").build())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_process::init());
+
+    builder
         .setup(|app| {
             // Initialize database
             let app_data_dir = app
@@ -198,13 +206,16 @@ pub fn run() {
                 }
             }
 
-            // Create window with transparent titlebar
+            // Create window with transparent titlebar (desktop); mobile gets a plain window
+            #[cfg(desktop)]
             let win = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title("Ultra Gitlab")
                 .inner_size(800.0, 600.0)
                 .hidden_title(true)
                 .title_bar_style(TitleBarStyle::Transparent)
                 .build()?;
+            #[cfg(mobile)]
+            let _win = WebviewWindowBuilder::new(app, "main", WebviewUrl::default()).build()?;
 
             // Set macOS window background color to match sidebar/titlebar (#1f1f28)
             #[cfg(target_os = "macos")]
@@ -228,47 +239,51 @@ pub fn run() {
             }
 
             // System tray icon (macOS: hide-on-close, all platforms: quick access)
-            let show_item = MenuItemBuilder::with_id("show", "Show Ultra Gitlab").build(app)?;
-            let quit_item = MenuItemBuilder::with_id("quit", "Quit Ultra Gitlab").build(app)?;
-            let tray_menu = MenuBuilder::new(app)
-                .item(&show_item)
-                .item(&quit_item)
-                .build()?;
+            #[cfg(desktop)]
+            {
+                let show_item = MenuItemBuilder::with_id("show", "Show Ultra Gitlab").build(app)?;
+                let quit_item = MenuItemBuilder::with_id("quit", "Quit Ultra Gitlab").build(app)?;
+                let tray_menu = MenuBuilder::new(app)
+                    .item(&show_item)
+                    .item(&quit_item)
+                    .build()?;
 
-            let tray_icon = TrayIconBuilder::new()
-                .icon(app.default_window_icon().cloned().expect("app icon not configured"))
-                .menu(&tray_menu)
-                .show_menu_on_left_click(false)
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        if let Some(window) = tray.app_handle().get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
+                let tray_icon = TrayIconBuilder::new()
+                    .icon(app.default_window_icon().cloned().expect("app icon not configured"))
+                    .menu(&tray_menu)
+                    .show_menu_on_left_click(false)
+                    .on_tray_icon_event(|tray, event| {
+                        if let TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } = event
+                        {
+                            if let Some(window) = tray.app_handle().get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
                         }
-                    }
-                })
-                .on_menu_event(|app_handle, event| match event.id().as_ref() {
-                    "show" => {
-                        if let Some(window) = app_handle.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
+                    })
+                    .on_menu_event(|app_handle, event| match event.id().as_ref() {
+                        "show" => {
+                            if let Some(window) = app_handle.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
                         }
-                    }
-                    "quit" => {
-                        app_handle.exit(0);
-                    }
-                    _ => {}
-                })
-                .build(app)?;
+                        "quit" => {
+                            app_handle.exit(0);
+                        }
+                        _ => {}
+                    })
+                    .build(app)?;
 
-            // Prevent the tray icon handle from being dropped (which removes the icon)
-            app.manage(tray_icon);
+                // Prevent the tray icon handle from being dropped (which removes the icon)
+                app.manage(tray_icon);
+            }
 
+            #[cfg(desktop)]
             let _ = app.track_event("app_started", None);
 
             Ok(())
@@ -422,11 +437,16 @@ pub fn run() {
                     api.prevent_close();
                 }
             }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (window, event);
         })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
+            #[cfg(mobile)]
+            let _ = &app_handle;
             match event {
+                #[cfg(target_os = "macos")]
                 tauri::RunEvent::Reopen { .. } => {
                     if let Some(window) = app_handle.get_webview_window("main") {
                         let _ = window.show();
@@ -434,8 +454,11 @@ pub fn run() {
                     }
                 }
                 tauri::RunEvent::Exit => {
-                    let _ = app_handle.track_event("app_exited", None);
-                    app_handle.flush_events_blocking();
+                    #[cfg(desktop)]
+                    {
+                        let _ = app_handle.track_event("app_exited", None);
+                        app_handle.flush_events_blocking();
+                    }
                 }
                 _ => {}
             }

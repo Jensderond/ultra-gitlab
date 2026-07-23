@@ -27,17 +27,21 @@ pub async fn send_native_notification(
         } else {
             identifier
         });
+
+        notify_rust::Notification::new()
+            .summary(&title)
+            .body(&body)
+            .show()
+            .map_err(|e| AppError::internal(format!("Notification failed: {}", e)))?;
+
+        log::info!("[notifications] Notification sent via notify-rust");
     }
 
     #[cfg(not(target_os = "macos"))]
-    let _ = &app_handle;
+    {
+        let _ = (&app_handle, &title, &body, &route);
+        log::warn!("[notifications] Native notifications not supported on this platform");
+    }
 
-    notify_rust::Notification::new()
-        .summary(&title)
-        .body(&body)
-        .show()
-        .map_err(|e| AppError::internal(format!("Notification failed: {}", e)))?;
-
-    log::info!("[notifications] Notification sent via notify-rust");
     Ok(())
 }

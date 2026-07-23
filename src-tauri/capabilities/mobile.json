@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "mobile",
+  "description": "Capability for the main window on mobile (excludes desktop-only plugins: aptabase, updater, process)",
+  "windows": [
+    "main"
+  ],
+  "platforms": ["iOS", "android"],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "store:default",
+    "deep-link:default",
+    "log:default"
+  ]
+}

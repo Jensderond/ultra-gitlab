@@ -29,6 +29,9 @@
     "resources": {
       "../dist/*": "companion-dist/",
       "../dist/assets/*": "companion-dist/assets/"
+    },
+    "iOS": {
+      "developmentTeam": "799QBY4RBJ"
     }
   },
   "plugins": {
