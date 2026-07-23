@@ -4,5 +4,7 @@
 <dict>
     <key>method</key>
     <string>debugging</string>
+    <key>teamID</key>
+    <string>7ZBFS4P4K2</string>
 </dict>
 </plist>
