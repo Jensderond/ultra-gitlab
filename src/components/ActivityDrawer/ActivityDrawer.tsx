@@ -34,6 +34,14 @@ export default function ActivityDrawer({ isOpen, onToggle, showSystemEvents, onT
     }
   }, [isOpen]);
 
+  // Shared by mouse and touch dragging — converts a pointer Y position into
+  // a clamped drawer height (vh units, measured up from the footer).
+  const updateHeightFromClientY = useCallback((clientY: number) => {
+    const footerHeight = 49;
+    const newHeightVh = ((window.innerHeight - clientY - footerHeight) / window.innerHeight) * 100;
+    onHeightChange(Math.max(MIN_HEIGHT_VH, Math.min(MAX_HEIGHT_VH, newHeightVh)));
+  }, [onHeightChange]);
+
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     isDraggingRef.current = true;
@@ -42,11 +50,7 @@ export default function ActivityDrawer({ isOpen, onToggle, showSystemEvents, onT
 
     const onMouseMove = (moveEvent: MouseEvent) => {
       if (!isDraggingRef.current) return;
-      const footerHeight = 49;
-      // Convert pixel distance (from mouse to footer) into vh units
-      const newHeightVh = ((window.innerHeight - moveEvent.clientY - footerHeight) / window.innerHeight) * 100;
-      const clamped = Math.max(MIN_HEIGHT_VH, Math.min(MAX_HEIGHT_VH, newHeightVh));
-      onHeightChange(clamped);
+      updateHeightFromClientY(moveEvent.clientY);
     };
 
     const onMouseUp = () => {
@@ -59,52 +63,87 @@ export default function ActivityDrawer({ isOpen, onToggle, showSystemEvents, onT
 
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
-  }, [onHeightChange]);
+  }, [updateHeightFromClientY]);
+
+  // Touch equivalent — no mouse on iOS, so the resize handle needs its own gesture.
+  const handleTouchDragStart = useCallback(() => {
+    isDraggingRef.current = true;
+
+    const onTouchMove = (moveEvent: TouchEvent) => {
+      if (!isDraggingRef.current) return;
+      if (moveEvent.cancelable) moveEvent.preventDefault();
+      updateHeightFromClientY(moveEvent.touches[0].clientY);
+    };
+
+    const onTouchEnd = () => {
+      isDraggingRef.current = false;
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', onTouchEnd);
+      document.removeEventListener('touchcancel', onTouchEnd);
+    };
+
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
+    document.addEventListener('touchcancel', onTouchEnd);
+  }, [updateHeightFromClientY]);
 
   return (
-    <div
-      ref={drawerRef}
-      className={`activity-drawer ${isOpen ? 'activity-drawer--open' : ''}`}
-      style={{ height: `${heightVh}vh` }}
-      tabIndex={-1}
-      data-testid="activity-drawer"
-    >
+    <>
+      {isOpen && (
+        <div
+          className="activity-drawer-backdrop"
+          onClick={onToggle}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onToggle(); }}
+          role="button"
+          tabIndex={0}
+          aria-label="Close activity panel"
+        />
+      )}
       <div
-        className="activity-drawer__drag-handle"
-        role="separator"
-        aria-orientation="horizontal"
-        aria-label="Resize activity panel"
-        onMouseDown={handleDragStart}
-        data-testid="activity-drawer-drag-handle"
+        ref={drawerRef}
+        className={`activity-drawer ${isOpen ? 'activity-drawer--open' : ''}`}
+        style={{ height: `${heightVh}vh` }}
+        tabIndex={-1}
+        data-testid="activity-drawer"
       >
-        <div className="activity-drawer__drag-grip" />
-      </div>
-      <div className="activity-drawer__header">
-        <span className="activity-drawer__title">Activity</span>
-        <div className="activity-drawer__header-actions">
-          <label className="activity-drawer__toggle-label" data-testid="activity-show-events-toggle">
-            <input
-              type="checkbox"
-              checked={showSystemEvents}
-              onChange={onToggleSystemEvents}
-              className="activity-drawer__toggle-checkbox"
-            />
-            Show activity
-          </label>
-          <button
-            className="activity-drawer__close"
-            onClick={onToggle}
-            aria-label="Close activity drawer"
-            data-testid="activity-drawer-close"
-          >
-            &times;
-          </button>
+        <div
+          className="activity-drawer__drag-handle"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize activity panel"
+          onMouseDown={handleDragStart}
+          onTouchStart={handleTouchDragStart}
+          data-testid="activity-drawer-drag-handle"
+        >
+          <div className="activity-drawer__drag-grip" />
         </div>
+        <div className="activity-drawer__header">
+          <span className="activity-drawer__title">Activity</span>
+          <div className="activity-drawer__header-actions">
+            <label className="activity-drawer__toggle-label" data-testid="activity-show-events-toggle">
+              <input
+                type="checkbox"
+                checked={showSystemEvents}
+                onChange={onToggleSystemEvents}
+                className="activity-drawer__toggle-checkbox"
+              />
+              Show activity
+            </label>
+            <button
+              className="activity-drawer__close"
+              onClick={onToggle}
+              aria-label="Close activity drawer"
+              data-testid="activity-drawer-close"
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+        <div className="activity-drawer__content" data-testid="activity-drawer-content">
+          {children}
+        </div>
+        {footer}
       </div>
-      <div className="activity-drawer__content" data-testid="activity-drawer-content">
-        {children}
-      </div>
-      {footer}
-    </div>
+    </>
   );
 }

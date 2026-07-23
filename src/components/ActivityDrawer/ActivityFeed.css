@@ -233,12 +233,25 @@
   line-height: 1;
 }
 
-.activity-comment:hover .activity-comment__delete {
-  opacity: 0.5;
+/* Only reveal-on-hover for real pointers — on touch there's no hover state,
+   so it would otherwise be permanently unreachable. */
+@media (hover: hover) and (pointer: fine) {
+  .activity-comment:hover .activity-comment__delete {
+    opacity: 0.5;
+  }
+
+  .activity-comment__delete:hover {
+    opacity: 1 !important;
+  }
 }
 
-.activity-comment__delete:hover {
-  opacity: 1 !important;
+@media (hover: none), (pointer: coarse) {
+  .activity-comment__delete {
+    opacity: 0.4;
+    /* Invisible hit-slop — the glyph stays small, but the tap target doesn't. */
+    padding: 10px 8px;
+    margin: -10px -8px -10px auto;
+  }
 }
 
 .activity-comment__delete--confirming {

@@ -9,6 +9,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useMRListQuery } from '../../hooks/queries/useMRListQuery';
 import type { MergeRequest } from '../../types';
 import MRListItem from './MRListItem';
+import { usePullToRefresh } from '../../hooks/usePullToRefresh';
+import { PullToRefreshIndicator } from '../PullToRefresh';
 import './MRList.css';
 
 const SYNCING_INDICATOR_DELAY_MS = 350;
@@ -48,6 +50,10 @@ interface MRListProps {
   onToggleApproved?: () => void;
   /** Render rows in the compact single-line layout */
   condensed?: boolean;
+  /** Called when the user pulls to refresh (touch). Awaited to keep the spinner visible until done. */
+  onRefresh?: () => Promise<void> | void;
+  /** Mirrors the pull-to-refresh in-flight state up, so the parent can render a page-level sync indicator. */
+  onRefreshingChange?: (refreshing: boolean) => void;
 }
 
 /**
@@ -65,9 +71,20 @@ export default function MRList({
   showApproved = false,
   onToggleApproved,
   condensed = false,
+  onRefresh,
+  onRefreshingChange,
 }: MRListProps) {
   const query = useMRListQuery(instanceId);
   const queryClient = useQueryClient();
+
+  const { containerRef: pullRef, pullDistance, refreshing } = usePullToRefresh<HTMLDivElement>({
+    onRefresh: onRefresh ?? (() => {}),
+    disabled: !onRefresh,
+  });
+
+  useEffect(() => {
+    onRefreshingChange?.(refreshing);
+  }, [refreshing, onRefreshingChange]);
 
   // UI-only state
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
@@ -231,7 +248,8 @@ export default function MRList({
 
   return (
     <div className="mr-list">
-      <div className={`mr-list-content${condensed ? ' mr-list-content--condensed' : ''}`}>
+      <div ref={pullRef} className={`mr-list-content${condensed ? ' mr-list-content--condensed' : ''}`}>
+        <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} />
         {mrs.length === 0 ? (
           <div className="mr-list-empty">
             <p>No open merge requests</p>

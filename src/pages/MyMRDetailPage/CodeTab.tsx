@@ -2,6 +2,7 @@
  * Code tab for MyMRDetailPage — file navigation + diff viewer.
  */
 
+import { useState } from 'react';
 import { FileNavigation } from '../../components/FileNavigation';
 import { PierreDiffViewer } from '../../components/PierreDiffViewer';
 import { ImageDiffViewer } from '../../components/ImageDiffViewer';
@@ -43,13 +44,38 @@ export function CodeTab({
   handleFileSelect,
   toggleHideGenerated,
 }: CodeTabProps) {
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
   return (
     <div className="my-mr-code-tab">
-      <aside className="my-mr-code-sidebar">
+      <button
+        type="button"
+        className="my-mr-code-mobile-files-toggle"
+        onClick={() => setMobileSidebarOpen(true)}
+        aria-label="Show changed files"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+          <path d="M13 2v7h7" />
+        </svg>
+        <span>{files.length} file{files.length === 1 ? '' : 's'}</span>
+      </button>
+
+      {mobileSidebarOpen && (
+        <div
+          className="my-mr-code-mobile-backdrop"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
+      <aside className={`my-mr-code-sidebar${mobileSidebarOpen ? ' mobile-open' : ''}`}>
         <FileNavigation
           files={files}
           selectedPath={selectedFile ?? undefined}
-          onSelect={handleFileSelect}
+          onSelect={(path) => {
+            handleFileSelect(path);
+            setMobileSidebarOpen(false);
+          }}
           focusIndex={fileFocusIndex}
           generatedPaths={generatedPaths}
           hideGenerated={hideGenerated}

@@ -88,6 +88,13 @@
   border-color: color-mix(in srgb, var(--accent-color) 30%, var(--border-color));
 }
 
+/* No keyboard on touch devices — the shortcut hint is just noise there. */
+@media (max-width: 767px) {
+  .approval-kbd {
+    display: none;
+  }
+}
+
 .approval-changes {
   font-size: 12px;
   padding: 2px 8px;

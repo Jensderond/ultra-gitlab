@@ -159,28 +159,28 @@
     justify-content: center;
     border-right: none;
     border-top: 1px solid var(--border-color);
-    padding: 10px 8px 20px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 6px));
   }
 
   .app-sidebar-top {
     flex-direction: row;
     flex: 0;
-    gap: 8px;
+    gap: 6px;
   }
 
   .app-sidebar-bottom {
     flex-direction: row;
-    gap: 8px;
+    gap: 6px;
   }
 
   .app-sidebar-item {
-    width: 48px;
-    height: 48px;
+    width: 42px;
+    height: 42px;
   }
 
   .app-sidebar-item svg {
-    width: 26px;
-    height: 26px;
+    width: 22px;
+    height: 22px;
   }
 
   .app-sidebar-indicator {

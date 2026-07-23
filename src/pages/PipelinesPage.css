@@ -576,3 +576,41 @@
     transform: scale(0.75);
   }
 }
+
+/* ============================================================================
+   Mobile (≤767px) — compact header to match the other list pages
+   ============================================================================ */
+
+@media (max-width: 767px) {
+  .pipelines-header {
+    padding: 14px 16px 12px;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .pipelines-header h1 {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    gap: 10px;
+  }
+
+  .pipelines-header h1::before {
+    height: 14px;
+  }
+
+  .pipelines-freshness {
+    display: none;
+  }
+
+  .pipelines-search-container,
+  .pipelines-content {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .pipelines-search-dropdown {
+    left: 16px;
+    right: 16px;
+  }
+}

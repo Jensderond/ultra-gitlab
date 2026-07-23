@@ -156,3 +156,62 @@
   opacity: 1;
   box-shadow: 0 0 6px currentColor;
 }
+
+/* Only used at the mobile breakpoint below, where the text label is hidden
+   and a plain dot can't tell Drafts apart from Recently-merged. */
+.recently-merged-toggle-icon {
+  display: none;
+}
+
+/* Search was previously only reachable via ⌘F — no keyboard on mobile. */
+.header-search-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.header-search-button:hover {
+  color: var(--accent-color);
+  border-color: var(--border-color);
+  background: var(--overlay-glass);
+}
+
+/* Collapse to an icon-only tap target on mobile — with both toggles showing
+   full text, the title wraps to 2 lines and the toggles wrap their own
+   labels too. Swap the plain dot for a distinguishing icon (pencil for
+   Drafts, check for Recently merged) since two identical dots side by side
+   give a sighted user no way to tell them apart without the label. */
+@media (max-width: 767px) {
+  .recently-merged-toggle {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .recently-merged-toggle-label {
+    display: none;
+  }
+
+  .recently-merged-toggle-dot {
+    display: none;
+  }
+
+  .recently-merged-toggle-icon {
+    display: inline-flex;
+    opacity: 0.5;
+  }
+
+  .recently-merged-toggle.is-on .recently-merged-toggle-icon {
+    opacity: 1;
+  }
+}

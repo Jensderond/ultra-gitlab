@@ -76,3 +76,11 @@
   background: var(--bg-hover);
   color: var(--text-primary);
 }
+
+/* iOS auto-zooms the whole page on focusing any input under 16px, and the
+   zoom doesn't reset itself — a real trap now that search is tap-reachable. */
+@media (max-width: 767px) {
+  .search-bar-input {
+    font-size: 16px;
+  }
+}

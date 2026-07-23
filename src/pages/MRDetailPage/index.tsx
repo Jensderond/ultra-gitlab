@@ -130,6 +130,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   }, [files, dispatch]);
 
   const navigableFiles = view.hideGenerated ? reviewableFiles : files;
+  const currentFileIndex = navigableFiles.findIndex((f) => f.newPath === view.selectedFile);
 
   const navigateFile = useCallback(
     (direction: number) => {
@@ -255,6 +256,8 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         }}
         onUnapproved={(trigger) => trackMRUnapproved(mrId, trigger)}
         hideApproval={isMergedOrClosed}
+        unresolvedCount={unresolvedCount}
+        onToggleActivity={() => setActivityOpen((o) => !o)}
       />
 
       <div className="mr-detail-content">
@@ -328,7 +331,24 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         <div className="copy-toast">Link copied</div>
       )}
 
-      <MRFooter unresolvedCount={unresolvedCount} onToggleActivity={() => setActivityOpen((o) => !o)} />
+      <MRFooter
+        fileIndex={currentFileIndex >= 0 ? currentFileIndex : null}
+        fileCount={navigableFiles.length}
+        onPrevFile={() => navigateFile(-1)}
+        onNextFile={() => navigateFile(1)}
+        isCurrentFileViewed={view.selectedFile != null && view.viewedPaths.has(view.selectedFile)}
+        onMarkViewed={markViewedAndNext}
+        mr={mr}
+        mrId={mrId}
+        isSmallScreen={isSmallScreen}
+        approvalButtonRef={approvalButtonRef}
+        onApproved={(trigger) => {
+          trackMRApproved(mrId, Math.round((Date.now() - mrEnteredAtRef.current) / 1000), trigger);
+          navigate('/mrs');
+        }}
+        onUnapproved={(trigger) => trackMRUnapproved(mrId, trigger)}
+        hideApproval={isMergedOrClosed}
+      />
     </div>
   );
 }

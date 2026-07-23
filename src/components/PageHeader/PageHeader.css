@@ -113,3 +113,23 @@
   align-items: center;
   gap: 8px;
 }
+
+/* Compact nav-bar treatment on phone widths — the 26px display title reads
+   as oversized chrome once the sidebar has already collapsed to a bottom
+   tab bar (which carries its own iconography for wayfinding). */
+@media (max-width: 767px) {
+  .page-header {
+    padding: 14px 16px 12px;
+  }
+
+  .page-header h1 {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    gap: 10px;
+  }
+
+  .page-header h1::before {
+    height: 14px;
+  }
+}

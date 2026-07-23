@@ -16,6 +16,8 @@ import SearchBar from '../components/SearchBar/SearchBar';
 import { useInstancesQuery } from '../hooks/queries/useInstancesQuery';
 import { useSettingsQuery } from '../hooks/queries/useSettingsQuery';
 import { InstanceSwitcher } from '../components/InstanceSwitcher';
+import { manualSync } from '../services/storage';
+import { SyncProgressBar } from '../components/PullToRefresh';
 import { queryKeys } from '../lib/queryKeys';
 import { ShortcutBar } from '../components/ShortcutBar';
 import type { ShortcutDef } from '../components/ShortcutBar';
@@ -51,6 +53,7 @@ export default function MRListPage() {
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
   const [mrs, setMrs] = useState<MergeRequest[]>([]);
   const [showApproved, setShowApproved] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   // Shift+H toggles approved MR visibility
   useEffect(() => {
@@ -78,6 +81,7 @@ export default function MRListPage() {
     query,
     isSearchOpen,
     setQuery,
+    openSearch,
     closeSearch,
   } = useListSearch({ items: [] as MergeRequest[], getSearchableText: () => [] });
 
@@ -191,6 +195,17 @@ export default function MRListPage() {
         refreshAriaLabel="Refresh merge requests"
         actions={
           <>
+            <button
+              type="button"
+              className="header-search-button"
+              onClick={openSearch}
+              aria-label="Search merge requests"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+            </button>
             <InstanceSwitcher
               instances={instances}
               selectedId={selectedInstanceId}
@@ -215,6 +230,8 @@ export default function MRListPage() {
           </>
         }
       />
+
+      {syncing && <SyncProgressBar />}
 
       <main className="mr-list-page-content">
         {isSearchOpen && (
@@ -241,6 +258,8 @@ export default function MRListPage() {
             showApproved={showApproved}
             onToggleApproved={() => setShowApproved(v => !v)}
             condensed={condensed}
+            onRefresh={() => manualSync(true)}
+            onRefreshingChange={setSyncing}
           />
         ) : null}
       </main>

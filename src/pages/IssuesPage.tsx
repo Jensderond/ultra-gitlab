@@ -34,6 +34,8 @@ import {
 import type { IssueProject, IssueWithProject } from '../types';
 import { PageHeader } from '../components/PageHeader';
 import { CmdIcon } from '../components/icons';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import { PullToRefreshIndicator, SyncProgressBar } from '../components/PullToRefresh';
 import './IssuesPage.css';
 
 const listShortcuts: ShortcutDef[] = [
@@ -204,6 +206,11 @@ export default function IssuesPage() {
     }
   }, [invalidateIssues, selectedInstanceId, selectedProjectId]);
 
+  const { containerRef: pullRef, pullDistance, refreshing } = usePullToRefresh<HTMLElement>({
+    onRefresh: handleSync,
+    disabled: selectedInstanceId == null,
+  });
+
   const handleStarIssue = useCallback(
     (issueId: number) => {
       if (selectedInstanceId == null) return;
@@ -279,6 +286,8 @@ export default function IssuesPage() {
         }
       />
 
+      {refreshing && <SyncProgressBar />}
+
       <div className="issues-page-body">
         <aside className="issues-sidebar">
           <nav className="issues-scope-nav" aria-label="Issue scope">
@@ -344,7 +353,8 @@ export default function IssuesPage() {
           </div>
         </aside>
 
-        <main className="issues-main">
+        <main className="issues-main" ref={pullRef}>
+          <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} />
           {isSearchOpen && (
             <SearchBar
               query={query}

@@ -22,7 +22,7 @@ export function PipelinesSection({ mrId, instanceId, projectName }: PipelinesSec
   const [openPipeline, setOpenPipeline] = useState<PipelineStatus | null>(null);
 
   return (
-    <section className="my-mr-overview-section">
+    <section className="my-mr-overview-section my-mr-pipelines-section">
       <h3>
         Pipelines
         {pipelines.length > 0 && (

@@ -599,6 +599,62 @@
   z-index: 10;
 }
 
+/* Touch file-nav cluster in the footer — desktop already has n/p/arrow keys,
+   so this only appears at the mobile breakpoint below. */
+.mr-footer-mobile-nav {
+  display: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.mr-footer-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  color: var(--text-secondary);
+  background: var(--overlay-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.mr-footer-nav-btn:active {
+  background: var(--overlay-surface-hover);
+  color: var(--accent-color);
+}
+
+.mr-footer-viewed-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  background: var(--overlay-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mr-footer-viewed-btn svg {
+  opacity: 0.35;
+}
+
+.mr-footer-viewed-btn--active {
+  color: var(--success-color, var(--accent-color));
+  border-color: var(--success-color, var(--accent-color));
+}
+
+.mr-footer-viewed-btn--active svg {
+  opacity: 1;
+}
+
 /* Copy-toast styles are in src/styles/shared.css */
 
 /* Comment input overlay */
@@ -887,9 +943,46 @@
     padding: 10px;
   }
 
-  /* Hide keyboard footer on mobile */
+  /* Footer becomes a touch nav bar — keyboard hints hidden, file prev/next
+     and Activity stay reachable without a keyboard. The home-indicator safe
+     area is already reserved by the bottom tab bar below this footer
+     (AppSidebar.css / --mobile-tabbar-height in App.css), so this footer
+     must NOT also pad for env(safe-area-inset-bottom) — doing so double-counts
+     the inset and leaves a visible empty gap above the tab bar. */
   .mr-detail-footer {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .mr-detail-footer .shortcut-bar {
     display: none;
+  }
+
+  .mr-footer-mobile-nav {
+    display: flex;
+  }
+
+  /* Approve replaces Activity as the footer's last touch target — it's the
+     action taken far more often than opening Activity, and thumb reach to
+     the bottom bar beats the header on a phone. */
+  .mr-detail-footer .approval-container {
+    flex: 1;
+    margin-left: 8px;
+  }
+
+  /* Merged/closed MRs hide the approval button entirely (hideApproval) —
+     without it the nav cluster is the footer's only child, and
+     justify-content: space-between would otherwise flush it left with a
+     dead empty gap to the right. */
+  .mr-detail-footer .mr-footer-mobile-nav:only-child {
+    margin: 0 auto;
+  }
+
+  .mr-detail-footer .approval-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 40px;
+    font-size: 13px;
   }
 
   /* Smaller diff toolbar buttons */
@@ -898,54 +991,57 @@
     font-size: 11px;
   }
 
-  /* Copy toast above bottom nav bar */
+  /* Copy toast above the footer nav bar */
   .copy-toast {
-    bottom: 72px;
+    bottom: calc(64px + env(safe-area-inset-bottom, 6px));
   }
 }
 
-/* Activity toggle button */
-.activity-toggle-btn {
-  padding: 6px 14px;
-  font-family: 'Noto Sans JP', sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-tertiary);
+/* Activity toggle button (header) */
+.activity-header-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   background: var(--overlay-surface);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: 8px;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.activity-toggle-btn:hover {
-  color: var(--text-secondary);
+.activity-header-toggle:hover {
+  color: var(--text-primary);
   background: var(--overlay-surface-hover);
   border-color: var(--text-fuji);
 }
 
-.activity-toggle-btn:focus {
+.activity-header-toggle:focus {
   outline: none;
   border-color: var(--accent-color);
   box-shadow: 0 0 0 3px var(--wave-glow);
 }
 
-/* Unresolved thread badge on activity toggle button */
-.activity-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  margin-left: 6px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  font-weight: 600;
-  color: #fff;
+/* Unresolved thread badge on the activity toggle button */
+.activity-header-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
   background: var(--accent-color);
-  border-radius: 9px;
-  line-height: 1;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  padding: 0 3px;
+  pointer-events: none;
 }
 
 /* Annotation delete button — show on hover */

@@ -29,6 +29,10 @@
   transform: translateY(0);
 }
 
+.activity-drawer-backdrop {
+  display: none;
+}
+
 /* Drag handle at top edge */
 .activity-drawer__drag-handle {
   display: flex;
@@ -142,4 +146,47 @@
 
 .activity-drawer__content::-webkit-scrollbar-thumb:hover {
   background: var(--wave-glow-strong);
+}
+
+/* Mobile: right-side slide-in panel instead of a bottom sheet — the drag
+   handle doesn't translate to a horizontal affordance, so it's hidden and
+   the width is fixed instead of user-resizable. */
+@media (max-width: 767px) {
+  .activity-drawer {
+    top: env(safe-area-inset-top, 0px);
+    left: auto;
+    right: 0;
+    bottom: var(--mobile-tabbar-height, 60px);
+    width: min(85%, 360px);
+    height: auto !important;
+    border-top: none;
+    border-left: 1px solid var(--border-color);
+    box-shadow:
+      -4px 0 24px rgba(0, 0, 0, 0.3),
+      0 0 40px var(--wave-glow);
+    transform: translateX(100%);
+    z-index: 25;
+  }
+
+  .activity-drawer--open {
+    transform: translateX(0);
+  }
+
+  .activity-drawer__drag-handle {
+    display: none;
+  }
+
+  .activity-drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 24;
+    animation: activityBackdropFadeIn 0.2s ease;
+  }
+}
+
+@keyframes activityBackdropFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }

@@ -39,3 +39,15 @@
   color: var(--accent-color);
   border-bottom: 2px solid var(--accent-color);
 }
+
+/* No keyboard on touch — "[1] Overview" reads as noise there, and tapping
+   already works fine without the hint. */
+@media (max-width: 767px) {
+  .tab-bar {
+    padding: 0 12px;
+  }
+
+  .tab-bar-item kbd {
+    display: none;
+  }
+}

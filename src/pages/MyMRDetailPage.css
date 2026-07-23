@@ -130,6 +130,14 @@
   flex-shrink: 0;
 }
 
+.my-mr-code-mobile-files-toggle {
+  display: none;
+}
+
+.my-mr-code-mobile-backdrop {
+  display: none;
+}
+
 .my-mr-code-main {
   flex: 1;
   overflow-y: auto;
@@ -209,6 +217,23 @@
   text-transform: none;
   letter-spacing: normal;
   color: var(--text-tertiary);
+}
+
+/* Only shown on mobile (see media query below) — the full roster is
+   collapsed there by default, this reveals it on demand. */
+.my-mr-reviewers-toggle {
+  display: none;
+  margin-left: auto;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text-tertiary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 100px;
+  cursor: pointer;
 }
 
 .my-mr-section-refresh {
@@ -394,11 +419,20 @@
   white-space: nowrap;
 }
 
+/* Status is a glyph, not just a color — color alone is only ever explained
+   by this title tooltip, which doesn't exist on a touchscreen. */
 .my-mr-reviewer-dot {
-  width: 7px;
-  height: 7px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
 }
 
 .reviewer-approved .my-mr-reviewer-dot {
@@ -407,6 +441,8 @@
 }
 
 .reviewer-pending .my-mr-reviewer-dot {
+  width: 7px;
+  height: 7px;
   background: var(--text-tertiary);
   opacity: 0.5;
 }
@@ -910,9 +946,198 @@
 
 /* Copy-toast styles are in src/styles/shared.css */
 
-/* Hide keyboard hints on small screens (mobile companion, narrow browser) */
-@media (max-width: 768px) {
+/* Hide keyboard hints on small screens (narrow browser window) */
+@media (max-width: 767px) {
   .my-mr-detail-footer {
     display: none;
+  }
+}
+
+/* Code tab: 280px fixed sidebar → slide-in drawer, same pattern as the
+   reviewer MR detail screen, so it doesn't squeeze the diff on a phone. */
+@media (max-width: 767px) {
+  .my-mr-code-tab {
+    position: relative;
+  }
+
+  .my-mr-code-mobile-files-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 21;
+    padding: 6px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--overlay-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .my-mr-code-mobile-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 19;
+  }
+
+  .my-mr-code-sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    z-index: 20;
+    background: var(--bg-primary);
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .my-mr-code-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  .my-mr-code-main {
+    width: 100%;
+    padding-top: 44px;
+  }
+
+  /* Pipeline rows: the 6-column desktop grid (≈540px min) doesn't fit a phone's
+     content width — reflow to two lines: status/ref/time, then id/sha/duration. */
+  .my-mr-pipeline-row {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      "status ref time"
+      "id sha duration";
+    row-gap: 4px;
+    column-gap: 8px;
+  }
+
+  .my-mr-pipeline-status-chip {
+    grid-area: status;
+  }
+
+  .my-mr-pipeline-ref {
+    grid-area: ref;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .my-mr-pipeline-time {
+    grid-area: time;
+    font-size: 10px;
+  }
+
+  .my-mr-pipeline-id {
+    grid-area: id;
+    font-size: 10px;
+    opacity: 0.7;
+  }
+
+  .my-mr-pipeline-sha {
+    grid-area: sha;
+    font-size: 10px;
+    opacity: 0.7;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .my-mr-pipeline-duration {
+    grid-area: duration;
+    font-size: 10px;
+    opacity: 0.7;
+    text-align: right;
+  }
+
+  /* No keyboard on touch — these hints are just noise there. */
+  .my-mr-action-btn .shortcut-tag {
+    display: none;
+  }
+
+  /* 44pt touch targets (Merge/Rebase/Mark ready were ~30-34px tall), and more
+     breathing room between Confirm merge / Cancel so a thumb can't straddle
+     both on what's an irreversible action. */
+  .my-mr-action-btn {
+    min-height: 44px;
+    padding: 12px 16px;
+  }
+
+  .my-mr-merge-actions {
+    gap: 16px;
+  }
+
+  .my-mr-merge-cancel {
+    min-height: 44px;
+    padding: 12px 16px;
+  }
+
+  .my-mr-section-refresh {
+    width: 36px;
+    height: 36px;
+  }
+
+  /* A repeated-from-the-list-row title at near-hero size can push Details/
+     Approvals a third of the way down the screen on a long title — clamp
+     it so the stuff worth glancing at is reachable without scrolling. */
+  .my-mr-overview-title {
+    font-size: 17px;
+    margin-bottom: 12px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* The full reviewer roster reads as a lot of chrome above the fold on a
+     phone — collapse it behind a Show/Hide toggle, keeping the approved/
+     required summary visible at a glance. */
+  .my-mr-reviewer-row {
+    display: none;
+  }
+
+  .my-mr-reviewer-row--expanded {
+    display: flex;
+  }
+
+  .my-mr-reviewers-toggle {
+    display: inline-flex;
+  }
+
+  /* Reorder the Overview tab so Merge/Rebase is reachable right after the
+     basic facts, instead of buried below Description/Reviewers/Pipelines.
+     DOM order (and reading order) is unchanged — this is a visual reorder. */
+  .my-mr-overview {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .my-mr-details-section {
+    order: 1;
+  }
+
+  .my-mr-merge-section {
+    order: 2;
+  }
+
+  .my-mr-description-section {
+    order: 3;
+  }
+
+  .my-mr-reviewers-section {
+    order: 4;
+  }
+
+  .my-mr-pipelines-section {
+    order: 5;
   }
 }

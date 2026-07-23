@@ -1,0 +1,50 @@
+.sync-progress-bar {
+  position: relative;
+  height: 2px;
+  overflow: hidden;
+  background: var(--overlay-divider, transparent);
+  animation: sync-progress-fade-in 0.2s ease;
+}
+
+.sync-progress-bar__sweep {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  left: -40%;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--accent-color) 30%,
+    var(--accent-hover) 50%,
+    var(--accent-color) 70%,
+    transparent 100%);
+  box-shadow: 0 0 8px var(--wave-glow-strong);
+  animation: sync-progress-sweep 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes sync-progress-sweep {
+  0% {
+    left: -40%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+@keyframes sync-progress-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-progress-bar__sweep {
+    animation: none;
+    left: 0;
+    width: 100%;
+    opacity: 0.6;
+  }
+}

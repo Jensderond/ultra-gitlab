@@ -2,7 +2,7 @@
  * Overview tab for MyMRDetailPage — details, description, approvals, merge.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { formatRelativeTime, reviewerStatusClass, reviewerStatusLabel } from './utils';
 import { MergeSection } from './MergeSection';
 import { PipelinesSection } from './PipelinesSection';
@@ -36,6 +36,7 @@ export function OverviewTab({
   onMerged,
 }: OverviewTabProps) {
   const requiredCount = mr.approvalsRequired ?? 0;
+  const [reviewersExpanded, setReviewersExpanded] = useState(false);
 
   const issueLinkContext = useMemo<IssueLinkContext | undefined>(() => {
     if (!mr.webUrl) return undefined;
@@ -58,7 +59,7 @@ export function OverviewTab({
     <div className="my-mr-overview">
       <h1 className="my-mr-overview-title">{mr.title}</h1>
 
-      <section className="my-mr-overview-section">
+      <section className="my-mr-overview-section my-mr-details-section">
         <h3>Details</h3>
         <dl className="my-mr-detail-list">
           <dt>State</dt>
@@ -89,7 +90,7 @@ export function OverviewTab({
       </section>
 
       {mr.description && (
-        <section className="my-mr-overview-section">
+        <section className="my-mr-overview-section my-mr-description-section">
           <h3>Description</h3>
           <Markdown
             content={mr.description}
@@ -99,26 +100,39 @@ export function OverviewTab({
         </section>
       )}
 
-      <section className="my-mr-overview-section">
+      <section className="my-mr-overview-section my-mr-reviewers-section">
         <h3>
-          Approvals
+          Reviewers
           {requiredCount > 0 && (
             <span className="my-mr-approval-summary">
-              {approvedCount} of {requiredCount} required
+              {approvedCount} approved &middot; {requiredCount} required
             </span>
+          )}
+          {reviewers.length > 0 && (
+            <button
+              type="button"
+              className="my-mr-reviewers-toggle"
+              onClick={() => setReviewersExpanded(v => !v)}
+              aria-expanded={reviewersExpanded}
+            >
+              {reviewersExpanded ? 'Hide' : 'Show'}
+            </button>
           )}
         </h3>
         {reviewers.length === 0 ? (
           <p className="my-mr-no-reviewers">No reviewers assigned</p>
         ) : (
-          <div className="my-mr-reviewer-row">
+          <div className={`my-mr-reviewer-row${reviewersExpanded ? ' my-mr-reviewer-row--expanded' : ''}`}>
             {reviewers.map(reviewer => (
               <div key={reviewer.username} className={`my-mr-reviewer-chip ${reviewerStatusClass(reviewer.status)}`}>
                 <div className="my-mr-reviewer-avatar">
                   <UserAvatar instanceId={mr.instanceId} username={reviewer.username} size={24} />
                 </div>
                 <span className="my-mr-reviewer-name">{reviewer.username}</span>
-                <span className="my-mr-reviewer-dot" title={reviewerStatusLabel(reviewer.status)} />
+                <span className="my-mr-reviewer-dot" title={reviewerStatusLabel(reviewer.status)}>
+                  {reviewer.status === 'approved' && '✓'}
+                  {reviewer.status === 'changes_requested' && '!'}
+                </span>
               </div>
             ))}
           </div>

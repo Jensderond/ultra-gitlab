@@ -20,10 +20,13 @@ import { InstanceSwitcher } from '../components/InstanceSwitcher';
 import { useMyMRListQuery } from '../hooks/queries/useMyMRListQuery';
 import { queryKeys } from '../lib/queryKeys';
 import { updateShowRecentlyMergedMrs, updateShowDraftMrs } from '../services';
+import { manualSync } from '../services/storage';
 import { useShortcuts } from '../components/ShortcutsProvider';
 import { ShortcutBar } from '../components/ShortcutBar';
 import type { ShortcutDef } from '../components/ShortcutBar';
 import { PageHeader } from '../components/PageHeader';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import { PullToRefreshIndicator, SyncProgressBar } from '../components/PullToRefresh';
 import './MRListPage.css';
 import './MyMRsPage.css';
 
@@ -90,6 +93,9 @@ export default function MyMRsPage() {
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
   const mrsRef = useRef<MergeRequest[]>([]);
   const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const { containerRef: pullRef, pullDistance, refreshing } = usePullToRefresh<HTMLDivElement>({
+    onRefresh: () => manualSync(true),
+  });
 
   const handleToggleRecentlyMerged = useCallback(async () => {
     const next = !showRecentlyMerged;
@@ -127,6 +133,7 @@ export default function MyMRsPage() {
     query,
     isSearchOpen,
     setQuery,
+    openSearch,
     closeSearch,
     filteredItems,
     filteredCount,
@@ -219,13 +226,29 @@ export default function MyMRsPage() {
           <>
             <button
               type="button"
+              className="header-search-button"
+              onClick={openSearch}
+              aria-label="Search your merge requests"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+            </button>
+            <button
+              type="button"
               className={`recently-merged-toggle ${showDrafts ? 'is-on' : ''}`}
               onClick={handleToggleDrafts}
               role="switch"
               aria-checked={showDrafts}
+              aria-label={showDrafts ? 'Hide your draft MRs' : 'Show your draft MRs'}
               title={showDrafts ? 'Hide your draft MRs' : 'Show your draft MRs'}
             >
               <span className="recently-merged-toggle-dot" aria-hidden="true" />
+              <svg className="recently-merged-toggle-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+              </svg>
               <span className="recently-merged-toggle-label">Drafts</span>
             </button>
             <button
@@ -234,9 +257,13 @@ export default function MyMRsPage() {
               onClick={handleToggleRecentlyMerged}
               role="switch"
               aria-checked={showRecentlyMerged}
+              aria-label={showRecentlyMerged ? 'Hide recently merged MRs' : 'Show MRs merged in the last 24h'}
               title={showRecentlyMerged ? 'Hide recently merged MRs' : 'Show MRs merged in the last 24h'}
             >
               <span className="recently-merged-toggle-dot" aria-hidden="true" />
+              <svg className="recently-merged-toggle-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
               <span className="recently-merged-toggle-label">Recently merged</span>
             </button>
             <InstanceSwitcher
@@ -247,6 +274,8 @@ export default function MyMRsPage() {
           </>
         }
       />
+
+      {refreshing && <SyncProgressBar />}
 
       <main className="mr-list-page-content">
         {isSearchOpen && (
@@ -274,7 +303,8 @@ export default function MyMRsPage() {
           </div>
         ) : (
           <div className="mr-list">
-            <div className={`mr-list-content${condensed ? ' mr-list-content--condensed' : ''}`}>
+            <div ref={pullRef} className={`mr-list-content${condensed ? ' mr-list-content--condensed' : ''}`}>
+              <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} />
               {filteredItems.map((mr, index) => {
                 const merged = mr.state === 'merged';
                 return (

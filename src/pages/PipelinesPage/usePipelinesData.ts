@@ -12,6 +12,7 @@ import { usePipelineProjectsQuery } from '../../hooks/queries/usePipelineProject
 import { usePipelineStatusesQuery } from '../../hooks/queries/usePipelineStatusesQuery';
 import { queryClient } from '../../lib/queryClient';
 import { queryKeys } from '../../lib/queryKeys';
+import { manualSync } from '../../services/storage';
 
 export default function usePipelinesData() {
   const navigate = useNavigate();
@@ -134,6 +135,11 @@ export default function usePipelinesData() {
     queryClient.removeQueries({ queryKey: ['pipelineStatuses'] });
   }, []);
 
+  const handleRefresh = useCallback(async () => {
+    await manualSync(true);
+    await Promise.all([projectsQuery.refetch(), statusesQuery.refetch()]);
+  }, [projectsQuery, statusesQuery]);
+
   return {
     instances,
     selectedInstanceId,
@@ -148,5 +154,6 @@ export default function usePipelinesData() {
     handleReorderPinned,
     handleOpenDetail,
     handleSelectInstance,
+    handleRefresh,
   };
 }

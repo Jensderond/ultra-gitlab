@@ -63,6 +63,28 @@
 
 /* Header styling lives in components/PageHeader/PageHeader.css */
 
+/* Search was previously only reachable via ⌘F — no keyboard on mobile. */
+.header-search-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.header-search-button:hover {
+  color: var(--accent-color);
+  border-color: var(--border-color);
+  background: var(--overlay-glass);
+}
+
 /* Wrapper provides positioning context for the popover */
 .approved-toggle-wrapper {
   position: relative;
@@ -146,8 +168,12 @@
   transform: rotate(45deg);
 }
 
-.approved-toggle-button:hover .approved-toggle-popover {
-  display: flex;
+/* Only devices with a real hover state (mouse/trackpad) get the tooltip —
+   on touch there's no way to "unhover", so it would just stick open after a tap. */
+@media (hover: hover) and (pointer: fine) {
+  .approved-toggle-button:hover .approved-toggle-popover {
+    display: flex;
+  }
 }
 
 .approved-toggle-popover-shortcut {
@@ -368,7 +394,7 @@
 }
 
 /* Keyboard hints - Refined keycaps */
-/* Hide keyboard hints on small screens (mobile companion, narrow browser) */
+/* Hide keyboard hints on small screens (narrow browser window) */
 @media (max-width: 768px) {
   .mr-list-page-footer {
     display: none;

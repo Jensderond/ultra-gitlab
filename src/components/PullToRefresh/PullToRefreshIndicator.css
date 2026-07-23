@@ -1,0 +1,22 @@
+.pull-refresh-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  color: var(--accent-color);
+}
+
+.pull-refresh-indicator--active {
+  transition: height 0.15s ease;
+}
+
+.pull-refresh-indicator--active .pull-refresh-spinner {
+  animation: pull-refresh-spin 0.7s linear infinite;
+}
+
+@keyframes pull-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

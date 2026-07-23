@@ -12,6 +12,8 @@ import ProjectCard from './ProjectCard';
 import PinnedGrid from './PinnedGrid';
 import { InstanceSwitcher } from '../../components/InstanceSwitcher';
 import { formatRelativeTime } from './utils';
+import { usePullToRefresh } from '../../hooks/usePullToRefresh';
+import { PullToRefreshIndicator, SyncProgressBar } from '../../components/PullToRefresh';
 import '../PipelinesPage.css';
 
 export default function PipelinesPage() {
@@ -31,7 +33,12 @@ export default function PipelinesPage() {
     handleReorderPinned,
     handleOpenDetail,
     handleSelectInstance,
+    handleRefresh,
   } = usePipelinesData();
+
+  const { containerRef: pullRef, pullDistance, refreshing } = usePullToRefresh<HTMLElement>({
+    onRefresh: handleRefresh,
+  });
 
   if (loading && instances.length === 0) {
     return (
@@ -76,12 +83,15 @@ export default function PipelinesPage() {
         />
       </header>
 
+      {refreshing && <SyncProgressBar />}
+
       <ProjectSearch
         selectedInstanceId={selectedInstanceId}
         onSelectResult={handleSelectResult}
       />
 
-      <main className="pipelines-content">
+      <main className="pipelines-content" ref={pullRef}>
+        <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} />
         {loading ? (
           <div className="pipelines-loading">Loading pipeline projects...</div>
         ) : projects.length === 0 ? (
