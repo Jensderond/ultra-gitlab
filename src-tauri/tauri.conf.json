@@ -31,7 +31,7 @@
       "../dist/assets/*": "companion-dist/assets/"
     },
     "iOS": {
-      "developmentTeam": "799QBY4RBJ"
+      "developmentTeam": "7ZBFS4P4K2"
     }
   },
   "plugins": {
