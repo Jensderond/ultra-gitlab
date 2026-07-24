@@ -1,45 +1,23 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Check, CheckCircle, XCircle, Clock, Info } from '@phosphor-icons/react';
 import { openExternalUrl } from '../../services/transport';
+import { CloseIcon } from '../icons';
 import { useToast, type Toast } from './ToastContext';
 import './Toast.css';
 
 function ToastIcon({ type }: { type: Toast['type'] }) {
   switch (type) {
     case 'mr-ready':
-      return (
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <path d="M6.5 12L2 7.5L3.4 6.1L6.5 9.2L12.6 3L14 4.4L6.5 12Z" fill="var(--success-color)" />
-        </svg>
-      );
+      return <Check size={16} weight="bold" color="var(--success-color)" />;
     case 'pipeline-success':
-      return (
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="8" r="6" stroke="var(--success-color)" strokeWidth="1.5" fill="none" />
-          <path d="M5.5 8L7 9.5L10.5 6" stroke="var(--success-color)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      );
+      return <CheckCircle size={16} weight="bold" color="var(--success-color)" />;
     case 'pipeline-failed':
-      return (
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="8" r="6" stroke="var(--error-color)" strokeWidth="1.5" fill="none" />
-          <path d="M5.5 5.5L10.5 10.5M10.5 5.5L5.5 10.5" stroke="var(--error-color)" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-      );
+      return <XCircle size={16} weight="bold" color="var(--error-color)" />;
     case 'pipeline-running':
-      return (
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="8" r="6" stroke="var(--accent-color)" strokeWidth="1.5" fill="none" />
-          <path d="M8 4.5V8L10.5 9.5" stroke="var(--accent-color)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      );
+      return <Clock size={16} weight="bold" color="var(--accent-color)" />;
     default:
-      return (
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="8" r="6" stroke="var(--accent-color)" strokeWidth="1.5" fill="none" />
-          <path d="M8 5V9M8 11V11.5" stroke="var(--accent-color)" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-      );
+      return <Info size={16} weight="bold" color="var(--accent-color)" />;
   }
 }
 
@@ -83,9 +61,7 @@ function ToastItem({ toast, onDismiss, onNavigate }: { toast: Toast; onDismiss: 
           </button>
         )}
         <button className="toast-close-btn" onClick={() => onDismiss(toast.id)} aria-label="Dismiss">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
+          <CloseIcon size={12} />
         </button>
       </div>
     </div>

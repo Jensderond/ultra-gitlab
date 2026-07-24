@@ -5,6 +5,8 @@
  * The app only ever runs inside a Tauri webview — there is no browser-only mode.
  */
 
+import { platform } from '@tauri-apps/plugin-os';
+
 // ============================================================================
 // Environment Detection
 // ============================================================================
@@ -13,6 +15,20 @@
  * True when running inside a Tauri webview.
  */
 export const isTauri: boolean = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+/**
+ * True when running inside the iOS app. Used to hide functionality that
+ * isn't possible there (e.g. in-app update checks — iOS updates only
+ * through the App Store/TestFlight).
+ */
+export const isIOS: boolean = (() => {
+  if (!isTauri) return false;
+  try {
+    return platform() === 'ios';
+  } catch {
+    return false;
+  }
+})();
 
 // ============================================================================
 // Tauri event listener helper

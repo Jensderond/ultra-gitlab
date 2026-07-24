@@ -1,4 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useImperativeHandle, useRef } from 'react';
+import type { Ref } from 'react';
+import { SearchIcon, CloseIcon } from '../icons';
 import './SearchBar.css';
 
 interface SearchBarProps {
@@ -10,6 +12,11 @@ interface SearchBarProps {
   onArrowDown?: () => void;
   onArrowUp?: () => void;
   onSubmit?: () => void;
+  /** Focus the input on mount (desktop overlay). The collapsed mobile bar
+      passes false so merely revealing it never opens the keyboard. */
+  autoFocus?: boolean;
+  /** Handle on the input element, e.g. so the header search button can focus it. */
+  inputRef?: Ref<HTMLInputElement>;
 }
 
 export default function SearchBar({
@@ -21,12 +28,15 @@ export default function SearchBar({
   onArrowDown,
   onArrowUp,
   onSubmit,
+  autoFocus = true,
+  inputRef: externalInputRef,
 }: SearchBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  useImperativeHandle(externalInputRef, () => inputRef.current!, []);
 
   // Auto-focus on mount and re-focus when Cmd/Ctrl+F is pressed while open
   useEffect(() => {
-    inputRef.current?.focus();
+    if (autoFocus) inputRef.current?.focus();
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'f' && (e.metaKey || e.ctrlKey)) {
@@ -37,14 +47,12 @@ export default function SearchBar({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [autoFocus]);
 
   return (
     <div className="search-bar">
       <span className="search-bar-icon">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-          <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
-        </svg>
+        <SearchIcon size={14} />
       </span>
       <input
         ref={inputRef}
@@ -79,9 +87,7 @@ export default function SearchBar({
         onClick={onClose}
         title="Close search (Esc)"
       >
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-          <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
-        </svg>
+        <CloseIcon size={12} />
       </button>
     </div>
   );

@@ -23,6 +23,7 @@ import type { PipelineJobStatus } from '../types';
 import { useJobTraceQuery } from '../hooks/queries/useJobTraceQuery';
 import { usePipelineJobsQuery } from '../hooks/queries/usePipelineJobsQuery';
 import { useCopyToast } from '../hooks/useCopyToast';
+import { CaretDownIcon } from '../components/icons';
 import './JobLogPage.css';
 
 /** Statuses that indicate a job is still active and should be polled. */
@@ -325,9 +326,7 @@ export default function JobLogPage() {
             onClick={() => setFollowMode((prev) => !prev)}
             title={followMode ? 'Disable auto-scroll' : 'Enable auto-scroll'}
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M7 2v8M4 7l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <CaretDownIcon size={14} />
             Follow
           </button>
         </div>

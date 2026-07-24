@@ -15,6 +15,7 @@ import { useManualRefreshHandler } from '../../hooks/useManualRefreshHandler';
 import { useSearchReveal } from '../../hooks/useSearchReveal';
 import { PullToRefreshIndicator } from '../PullToRefresh';
 import { useSmallScreen } from '../../hooks/useSmallScreen';
+import { CheckCircleIcon } from '../icons';
 import './MRList.css';
 
 const SYNCING_INDICATOR_DELAY_MS = 350;
@@ -311,10 +312,7 @@ export default function MRList({
               </span>
               {!showApproved && approvedCount > 0 && (
                 <button className="mr-list-approved-banner" onClick={onToggleApproved}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                    <polyline points="22 4 12 14.01 9 11.01" />
-                  </svg>
+                  <CheckCircleIcon size={14} />
                   View {approvedCount} approved {approvedCount === 1 ? 'MR' : 'MRs'}
                 </button>
               )}
@@ -345,10 +343,7 @@ export default function MRList({
               className="mr-list-approved-banner"
               onClick={onToggleApproved}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                <polyline points="22 4 12 14.01 9 11.01" />
-              </svg>
+              <CheckCircleIcon size={14} />
               {approvedCount} approved {approvedCount === 1 ? 'MR' : 'MRs'} hidden
             </button>
           )}

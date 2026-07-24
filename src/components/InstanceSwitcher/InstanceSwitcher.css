@@ -43,6 +43,7 @@
 }
 
 .instance-switcher-chevron {
+  display: inline-flex;
   flex-shrink: 0;
   transition: transform 0.2s ease;
 }

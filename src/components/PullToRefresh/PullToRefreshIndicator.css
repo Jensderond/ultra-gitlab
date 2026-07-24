@@ -2,8 +2,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   overflow: hidden;
   flex-shrink: 0;
+  color: var(--accent-color);
+}
+
+.pull-refresh-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.pull-refresh-label--armed {
   color: var(--accent-color);
 }
 

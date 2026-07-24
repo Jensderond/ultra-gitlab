@@ -2,6 +2,7 @@ import type { RefObject } from 'react';
 import { ShortcutBar } from '../../components/ShortcutBar';
 import type { ShortcutDef } from '../../components/ShortcutBar';
 import { ApprovalButton, type ApprovalButtonRef } from '../../components/Approval';
+import { CaretLeftIcon, CaretRightIcon, CheckIcon } from '../../components/icons';
 import type { MergeRequest } from '../../types';
 
 interface MRFooterProps {
@@ -57,9 +58,7 @@ export default function MRFooter({
             onClick={onPrevFile}
             aria-label="Previous file"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
+            <CaretLeftIcon size={18} />
           </button>
 
           <button
@@ -69,9 +68,7 @@ export default function MRFooter({
             aria-pressed={isCurrentFileViewed}
             aria-label={isCurrentFileViewed ? 'File marked as viewed' : 'Mark file as viewed'}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
+            <CheckIcon size={14} />
             <span className="mr-footer-file-count">{fileIndex != null ? fileIndex + 1 : '–'} / {fileCount}</span>
           </button>
 
@@ -81,9 +78,7 @@ export default function MRFooter({
             onClick={onNextFile}
             aria-label="Next file"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
+            <CaretRightIcon size={18} />
           </button>
         </div>
       )}

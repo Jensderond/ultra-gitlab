@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
-import { isTauri } from '../../services/transport';
+import { isTauri, isIOS } from '../../services/transport';
 import type { UpdateCheckerState } from '../../hooks/useUpdateChecker';
 import { SettingsGroup, SettingsRow } from './SettingsGroup';
 
 /**
  * Updates section showing current version and available updates.
+ *
+ * The manual check/install flow only applies on desktop — iOS can only be
+ * updated through the App Store/TestFlight, not by fetching a build in-app.
  */
 export default function UpdatesSection({ updateChecker }: { updateChecker: UpdateCheckerState }) {
   const [appVersion, setAppVersion] = useState<string>('');
@@ -41,7 +44,7 @@ export default function UpdatesSection({ updateChecker }: { updateChecker: Updat
         }
       >
         <span className="update-current-version"><strong>{appVersion}</strong></span>
-        {!available && !installing && (
+        {!isIOS && !available && !installing && (
           <button
             className="update-check-button"
             onClick={checkForUpdate}
@@ -52,13 +55,13 @@ export default function UpdatesSection({ updateChecker }: { updateChecker: Updat
         )}
       </SettingsRow>
 
-      {available && body && (
+      {!isIOS && available && body && (
         <SettingsRow label="Release notes" vertical>
           <pre className="update-release-notes">{body}</pre>
         </SettingsRow>
       )}
 
-      {available && !installing && (
+      {!isIOS && available && !installing && (
         <SettingsRow label="Install update" description="The app restarts after installing">
           <button className="update-install-button" onClick={installUpdate}>
             Download & Install
@@ -66,7 +69,7 @@ export default function UpdatesSection({ updateChecker }: { updateChecker: Updat
         </SettingsRow>
       )}
 
-      {installing && downloadProgress !== null && (
+      {!isIOS && installing && downloadProgress !== null && (
         <SettingsRow vertical>
           <div className="update-progress">
             <div className="update-progress-bar">
@@ -82,7 +85,7 @@ export default function UpdatesSection({ updateChecker }: { updateChecker: Updat
         </SettingsRow>
       )}
 
-      {error && (
+      {!isIOS && error && (
         <SettingsRow vertical>
           <div className="update-error">
             {error}

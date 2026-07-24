@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Menu } from '@base-ui/react/menu';
+import { DotsThree } from '@phosphor-icons/react';
 import { formatRelativeTime } from '../../services/storage';
 import { renameInstance, updateInstanceToken, updateSessionCookie, refreshAvatars } from '../../services/tauri';
 import { clearAvatarCache } from '../../components/UserAvatar/UserAvatar';
@@ -168,11 +169,7 @@ export default function InstanceItem({ inst, tokenInfo, onDelete, onTokenUpdated
           )}
           <Menu.Root>
             <Menu.Trigger className="instance-menu-trigger" aria-label={`Actions for ${inst.name || inst.url}`}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <circle cx="5" cy="12" r="1.8" />
-                <circle cx="12" cy="12" r="1.8" />
-                <circle cx="19" cy="12" r="1.8" />
-              </svg>
+              <DotsThree size={16} weight="bold" aria-hidden="true" />
             </Menu.Trigger>
             <Menu.Portal>
               <Menu.Positioner className="instance-menu-positioner" sideOffset={4} align="end">

@@ -7,6 +7,7 @@ import { forwardRef, useMemo } from 'react';
 import type { IssueWithProject } from '../../types';
 import UserAvatar from '../UserAvatar/UserAvatar';
 import HighlightText from '../HighlightText/HighlightText';
+import { StarIcon } from '../icons';
 import './IssueListItem.css';
 
 interface IssueListItemProps {
@@ -26,21 +27,6 @@ function formatRelativeTime(timestamp: number): string {
   if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
   return new Date(timestamp * 1000).toLocaleDateString();
 }
-
-const StarIcon = ({ filled }: { filled: boolean }) => (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill={filled ? 'currentColor' : 'none'}
-    stroke="currentColor"
-    strokeWidth="1.8"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-  </svg>
-);
 
 const IssueListItem = forwardRef<HTMLDivElement, IssueListItemProps>(function IssueListItem(
   { issue, selected, onClick, onToggleStar, highlightQuery },
@@ -100,7 +86,7 @@ const IssueListItem = forwardRef<HTMLDivElement, IssueListItemProps>(function Is
           onToggleStar?.();
         }}
       >
-        <StarIcon filled={issue.starred} />
+        <StarIcon filled={issue.starred} size={16} />
       </button>
 
       <div className="issue-item-body">

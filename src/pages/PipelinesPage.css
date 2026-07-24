@@ -9,77 +9,7 @@
   background: var(--bg-primary);
 }
 
-/* Header */
-.pipelines-header {
-  padding: 24px 32px 20px;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  position: relative;
-  z-index: 10;
-  animation: pipelinesHeaderReveal 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-/* Ink-wash bottom border */
-.pipelines-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 32px;
-  right: 32px;
-  height: 1px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    var(--border-color) 15%,
-    var(--text-muted) 50%,
-    var(--border-color) 85%,
-    transparent 100%);
-  opacity: 0.6;
-}
-
-@keyframes pipelinesHeaderReveal {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.pipelines-header-left {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.pipelines-header-left .pipelines-freshness {
-  margin-left: 8px;
-}
-
-.pipelines-header h1 {
-  font-family: var(--ui-font, 'Noto Sans JP', -apple-system, sans-serif);
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  margin: 0;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  line-height: 1;
-}
-
-/* Vertical accent — glowing wave bar */
-.pipelines-header h1::before {
-  content: '';
-  display: block;
-  width: 3px;
-  height: 22px;
-  background: linear-gradient(180deg,
-    var(--accent-color) 0%,
-    var(--accent-hover) 60%,
-    transparent 100%);
-  border-radius: 1.5px;
-  box-shadow: 0 0 14px var(--wave-glow-strong);
-  flex-shrink: 0;
-}
-
+/* Header — uses the shared <PageHeader>; only the freshness label is local. */
 .pipelines-freshness {
   font-size: 12px;
   color: var(--text-tertiary);
@@ -431,6 +361,13 @@
   color: var(--error-color);
 }
 
+/* Mobile action menu (kebab) — hidden on desktop, shown in the mobile block below */
+.pipeline-card-menu {
+  display: none;
+  position: relative;
+  flex-shrink: 0;
+}
+
 .pipeline-card-name {
   font-size: 13px;
   font-weight: 500;
@@ -586,23 +523,6 @@
    ============================================================================ */
 
 @media (max-width: 767px) {
-  .pipelines-header {
-    padding: 14px 16px 12px;
-    flex-wrap: wrap;
-    row-gap: 8px;
-  }
-
-  .pipelines-header h1 {
-    font-size: 15px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    gap: 10px;
-  }
-
-  .pipelines-header h1::before {
-    height: 14px;
-  }
-
   .pipelines-freshness {
     display: none;
   }
@@ -616,5 +536,126 @@
   .pipelines-search-dropdown {
     left: 16px;
     right: 16px;
+  }
+
+  /* Hover-revealed actions don't exist on touch — swap for an always-visible
+     kebab menu instead of forcing three cramped tap targets into the header. */
+  .pipeline-card-actions {
+    display: none;
+  }
+
+  .pipeline-card-menu {
+    display: flex;
+    margin-left: auto;
+  }
+
+  .pipeline-card-menu-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: none;
+    background: none;
+    box-shadow: none;
+    border-radius: 6px;
+    color: var(--text-tertiary);
+    cursor: pointer;
+  }
+
+  .pipeline-card-menu-trigger:active {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+  }
+
+  .pipeline-card-menu-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 210px;
+    padding: 4px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.4),
+      0 2px 8px rgba(0, 0, 0, 0.2);
+    z-index: 20;
+    animation: pipelineCardMenuIn 0.12s ease-out;
+  }
+
+  @keyframes pipelineCardMenuIn {
+    from {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .pipeline-card-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 10px;
+    border: none;
+    background: none;
+    box-shadow: none;
+    border-radius: 6px;
+    font-family: var(--font-display, 'Inter', system-ui, sans-serif);
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-secondary);
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .pipeline-card-menu-item:active {
+    background: var(--overlay-glass);
+    color: var(--text-primary);
+  }
+
+  .pipeline-card-menu-item svg {
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+  }
+
+  .pipeline-card-menu-item--remove {
+    color: var(--error-color);
+    margin-top: 4px;
+    padding-top: 12px;
+    position: relative;
+  }
+
+  .pipeline-card-menu-item--remove::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10px;
+    right: 10px;
+    height: 1px;
+    background: var(--border-color);
+  }
+
+  .pipeline-card-menu-item--remove svg {
+    color: var(--error-color);
+  }
+
+  /* Larger, evenly spaced tap targets on touch */
+  .pipeline-card {
+    padding: 14px 14px 12px;
+  }
+
+  .pipeline-card-name {
+    font-size: 14px;
+  }
+
+  .pipelines-grid {
+    grid-template-columns: 1fr;
   }
 }

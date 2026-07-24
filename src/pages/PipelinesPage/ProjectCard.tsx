@@ -1,7 +1,8 @@
+import { useEffect, useRef, useState } from 'react';
 import { openExternalUrl } from '../../services/transport';
 import type { PipelineProject, PipelineStatus } from '../../types';
 import { formatRelativeTime, statusLabel, formatDuration } from './utils';
-import { PinIcon, RemoveIcon, ExternalLinkIcon, BranchIcon } from './icons';
+import { PinIcon, RemoveIcon, ExternalLinkIcon, BranchIcon, MoreIcon } from './icons';
 
 interface ProjectCardProps {
   project: PipelineProject;
@@ -14,9 +15,29 @@ interface ProjectCardProps {
 
 export default function ProjectCard({ project, status, statusLoading, onTogglePin, onRemove, onOpenDetail }: ProjectCardProps) {
   const statusName = status?.status;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handlePointerDown(e: PointerEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setMenuOpen(false);
+    }
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [menuOpen]);
 
   const handleCardClick = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('.pipeline-card-actions')) return;
+    if ((e.target as HTMLElement).closest('.pipeline-card-actions, .pipeline-card-menu')) return;
     if (status) {
       onOpenDetail(project, status);
     }
@@ -58,6 +79,55 @@ export default function ProjectCard({ project, status, statusLoading, onTogglePi
           >
             <RemoveIcon />
           </button>
+        </div>
+
+        <div className="pipeline-card-menu" ref={menuRef}>
+          <button
+            className="pipeline-card-menu-trigger"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label="Project actions"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+          >
+            <MoreIcon />
+          </button>
+          {menuOpen && (
+            <div className="pipeline-card-menu-dropdown" role="menu">
+              <button
+                className="pipeline-card-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  openExternalUrl(`${project.webUrl}/-/pipelines`);
+                }}
+              >
+                <ExternalLinkIcon filled />
+                Open in GitLab
+              </button>
+              <button
+                className="pipeline-card-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onTogglePin(project.projectId);
+                }}
+              >
+                <PinIcon filled />
+                {project.pinned ? 'Unpin project' : 'Pin project'}
+              </button>
+              <button
+                className="pipeline-card-menu-item pipeline-card-menu-item--remove"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onRemove(project.projectId);
+                }}
+              >
+                <RemoveIcon filled />
+                Remove from dashboard
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

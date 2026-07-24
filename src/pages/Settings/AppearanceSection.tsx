@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Combobox } from '@base-ui/react/combobox';
+import { CaretDown, Check } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import useTheme from '../../hooks/useTheme';
 import { THEME_PRESETS, UI_FONTS } from '../../components/ThemeProvider';
@@ -63,9 +64,7 @@ function FontCombobox({ label, labelId, fonts, value, onSelect, loading, error }
           />
           <Combobox.Trigger className="font-combobox-trigger-btn">
             <Combobox.Icon className="font-combobox-icon">
-              <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
-                <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              <CaretDown size={10} weight="bold" />
             </Combobox.Icon>
           </Combobox.Trigger>
         </div>
@@ -85,9 +84,7 @@ function FontCombobox({ label, labelId, fonts, value, onSelect, loading, error }
                   >
                     {font.label}
                     <Combobox.ItemIndicator className="font-combobox-check">
-                      <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
-                        <path d="M1 5L4.5 8.5L11 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
+                      <Check size={12} weight="bold" />
                     </Combobox.ItemIndicator>
                   </Combobox.Item>
                 )}

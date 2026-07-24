@@ -19,21 +19,37 @@
    HEADER
    ================================================ */
 
+/* Padding, h1 type scale, accent bar and background all match the shared
+   <PageHeader> used by Issues/Pipelines/My MRs — Settings is a primary
+   sidebar/tab destination too, so its header should read as the same chrome,
+   not a distinct sub-page. In particular: no background/blur of its own —
+   the glass-gradient this used to have created a visible seam against the
+   plain --bg-primary that .app-content extends up under the status bar/notch. */
 .settings-header {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 16px 24px;
-  background: linear-gradient(180deg,
-    var(--overlay-glass) 0%,
-    var(--overlay-glass-light) 100%);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border-color);
+  padding: 24px 32px 20px;
   position: relative;
   z-index: 10;
   flex-shrink: 0;
   animation: settingsHeaderSlide 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.settings-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 32px;
+  right: 32px;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--border-color) 15%,
+    var(--text-fuji) 50%,
+    var(--border-color) 85%,
+    transparent 100%);
+  opacity: 0.6;
 }
 
 @keyframes settingsHeaderSlide {
@@ -44,13 +60,13 @@
 .settings-header h1 {
   margin: 0;
   font-family: var(--ui-font, 'Noto Sans JP', -apple-system, sans-serif);
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
   color: var(--text-primary);
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   line-height: 1;
 }
 
@@ -59,7 +75,7 @@
   content: '';
   display: block;
   width: 3px;
-  height: 20px;
+  height: 22px;
   background: linear-gradient(180deg,
     var(--accent-color) 0%,
     var(--accent-hover) 60%,
@@ -465,6 +481,7 @@
 }
 
 .settings-mobile-chevron {
+  display: inline-flex;
   flex-shrink: 0;
   color: var(--text-muted);
 }
@@ -1715,16 +1732,30 @@
   }
 }
 
-/* On mobile, Settings is a main tab in the bottom nav — a back arrow on the
-   root list reads as if Settings were a sub-page, so hide it there. Drill-in
-   section pages (.settings-header--sub) keep their back arrow. */
+/* Compact header on phone widths — matches the shared <PageHeader> breakpoint. */
 @media (max-width: 767px) {
-  .settings-header--root {
-    gap: 0;
+  .settings-header {
+    padding: 14px 16px 12px;
   }
 
-  .settings-header--root .back-button-icon {
-    display: none;
+  .settings-header h1 {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    gap: 10px;
+  }
+
+  .settings-header h1::before {
+    height: 14px;
+  }
+}
+
+/* On touch devices (iOS) there's no traffic-light window chrome to clear, and
+   .app-content already reserves env(safe-area-inset-top) for the status bar/notch —
+   so the header's own top padding only needs to be a small visual gap, not clearance. */
+@media (max-width: 767px) and (hover: none), (max-width: 767px) and (pointer: coarse) {
+  .settings-header {
+    padding-top: 6px;
   }
 }
 

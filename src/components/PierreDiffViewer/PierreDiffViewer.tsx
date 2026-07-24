@@ -2,7 +2,7 @@ import { MultiFileDiff } from '@pierre/diffs/react';
 import type { FileContents, FileDiffMetadata } from '@pierre/diffs/react';
 import type { DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
-import { TrashIcon } from '../icons';
+import { TrashIcon, CheckIcon, CopyIcon } from '../icons';
 import Markdown from '../Markdown';
 import UserAvatar from '../UserAvatar/UserAvatar';
 import { useCopyToast } from '../../hooks/useCopyToast';
@@ -343,16 +343,7 @@ export function PierreDiffViewer({
         }}
         title={copied ? 'Copied!' : 'Copy file path'}
       >
-        {copied ? (
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="3.5 8.5 6.5 11.5 12.5 4.5" />
-          </svg>
-        ) : (
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="5.5" y="5.5" width="7" height="8" rx="1" />
-            <path d="M10.5 5.5V3.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2" />
-          </svg>
-        )}
+        {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
       </button>
     ),
     [copied, copyToClipboard],

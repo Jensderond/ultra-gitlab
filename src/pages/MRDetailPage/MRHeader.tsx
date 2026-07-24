@@ -2,6 +2,7 @@ import type { RefObject } from 'react';
 import { ApprovalButton, type ApprovalButtonRef } from '../../components/Approval';
 import BackButton from '../../components/BackButton';
 import UserAvatar from '../../components/UserAvatar/UserAvatar';
+import { FileIcon, ChatCircleIcon } from '../../components/icons';
 import type { MergeRequest } from '../../types';
 
 interface MRHeaderProps {
@@ -49,10 +50,7 @@ export default function MRHeader({
               onClick={onToggleMobileSidebar}
               title="Toggle file list"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-              </svg>
+              <FileIcon size={18} />
               <span className="mobile-files-badge">{fileCount}</span>
             </button>
           )}
@@ -66,9 +64,7 @@ export default function MRHeader({
             aria-label="Toggle activity"
             data-testid="activity-toggle"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" />
-            </svg>
+            <ChatCircleIcon size={18} />
             {unresolvedCount > 0 && (
               <span className="activity-header-badge" data-testid="activity-badge">{unresolvedCount}</span>
             )}

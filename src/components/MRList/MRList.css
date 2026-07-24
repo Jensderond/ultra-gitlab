@@ -17,6 +17,33 @@
   flex-direction: column;
   scrollbar-width: thin;
   scrollbar-color: var(--border-color) transparent;
+  /* Don't chain overscroll to the page — the top overscroll belongs to the
+     pull-to-refresh gesture. */
+  overscroll-behavior-y: contain;
+}
+
+/* Collapsed search bar (small screens): rendered inside the scroll container
+   and hidden by an initial scroll offset, iOS UISearchController-style. */
+.mr-list-search-slot {
+  flex-shrink: 0;
+}
+
+/* The bar is persistent here — replaying the desktop slide-down animation on
+   every reveal would flicker. */
+.mr-list-search-slot .search-bar {
+  animation: none;
+}
+
+.mr-list-rows {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+/* With a collapsed search bar above, short lists still need enough scroll
+   range to hide it above the fold. */
+.mr-list-rows--fill {
+  min-height: 100%;
 }
 
 .mr-list-content--condensed {

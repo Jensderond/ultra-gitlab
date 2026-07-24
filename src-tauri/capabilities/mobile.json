@@ -11,6 +11,7 @@
     "opener:default",
     "store:default",
     "deep-link:default",
-    "log:default"
+    "log:default",
+    "os:default"
   ]
 }

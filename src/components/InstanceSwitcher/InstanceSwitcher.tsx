@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { GitLabInstanceWithStatus } from '../../services/gitlab';
+import { CaretDownIcon, CheckIcon } from '../icons';
 import './InstanceSwitcher.css';
 
 interface InstanceSwitcherProps {
@@ -110,19 +111,9 @@ export default function InstanceSwitcher({ instances, selectedId, onSelect }: In
         <span className="instance-switcher-label">
           {selected?.name || selected?.url || 'Select instance'}
         </span>
-        <svg
-          className={`instance-switcher-chevron${open ? ' instance-switcher-chevron--open' : ''}`}
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
+        <span className={`instance-switcher-chevron${open ? ' instance-switcher-chevron--open' : ''}`}>
+          <CaretDownIcon size={12} />
+        </span>
       </button>
 
       {open && (
@@ -147,11 +138,7 @@ export default function InstanceSwitcher({ instances, selectedId, onSelect }: In
                 {instance.name || instance.url}
               </span>
               <span className="instance-switcher-option-meta">
-                {instance.id === selectedId && (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
+                {instance.id === selectedId && <CheckIcon size={14} />}
                 <kbd className="instance-switcher-shortcut">{'\u21e7'}{'\u2318'}{index + 1}</kbd>
               </span>
             </button>

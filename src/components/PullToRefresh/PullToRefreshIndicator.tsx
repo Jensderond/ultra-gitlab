@@ -1,3 +1,4 @@
+import { ArrowsClockwise } from '@phosphor-icons/react';
 import './PullToRefreshIndicator.css';
 
 const THRESHOLD = 64;
@@ -9,9 +10,12 @@ interface PullToRefreshIndicatorProps {
 
 /** Renders as the first child of a pull-to-refresh scroll container. */
 export function PullToRefreshIndicator({ pullDistance, refreshing }: PullToRefreshIndicatorProps) {
-  if (pullDistance <= 0 && !refreshing) return null;
+  // Gesture-only: programmatic (desktop) refreshes keep pullDistance at 0 and
+  // show their feedback in the page header instead, so nothing shifts.
+  if (pullDistance <= 0) return null;
 
   const progress = Math.min(pullDistance / THRESHOLD, 1);
+  const armed = !refreshing && progress >= 1;
 
   return (
     <div
@@ -19,21 +23,18 @@ export function PullToRefreshIndicator({ pullDistance, refreshing }: PullToRefre
       style={{ height: refreshing ? 40 : pullDistance }}
       aria-hidden="true"
     >
-      <svg
+      <ArrowsClockwise
         className="pull-refresh-spinner"
         style={refreshing ? undefined : { transform: `rotate(${progress * 360}deg)`, opacity: 0.4 + progress * 0.6 }}
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        size={18}
+        weight="bold"
+      />
+      <span
+        className={`pull-refresh-label${armed ? ' pull-refresh-label--armed' : ''}`}
+        style={refreshing ? undefined : { opacity: 0.4 + progress * 0.6 }}
       >
-        <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-        <path d="M21 3v5h-5" />
-      </svg>
+        {refreshing ? 'Refreshing' : armed ? 'Release to refresh' : 'Pull to refresh'}
+      </span>
     </div>
   );
 }

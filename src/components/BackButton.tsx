@@ -1,13 +1,6 @@
 import { useNavigate } from 'react-router-dom';
+import { CaretLeftIcon } from './icons';
 import './BackButton.css';
-
-function ChevronLeftIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-      <path d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
-    </svg>
-  );
-}
 
 interface BackButtonProps {
   to?: string;
@@ -25,7 +18,7 @@ export default function BackButton({ to, onClick, title = 'Go back' }: BackButto
 
   return (
     <button className="back-button-icon" onClick={handleClick} title={title}>
-      <ChevronLeftIcon />
+      <CaretLeftIcon size={16} />
     </button>
   );
 }

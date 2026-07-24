@@ -15,6 +15,7 @@
 import { useState, useEffect } from 'react';
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import BackButton from '../../components/BackButton';
+import { CaretRightIcon } from '../../components/icons';
 import { isTauri } from '../../services/transport';
 import { getNotificationSettings } from '../../services/tauri';
 import type { UpdateCheckerState } from '../../hooks/useUpdateChecker';
@@ -250,7 +251,6 @@ export default function Settings({ updateChecker }: SettingsProps) {
     return (
       <div className="settings-page">
         <header className="settings-header settings-header--root">
-          <BackButton to="/mrs" title="Back to MRs" />
           <h1>Settings</h1>
         </header>
         <main className="settings-content">
@@ -270,9 +270,9 @@ export default function Settings({ updateChecker }: SettingsProps) {
                           {values[s.id]}
                         </span>
                       )}
-                      <svg className="settings-mobile-chevron" width="14" height="14" viewBox="0 0 12 12" fill="none">
-                        <path d="M4.5 2.5L8 6L4.5 9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
+                      <span className="settings-mobile-chevron">
+                        <CaretRightIcon size={14} />
+                      </span>
                     </Link>
                   ))}
                 </div>
@@ -310,7 +310,6 @@ export default function Settings({ updateChecker }: SettingsProps) {
   return (
     <div className="settings-page">
       <header className="settings-header settings-header--root">
-        <BackButton to="/mrs" title="Back to MRs" />
         <h1>Settings</h1>
       </header>
       <div className="settings-body">

@@ -25,6 +25,7 @@ import {
   SearchQuery,
 } from '@codemirror/search';
 import { tags } from '@lezer/highlight';
+import { TextB, TextItalic, Code, LinkSimple, ListBullets, MagnifyingGlass } from '@phosphor-icons/react';
 
 export interface IssueDescriptionEditorProps {
   /** Markdown contents to start editing from. */
@@ -484,9 +485,7 @@ export function IssueDescriptionEditor({
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => runCommand((v) => wrapSelection(v, '**', '**'))}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-            </svg>
+            <TextB size={14} weight="bold" aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -497,9 +496,7 @@ export function IssueDescriptionEditor({
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => runCommand((v) => wrapSelection(v, '_', '_'))}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M10 5h7M7 19h7M14 5l-4 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            <TextItalic size={14} weight="bold" aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -510,9 +507,7 @@ export function IssueDescriptionEditor({
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => runCommand((v) => wrapSelection(v, '`', '`'))}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M9 8l-4 4 4 4M15 8l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <Code size={14} weight="bold" aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -523,9 +518,7 @@ export function IssueDescriptionEditor({
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => runCommand(insertLink)}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M10 14a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1 1M14 10a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1-1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <LinkSimple size={14} weight="bold" aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -536,12 +529,7 @@ export function IssueDescriptionEditor({
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => runCommand(toggleBulletList)}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              <circle cx="4.5" cy="6" r="1.5" fill="currentColor" />
-              <circle cx="4.5" cy="12" r="1.5" fill="currentColor" />
-              <circle cx="4.5" cy="18" r="1.5" fill="currentColor" />
-            </svg>
+            <ListBullets size={14} weight="bold" aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -552,10 +540,7 @@ export function IssueDescriptionEditor({
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => runCommand((v) => openSearchPanel(v))}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2" />
-              <path d="M20 20l-4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            <MagnifyingGlass size={14} weight="bold" aria-hidden="true" />
           </button>
         </div>
         <div
