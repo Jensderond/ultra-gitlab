@@ -11,9 +11,10 @@ html, body, #root, .app {
 }
 
 :root {
-  /* Mobile bottom tab bar's real rendered height (AppSidebar.css: 6px + 42px icon + 6px padding),
-     kept in sync with the safe-area inset so .app-content never gets clipped behind it. */
-  --mobile-tabbar-height: calc(54px + env(safe-area-inset-bottom, 6px));
+  /* Mobile bottom tab bar's real rendered height (AppSidebar.css: 6px top padding
+     + 50px min-height item + 2px bottom padding), kept in sync with the safe-area
+     inset so .app-content never gets clipped behind it. */
+  --mobile-tabbar-height: calc(58px + env(safe-area-inset-bottom, 8px));
 }
 
 /* Titlebar drag region — no visual height, just enables window dragging */
