@@ -52,16 +52,25 @@ test.describe('MR List Page', () => {
     await expect(page.locator('.shortcut-bar')).toContainText('navigate');
   });
 
-  test('Mod+R shows the pull-to-refresh indicator', async ({ page }) => {
+  test('Mod+R shows the header refresh indicator without shifting the list', async ({ page }) => {
     await page.goto('/mrs');
     await expect(page.locator('.mr-list-content')).toBeVisible();
+    const firstItem = page.locator('.mr-list-item').first();
+    await expect(firstItem).toBeVisible();
+    const before = await firstItem.boundingBox();
 
     await page.keyboard.press('ControlOrMeta+r');
 
-    // Programmatic refresh drives the same indicator the iOS pull gesture uses.
-    const indicator = page.locator('.pull-refresh-indicator--active');
+    // Refresh feedback lives in the page header, absolutely positioned…
+    const indicator = page.locator('.page-header-refreshing');
     await expect(indicator).toBeVisible();
     await expect(indicator).toContainText('Refreshing');
+    await expect(page.locator('.page-header .sync-progress-bar')).toBeVisible();
+
+    // …so the inline pull indicator stays unmounted and nothing shifts.
+    await expect(page.locator('.pull-refresh-indicator')).toHaveCount(0);
+    const after = await firstItem.boundingBox();
+    expect(after!.y).toBe(before!.y);
   });
 
   test('redirects root to /mrs', async ({ page }) => {
