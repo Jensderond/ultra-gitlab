@@ -54,6 +54,8 @@ interface SectionDef {
   label: string;
   description: string;
   tauriOnly?: boolean;
+  /** Hide on small screens (features that need a physical keyboard). */
+  desktopOnly?: boolean;
 }
 
 interface SectionGroup {
@@ -96,6 +98,7 @@ const SECTION_GROUPS: SectionGroup[] = [
         label: 'Keyboard Shortcuts',
         description: 'Rebind keys for any command',
         tauriOnly: true,
+        desktopOnly: true,
       },
     ],
   },
@@ -209,7 +212,10 @@ export default function Settings({ updateChecker }: SettingsProps) {
     .map((group) => ({
       ...group,
       sections: group.sections.filter(
-        (s) => (isTauri || !s.tauriOnly) && (s.id !== 'updates' || updateChecker),
+        (s) =>
+          (isTauri || !s.tauriOnly) &&
+          (!isSmallScreen || !s.desktopOnly) &&
+          (s.id !== 'updates' || updateChecker),
       ),
     }))
     .filter((group) => group.sections.length > 0);
