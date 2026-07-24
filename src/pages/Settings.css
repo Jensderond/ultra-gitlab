@@ -113,26 +113,12 @@
    SECTIONS
    ================================================ */
 
-.settings-section {
-  background: linear-gradient(165deg,
-    var(--overlay-hover) 0%,
-    var(--overlay-glass-light) 100%);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 20px 24px;
-  max-width: 960px;
+/* Bare column that holds a section's setting groups */
+.settings-detail-content {
+  max-width: 640px;
   width: 100%;
   box-sizing: border-box;
   margin: 0 auto;
-}
-
-.settings-section h2 {
-  margin: 0 0 16px;
-  font-family: 'Noto Sans JP', sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--text-secondary);
 }
 
 .section-header {
@@ -258,7 +244,7 @@
 }
 
 .settings-detail-header {
-  max-width: 960px;
+  max-width: 640px;
   margin: 0 auto 18px;
 }
 
@@ -280,8 +266,8 @@
 
 .settings-detail-description {
   width: 100%;
-  max-width: 960px;
-  margin: 0 auto;
+  max-width: 640px;
+  margin: 0 auto 6px;
   box-sizing: border-box;
 }
 
@@ -437,11 +423,9 @@
 }
 
 .settings-mobile-card {
-  background: linear-gradient(165deg,
-    var(--overlay-hover) 0%,
-    var(--overlay-glass-light) 100%);
+  background: var(--overlay-glass-light);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
 }
 

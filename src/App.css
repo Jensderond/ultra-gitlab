@@ -156,12 +156,6 @@ button:focus {
   margin-right: 5px;
 }
 
-/* Settings section styles */
-.settings-section {
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
-}
-
 .setting-row > label {
   color: var(--text-secondary);
 }

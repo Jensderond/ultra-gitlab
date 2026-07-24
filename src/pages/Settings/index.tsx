@@ -287,13 +287,13 @@ export default function Settings({ updateChecker }: SettingsProps) {
         </header>
         <main className="settings-content">
           <p className="settings-detail-description">{activeDef.description}</p>
-          <section className="settings-section">
+          <div className="settings-detail-content">
             <SectionContent
               id={activeDef.id}
               updateChecker={updateChecker}
               highlightCondensed={highlightCondensed}
             />
-          </section>
+          </div>
         </main>
       </div>
     );
@@ -335,13 +335,13 @@ export default function Settings({ updateChecker }: SettingsProps) {
               <h2>{activeDef.label}</h2>
               <p>{activeDef.description}</p>
             </header>
-            <section className="settings-section">
+            <div className="settings-detail-content">
               <SectionContent
                 id={activeDef.id}
                 updateChecker={updateChecker}
                 highlightCondensed={highlightCondensed}
               />
-            </section>
+            </div>
           </main>
         )}
       </div>
