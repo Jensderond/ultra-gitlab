@@ -76,12 +76,10 @@ export function createProductTour({ navigate, onFinished }: ProductTourOptions):
       },
     },
     {
-      element: '[data-tour="refresh"]',
       popover: {
         title: 'Stay in sync',
         description:
-          'Syncs happen automatically in the background; this triggers one manually.',
-        side: 'bottom',
+          'Syncs happen automatically in the background; press ⌘R to trigger one manually.',
       },
     },
     {

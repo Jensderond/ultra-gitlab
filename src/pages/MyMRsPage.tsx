@@ -222,8 +222,6 @@ export default function MyMRsPage() {
     <div className="mr-list-page">
       <PageHeader
         title="My Merge Requests"
-        onRefresh={() => selectedInstanceId != null && queryClient.invalidateQueries({ queryKey: queryKeys.myMRList(String(selectedInstanceId)) })}
-        refreshAriaLabel="Refresh merge requests"
         actions={
           <>
             <button

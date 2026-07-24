@@ -6,9 +6,10 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 import { MRList } from '../components/MRList';
+import type { MRListHandle } from '../components/MRList';
 import type { MergeRequest } from '../types';
+import { useSmallScreen } from '../hooks/useSmallScreen';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { useListSearch } from '../hooks/useListSearch';
 import { useCondensedModeAnnouncement } from '../hooks/useCondensedModeAnnouncement';
@@ -18,7 +19,6 @@ import { useSettingsQuery } from '../hooks/queries/useSettingsQuery';
 import { InstanceSwitcher } from '../components/InstanceSwitcher';
 import { manualSyncAndWait } from '../services/storage';
 import { SyncProgressBar } from '../components/PullToRefresh';
-import { queryKeys } from '../lib/queryKeys';
 import { ShortcutBar } from '../components/ShortcutBar';
 import type { ShortcutDef } from '../components/ShortcutBar';
 import { PageHeader } from '../components/PageHeader';
@@ -43,7 +43,6 @@ const searchShortcuts: ShortcutDef[] = [
 export default function MRListPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const queryClient = useQueryClient();
   const instancesQuery = useInstancesQuery();
   const instances = instancesQuery.data ?? [];
   const loading = instancesQuery.isLoading;
@@ -54,6 +53,9 @@ export default function MRListPage() {
   const [mrs, setMrs] = useState<MergeRequest[]>([]);
   const [showApproved, setShowApproved] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const isSmallScreen = useSmallScreen();
+  const mrListRef = useRef<MRListHandle>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
 
   // Shift+H toggles approved MR visibility
   useEffect(() => {
@@ -89,6 +91,27 @@ export default function MRListPage() {
   const handleFilteredCountChange = useCallback((counts: { filtered: number; total: number }) => {
     setFilteredCounts(counts);
   }, []);
+
+  // On small screens the search bar lives collapsed inside the list; the
+  // header button reveals it AND focuses it (the only path that may open the
+  // keyboard — pull-revealing never focuses).
+  const handleHeaderSearch = useCallback(() => {
+    if (isSmallScreen) {
+      // Focus first, inside the tap gesture, so iOS actually opens the
+      // keyboard; preventScroll keeps the browser from jump-cutting past the
+      // smooth reveal.
+      mobileSearchInputRef.current?.focus({ preventScroll: true });
+      mrListRef.current?.revealSearch();
+    } else {
+      openSearch();
+    }
+  }, [isSmallScreen, openSearch]);
+
+  const closeMobileSearch = useCallback(() => {
+    setQuery('');
+    mobileSearchInputRef.current?.blur();
+    mrListRef.current?.hideSearch();
+  }, [setQuery]);
 
   // Auto-select first instance when instances load
   useEffect(() => {
@@ -191,14 +214,12 @@ export default function MRListPage() {
     <div className="mr-list-page">
       <PageHeader
         title="Merge Requests"
-        onRefresh={() => selectedInstanceId != null && queryClient.invalidateQueries({ queryKey: queryKeys.mrList(String(selectedInstanceId)) })}
-        refreshAriaLabel="Refresh merge requests"
         actions={
           <>
             <button
               type="button"
               className="header-search-button"
-              onClick={openSearch}
+              onClick={handleHeaderSearch}
               aria-label="Search merge requests"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -234,7 +255,7 @@ export default function MRListPage() {
       {syncing && <SyncProgressBar />}
 
       <main className="mr-list-page-content" data-tour="mr-list">
-        {isSearchOpen && (
+        {!isSmallScreen && isSearchOpen && (
           <SearchBar
             query={query}
             onQueryChange={setQuery}
@@ -248,18 +269,32 @@ export default function MRListPage() {
         )}
         {selectedInstanceId != null ? (
           <MRList
+            ref={mrListRef}
             instanceId={selectedInstanceId}
             onSelect={handleSelectMR}
             focusIndex={focusIndex}
             onFocusChange={setFocusIndex}
             onMRsLoaded={handleMRsLoaded}
-            filterQuery={isSearchOpen ? query : undefined}
+            filterQuery={isSmallScreen ? query : isSearchOpen ? query : undefined}
             onFilteredCountChange={handleFilteredCountChange}
             showApproved={showApproved}
             onToggleApproved={() => setShowApproved(v => !v)}
             condensed={condensed}
             onRefresh={() => manualSyncAndWait(true)}
             onRefreshingChange={setSyncing}
+            searchSlot={
+              isSmallScreen ? (
+                <SearchBar
+                  query={query}
+                  onQueryChange={setQuery}
+                  onClose={closeMobileSearch}
+                  filteredCount={filteredCounts.filtered}
+                  totalCount={filteredCounts.total}
+                  autoFocus={false}
+                  inputRef={mobileSearchInputRef}
+                />
+              ) : undefined
+            }
           />
         ) : null}
       </main>

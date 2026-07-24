@@ -287,9 +287,6 @@ export default function IssuesPage() {
     <div className="issues-page">
       <PageHeader
         title="Issues"
-        onRefresh={handleSync}
-        refreshDisabled={syncing}
-        refreshAriaLabel="Sync issues from GitLab"
         actions={
           <InstanceSwitcher
             instances={instances}

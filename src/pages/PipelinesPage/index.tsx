@@ -72,9 +72,6 @@ export default function PipelinesPage() {
     <div className="pipelines-page">
       <PageHeader
         title="Pipelines"
-        onRefresh={handleRefresh}
-        refreshDisabled={refreshing}
-        refreshAriaLabel="Refresh pipelines"
         actions={
           <>
             {lastFetched && (
