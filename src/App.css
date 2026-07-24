@@ -160,10 +160,6 @@ button:focus {
   color: var(--text-secondary);
 }
 
-.shortcut-editor-item {
-  background-color: var(--bg-tertiary);
-}
-
 .shortcut-description {
   color: var(--text-primary);
 }

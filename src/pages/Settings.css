@@ -1513,49 +1513,19 @@ fieldset.setting-row {
 .shortcuts-editor {
   display: flex;
   flex-direction: column;
-  gap: 20px;
 }
 
-.shortcut-category-section {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.shortcut-category-header {
-  margin: 0;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  color: var(--text-muted);
-}
-
-.shortcut-items {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
+/* Rows live inside a settings-group; only state tints on top of that */
 .shortcut-editor-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: var(--overlay-hover);
-  border-radius: 6px;
-  min-height: 36px;
   transition: background 0.15s ease;
 }
 
 .shortcut-editor-item:hover {
-  background: var(--overlay-surface);
+  background: var(--overlay-hover);
 }
 
 .shortcut-editor-item.editing {
   background: var(--wave-glow);
-  border: 1px solid var(--wave-glow);
 }
 
 .shortcut-description {

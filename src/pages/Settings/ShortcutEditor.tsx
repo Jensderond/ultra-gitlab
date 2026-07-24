@@ -7,6 +7,7 @@ import {
   categoryLabels,
   type ShortcutCategory,
 } from '../../config/shortcuts';
+import { SettingsGroup } from './SettingsGroup';
 
 const arrowSymbolMap: Record<string, string> = {
   '↓': 'ArrowDown',
@@ -161,12 +162,8 @@ export default function ShortcutEditor() {
           if (categoryShortcuts.length === 0) return null;
 
           return (
-            <div key={category} className="shortcut-category-section">
-              <h3 className="shortcut-category-header">
-                {categoryLabels[category]}
-              </h3>
-              <div className="shortcut-items">
-                {categoryShortcuts.map((shortcut) => {
+            <SettingsGroup key={category} title={categoryLabels[category]}>
+              {categoryShortcuts.map((shortcut) => {
                   const currentKey = customBindings[shortcut.id] || shortcut.defaultKey;
                   const isEditing = editingId === shortcut.id;
                   const isCustom = !!customBindings[shortcut.id];
@@ -174,7 +171,7 @@ export default function ShortcutEditor() {
                   return (
                     <div
                       key={shortcut.id}
-                      className={`shortcut-editor-item ${isEditing ? 'editing' : ''}`}
+                      className={`settings-row shortcut-editor-item ${isEditing ? 'editing' : ''}`}
                     >
                       <span className="shortcut-description">
                         {shortcut.description}
@@ -218,9 +215,8 @@ export default function ShortcutEditor() {
                       )}
                     </div>
                   );
-                })}
-              </div>
-            </div>
+              })}
+            </SettingsGroup>
           );
         })}
       </div>
