@@ -48,13 +48,15 @@ export function usePullToRefresh<T extends HTMLElement>({
   const gesture = useRef({ startY: null as number | null, pulling: false, refreshing: false, distance: 0 });
 
   // Shared by touch release and the programmatic desktop trigger, so the two
-  // paths can't drift apart.
-  const runRefresh = useCallback(async () => {
+  // paths can't drift apart. `holdIndicator` keeps the inline indicator open
+  // for gesture refreshes; the desktop trigger leaves pullDistance at 0 so
+  // nothing shifts (the page header shows the feedback instead).
+  const runRefresh = useCallback(async (holdIndicator: boolean) => {
     const s = gesture.current;
     if (s.refreshing) return;
     s.refreshing = true;
     setRefreshing(true);
-    setPullDistance(PULL_THRESHOLD * 0.8);
+    if (holdIndicator) setPullDistance(PULL_THRESHOLD * 0.8);
     try {
       await onRefreshRef.current();
     } finally {
@@ -67,7 +69,7 @@ export function usePullToRefresh<T extends HTMLElement>({
 
   const triggerRefresh = useCallback(async () => {
     if (disabled) return;
-    await runRefresh();
+    await runRefresh(false);
   }, [disabled, runRefresh]);
 
   const containerRef = useCallback(
@@ -119,7 +121,7 @@ export function usePullToRefresh<T extends HTMLElement>({
         s.pulling = false;
         s.startY = null;
         if (s.distance >= PULL_THRESHOLD) {
-          void runRefresh();
+          void runRefresh(true);
         } else {
           reset();
         }
