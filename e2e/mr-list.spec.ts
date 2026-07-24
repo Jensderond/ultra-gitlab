@@ -52,11 +52,16 @@ test.describe('MR List Page', () => {
     await expect(page.locator('.shortcut-bar')).toContainText('navigate');
   });
 
-  test('shows refresh button', async ({ page }) => {
+  test('Mod+R shows the pull-to-refresh indicator', async ({ page }) => {
     await page.goto('/mrs');
+    await expect(page.locator('.mr-list-content')).toBeVisible();
 
-    const refreshButton = page.locator('button[aria-label="Refresh merge requests"]');
-    await expect(refreshButton).toBeVisible();
+    await page.keyboard.press('ControlOrMeta+r');
+
+    // Programmatic refresh drives the same indicator the iOS pull gesture uses.
+    const indicator = page.locator('.pull-refresh-indicator--active');
+    await expect(indicator).toBeVisible();
+    await expect(indicator).toContainText('Refreshing');
   });
 
   test('redirects root to /mrs', async ({ page }) => {
