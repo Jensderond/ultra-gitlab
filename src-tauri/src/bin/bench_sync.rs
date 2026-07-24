@@ -91,8 +91,8 @@ async fn main() {
     match engine.run_sync().await {
         Ok(r) => {
             eprintln!(
-                "OK ({} MRs, {}ms, {} errors)",
-                r.mr_count, r.duration_ms, r.errors.len()
+                "OK ({} MRs, {}ms, {} API calls, {} errors)",
+                r.mr_count, r.duration_ms, r.api_calls, r.errors.len()
             );
             for err in &r.errors {
                 eprintln!("  Error: {}", err);
