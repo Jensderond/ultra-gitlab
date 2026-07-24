@@ -142,27 +142,27 @@ function AppContent() {
 
   useHotkey(parseHotkey(getKey('open-settings') ?? 'Mod+,'), () => {
     trackShortcut('Mod+,', 'open_settings', 'global');
-    navigate('/settings');
+    navigate('/settings', { replace: true });
   }, { enabled: isTauri });
 
   useHotkey(parseHotkey(getKey('go-to-mr-list') ?? 'Mod+L'), () => {
     trackShortcut('Mod+L', 'navigate_mr_list', 'global');
-    navigate('/mrs');
+    navigate('/mrs', { replace: true });
   });
 
   useHotkey(parseHotkey(getKey('go-to-my-mrs') ?? 'Mod+M'), () => {
     trackShortcut('Mod+M', 'navigate_my_mrs', 'global');
-    navigate('/my-mrs');
+    navigate('/my-mrs', { replace: true });
   });
 
   useHotkey(parseHotkey(getKey('go-to-pipelines') ?? 'Mod+P'), () => {
     trackShortcut('Mod+P', 'navigate_pipelines', 'global');
-    navigate('/pipelines');
+    navigate('/pipelines', { replace: true });
   });
 
   useHotkey(parseHotkey(getKey('go-to-issues') ?? 'Mod+I'), () => {
     trackShortcut('Mod+I', 'navigate_issues', 'global');
-    navigate('/issues');
+    navigate('/issues', { replace: true });
   });
 
   useHotkey(parseHotkey(getKey('trigger-sync') ?? 'Mod+R'), () => {
@@ -219,12 +219,12 @@ function AppContent() {
 
     const actionMap: Partial<Record<CommandId, () => void>> = {
       // Navigation commands always available
-      [CommandId.GoToMRList]: () => navigate('/mrs'),
-      [CommandId.GoToMyMRs]: () => navigate('/my-mrs'),
-      [CommandId.GoToPipelines]: () => navigate('/pipelines'),
-      [CommandId.GoToIssues]: () => navigate('/issues'),
-      [CommandId.GoToSettings]: () => navigate('/settings'),
-      [CommandId.OpenSettings]: () => navigate('/settings'),
+      [CommandId.GoToMRList]: () => navigate('/mrs', { replace: true }),
+      [CommandId.GoToMyMRs]: () => navigate('/my-mrs', { replace: true }),
+      [CommandId.GoToPipelines]: () => navigate('/pipelines', { replace: true }),
+      [CommandId.GoToIssues]: () => navigate('/issues', { replace: true }),
+      [CommandId.GoToSettings]: () => navigate('/settings', { replace: true }),
+      [CommandId.OpenSettings]: () => navigate('/settings', { replace: true }),
       [CommandId.OpenCommandPalette]: () => setCommandPaletteOpen(true),
       [CommandId.ShowKeyboardHelp]: () => setKeyboardHelpOpen(true),
 
@@ -236,9 +236,9 @@ function AppContent() {
       // Go back - context dependent
       [CommandId.GoBack]: () => {
         if (isOnMRDetail) {
-          navigate('/mrs');
+          navigate('/mrs', { replace: true });
         } else if (isOnSettings) {
-          navigate('/mrs');
+          navigate('/mrs', { replace: true });
         }
       },
     };
@@ -268,7 +268,7 @@ function AppContent() {
       category: CommandCategory.Pipelines,
       action: () => {
         visitPipelineProject(project.instanceId, project.projectId).catch(console.error);
-        navigate('/pipelines');
+        navigate('/pipelines', { replace: true });
       },
     }));
 

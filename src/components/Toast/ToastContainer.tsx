@@ -73,7 +73,7 @@ export default function ToastContainer() {
   const navigate = useNavigate();
 
   const handleNavigate = useCallback((route: string) => {
-    navigate(route);
+    navigate(route, { replace: true });
   }, [navigate]);
 
   if (toasts.length === 0) return null;

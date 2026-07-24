@@ -57,7 +57,7 @@ export default function PipelinesPage() {
         <div className="pipelines-empty">
           <h2>No GitLab Instances Configured</h2>
           <p>Add a GitLab instance in Settings to get started.</p>
-          <button onClick={() => navigate('/settings')} className="primary-button">
+          <button onClick={() => navigate('/settings', { replace: true })} className="primary-button">
             Go to Settings
           </button>
         </div>

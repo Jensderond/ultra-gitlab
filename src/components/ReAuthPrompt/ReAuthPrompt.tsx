@@ -37,7 +37,7 @@ export default function ReAuthPrompt({
 
   const handleGoToSettings = () => {
     // Navigate to settings page to update the token
-    navigate('/settings');
+    navigate('/settings', { replace: true });
     onDismiss();
   };
 

@@ -85,7 +85,7 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs }: AppSidebarProps)
 
       e.preventDefault();
       trackShortcut(`Mod+${digit}`, 'navigate_sidebar', 'global');
-      navigate(topItems[index].path);
+      navigate(topItems[index].path, { replace: true });
     }
     window.addEventListener('keydown', handleDigitNav);
     return () => window.removeEventListener('keydown', handleDigitNav);
@@ -98,7 +98,7 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs }: AppSidebarProps)
           <button
             key={item.path}
             className={`app-sidebar-item ${isActive(item) ? 'active' : ''}`}
-            onClick={() => navigate(item.path)}
+            onClick={() => navigate(item.path, { replace: true })}
             title={item.label}
           >
             {item.icon}
@@ -117,7 +117,7 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs }: AppSidebarProps)
           <button
             key={item.path}
             className={`app-sidebar-item ${isActive(item) ? 'active' : ''}`}
-            onClick={() => navigate(item.path)}
+            onClick={() => navigate(item.path, { replace: true })}
             title={item.label}
           >
             {item.icon}

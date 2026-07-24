@@ -80,7 +80,7 @@ export default function useDeepLink() {
               title: 'Pipeline not found',
               body: err instanceof Error ? err.message : 'Could not resolve pipeline',
             });
-            navigate('/pipelines');
+            navigate('/pipelines', { replace: true });
           }
           return;
         }
@@ -102,7 +102,7 @@ export default function useDeepLink() {
             title: 'MR not actionable',
             body: `This MR has been ${resolved.state} and is no longer actionable`,
           });
-          navigate('/mrs');
+          navigate('/mrs', { replace: true });
         }
       } finally {
         processingRef.current = false;

@@ -56,7 +56,7 @@ export default function MyMRDetailPage() {
   const codeTab = useCodeTab(mrId, mr, activeTab);
 
   const goBack = useCallback(() => {
-    navigate('/my-mrs');
+    navigate('/my-mrs', { replace: true });
   }, [navigate]);
 
   const handleMerged = useCallback(() => {

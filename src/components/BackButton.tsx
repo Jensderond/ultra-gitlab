@@ -12,7 +12,7 @@ export default function BackButton({ to, onClick, title = 'Go back' }: BackButto
   const navigate = useNavigate();
 
   const handleClick = onClick ?? (() => {
-    if (to) navigate(to);
+    if (to) navigate(to, { replace: true });
     else navigate(-1);
   });
 

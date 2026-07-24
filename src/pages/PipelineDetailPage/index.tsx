@@ -28,7 +28,7 @@ export default function PipelineDetailPage() {
   const plid = Number(pipelineId);
 
   const handleClose = useCallback(() => {
-    navigate(backRoute || '/pipelines');
+    navigate(backRoute || '/pipelines', { replace: true });
   }, [navigate, backRoute]);
 
   const handleSelectPipeline = useCallback(

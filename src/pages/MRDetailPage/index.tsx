@@ -198,7 +198,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     onMarkViewedAndNext: markViewedAndNext,
     onToggleHideGenerated: () => dispatch({ type: 'TOGGLE_HIDE_GENERATED' }),
     onCopyLink: copyToClipboard,
-    onEscapeBack: () => navigate('/mrs', { state: { focusLatest: true } }),
+    onEscapeBack: () => navigate('/mrs', { replace: true, state: { focusLatest: true } }),
   });
 
   if (loading) {
@@ -214,7 +214,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
       <div className="mr-detail-page">
         <div className="mr-detail-error">
           <p>{error || 'Merge request not found'}</p>
-          <button onClick={() => navigate('/mrs')}>Back to list</button>
+          <button onClick={() => navigate('/mrs', { replace: true })}>Back to list</button>
         </div>
       </div>
     );
@@ -235,7 +235,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
                 Open in GitLab
               </button>
             )}
-            <button className="mr-state-banner-btn" onClick={() => navigate('/mrs')}>
+            <button className="mr-state-banner-btn" onClick={() => navigate('/mrs', { replace: true })}>
               Back to list
             </button>
           </div>
@@ -252,7 +252,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         onToggleMobileSidebar={() => dispatch({ type: 'TOGGLE_MOBILE_SIDEBAR' })}
         onApproved={(trigger) => {
           trackMRApproved(mrId, Math.round((Date.now() - mrEnteredAtRef.current) / 1000), trigger);
-          navigate('/mrs');
+          navigate('/mrs', { replace: true });
         }}
         onUnapproved={(trigger) => trackMRUnapproved(mrId, trigger)}
         hideApproval={isMergedOrClosed}
@@ -344,7 +344,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         approvalButtonRef={approvalButtonRef}
         onApproved={(trigger) => {
           trackMRApproved(mrId, Math.round((Date.now() - mrEnteredAtRef.current) / 1000), trigger);
-          navigate('/mrs');
+          navigate('/mrs', { replace: true });
         }}
         onUnapproved={(trigger) => trackMRUnapproved(mrId, trigger)}
         hideApproval={isMergedOrClosed}

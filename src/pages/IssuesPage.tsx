@@ -276,7 +276,7 @@ export default function IssuesPage() {
         <div className="issues-page-empty">
           <h2>No GitLab Instances Configured</h2>
           <p>Add a GitLab instance in Settings to start viewing issues.</p>
-          <button onClick={() => navigate('/settings')} className="primary-button">
+          <button onClick={() => navigate('/settings', { replace: true })} className="primary-button">
             Go to Settings
           </button>
         </div>

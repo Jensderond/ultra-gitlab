@@ -202,7 +202,7 @@ export default function MRListPage() {
         <div className="mr-list-page-empty">
           <h2>No GitLab Instances Configured</h2>
           <p>Add a GitLab instance in Settings to start viewing merge requests.</p>
-          <button onClick={() => navigate('/settings')} className="primary-button">
+          <button onClick={() => navigate('/settings', { replace: true })} className="primary-button">
             Go to Settings
           </button>
         </div>

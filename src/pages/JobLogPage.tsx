@@ -275,7 +275,7 @@ export default function JobLogPage() {
       if (e.key === 'Escape') {
         e.preventDefault();
         trackShortcut('Escape', 'go_back', 'job_log');
-        navigate(backUrl);
+        navigate(backUrl, { replace: true });
       } else if ((e.key === 'o' || e.key === 'O') && jobWebUrl) {
         e.preventDefault();
         trackShortcut('o', 'open_in_browser', 'job_log');

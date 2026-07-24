@@ -37,7 +37,7 @@ export default function IssueDetailPage() {
   }, []);
 
   const goBackToList = useCallback(() => {
-    navigate('/issues');
+    navigate('/issues', { replace: true });
   }, [navigate]);
 
   const top = stack.length > 0 ? stack[stack.length - 1] : null;

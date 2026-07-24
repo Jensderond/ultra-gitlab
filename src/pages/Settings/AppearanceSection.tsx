@@ -119,7 +119,7 @@ export default function AppearanceSection({ highlightCondensed = false }: Appear
   const condensed = settingsQuery.data?.mrListCondensed ?? false;
 
   const handleReplayTour = useCallback(() => {
-    navigate('/mrs');
+    navigate('/mrs', { replace: true });
     waitForElement('[data-tour="mr-list"]', () => {
       window.dispatchEvent(new CustomEvent(PRODUCT_TOUR_REPLAY_EVENT));
     });
