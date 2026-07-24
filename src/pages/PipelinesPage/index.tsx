@@ -15,7 +15,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { formatRelativeTime } from './utils';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { useManualRefreshHandler } from '../../hooks/useManualRefreshHandler';
-import { PullToRefreshIndicator, SyncProgressBar } from '../../components/PullToRefresh';
+import { PullToRefreshIndicator } from '../../components/PullToRefresh';
 import '../PipelinesPage.css';
 
 export default function PipelinesPage() {
@@ -72,6 +72,7 @@ export default function PipelinesPage() {
     <div className="pipelines-page">
       <PageHeader
         title="Pipelines"
+        refreshing={refreshing}
         actions={
           <>
             {lastFetched && (
@@ -87,8 +88,6 @@ export default function PipelinesPage() {
           </>
         }
       />
-
-      {refreshing && <SyncProgressBar />}
 
       <ProjectSearch
         selectedInstanceId={selectedInstanceId}

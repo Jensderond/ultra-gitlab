@@ -18,10 +18,10 @@ import { useInstancesQuery } from '../hooks/queries/useInstancesQuery';
 import { useSettingsQuery } from '../hooks/queries/useSettingsQuery';
 import { InstanceSwitcher } from '../components/InstanceSwitcher';
 import { manualSyncAndWait } from '../services/storage';
-import { SyncProgressBar } from '../components/PullToRefresh';
 import { ShortcutBar } from '../components/ShortcutBar';
 import type { ShortcutDef } from '../components/ShortcutBar';
 import { PageHeader } from '../components/PageHeader';
+import { SearchIcon, CheckCircleIcon } from '../components/icons';
 import './MRListPage.css';
 
 const defaultShortcuts: ShortcutDef[] = [
@@ -214,6 +214,7 @@ export default function MRListPage() {
     <div className="mr-list-page">
       <PageHeader
         title="Merge Requests"
+        refreshing={syncing}
         actions={
           <>
             <button
@@ -222,10 +223,7 @@ export default function MRListPage() {
               onClick={handleHeaderSearch}
               aria-label="Search merge requests"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.3-4.3" />
-              </svg>
+              <SearchIcon size={16} />
             </button>
             <InstanceSwitcher
               instances={instances}
@@ -238,10 +236,7 @@ export default function MRListPage() {
                 onClick={() => setShowApproved(v => !v)}
                 aria-label={showApproved ? 'Hide approved merge requests' : 'Show approved merge requests'}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                  <polyline points="22 4 12 14.01 9 11.01" />
-                </svg>
+                <CheckCircleIcon size={16} />
                 <span className="approved-toggle-popover">
                   <span className="approved-toggle-popover-shortcut"><kbd>Shift</kbd>+<kbd>H</kbd></span>
                   <span>{showApproved ? 'Hide approved' : 'Show approved'}</span>
@@ -251,8 +246,6 @@ export default function MRListPage() {
           </>
         }
       />
-
-      {syncing && <SyncProgressBar />}
 
       <main className="mr-list-page-content" data-tour="mr-list">
         {!isSmallScreen && isSearchOpen && (

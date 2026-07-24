@@ -25,9 +25,10 @@ import { useShortcuts } from '../components/ShortcutsProvider';
 import { ShortcutBar } from '../components/ShortcutBar';
 import type { ShortcutDef } from '../components/ShortcutBar';
 import { PageHeader } from '../components/PageHeader';
+import { SearchIcon, PencilIcon, CheckIcon } from '../components/icons';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { useManualRefreshHandler } from '../hooks/useManualRefreshHandler';
-import { PullToRefreshIndicator, SyncProgressBar } from '../components/PullToRefresh';
+import { PullToRefreshIndicator } from '../components/PullToRefresh';
 import './MRListPage.css';
 import './MyMRsPage.css';
 
@@ -222,6 +223,7 @@ export default function MyMRsPage() {
     <div className="mr-list-page">
       <PageHeader
         title="My Merge Requests"
+        refreshing={refreshing}
         actions={
           <>
             <button
@@ -230,10 +232,7 @@ export default function MyMRsPage() {
               onClick={openSearch}
               aria-label="Search your merge requests"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.3-4.3" />
-              </svg>
+              <SearchIcon size={16} />
             </button>
             <button
               type="button"
@@ -245,10 +244,9 @@ export default function MyMRsPage() {
               title={showDrafts ? 'Hide your draft MRs' : 'Show your draft MRs'}
             >
               <span className="recently-merged-toggle-dot" aria-hidden="true" />
-              <svg className="recently-merged-toggle-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 20h9" />
-                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-              </svg>
+              <span className="recently-merged-toggle-icon" aria-hidden="true">
+                <PencilIcon size={14} />
+              </span>
               <span className="recently-merged-toggle-label">Drafts</span>
             </button>
             <button
@@ -261,9 +259,9 @@ export default function MyMRsPage() {
               title={showRecentlyMerged ? 'Hide recently merged MRs' : 'Show MRs merged in the last 24h'}
             >
               <span className="recently-merged-toggle-dot" aria-hidden="true" />
-              <svg className="recently-merged-toggle-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
+              <span className="recently-merged-toggle-icon" aria-hidden="true">
+                <CheckIcon size={14} />
+              </span>
               <span className="recently-merged-toggle-label">Recently merged</span>
             </button>
             <InstanceSwitcher
@@ -274,8 +272,6 @@ export default function MyMRsPage() {
           </>
         }
       />
-
-      {refreshing && <SyncProgressBar />}
 
       <main className="mr-list-page-content">
         {isSearchOpen && (

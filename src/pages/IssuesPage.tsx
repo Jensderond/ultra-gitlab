@@ -32,11 +32,12 @@ import {
   renameProject,
 } from '../services/tauri';
 import type { IssueProject, IssueWithProject } from '../types';
+import { Sliders } from '@phosphor-icons/react';
 import { PageHeader } from '../components/PageHeader';
-import { CmdIcon } from '../components/icons';
+import { CmdIcon, StarIcon, PencilIcon } from '../components/icons';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { useManualRefreshHandler } from '../hooks/useManualRefreshHandler';
-import { PullToRefreshIndicator, SyncProgressBar } from '../components/PullToRefresh';
+import { PullToRefreshIndicator } from '../components/PullToRefresh';
 import './IssuesPage.css';
 
 const listShortcuts: ShortcutDef[] = [
@@ -287,6 +288,7 @@ export default function IssuesPage() {
     <div className="issues-page">
       <PageHeader
         title="Issues"
+        refreshing={refreshing}
         actions={
           <InstanceSwitcher
             instances={instances}
@@ -295,8 +297,6 @@ export default function IssuesPage() {
           />
         }
       />
-
-      {refreshing && <SyncProgressBar />}
 
       <div className="issues-page-body">
         {mobileSidebarOpen && (
@@ -391,14 +391,7 @@ export default function IssuesPage() {
             onClick={() => setMobileSidebarOpen(true)}
             aria-label="Show issue filters"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="4" y1="6" x2="20" y2="6" />
-              <line x1="4" y1="12" x2="20" y2="12" />
-              <line x1="4" y1="18" x2="20" y2="18" />
-              <circle cx="9" cy="6" r="2" fill="currentColor" stroke="none" />
-              <circle cx="16" cy="12" r="2" fill="currentColor" stroke="none" />
-              <circle cx="10" cy="18" r="2" fill="currentColor" stroke="none" />
-            </svg>
+            <Sliders size={14} weight="bold" />
             <span className="issues-mobile-filter-label">
               {activeScopeLabel}
               {selectedProjectId !== 'all' && <> · {activeProjectLabel}</>}
@@ -523,18 +516,7 @@ function ProjectRow({ project, active, onSelect, onToggleStar, onRename }: Proje
           onToggleStar();
         }}
       >
-        <svg
-          width="13"
-          height="13"
-          viewBox="0 0 24 24"
-          fill={project.starred ? 'currentColor' : 'none'}
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-        </svg>
+        <StarIcon filled={project.starred} size={13} />
       </button>
       <span className="issues-project-name">
         {display}
@@ -550,19 +532,7 @@ function ProjectRow({ project, active, onSelect, onToggleStar, onRename }: Proje
         }}
         title="Rename project"
       >
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M12 20h9" />
-          <path d="M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4 12.5-12.5z" />
-        </svg>
+        <PencilIcon size={12} />
       </button>
     </div>
   );
