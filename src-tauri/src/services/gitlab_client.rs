@@ -1529,40 +1529,29 @@ impl GitLabClient {
                 })?;
 
             for node in nodes {
-                let Some(path) = node.get("path").and_then(|p| p.as_str()) else {
+                let Some((path, outcome)) = parse_blob_node(node) else {
                     continue;
                 };
 
-                // Binary blobs return `rawTextBlob: null` — skip so the caller
-                // fetches them via REST (matching pre-existing behaviour).
-                let Some(content) = node.get("rawTextBlob").and_then(|c| c.as_str()) else {
-                    continue;
-                };
-
-                // `size` is a String scalar (byte size). Guard against silent
-                // truncation: only trust content whose UTF-8 byte length exactly
-                // matches the blob's reported byte size. `String::len()` is the
-                // byte length in Rust, so this is a direct comparison.
-                let reported_size = node
-                    .get("size")
-                    .and_then(|s| s.as_str())
-                    .and_then(|s| s.parse::<usize>().ok());
-
-                match reported_size {
-                    Some(size) if content.len() == size => {
-                        result.insert(path.to_string(), content.to_string());
+                match outcome {
+                    BlobNodeResult::Content(content) => {
+                        result.insert(path, content);
                     }
-                    Some(size) => {
+                    // Binary blobs return `rawTextBlob: null` — skip so the
+                    // caller fetches them via REST (matching pre-existing
+                    // behaviour).
+                    BlobNodeResult::Binary => {}
+                    BlobNodeResult::SizeMismatch { reported, actual } => {
                         log::warn!(
                             "GraphQL blob for '{}' @ {} has content length {} != reported size {}; \
                              skipping (REST fallback)",
                             path,
                             ref_sha,
-                            content.len(),
-                            size
+                            actual,
+                            reported
                         );
                     }
-                    None => {
+                    BlobNodeResult::UnparseableSize => {
                         // No usable size to verify against — don't risk caching
                         // possibly-truncated content; let REST handle it.
                         log::warn!(
@@ -1793,6 +1782,54 @@ fn build_blobs_query(project_full_path: &str, ref_sha: &str, paths: &[String]) -
         paths = paths_list,
         ref_ = ref_literal,
     )
+}
+
+/// Outcome of parsing one `blobs` node from the batched file-content query.
+#[derive(Debug, PartialEq)]
+enum BlobNodeResult {
+    /// `rawTextBlob` was present and its byte length matched the reported
+    /// `size` — safe to cache.
+    Content(String),
+    /// `rawTextBlob` was null — a binary blob. Caller should fall back to REST.
+    Binary,
+    /// Content length didn't match the reported `size` — possible silent
+    /// truncation. Caller should fall back to REST rather than trust it.
+    SizeMismatch { reported: usize, actual: usize },
+    /// `size` was missing or not parseable as an integer, so there's nothing
+    /// to verify the content against. Caller should fall back to REST.
+    UnparseableSize,
+}
+
+/// Parse one `nodes` entry of the batched file-content query into its path
+/// and a verified-or-rejected outcome. Returns `None` only when the node has
+/// no `path` field at all (never expected in practice).
+fn parse_blob_node(node: &serde_json::Value) -> Option<(String, BlobNodeResult)> {
+    let path = node.get("path")?.as_str()?.to_string();
+
+    // Binary blobs return `rawTextBlob: null`.
+    let Some(content) = node.get("rawTextBlob").and_then(|c| c.as_str()) else {
+        return Some((path, BlobNodeResult::Binary));
+    };
+
+    // `size` is a String scalar (byte size). Guard against silent truncation:
+    // only trust content whose UTF-8 byte length exactly matches the blob's
+    // reported byte size. `String::len()` is the byte length in Rust, so this
+    // is a direct comparison.
+    let reported_size = node
+        .get("size")
+        .and_then(|s| s.as_str())
+        .and_then(|s| s.parse::<usize>().ok());
+
+    let outcome = match reported_size {
+        Some(size) if content.len() == size => BlobNodeResult::Content(content.to_string()),
+        Some(size) => BlobNodeResult::SizeMismatch {
+            reported: size,
+            actual: content.len(),
+        },
+        None => BlobNodeResult::UnparseableSize,
+    };
+
+    Some((path, outcome))
 }
 
 /// Build the aliased GraphQL query fetching approval + pipeline state for
@@ -2103,6 +2140,54 @@ mod tests {
         assert!(query.contains("\"path/with \\\"quotes\\\".txt\""));
         // Requests fields needed for the truncation guard.
         assert!(query.contains("path size rawTextBlob"));
+    }
+
+    #[test]
+    fn parse_blob_node_returns_content_when_size_matches() {
+        let node = serde_json::json!({"path": "a.txt", "size": "5", "rawTextBlob": "hello"});
+        let (path, outcome) = parse_blob_node(&node).unwrap();
+        assert_eq!(path, "a.txt");
+        assert_eq!(outcome, BlobNodeResult::Content("hello".to_string()));
+    }
+
+    #[test]
+    fn parse_blob_node_flags_binary_blobs() {
+        let node = serde_json::json!({"path": "image.png", "size": "1024", "rawTextBlob": null});
+        let (path, outcome) = parse_blob_node(&node).unwrap();
+        assert_eq!(path, "image.png");
+        assert_eq!(outcome, BlobNodeResult::Binary);
+    }
+
+    #[test]
+    fn parse_blob_node_flags_size_mismatch() {
+        // Simulates silent truncation: reported size doesn't match what came back.
+        let node = serde_json::json!({"path": "a.txt", "size": "10", "rawTextBlob": "hello"});
+        let (path, outcome) = parse_blob_node(&node).unwrap();
+        assert_eq!(path, "a.txt");
+        assert_eq!(
+            outcome,
+            BlobNodeResult::SizeMismatch {
+                reported: 10,
+                actual: 5
+            }
+        );
+    }
+
+    #[test]
+    fn parse_blob_node_flags_unparseable_size() {
+        let non_numeric = serde_json::json!({"path": "a.txt", "size": "not-a-number", "rawTextBlob": "hello"});
+        let (_, outcome) = parse_blob_node(&non_numeric).unwrap();
+        assert_eq!(outcome, BlobNodeResult::UnparseableSize);
+
+        let missing = serde_json::json!({"path": "a.txt", "rawTextBlob": "hello"});
+        let (_, outcome) = parse_blob_node(&missing).unwrap();
+        assert_eq!(outcome, BlobNodeResult::UnparseableSize);
+    }
+
+    #[test]
+    fn parse_blob_node_returns_none_without_path() {
+        let node = serde_json::json!({"size": "5", "rawTextBlob": "hello"});
+        assert!(parse_blob_node(&node).is_none());
     }
 
     #[test]
