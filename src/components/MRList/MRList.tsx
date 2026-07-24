@@ -11,6 +11,7 @@ import type { MergeRequest } from '../../types';
 import MRListItem from './MRListItem';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { PullToRefreshIndicator } from '../PullToRefresh';
+import { useSmallScreen } from '../../hooks/useSmallScreen';
 import './MRList.css';
 
 const SYNCING_INDICATOR_DELAY_MS = 350;
@@ -76,6 +77,7 @@ export default function MRList({
 }: MRListProps) {
   const query = useMRListQuery(instanceId);
   const queryClient = useQueryClient();
+  const isSmallScreen = useSmallScreen();
 
   const { containerRef: pullRef, pullDistance, refreshing } = usePullToRefresh<HTMLDivElement>({
     onRefresh: onRefresh ?? (() => {}),
@@ -252,12 +254,23 @@ export default function MRList({
         <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} />
         {mrs.length === 0 ? (
           <div className="mr-list-empty">
-            <p>No open merge requests</p>
+            <p>{!showApproved && approvedCount > 0 ? "You're all caught up" : 'No open merge requests'}</p>
             <span className="mr-list-empty-hint">
-              {!showApproved && totalFetched > 0
-                ? `${totalFetched} approved — toggle the filter above to show them`
+              {!showApproved && approvedCount > 0
+                ? 'There are no merge requests waiting for your review.'
+                : isSmallScreen
+                ? 'Pull down to refresh'
                 : 'Sync with GitLab to fetch merge requests'}
             </span>
+            {!showApproved && approvedCount > 0 && (
+              <button className="mr-list-approved-banner" onClick={onToggleApproved}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+                View {approvedCount} approved {approvedCount === 1 ? 'MR' : 'MRs'}
+              </button>
+            )}
           </div>
         ) : filteredMrs.length === 0 ? (
           <div className="mr-list-empty">

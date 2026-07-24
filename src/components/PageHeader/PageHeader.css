@@ -133,3 +133,12 @@
     height: 14px;
   }
 }
+
+/* On touch devices (iOS) there's no traffic-light window chrome to clear, and
+   .app-content already reserves env(safe-area-inset-top) for the status bar/notch —
+   so the header's own top padding only needs to be a small visual gap, not clearance. */
+@media (max-width: 767px) and (hover: none), (max-width: 767px) and (pointer: coarse) {
+  .page-header {
+    padding-top: 6px;
+  }
+}
