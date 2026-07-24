@@ -20,7 +20,7 @@ import { InstanceSwitcher } from '../components/InstanceSwitcher';
 import { useMyMRListQuery } from '../hooks/queries/useMyMRListQuery';
 import { queryKeys } from '../lib/queryKeys';
 import { updateShowRecentlyMergedMrs, updateShowDraftMrs } from '../services';
-import { manualSync } from '../services/storage';
+import { manualSyncAndWait } from '../services/storage';
 import { useShortcuts } from '../components/ShortcutsProvider';
 import { ShortcutBar } from '../components/ShortcutBar';
 import type { ShortcutDef } from '../components/ShortcutBar';
@@ -94,7 +94,7 @@ export default function MyMRsPage() {
   const mrsRef = useRef<MergeRequest[]>([]);
   const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const { containerRef: pullRef, pullDistance, refreshing } = usePullToRefresh<HTMLDivElement>({
-    onRefresh: () => manualSync(true),
+    onRefresh: () => manualSyncAndWait(true),
   });
 
   const handleToggleRecentlyMerged = useCallback(async () => {

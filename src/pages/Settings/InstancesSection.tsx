@@ -70,7 +70,7 @@ export default function InstancesSection() {
   }
 
   return (
-    <>
+    <div data-tour="settings-instances">
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
         <button
           className="add-button"
@@ -112,6 +112,6 @@ export default function InstancesSection() {
           ))}
         </ul>
       )}
-    </>
+    </div>
   );
 }

@@ -15,7 +15,7 @@ interface ShortcutBarProps {
 
 export function ShortcutBar({ shortcuts, variant = 'detail' }: ShortcutBarProps) {
   return (
-    <div className={`shortcut-bar shortcut-bar--${variant}`}>
+    <div className={`shortcut-bar shortcut-bar--${variant}`} data-tour="shortcut-bar">
       {shortcuts.map(({ key, label }) => (
         <span key={key} className="shortcut-bar__item">
           <kbd className="shortcut-bar__key" aria-label={key}>{renderKeyGlyphs(key)}</kbd>

@@ -64,6 +64,11 @@
   box-shadow: none;
 }
 
+/* Labels only appear on the mobile bottom bar */
+.app-sidebar-label {
+  display: none;
+}
+
 .update-dot,
 .approved-dot {
   position: absolute;
@@ -134,31 +139,56 @@
     width: auto;
     height: auto;
     flex-direction: row;
-    justify-content: center;
+    justify-content: space-evenly;
+    align-items: stretch;
+    gap: 4px;
     border-right: none;
     border-top: 1px solid var(--border-color);
-    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 6px));
+    padding: 6px 6px calc(2px + env(safe-area-inset-bottom, 8px));
   }
 
-  .app-sidebar-top {
-    flex-direction: row;
-    flex: 0;
-    gap: 6px;
-  }
-
+  /* Flatten the top/bottom groups so every item shares the full bar width */
+  .app-sidebar-top,
   .app-sidebar-bottom {
-    flex-direction: row;
-    gap: 6px;
+    display: contents;
   }
 
   .app-sidebar-item {
-    width: 42px;
-    height: 42px;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 110px;
+    width: auto;
+    height: auto;
+    min-height: 50px;
+    flex-direction: column;
+    gap: 3px;
+    padding: 6px 2px;
+    border-radius: 10px;
   }
 
   .app-sidebar-item svg {
     width: 22px;
     height: 22px;
+    flex-shrink: 0;
+  }
+
+  .app-sidebar-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  /* Anchor status dots to the icon, not the (now wider) button corner */
+  .update-dot,
+  .approved-dot {
+    top: 4px;
+    right: calc(50% - 16px);
   }
 
   .app-sidebar-indicator {

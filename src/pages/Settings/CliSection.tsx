@@ -34,8 +34,7 @@ export default function CliSection() {
   }
 
   return (
-    <section className="settings-section">
-      <h2>Command Line</h2>
+    <>
       <p className="settings-section-description">
         Install the <code>ultra</code> terminal client to <code>~/.local/bin</code> so you can
         review MRs from your shell.
@@ -66,6 +65,6 @@ export default function CliSection() {
       >
         {installing ? 'Installing…' : 'Download & install CLI to PATH'}
       </button>
-    </section>
+    </>
   );
 }

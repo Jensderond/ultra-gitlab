@@ -224,7 +224,7 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs }: AppSidebarProps)
   return (
     <nav className="app-sidebar" ref={sidebarRef}>
       <div className="app-sidebar-indicator" ref={indicatorRef} />
-      <div className="app-sidebar-top">
+      <div className="app-sidebar-top" data-tour="sidebar-nav">
         {topItems.map((item, index) => (
           <button
             key={item.path}
@@ -234,6 +234,7 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs }: AppSidebarProps)
             title={item.label}
           >
             {item.icon}
+            <span className="app-sidebar-label">{item.label}</span>
             {item.path === '/my-mrs' && hasApprovedMRs && (
               <span className="approved-dot" />
             )}
@@ -253,6 +254,7 @@ export function AppSidebar({ updateAvailable, hasApprovedMRs }: AppSidebarProps)
             title={item.label}
           >
             {item.icon}
+            <span className="app-sidebar-label">{item.label}</span>
             {item.path === '/settings' && updateAvailable && (
               <span className="update-dot" />
             )}

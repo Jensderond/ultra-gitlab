@@ -298,6 +298,7 @@ export interface Settings {
   mrListCondensed: boolean;
   showRecentlyMergedMrs: boolean;
   showDraftMrs: boolean;
+  hasSeenProductTour: boolean;
 }
 
 export type SettingsUpdate = Partial<Settings>;

@@ -570,6 +570,13 @@ export async function updateSettings(update: SettingsUpdate): Promise<Settings> 
   return invoke<Settings>('update_settings', { update });
 }
 
+/**
+ * Mark the first-run product tour as seen (or reset it to run again).
+ */
+export async function updateHasSeenProductTour(seen: boolean): Promise<void> {
+  return invoke<void>('update_has_seen_product_tour', { seen });
+}
+
 // ============================================================================
 // Keyboard Shortcuts Commands
 // ============================================================================

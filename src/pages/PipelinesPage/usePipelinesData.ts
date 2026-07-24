@@ -12,7 +12,7 @@ import { usePipelineProjectsQuery } from '../../hooks/queries/usePipelineProject
 import { usePipelineStatusesQuery } from '../../hooks/queries/usePipelineStatusesQuery';
 import { queryClient } from '../../lib/queryClient';
 import { queryKeys } from '../../lib/queryKeys';
-import { manualSync } from '../../services/storage';
+import { manualSyncAndWait } from '../../services/storage';
 
 export default function usePipelinesData() {
   const navigate = useNavigate();
@@ -136,7 +136,7 @@ export default function usePipelinesData() {
   }, []);
 
   const handleRefresh = useCallback(async () => {
-    await manualSync(true);
+    await manualSyncAndWait(true);
     await Promise.all([projectsQuery.refetch(), statusesQuery.refetch()]);
   }, [projectsQuery, statusesQuery]);
 

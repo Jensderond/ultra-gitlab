@@ -488,6 +488,24 @@
   }
 }
 
+/* The 260px fixed sidebar track squeezes the description/comments column to
+   near-nothing on a phone (wrapping every word letter-by-letter) — stack the
+   sidebar below the main content instead, matching the DOM order already in
+   place (main, then aside). */
+@media (max-width: 767px) {
+  .issue-detail-body {
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    gap: 20px;
+  }
+
+  .issue-detail-sidebar {
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+  }
+}
+
 /* Assignee picker */
 
 .issue-assignee-overlay {

@@ -568,6 +568,11 @@ export const settings: Settings = {
   diffViewMode: 'split',
   collapsePatterns: ['*.lock', 'package-lock.json'],
   fileJumpCount: 2,
+  mrListCondensed: false,
+  showRecentlyMergedMrs: false,
+  showDraftMrs: true,
+  // Seeded as seen so the first-run tour overlay doesn't cover unrelated specs.
+  hasSeenProductTour: true,
 };
 
 // ============================================================================

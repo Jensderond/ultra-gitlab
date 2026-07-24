@@ -370,7 +370,7 @@ export function getContextsForRoute(pathname: string): ShortcutContext[] {
   if (pathname === '/pipelines') {
     return ['pipelines'];
   }
-  if (pathname === '/settings') {
+  if (pathname.startsWith('/settings')) {
     return ['settings'];
   }
   return [];

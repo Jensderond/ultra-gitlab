@@ -26,3 +26,11 @@
   border-color: var(--accent-color);
   box-shadow: 0 0 0 3px var(--wave-glow);
 }
+
+/* Comfortable tap target on touch screens */
+@media (max-width: 767px) {
+  .back-button-icon {
+    width: 40px;
+    height: 40px;
+  }
+}

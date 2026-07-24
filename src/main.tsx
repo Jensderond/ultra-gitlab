@@ -35,7 +35,8 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <App />
-      {import.meta.env.DEV && <ReactQueryDevtools />}
+      {/* The floating launcher would cover the mobile bottom tab bar, so desktop-width only */}
+      {import.meta.env.DEV && window.matchMedia("(min-width: 768px)").matches && <ReactQueryDevtools />}
     </QueryClientProvider>
   </React.StrictMode>,
 );

@@ -28,8 +28,7 @@ export default function UpdatesSection({ updateChecker }: { updateChecker: Updat
   } = updateChecker;
 
   return (
-    <section className="settings-section">
-      <h2>Updates</h2>
+    <>
       <div className="update-version-row">
         <span className="update-current-version">
           Current version: <strong>{appVersion}</strong>
@@ -82,6 +81,6 @@ export default function UpdatesSection({ updateChecker }: { updateChecker: Updat
           </button>
         </div>
       )}
-    </section>
+    </>
   );
 }

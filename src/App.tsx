@@ -27,6 +27,8 @@ import useUpdateChecker from './hooks/useUpdateChecker';
 import { useHasApprovedMRsQuery } from './hooks/queries/useHasApprovedMRsQuery';
 import useNotifications from './hooks/useNotifications';
 import useDeepLink from './hooks/useDeepLink';
+import { useProductTour } from './hooks/useProductTour';
+import { useSmallScreen } from './hooks/useSmallScreen';
 import { CommandId, CommandCategory, commandDefinitions } from './commands/registry';
 import { manualSync } from './services/storage';
 import { useInstancesQuery } from './hooks/queries/useInstancesQuery';
@@ -69,6 +71,15 @@ function AppContent() {
   useNotifications();
   useDeepLink();
   const instancesQuery = useInstancesQuery();
+  const isSmallScreen = useSmallScreen();
+  // Desktop-only, and only auto-starts while on the default /mrs route with
+  // at least one instance configured (never over the empty first-run state).
+  useProductTour({
+    enabled:
+      !isSmallScreen &&
+      (instancesQuery.data?.length ?? 0) > 0 &&
+      location.pathname === '/mrs',
+  });
 
   // Track screen views for main overview screens
   useEffect(() => {
@@ -204,7 +215,7 @@ function AppContent() {
   const commands: Command[] = useMemo(() => {
     const isOnMRList = location.pathname === '/mrs';
     const isOnMRDetail = location.pathname.startsWith('/mrs/');
-    const isOnSettings = location.pathname === '/settings';
+    const isOnSettings = location.pathname.startsWith('/settings');
 
     const actionMap: Partial<Record<CommandId, () => void>> = {
       // Navigation commands always available
@@ -300,7 +311,7 @@ function AppContent() {
 
           {/* Settings page (desktop only) */}
           {isTauri && (
-            <Route path="/settings" element={<Settings updateChecker={updateChecker} />} />
+            <Route path="/settings/:section?" element={<Settings updateChecker={updateChecker} />} />
           )}
         </Routes>
       </div>

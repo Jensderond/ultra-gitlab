@@ -21,7 +21,10 @@ import * as seed from './seed-data';
  * Call this before navigating to the app. It injects the mock into the
  * page context so `window.__TAURI_INTERNALS__` is present before React mounts.
  */
-export async function mockTauriIPC(page: Page) {
+export async function mockTauriIPC(
+  page: Page,
+  overrides?: { settings?: Partial<typeof seed.settings> },
+) {
   // Serialize seed data to inject into the browser context
   const seedJSON = JSON.stringify({
     instances: seed.instances,
@@ -33,7 +36,7 @@ export async function mockTauriIPC(page: Page) {
     comments: seed.comments,
     reviewers: seed.reviewers,
     syncStatus: seed.syncStatus,
-    settings: seed.settings,
+    settings: { ...seed.settings, ...overrides?.settings },
     pipelineProjects: seed.pipelineProjects,
     pipelineStatuses: seed.pipelineStatuses,
     pipelineJobs: seed.pipelineJobs,
@@ -308,6 +311,7 @@ export async function mockTauriIPC(page: Page) {
       // -- Settings --
       get_settings: () => data.settings,
       update_settings: () => data.settings,
+      update_has_seen_product_tour: () => undefined,
       get_collapse_patterns: () => data.settings.collapsePatterns,
       update_collapse_patterns: () => undefined,
 

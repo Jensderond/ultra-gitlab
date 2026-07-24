@@ -2,9 +2,7 @@ import { test, expect } from './fixtures/test-base';
 
 test.describe('Shortcut Editor', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/settings');
-    // Open the "Keyboard Shortcuts" collapsible section
-    await page.locator('.collapsible-title', { hasText: 'Keyboard Shortcuts' }).click();
+    await page.goto('/settings/shortcuts');
     // Wait for shortcuts to load
     await expect(page.locator('.shortcuts-editor')).toBeVisible();
   });

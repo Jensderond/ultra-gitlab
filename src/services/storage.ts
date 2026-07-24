@@ -13,6 +13,7 @@ import {
   getSettings,
   updateSettings,
 } from './tauri';
+import { tauriListen } from './transport';
 import type {
   SyncStatusResponse,
   Settings,
@@ -33,6 +34,53 @@ import type {
  */
 export async function manualSync(force = false): Promise<void> {
   return triggerSync(force);
+}
+
+/** Payload shape of the backend's `sync-progress` event (snake_case serde). */
+interface SyncProgressPayload {
+  phase: string;
+  message: string;
+  is_error: boolean;
+}
+
+/** Safety net: never keep a refresh indicator spinning longer than this. */
+const SYNC_WAIT_TIMEOUT_MS = 120_000;
+
+/**
+ * Trigger a manual sync and resolve only once the sync engine reports
+ * completion (or failure) via the `sync-progress` event.
+ *
+ * `triggerSync` merely enqueues a command on the background sync loop and
+ * returns immediately — useless for driving an "is syncing" indicator.
+ * This variant keeps the promise pending for the duration of the actual
+ * sync run, so pull-to-refresh spinners and progress bars stay visible.
+ */
+export async function manualSyncAndWait(force = false): Promise<void> {
+  let resolveDone!: () => void;
+  const done = new Promise<void>((resolve) => {
+    resolveDone = resolve;
+  });
+
+  // Subscribe before triggering so a fast sync can't complete unobserved.
+  const unlisten = await tauriListen<SyncProgressPayload>('sync-progress', ({ payload }) => {
+    if (payload.phase === 'complete' || payload.phase === 'failed') {
+      resolveDone();
+    }
+  });
+
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await triggerSync(force);
+    await Promise.race([
+      done,
+      new Promise<void>((resolve) => {
+        timeoutId = setTimeout(resolve, SYNC_WAIT_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+    unlisten();
+  }
 }
 
 /**

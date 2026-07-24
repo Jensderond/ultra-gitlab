@@ -55,7 +55,7 @@ export function useCondensedModeAnnouncement() {
           type: 'info',
           title: 'New: Condensed MR list',
           body: 'Fit more MRs on screen with a tighter two-line layout. Enable it in Appearance settings.',
-          route: '/settings?highlight=condensed-mr-list',
+          route: '/settings/appearance?highlight=condensed-mr-list',
           sticky: true,
         });
         window.clearInterval(interval);

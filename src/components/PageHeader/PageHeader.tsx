@@ -23,6 +23,7 @@ export function PageHeader({
         {onRefresh && (
           <button
             className="page-header-refresh"
+            data-tour="refresh"
             onClick={onRefresh}
             disabled={refreshDisabled}
             aria-label={refreshAriaLabel ?? `Refresh ${title}`}

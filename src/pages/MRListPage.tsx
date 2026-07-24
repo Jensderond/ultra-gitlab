@@ -16,7 +16,7 @@ import SearchBar from '../components/SearchBar/SearchBar';
 import { useInstancesQuery } from '../hooks/queries/useInstancesQuery';
 import { useSettingsQuery } from '../hooks/queries/useSettingsQuery';
 import { InstanceSwitcher } from '../components/InstanceSwitcher';
-import { manualSync } from '../services/storage';
+import { manualSyncAndWait } from '../services/storage';
 import { SyncProgressBar } from '../components/PullToRefresh';
 import { queryKeys } from '../lib/queryKeys';
 import { ShortcutBar } from '../components/ShortcutBar';
@@ -233,7 +233,7 @@ export default function MRListPage() {
 
       {syncing && <SyncProgressBar />}
 
-      <main className="mr-list-page-content">
+      <main className="mr-list-page-content" data-tour="mr-list">
         {isSearchOpen && (
           <SearchBar
             query={query}
@@ -258,7 +258,7 @@ export default function MRListPage() {
             showApproved={showApproved}
             onToggleApproved={() => setShowApproved(v => !v)}
             condensed={condensed}
-            onRefresh={() => manualSync(true)}
+            onRefresh={() => manualSyncAndWait(true)}
             onRefreshingChange={setSyncing}
           />
         ) : null}

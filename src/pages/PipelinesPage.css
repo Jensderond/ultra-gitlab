@@ -44,8 +44,12 @@
 
 .pipelines-header-left {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  align-items: center;
+  gap: 4px;
+}
+
+.pipelines-header-left .pipelines-freshness {
+  margin-left: 8px;
 }
 
 .pipelines-header h1 {

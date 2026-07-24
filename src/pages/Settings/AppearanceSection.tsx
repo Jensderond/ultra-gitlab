@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Combobox } from '@base-ui/react/combobox';
 import { useQueryClient } from '@tanstack/react-query';
 import useTheme from '../../hooks/useTheme';
@@ -7,6 +8,8 @@ import { isTauri, listSystemFonts, updateMrListCondensed, type SystemFont } from
 import { useSettingsQuery } from '../../hooks/queries/useSettingsQuery';
 import { queryKeys } from '../../lib/queryKeys';
 import { deriveTheme } from '../../themes/deriveTheme';
+import { waitForElement } from '../../services/productTour';
+import { PRODUCT_TOUR_REPLAY_EVENT } from '../../hooks/useProductTour';
 import type { Theme } from '../../types';
 
 /** Theme preset list for the appearance section. */
@@ -114,7 +117,15 @@ export default function AppearanceSection({ highlightCondensed = false }: Appear
   const { theme, setThemeById, uiFont, setUiFont, displayFont, setDisplayFont, diffsFont, setDiffsFont, customColors, previewCustomTheme, saveCustomTheme, deleteCustomTheme } = useTheme();
   const settingsQuery = useSettingsQuery();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const condensed = settingsQuery.data?.mrListCondensed ?? false;
+
+  const handleReplayTour = useCallback(() => {
+    navigate('/mrs');
+    waitForElement('[data-tour="mr-list"]', () => {
+      window.dispatchEvent(new CustomEvent(PRODUCT_TOUR_REPLAY_EVENT));
+    });
+  }, [navigate]);
 
   const condensedRowRef = useRef<HTMLDivElement>(null);
   const [pulseCondensed, setPulseCondensed] = useState(false);
@@ -400,6 +411,16 @@ export default function AppearanceSection({ highlightCondensed = false }: Appear
           aria-label="Toggle condensed MR list view"
         >
           <span className="companion-toggle-knob" />
+        </button>
+      </div>
+
+      <div className="condensed-toggle-row">
+        <div className="condensed-toggle-text">
+          <span className="condensed-toggle-label">Product tour</span>
+          <span className="condensed-toggle-description">Replay the first-run walkthrough of the app.</span>
+        </div>
+        <button className="update-check-button" onClick={handleReplayTour}>
+          Replay product tour
         </button>
       </div>
     </>

@@ -6,28 +6,34 @@
   animation: sync-progress-fade-in 0.2s ease;
 }
 
-.sync-progress-bar__sweep {
+/* Gradient pulse — grows from the center towards both edges, then fades. */
+.sync-progress-bar__pulse {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 40%;
-  left: -40%;
+  inset: 0;
   background: linear-gradient(90deg,
     transparent 0%,
-    var(--accent-color) 30%,
+    var(--accent-color) 20%,
     var(--accent-hover) 50%,
-    var(--accent-color) 70%,
+    var(--accent-color) 80%,
     transparent 100%);
   box-shadow: 0 0 8px var(--wave-glow-strong);
-  animation: sync-progress-sweep 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  transform: scaleX(0);
+  transform-origin: center;
+  animation: sync-progress-pulse 1.4s cubic-bezier(0.25, 0.1, 0.25, 1) infinite;
 }
 
-@keyframes sync-progress-sweep {
+@keyframes sync-progress-pulse {
   0% {
-    left: -40%;
+    transform: scaleX(0.02);
+    opacity: 1;
+  }
+  70% {
+    transform: scaleX(1);
+    opacity: 0.9;
   }
   100% {
-    left: 100%;
+    transform: scaleX(1);
+    opacity: 0;
   }
 }
 
@@ -41,10 +47,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sync-progress-bar__sweep {
+  .sync-progress-bar__pulse {
     animation: none;
-    left: 0;
-    width: 100%;
+    transform: scaleX(1);
     opacity: 0.6;
   }
 }

@@ -52,6 +52,9 @@ const SHOW_RECENTLY_MERGED_MRS_KEY: &str = "show_recently_merged_mrs";
 /// Key for the "show draft MRs" toggle on the My MRs page.
 const SHOW_DRAFT_MRS_KEY: &str = "show_draft_mrs";
 
+/// Key for the "has seen product tour" first-run flag.
+const HAS_SEEN_PRODUCT_TOUR_KEY: &str = "has_seen_product_tour";
+
 /// Default number of files to jump with arrow-left/right.
 const DEFAULT_FILE_JUMP_COUNT: u32 = 5;
 
@@ -121,6 +124,8 @@ pub struct AppSettings {
     pub show_recently_merged_mrs: bool,
     /// Whether the My MRs page includes the user's draft MRs. Defaults to true.
     pub show_draft_mrs: bool,
+    /// Whether the user has completed or dismissed the first-run product tour.
+    pub has_seen_product_tour: bool,
 }
 
 impl Default for AppSettings {
@@ -138,6 +143,7 @@ impl Default for AppSettings {
             mr_list_condensed: false,
             show_recently_merged_mrs: false,
             show_draft_mrs: true,
+            has_seen_product_tour: false,
         }
     }
 }
@@ -236,6 +242,12 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         None => true,
     };
 
+    // Try to load "has seen product tour" flag
+    let has_seen_product_tour = match store.get(HAS_SEEN_PRODUCT_TOUR_KEY) {
+        Some(value) => serde_json::from_value(value.clone()).unwrap_or(false),
+        None => false,
+    };
+
     Ok(AppSettings {
         sync,
         collapse_patterns,
@@ -249,6 +261,7 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
         mr_list_condensed,
         show_recently_merged_mrs,
         show_draft_mrs,
+        has_seen_product_tour,
     })
 }
 
@@ -305,6 +318,10 @@ pub(crate) async fn save_settings(app: &AppHandle, settings: &AppSettings) -> Re
     // Save "show draft MRs" flag
     let show_draft_value = serde_json::to_value(settings.show_draft_mrs)?;
     store.set(SHOW_DRAFT_MRS_KEY, show_draft_value);
+
+    // Save "has seen product tour" flag
+    let has_seen_tour_value = serde_json::to_value(settings.has_seen_product_tour)?;
+    store.set(HAS_SEEN_PRODUCT_TOUR_KEY, has_seen_tour_value);
 
     // Persist to disk
     store
@@ -552,6 +569,19 @@ pub async fn update_show_recently_merged_mrs(
 pub async fn update_show_draft_mrs(app: AppHandle, show: bool) -> Result<(), AppError> {
     let mut settings = load_settings(&app).await?;
     settings.show_draft_mrs = show;
+    save_settings(&app, &settings).await?;
+    *settings_cache().write().await = settings;
+    Ok(())
+}
+
+/// Update the "has seen product tour" first-run flag.
+///
+/// # Arguments
+/// * `seen` - When true, the first-run product tour will not auto-start again.
+#[tauri::command]
+pub async fn update_has_seen_product_tour(app: AppHandle, seen: bool) -> Result<(), AppError> {
+    let mut settings = load_settings(&app).await?;
+    settings.has_seen_product_tour = seen;
     save_settings(&app, &settings).await?;
     *settings_cache().write().await = settings;
     Ok(())

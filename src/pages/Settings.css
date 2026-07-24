@@ -147,77 +147,209 @@
 }
 
 /* ================================================
-   COLLAPSIBLE SECTIONS
+   RAIL + DETAIL LAYOUT (desktop)
    ================================================ */
 
-.collapsible-section {
-  padding: 0;
+.settings-body {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
 }
 
-.collapsible-summary {
+.settings-rail {
+  flex: 0 0 248px;
+  overflow-y: auto;
+  padding: 24px 16px;
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  box-sizing: border-box;
+  animation: settingsContentReveal 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.05s backwards;
+}
+
+.settings-rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-group-eyebrow {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0 12px;
+  margin-bottom: 6px;
+}
+
+.settings-rail-item {
+  position: relative;
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 14px 24px;
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-}
-
-.collapsible-summary::-webkit-details-marker {
-  display: none;
-}
-
-.collapsible-summary::marker {
-  display: none;
-  content: '';
-}
-
-.collapsible-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: 'Noto Sans JP', sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 7px;
+  text-decoration: none;
+  font-family: var(--ui-font, 'Noto Sans JP', sans-serif);
+  font-size: 13px;
+  font-weight: 500;
   color: var(--text-secondary);
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.collapsible-subtitle {
-  font-size: 12px;
+.settings-rail-item:hover {
+  background: var(--overlay-hover);
+  color: var(--text-primary);
+}
+
+.settings-rail-item.active {
+  background: var(--overlay-hover);
+  color: var(--text-primary);
+}
+
+.settings-rail-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Live value shown next to a category (theme name, sync interval, …) */
+.settings-value {
+  flex-shrink: 0;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
   font-weight: 400;
   color: var(--text-tertiary);
-  margin-left: 4px;
 }
 
-.collapsible-section[open] > .collapsible-summary .collapsible-subtitle {
-  display: none;
+.settings-value--accent {
+  color: var(--accent-hover);
+  font-weight: 500;
 }
 
-.collapsible-chevron {
+.settings-detail {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 28px 32px 40px;
+  box-sizing: border-box;
+  animation: settingsContentReveal 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.settings-detail::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-detail::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-detail::-webkit-scrollbar-thumb {
+  background: var(--wave-glow-strong);
+  border-radius: 4px;
+}
+
+.settings-detail-header {
+  max-width: 960px;
+  margin: 0 auto 18px;
+}
+
+.settings-detail-header h2 {
+  margin: 0 0 6px;
+  font-family: var(--ui-font, 'Noto Sans JP', sans-serif);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+}
+
+.settings-detail-header p,
+.settings-detail-description {
+  margin: 0;
+  font-size: 13px;
   color: var(--text-tertiary);
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
 }
 
-.collapsible-section[open] > .collapsible-summary .collapsible-chevron {
-  transform: rotate(90deg);
+.settings-detail-description {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
-.collapsible-actions {
+/* ================================================
+   MOBILE CATEGORY LIST (drill-down root)
+   ================================================ */
+
+.settings-mobile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.settings-mobile-card {
+  background: linear-gradient(165deg,
+    var(--overlay-hover) 0%,
+    var(--overlay-glass-light) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.settings-mobile-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  padding: 13px 16px;
+  text-decoration: none;
+  transition: background 0.15s ease;
 }
 
-.collapsible-content {
-  padding: 0 24px 20px;
+.settings-mobile-row:hover,
+.settings-mobile-row:active {
+  background: var(--overlay-hover);
 }
 
-/* Remove extra margin from h2 inside collapsible sections */
-.collapsible-content > .section-header {
-  margin-bottom: 16px;
+.settings-mobile-row + .settings-mobile-row {
+  border-top: 1px solid var(--border-color);
+}
+
+.settings-mobile-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.settings-mobile-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.settings-mobile-desc {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-mobile-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
 }
 
 /* ================================================
@@ -1672,4 +1804,26 @@ fieldset.setting-row {
 .condensed-toggle-description {
   font-size: 12px;
   color: var(--text-tertiary);
+}
+
+/* On mobile, Settings is a main tab in the bottom nav — a back arrow on the
+   root list reads as if Settings were a sub-page, so hide it there. Drill-in
+   section pages (.settings-header--sub) keep their back arrow. */
+@media (max-width: 767px) {
+  .settings-header--root {
+    gap: 0;
+  }
+
+  .settings-header--root .back-button-icon {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-header,
+  .settings-content,
+  .settings-rail,
+  .settings-detail {
+    animation: none;
+  }
 }

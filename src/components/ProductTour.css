@@ -1,0 +1,64 @@
+/**
+ * Theming for the driver.js first-run product tour popover.
+ *
+ * Scoped under `.ultra-tour-popover` (passed as `popoverClass`) so this
+ * never leaks into other driver.js consumers. Uses the app's runtime theme
+ * variables (set on :root by ThemeProvider) so the tour matches whatever
+ * theme/fonts the user has picked.
+ */
+
+.driver-popover.ultra-tour-popover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-family: var(--ui-font);
+  box-shadow: none;
+}
+
+.ultra-tour-popover .driver-popover-title {
+  font-family: var(--font-display);
+  color: var(--text-primary);
+}
+
+.ultra-tour-popover .driver-popover-description {
+  color: var(--text-secondary);
+}
+
+.ultra-tour-popover .driver-popover-progress-text {
+  color: var(--text-tertiary);
+}
+
+.ultra-tour-popover .driver-popover-footer-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 6px;
+  text-shadow: none;
+}
+
+.ultra-tour-popover .driver-popover-next-btn {
+  background: var(--accent-color);
+  color: var(--bg-primary);
+  border-color: var(--accent-color);
+}
+
+.ultra-tour-popover .driver-popover-close-btn {
+  color: var(--text-tertiary);
+}
+
+.ultra-tour-popover .driver-popover-arrow-side-right.driver-popover-arrow {
+  border-right-color: var(--bg-secondary);
+}
+
+.ultra-tour-popover .driver-popover-arrow-side-left.driver-popover-arrow {
+  border-left-color: var(--bg-secondary);
+}
+
+.ultra-tour-popover .driver-popover-arrow-side-top.driver-popover-arrow {
+  border-top-color: var(--bg-secondary);
+}
+
+.ultra-tour-popover .driver-popover-arrow-side-bottom.driver-popover-arrow {
+  border-bottom-color: var(--bg-secondary);
+}

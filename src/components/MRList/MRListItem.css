@@ -11,7 +11,6 @@
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
   transition: background 0.2s ease, border-color 0.2s ease;
-  animation: itemSlideIn 0.35s ease-out backwards;
 }
 
 /* Ink-wash fade on the divider */
@@ -36,28 +35,6 @@
 }
 .mr-list-item:last-child::after {
   display: none;
-}
-
-/* Staggered entrance — fast, subtle */
-.mr-list-item:nth-child(1) { animation-delay: 0.02s; }
-.mr-list-item:nth-child(2) { animation-delay: 0.04s; }
-.mr-list-item:nth-child(3) { animation-delay: 0.06s; }
-.mr-list-item:nth-child(4) { animation-delay: 0.08s; }
-.mr-list-item:nth-child(5) { animation-delay: 0.1s; }
-.mr-list-item:nth-child(6) { animation-delay: 0.12s; }
-.mr-list-item:nth-child(7) { animation-delay: 0.14s; }
-.mr-list-item:nth-child(8) { animation-delay: 0.16s; }
-.mr-list-item:nth-child(n+9) { animation-delay: 0.18s; }
-
-@keyframes itemSlideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
 }
 
 /* Hover — gentle ink-wash highlight */
@@ -309,18 +286,6 @@
 
 .mr-list-item.user-approved {
   opacity: 0.5;
-  animation-name: itemSlideInDimmed;
-}
-
-@keyframes itemSlideInDimmed {
-  from {
-    opacity: 0;
-    transform: translateX(-8px);
-  }
-  to {
-    opacity: 0.5;
-    transform: translateX(0);
-  }
 }
 
 .mr-list-item.user-approved:hover {

@@ -80,6 +80,7 @@ export default function IssuesPage() {
   const [renameTarget, setRenameTarget] = useState<IssueProject | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [syncing, setSyncing] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (instances.length > 0 && selectedInstanceId == null) {
@@ -248,6 +249,16 @@ export default function IssuesPage() {
   const starredProjects = useMemo(() => projects.filter((p) => p.starred), [projects]);
   const otherProjects = useMemo(() => projects.filter((p) => !p.starred), [projects]);
 
+  const activeScopeLabel = SCOPE_TABS.find((tab) => tab.id === scope)?.label ?? '';
+  const activeProject = selectedProjectId === 'all'
+    ? null
+    : projects.find((p) => p.id === selectedProjectId) ?? null;
+  const activeProjectLabel = selectedProjectId === 'all'
+    ? 'All projects'
+    : activeProject
+      ? projectDisplayName(activeProject)
+      : 'Project';
+
   if (instancesQuery.isLoading) {
     return (
       <div className="issues-page">
@@ -289,14 +300,24 @@ export default function IssuesPage() {
       {refreshing && <SyncProgressBar />}
 
       <div className="issues-page-body">
-        <aside className="issues-sidebar">
+        {mobileSidebarOpen && (
+          <div
+            className="issues-mobile-backdrop"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+        )}
+
+        <aside className={`issues-sidebar${mobileSidebarOpen ? ' mobile-open' : ''}`}>
           <nav className="issues-scope-nav" aria-label="Issue scope">
             {SCOPE_TABS.map((tab, idx) => (
               <button
                 key={tab.id}
                 type="button"
                 className={`issues-scope-tab${scope === tab.id ? ' active' : ''}`}
-                onClick={() => setScope(tab.id)}
+                onClick={() => {
+                  setScope(tab.id);
+                  setMobileSidebarOpen(false);
+                }}
                 title={tab.hint}
               >
                 <span>{tab.label}</span>
@@ -313,7 +334,10 @@ export default function IssuesPage() {
             <button
               type="button"
               className={`issues-project-item${selectedProjectId === 'all' ? ' active' : ''}`}
-              onClick={() => setSelectedProjectId('all')}
+              onClick={() => {
+                setSelectedProjectId('all');
+                setMobileSidebarOpen(false);
+              }}
             >
               <span className="issues-project-name">All projects</span>
               <span className="issues-project-count">{issues.length}</span>
@@ -327,7 +351,10 @@ export default function IssuesPage() {
                     key={`s-${p.id}`}
                     project={p}
                     active={selectedProjectId === p.id}
-                    onSelect={() => setSelectedProjectId(p.id)}
+                    onSelect={() => {
+                      setSelectedProjectId(p.id);
+                      setMobileSidebarOpen(false);
+                    }}
                     onToggleStar={() => handleStarProject(p.id)}
                     onRename={() => openRename(p)}
                   />
@@ -343,7 +370,10 @@ export default function IssuesPage() {
                     key={`o-${p.id}`}
                     project={p}
                     active={selectedProjectId === p.id}
-                    onSelect={() => setSelectedProjectId(p.id)}
+                    onSelect={() => {
+                      setSelectedProjectId(p.id);
+                      setMobileSidebarOpen(false);
+                    }}
                     onToggleStar={() => handleStarProject(p.id)}
                     onRename={() => openRename(p)}
                   />
@@ -355,6 +385,27 @@ export default function IssuesPage() {
 
         <main className="issues-main" ref={pullRef}>
           <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} />
+
+          <button
+            type="button"
+            className="issues-mobile-filter-toggle"
+            onClick={() => setMobileSidebarOpen(true)}
+            aria-label="Show issue filters"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="4" y1="6" x2="20" y2="6" />
+              <line x1="4" y1="12" x2="20" y2="12" />
+              <line x1="4" y1="18" x2="20" y2="18" />
+              <circle cx="9" cy="6" r="2" fill="currentColor" stroke="none" />
+              <circle cx="16" cy="12" r="2" fill="currentColor" stroke="none" />
+              <circle cx="10" cy="18" r="2" fill="currentColor" stroke="none" />
+            </svg>
+            <span className="issues-mobile-filter-label">
+              {activeScopeLabel}
+              {selectedProjectId !== 'all' && <> · {activeProjectLabel}</>}
+            </span>
+          </button>
+
           {isSearchOpen && (
             <SearchBar
               query={query}

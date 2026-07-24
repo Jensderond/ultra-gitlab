@@ -46,6 +46,7 @@ export {
   refreshGitattributes,
   getSettings,
   updateSettings,
+  updateHasSeenProductTour,
   getCollapsePatterns,
   updateCollapsePatterns,
   getMemoryStats,
