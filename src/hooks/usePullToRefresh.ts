@@ -20,6 +20,11 @@ interface UsePullToRefreshResult<T extends HTMLElement> {
   pullDistance: number;
   /** True while `onRefresh` is in flight. */
   refreshing: boolean;
+  /**
+   * Programmatically run the same refresh sequence a touch release triggers
+   * (used by the desktop Mod+R shortcut). No-op while disabled or refreshing.
+   */
+  triggerRefresh: () => Promise<void>;
 }
 
 /**
@@ -42,6 +47,29 @@ export function usePullToRefresh<T extends HTMLElement>({
   // synchronously inside the touch handlers without stale-closure issues.
   const gesture = useRef({ startY: null as number | null, pulling: false, refreshing: false, distance: 0 });
 
+  // Shared by touch release and the programmatic desktop trigger, so the two
+  // paths can't drift apart.
+  const runRefresh = useCallback(async () => {
+    const s = gesture.current;
+    if (s.refreshing) return;
+    s.refreshing = true;
+    setRefreshing(true);
+    setPullDistance(PULL_THRESHOLD * 0.8);
+    try {
+      await onRefreshRef.current();
+    } finally {
+      s.refreshing = false;
+      s.distance = 0;
+      setRefreshing(false);
+      setPullDistance(0);
+    }
+  }, []);
+
+  const triggerRefresh = useCallback(async () => {
+    if (disabled) return;
+    await runRefresh();
+  }, [disabled, runRefresh]);
+
   const containerRef = useCallback(
     (node: T | null) => {
       if (!node || disabled) return;
@@ -54,7 +82,7 @@ export function usePullToRefresh<T extends HTMLElement>({
       }
 
       function handleTouchStart(e: TouchEvent) {
-        if (s.refreshing || node!.scrollTop > 0) {
+        if (s.refreshing) {
           s.startY = null;
           return;
         }
@@ -65,7 +93,10 @@ export function usePullToRefresh<T extends HTMLElement>({
       function handleTouchMove(e: TouchEvent) {
         if (s.startY == null || s.refreshing) return;
         if (node!.scrollTop > 0) {
-          s.startY = null;
+          // Not at the top yet — let native scrolling run (e.g. revealing the
+          // collapsed search bar) and keep re-anchoring so the pull measures
+          // from the moment the container reaches the top, mid-gesture.
+          s.startY = e.touches[0].clientY;
           if (s.pulling) reset();
           return;
         }
@@ -80,7 +111,7 @@ export function usePullToRefresh<T extends HTMLElement>({
         if (delta > 4 && e.cancelable) e.preventDefault();
       }
 
-      async function handleTouchEnd() {
+      function handleTouchEnd() {
         if (!s.pulling) {
           s.startY = null;
           return;
@@ -88,17 +119,7 @@ export function usePullToRefresh<T extends HTMLElement>({
         s.pulling = false;
         s.startY = null;
         if (s.distance >= PULL_THRESHOLD) {
-          s.refreshing = true;
-          setRefreshing(true);
-          setPullDistance(PULL_THRESHOLD * 0.8);
-          try {
-            await onRefreshRef.current();
-          } finally {
-            s.refreshing = false;
-            s.distance = 0;
-            setRefreshing(false);
-            setPullDistance(0);
-          }
+          void runRefresh();
         } else {
           reset();
         }
@@ -118,8 +139,8 @@ export function usePullToRefresh<T extends HTMLElement>({
         node.removeEventListener('touchcancel', handleTouchEnd);
       };
     },
-    [disabled],
+    [disabled, runRefresh],
   );
 
-  return { containerRef, pullDistance, refreshing };
+  return { containerRef, pullDistance, refreshing, triggerRefresh };
 }
