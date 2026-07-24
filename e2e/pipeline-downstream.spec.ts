@@ -35,7 +35,7 @@ test.describe('Downstream pipelines (bridge/trigger jobs)', () => {
     // Escape returns to the parent pipeline, not the dashboard.
     await page.keyboard.press('Escape');
     await expect(page).toHaveURL(/\/pipelines\/10\/3001\?/);
-    await expect(page.getByText('Docs')).toBeVisible();
+    await expect(page.locator('.pipeline-job-row', { hasText: 'Docs' })).toBeVisible();
   });
 
   test('bridge click inside the MR pipeline dialog swaps to the downstream pipeline', async ({ page }) => {

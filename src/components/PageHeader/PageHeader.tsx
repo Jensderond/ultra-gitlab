@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useSmallScreen } from '../../hooks/useSmallScreen';
 import './PageHeader.css';
 
 interface PageHeaderProps {
@@ -16,11 +17,13 @@ export function PageHeader({
   refreshAriaLabel,
   actions,
 }: PageHeaderProps) {
+  const isSmallScreen = useSmallScreen();
+
   return (
     <header className="page-header">
       <div className="page-header-title-group">
         <h1>{title}</h1>
-        {onRefresh && (
+        {onRefresh && !isSmallScreen && (
           <button
             className="page-header-refresh"
             data-tour="refresh"
