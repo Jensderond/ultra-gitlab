@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSyncSettingsQuery } from '../../hooks/queries/useSyncSettingsQuery';
 import { useUpdateSyncSettingsMutation } from '../../hooks/queries/useUpdateSyncSettingsMutation';
+import { SettingsGroup, SettingsRow } from './SettingsGroup';
 
 /** Sync configuration */
 interface SyncConfig {
@@ -69,45 +70,49 @@ export default function SyncSettingsSection() {
       {loading ? (
         <p className="loading">Loading settings...</p>
       ) : syncSettings ? (
-        <div className="sync-settings-form">
-          <div className="setting-row">
-            <label htmlFor="sync-interval">Sync Interval</label>
-            <select
-              id="sync-interval"
-              value={syncSettings.interval_secs}
-              onChange={handleIntervalChange}
-              disabled={saving}
-            >
-              {SYNC_INTERVALS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="setting-row">
-            <label htmlFor="issue-sync-interval">Issue Sync Interval</label>
-            <select
-              id="issue-sync-interval"
-              value={syncSettings.issue_interval_secs}
-              onChange={handleIssueIntervalChange}
-              disabled={saving}
-            >
-              {ISSUE_SYNC_INTERVALS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {saving && (
-            <p className="saving-indicator">Saving...</p>
-          )}
-
+        <>
           {error && <div className="error-message">{error}</div>}
-        </div>
+          <SettingsGroup
+            footer={saving ? <span className="saving-indicator">Saving...</span> : undefined}
+          >
+            <SettingsRow
+              label="Sync interval"
+              description="How often merge request data refreshes"
+              htmlFor="sync-interval"
+            >
+              <select
+                id="sync-interval"
+                value={syncSettings.interval_secs}
+                onChange={handleIntervalChange}
+                disabled={saving}
+              >
+                {SYNC_INTERVALS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </SettingsRow>
+            <SettingsRow
+              label="Issue sync interval"
+              description="Issues change slower, so they refresh less often"
+              htmlFor="issue-sync-interval"
+            >
+              <select
+                id="issue-sync-interval"
+                value={syncSettings.issue_interval_secs}
+                onChange={handleIssueIntervalChange}
+                disabled={saving}
+              >
+                {ISSUE_SYNC_INTERVALS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </SettingsRow>
+          </SettingsGroup>
+        </>
       ) : (
         <p className="error-message">Failed to load sync settings</p>
       )}

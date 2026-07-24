@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { downloadAndInstallCli, cliStatus } from '../../services/tauri';
 import type { CliStatus as CliStatusType } from '../../types';
 import { useToast } from '../../components/Toast';
+import { SettingsGroup, SettingsRow } from './SettingsGroup';
 
 /**
  * CLI install section — lets users download the `ultra` terminal client
@@ -34,37 +35,39 @@ export default function CliSection() {
   }
 
   return (
-    <>
-      <p className="settings-section-description">
-        Install the <code>ultra</code> terminal client to <code>~/.local/bin</code> so you can
-        review MRs from your shell.
-      </p>
-
-      {status && (
-        <div className="update-version-row">
-          {status.installed ? (
-            <>
-              <span className="update-current-version">
-                Installed at: <strong>{status.path}</strong>
-              </span>
-              <span className="update-up-to-date" style={{ display: 'inline' }}>
-                If <code>ultra</code> isn't found in your shell, make sure{' '}
-                <code>{status.path.replace(/\/ultra$/, '')}</code> is on your <code>$PATH</code>.
-              </span>
-            </>
-          ) : (
-            <span className="update-up-to-date">Not installed</span>
-          )}
-        </div>
-      )}
-
-      <button
-        className="update-install-button"
-        onClick={handleInstall}
-        disabled={installing}
+    <SettingsGroup
+      footer={
+        status?.installed ? (
+          <>
+            If <code>ultra</code> isn't found in your shell, make sure{' '}
+            <code>{status.path.replace(/\/ultra$/, '')}</code> is on your <code>$PATH</code>.
+          </>
+        ) : (
+          <>
+            Install the <code>ultra</code> terminal client to <code>~/.local/bin</code> so you can
+            review MRs from your shell.
+          </>
+        )
+      }
+    >
+      <SettingsRow
+        label="Terminal client"
+        description={
+          status
+            ? status.installed
+              ? `Installed at ${status.path}`
+              : 'Not installed'
+            : 'Checking…'
+        }
       >
-        {installing ? 'Installing…' : 'Download & install CLI to PATH'}
-      </button>
-    </>
+        <button
+          className="update-check-button"
+          onClick={handleInstall}
+          disabled={installing}
+        >
+          {installing ? 'Installing…' : status?.installed ? 'Reinstall' : 'Install'}
+        </button>
+      </SettingsRow>
+    </SettingsGroup>
   );
 }

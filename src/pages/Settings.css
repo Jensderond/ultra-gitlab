@@ -364,6 +364,12 @@
   align-items: stretch;
 }
 
+/* Row whose control (an input) fills the full row width */
+.settings-row--field .settings-row-control {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* Full-width tappable action row (e.g. "+ Add pattern") */
 .settings-row-action {
   display: flex;
@@ -930,7 +936,8 @@ fieldset.setting-row {
   padding-top: 8px;
 }
 
-.setting-row select {
+.setting-row select,
+.settings-row-control select {
   padding: 8px 32px 8px 12px;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 12px;
@@ -948,19 +955,22 @@ fieldset.setting-row {
   background-position: right 10px center;
 }
 
-.setting-row select:hover {
+.setting-row select:hover,
+.settings-row-control select:hover {
   border-color: var(--text-fuji);
   color: var(--text-secondary);
 }
 
-.setting-row select:focus {
+.setting-row select:focus,
+.settings-row-control select:focus {
   outline: none;
   border-color: var(--accent-color);
   box-shadow: 0 0 0 2px var(--wave-glow);
   color: var(--text-primary);
 }
 
-.setting-row select:disabled {
+.setting-row select:disabled,
+.settings-row-control select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -1798,27 +1808,24 @@ fieldset.setting-row {
   overflow-y: auto;
   white-space: pre-wrap;
   word-wrap: break-word;
-  margin: 0 0 14px;
+  margin: 0;
 }
 
 .update-install-button {
-  padding: 10px 22px;
+  padding: 8px 18px;
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 13px;
   font-weight: 500;
   color: var(--bg-secondary);
-  background: linear-gradient(135deg,
-    var(--accent-color) 0%,
-    var(--accent-hover) 100%);
+  background: var(--accent-color);
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease;
 }
 
 .update-install-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px var(--wave-glow);
+  background: var(--accent-hover);
 }
 
 .update-progress {

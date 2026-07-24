@@ -4,6 +4,7 @@ import { saveSettings } from '../../services/storage';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../lib/queryKeys';
 import { DEFAULT_FILE_JUMP_COUNT } from '../../utils/fileNavigation';
+import { SettingsGroup, SettingsRow } from './SettingsGroup';
 
 const JUMP_OPTIONS = [2, 3, 5, 10, 15, 20];
 
@@ -30,27 +31,21 @@ export default function NavigationSection() {
   if (isLoading) return null;
 
   return (
-    <>
-      <div className="sync-settings-form">
-        <div className="setting-row">
-          <label htmlFor="file-jump-count">Arrow key jump distance</label>
-          <select
-            id="file-jump-count"
-            value={currentValue}
-            onChange={handleChange}
-            disabled={saving}
-          >
-            {JUMP_OPTIONS.map((n) => (
-              <option key={n} value={n}>
-                {n} files
-              </option>
-            ))}
-          </select>
-        </div>
-        <p className="shortcut-hint">
-          Use ← / → arrow keys in the diff viewer to jump multiple files at once.
-        </p>
-      </div>
-    </>
+    <SettingsGroup footer="Use ← / → arrow keys in the diff viewer to jump multiple files at once.">
+      <SettingsRow label="Arrow key jump distance" htmlFor="file-jump-count">
+        <select
+          id="file-jump-count"
+          value={currentValue}
+          onChange={handleChange}
+          disabled={saving}
+        >
+          {JUMP_OPTIONS.map((n) => (
+            <option key={n} value={n}>
+              {n} files
+            </option>
+          ))}
+        </select>
+      </SettingsRow>
+    </SettingsGroup>
   );
 }
