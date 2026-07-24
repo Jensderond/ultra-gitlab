@@ -523,6 +523,93 @@
    ============================================================================ */
 
 @media (max-width: 767px) {
+  /* Mobile: the inline bar is replaced by a floating button that opens a
+     full-screen overlay, so the page needs a positioning context for it. */
+  .pipelines-page {
+    position: relative;
+  }
+
+  .pipelines-search-fab {
+    position: absolute;
+    right: 16px;
+    bottom: 16px;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    cursor: pointer;
+  }
+
+  .pipelines-search-fab:active {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  .pipelines-search-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+    padding-top: env(safe-area-inset-top, 0px);
+    animation: pipelinesSearchOverlayIn 0.15s ease-out;
+  }
+
+  @keyframes pipelinesSearchOverlayIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .pipelines-search-overlay-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .pipelines-search-overlay-header .pipelines-search-input-wrapper {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .pipelines-search-overlay-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    box-shadow: none;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+
+  .pipelines-search-overlay-close:active {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  .pipelines-search-overlay-results {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+
   .pipelines-freshness {
     display: none;
   }

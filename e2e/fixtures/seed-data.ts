@@ -22,6 +22,7 @@ import type {
   PipelineJob,
   NotificationSettings,
   IssueWithProject,
+  ProjectSearchResult,
 } from '../../src/types';
 
 // ============================================================================
@@ -590,6 +591,17 @@ export const pipelineProjects: PipelineProject[] = [
     nameWithNamespace: 'frontend / web-app',
     pathWithNamespace: 'frontend/web-app',
     webUrl: 'https://gitlab.example.com/frontend/web-app',
+  },
+];
+
+/** Results returned by `search_projects` in tests (filtered by query substring in the mock). */
+export const projectSearchResults: ProjectSearchResult[] = [
+  {
+    id: 20,
+    name: 'design-system',
+    nameWithNamespace: 'frontend / design-system',
+    pathWithNamespace: 'frontend/design-system',
+    webUrl: 'https://gitlab.example.com/frontend/design-system',
   },
 ];
 

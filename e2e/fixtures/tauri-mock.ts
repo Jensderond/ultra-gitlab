@@ -38,6 +38,7 @@ export async function mockTauriIPC(
     syncStatus: seed.syncStatus,
     settings: { ...seed.settings, ...overrides?.settings },
     pipelineProjects: seed.pipelineProjects,
+    projectSearchResults: seed.projectSearchResults,
     pipelineStatuses: seed.pipelineStatuses,
     pipelineJobs: seed.pipelineJobs,
     downstreamPipelineJobs: seed.downstreamPipelineJobs,
@@ -348,7 +349,15 @@ export async function mockTauriIPC(
       visit_pipeline_project: () => undefined,
       toggle_pin_pipeline_project: () => undefined,
       remove_pipeline_project: () => undefined,
-      search_projects: () => [],
+      search_projects: (args) => {
+        const query = String(args?.query ?? '').toLowerCase().trim();
+        if (!query) return [];
+        return data.projectSearchResults.filter(
+          (p: { nameWithNamespace: string; pathWithNamespace: string }) =>
+            p.nameWithNamespace.toLowerCase().includes(query) ||
+            p.pathWithNamespace.toLowerCase().includes(query),
+        );
+      },
       get_pipeline_statuses: () => data.pipelineStatuses,
       get_project_pipelines: () => data.pipelineStatuses,
       get_mr_pipelines: () => data.pipelineStatuses,

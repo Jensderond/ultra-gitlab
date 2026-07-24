@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { MagnifyingGlass, X } from '@phosphor-icons/react';
 import { searchProjects } from '../../services/tauri';
+import { useSmallScreen } from '../../hooks/useSmallScreen';
 import type { ProjectSearchResult } from '../../types';
 import { SearchIcon } from './icons';
 
@@ -9,11 +11,14 @@ interface ProjectSearchProps {
 }
 
 export default function ProjectSearch({ selectedInstanceId, onSelectResult }: ProjectSearchProps) {
+  const isSmallScreen = useSmallScreen();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ProjectSearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [overlayOpen, setOverlayOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const overlayInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -45,7 +50,7 @@ export default function ProjectSearch({ selectedInstanceId, onSelectResult }: Pr
     };
   }, [searchQuery, selectedInstanceId]);
 
-  // `/` keyboard shortcut to focus search
+  // `/` keyboard shortcut to focus search (desktop; inline input only)
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (
@@ -64,7 +69,7 @@ export default function ProjectSearch({ selectedInstanceId, onSelectResult }: Pr
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Click outside to close search dropdown
+  // Click outside to close search dropdown (desktop)
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (
@@ -78,15 +83,98 @@ export default function ProjectSearch({ selectedInstanceId, onSelectResult }: Pr
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  // Auto-focus the overlay input when it opens (mobile)
+  useEffect(() => {
+    if (overlayOpen) overlayInputRef.current?.focus();
+  }, [overlayOpen]);
+
   const handleSelectResult = useCallback(
     (result: ProjectSearchResult) => {
       setSearchQuery('');
       setSearchResults([]);
       setSearchOpen(false);
+      setOverlayOpen(false);
       onSelectResult(result);
     },
     [onSelectResult]
   );
+
+  const closeOverlay = useCallback(() => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setOverlayOpen(false);
+  }, []);
+
+  if (isSmallScreen) {
+    return (
+      <>
+        <button
+          type="button"
+          className="pipelines-search-fab"
+          aria-label="Search projects"
+          onClick={() => setOverlayOpen(true)}
+        >
+          <MagnifyingGlass size={24} weight="bold" />
+        </button>
+        {overlayOpen && (
+          <div className="pipelines-search-overlay">
+            <div className="pipelines-search-overlay-header">
+              <div className="pipelines-search-input-wrapper">
+                <SearchIcon />
+                <input
+                  ref={overlayInputRef}
+                  type="text"
+                  className="pipelines-search-input"
+                  placeholder="Search projects to add..."
+                  spellCheck={false}
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  autoComplete="off"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') closeOverlay();
+                  }}
+                />
+                {searchLoading && <span className="pipelines-search-spinner" />}
+              </div>
+              <button
+                type="button"
+                className="pipelines-search-overlay-close"
+                aria-label="Close search"
+                onClick={closeOverlay}
+              >
+                <X size={20} weight="bold" />
+              </button>
+            </div>
+            <div className="pipelines-search-overlay-results">
+              {searchQuery.trim() &&
+                (searchResults.length > 0 ? (
+                  searchResults.map((result) => (
+                    <button
+                      key={result.id}
+                      className="pipelines-search-result"
+                      onClick={() => handleSelectResult(result)}
+                    >
+                      <span className="pipelines-search-result-name">
+                        {result.nameWithNamespace}
+                      </span>
+                      <span className="pipelines-search-result-path">
+                        {result.pathWithNamespace}
+                      </span>
+                    </button>
+                  ))
+                ) : searchLoading ? (
+                  <div className="pipelines-search-empty">Searching...</div>
+                ) : (
+                  <div className="pipelines-search-empty">No projects found</div>
+                ))}
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <div className="pipelines-search-container" ref={searchContainerRef}>
