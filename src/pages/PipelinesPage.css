@@ -216,6 +216,7 @@
 
 .pipelines-grid-item {
   display: flex;
+  min-width: 0;
   cursor: grab;
   touch-action: none;
 }
@@ -372,14 +373,22 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   display: flex;
   align-items: center;
   font-family: var(--font-display, 'Inter', system-ui, sans-serif);
   gap: 6px;
   min-width: 0;
+}
+
+.pipeline-card-name-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+  /* Truncate the start (path) instead of the end (project name) */
+  direction: rtl;
+  text-align: left;
 }
 
 .pipeline-card-pin {

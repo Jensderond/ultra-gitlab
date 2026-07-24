@@ -55,7 +55,9 @@ export default function ProjectCard({ project, status, statusLoading, onTogglePi
               <PinIcon filled />
             </span>
           )}
-          {project.nameWithNamespace.replace(/^Customers\s*\/\s*/, '')}
+          <span className="pipeline-card-name-text">
+            {project.nameWithNamespace.replace(/^Customers\s*\/\s*/, '')}
+          </span>
         </span>
         <div className="pipeline-card-actions">
           <button
