@@ -156,10 +156,6 @@ button:focus {
   margin-right: 5px;
 }
 
-.setting-row > label {
-  color: var(--text-secondary);
-}
-
 .shortcut-description {
   color: var(--text-primary);
 }

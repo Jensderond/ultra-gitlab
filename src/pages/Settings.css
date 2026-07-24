@@ -121,17 +121,6 @@
   margin: 0 auto;
 }
 
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.section-header h2 {
-  margin: 0;
-}
-
 /* ================================================
    RAIL + DETAIL LAYOUT (desktop)
    ================================================ */
@@ -348,6 +337,8 @@
   font-size: 12px;
   color: var(--text-tertiary);
   line-height: 1.5;
+  /* URLs and tokens have no spaces — keep them inside the column */
+  overflow-wrap: anywhere;
 }
 
 .settings-row-control {
@@ -897,33 +888,6 @@
    SYNC SETTINGS
    ================================================ */
 
-.sync-settings-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.setting-row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.setting-row > label,
-fieldset.setting-row > legend {
-  font-weight: 500;
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-fieldset.setting-row {
-  border: none;
-  margin: 0;
-  padding: 0;
-  padding-top: 8px;
-}
-
-.setting-row select,
 .settings-row-control select {
   padding: 8px 32px 8px 12px;
   font-family: 'IBM Plex Mono', monospace;
@@ -942,13 +906,11 @@ fieldset.setting-row {
   background-position: right 10px center;
 }
 
-.setting-row select:hover,
 .settings-row-control select:hover {
   border-color: var(--text-fuji);
   color: var(--text-secondary);
 }
 
-.setting-row select:focus,
 .settings-row-control select:focus {
   outline: none;
   border-color: var(--accent-color);
@@ -956,7 +918,6 @@ fieldset.setting-row {
   color: var(--text-primary);
 }
 
-.setting-row select:disabled,
 .settings-row-control select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -1393,36 +1354,6 @@ fieldset.setting-row {
    COLLAPSE PATTERNS EDITOR
    ================================================ */
 
-.collapse-patterns-description {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  margin: 0 0 14px;
-  line-height: 1.6;
-}
-
-.collapse-patterns-description code {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  background: var(--overlay-surface);
-  padding: 2px 6px;
-  border-radius: 4px;
-  border: 1px solid var(--overlay-divider);
-  color: var(--accent-hover);
-}
-
-.collapse-patterns-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-
-.collapse-pattern-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .collapse-pattern-input {
   flex: 1;
   padding: 8px 12px;
@@ -1464,31 +1395,6 @@ fieldset.setting-row {
 }
 
 .collapse-pattern-remove:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.collapse-pattern-add {
-  padding: 7px 14px;
-  font-family: 'Noto Sans JP', sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-tertiary);
-  background: none;
-  border: 1px dashed var(--border-color);
-  border-radius: 6px;
-  cursor: pointer;
-  align-self: flex-start;
-  transition: all 0.2s ease;
-}
-
-.collapse-pattern-add:hover:not(:disabled) {
-  border-color: var(--accent-color);
-  color: var(--accent-hover);
-  border-style: solid;
-}
-
-.collapse-pattern-add:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
@@ -1651,13 +1557,6 @@ fieldset.setting-row {
 /* ================================================
    UPDATES SECTION
    ================================================ */
-
-.update-version-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
-}
 
 .update-current-version {
   font-size: 13px;
