@@ -107,6 +107,7 @@ pub fn run() {
         )
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_store::Builder::new().build());
 
     #[cfg(desktop)]
@@ -212,7 +213,20 @@ pub fn run() {
                 .title_bar_style(TitleBarStyle::Transparent)
                 .build()?;
             #[cfg(mobile)]
-            let _win = WebviewWindowBuilder::new(app, "main", WebviewUrl::default()).build()?;
+            let win = WebviewWindowBuilder::new(app, "main", WebviewUrl::default()).build()?;
+
+            // iOS: enable the native edge-swipe-to-go-back gesture. Safe because
+            // the app uses BrowserRouter — every navigate() call already pushes a
+            // real history entry, so this operates on the same back/forward stack.
+            #[cfg(target_os = "ios")]
+            win.with_webview(|webview| {
+                unsafe {
+                    use objc2::runtime::AnyObject;
+                    use objc2::msg_send;
+                    let webview_ptr = webview.inner() as *mut AnyObject;
+                    let _: () = msg_send![webview_ptr, setAllowsBackForwardNavigationGestures: true];
+                }
+            })?;
 
             // Set macOS window background color to match sidebar/titlebar (#1f1f28)
             #[cfg(target_os = "macos")]
