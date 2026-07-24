@@ -63,4 +63,15 @@ test.describe('Mobile floating search button + overlay', () => {
     await expect(page.locator(OVERLAY)).not.toBeAttached();
     await expect(page.locator(FAB)).toBeVisible();
   });
+
+  test('pressing Escape in the overlay input closes the overlay', async ({ page }) => {
+    await page.locator(FAB).click();
+    await expect(page.locator(OVERLAY)).toBeVisible();
+
+    await page.locator(OVERLAY_INPUT).fill('design');
+    await page.locator(OVERLAY_INPUT).press('Escape');
+
+    await expect(page.locator(OVERLAY)).not.toBeAttached();
+    await expect(page.locator(FAB)).toBeVisible();
+  });
 });
