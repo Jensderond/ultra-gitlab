@@ -26,6 +26,7 @@ import { ShortcutBar } from '../components/ShortcutBar';
 import type { ShortcutDef } from '../components/ShortcutBar';
 import { PageHeader } from '../components/PageHeader';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import { useManualRefreshHandler } from '../hooks/useManualRefreshHandler';
 import { PullToRefreshIndicator, SyncProgressBar } from '../components/PullToRefresh';
 import './MRListPage.css';
 import './MyMRsPage.css';
@@ -93,9 +94,10 @@ export default function MyMRsPage() {
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
   const mrsRef = useRef<MergeRequest[]>([]);
   const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
-  const { containerRef: pullRef, pullDistance, refreshing } = usePullToRefresh<HTMLDivElement>({
+  const { containerRef: pullRef, pullDistance, refreshing, triggerRefresh } = usePullToRefresh<HTMLDivElement>({
     onRefresh: () => manualSyncAndWait(true),
   });
+  useManualRefreshHandler(triggerRefresh);
 
   const handleToggleRecentlyMerged = useCallback(async () => {
     const next = !showRecentlyMerged;

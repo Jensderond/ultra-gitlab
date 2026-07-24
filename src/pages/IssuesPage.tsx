@@ -35,6 +35,7 @@ import type { IssueProject, IssueWithProject } from '../types';
 import { PageHeader } from '../components/PageHeader';
 import { CmdIcon } from '../components/icons';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import { useManualRefreshHandler } from '../hooks/useManualRefreshHandler';
 import { PullToRefreshIndicator, SyncProgressBar } from '../components/PullToRefresh';
 import './IssuesPage.css';
 
@@ -207,10 +208,11 @@ export default function IssuesPage() {
     }
   }, [invalidateIssues, selectedInstanceId, selectedProjectId]);
 
-  const { containerRef: pullRef, pullDistance, refreshing } = usePullToRefresh<HTMLElement>({
+  const { containerRef: pullRef, pullDistance, refreshing, triggerRefresh } = usePullToRefresh<HTMLElement>({
     onRefresh: handleSync,
     disabled: selectedInstanceId == null,
   });
+  useManualRefreshHandler(triggerRefresh, selectedInstanceId != null);
 
   const handleStarIssue = useCallback(
     (issueId: number) => {

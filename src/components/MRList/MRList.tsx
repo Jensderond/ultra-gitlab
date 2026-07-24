@@ -4,12 +4,15 @@
  * Displays a list of merge requests with filtering and selection.
  */
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, useImperativeHandle } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMRListQuery } from '../../hooks/queries/useMRListQuery';
 import type { MergeRequest } from '../../types';
 import MRListItem from './MRListItem';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
+import { useManualRefreshHandler } from '../../hooks/useManualRefreshHandler';
+import { useSearchReveal } from '../../hooks/useSearchReveal';
 import { PullToRefreshIndicator } from '../PullToRefresh';
 import { useSmallScreen } from '../../hooks/useSmallScreen';
 import './MRList.css';
@@ -55,6 +58,18 @@ interface MRListProps {
   onRefresh?: () => Promise<void> | void;
   /** Mirrors the pull-to-refresh in-flight state up, so the parent can render a page-level sync indicator. */
   onRefreshingChange?: (refreshing: boolean) => void;
+  /** Search bar rendered inside the scroll container, collapsed above the fold
+      until the user pulls down (small screens). */
+  searchSlot?: ReactNode;
+  /** Imperative handle for revealing/collapsing the searchSlot bar. */
+  ref?: Ref<MRListHandle>;
+}
+
+export interface MRListHandle {
+  /** Smooth-scroll the collapsed search bar into view. Does not focus it. */
+  revealSearch: () => void;
+  /** Collapse the search bar back above the fold. */
+  hideSearch: () => void;
 }
 
 /**
@@ -74,15 +89,41 @@ export default function MRList({
   condensed = false,
   onRefresh,
   onRefreshingChange,
+  searchSlot,
+  ref,
 }: MRListProps) {
   const query = useMRListQuery(instanceId);
   const queryClient = useQueryClient();
   const isSmallScreen = useSmallScreen();
 
-  const { containerRef: pullRef, pullDistance, refreshing } = usePullToRefresh<HTMLDivElement>({
+  const { containerRef: pullRef, pullDistance, refreshing, triggerRefresh } = usePullToRefresh<HTMLDivElement>({
     onRefresh: onRefresh ?? (() => {}),
     disabled: !onRefresh,
   });
+  useManualRefreshHandler(triggerRefresh, !!onRefresh);
+
+  const {
+    containerRef: revealRef,
+    searchWrapRef,
+    revealSearch,
+    hideSearch,
+  } = useSearchReveal<HTMLDivElement>(searchSlot != null);
+
+  useImperativeHandle(ref, () => ({ revealSearch, hideSearch }), [revealSearch, hideSearch]);
+
+  // Both hooks observe the same scroll container: reveal watches native
+  // scrolling for the collapsed search bar, pull owns the overscroll gesture.
+  const contentRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      const cleanupPull = pullRef(node);
+      const cleanupReveal = revealRef(node);
+      return () => {
+        cleanupPull?.();
+        cleanupReveal?.();
+      };
+    },
+    [pullRef, revealRef],
+  );
 
   useEffect(() => {
     onRefreshingChange?.(refreshing);
@@ -250,61 +291,68 @@ export default function MRList({
 
   return (
     <div className="mr-list">
-      <div ref={pullRef} className={`mr-list-content${condensed ? ' mr-list-content--condensed' : ''}`}>
+      <div ref={contentRef} className={`mr-list-content${condensed ? ' mr-list-content--condensed' : ''}`}>
+        {searchSlot != null && (
+          <div className="mr-list-search-slot" ref={searchWrapRef}>
+            {searchSlot}
+          </div>
+        )}
         <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} />
-        {mrs.length === 0 ? (
-          <div className="mr-list-empty">
-            <p>{!showApproved && approvedCount > 0 ? "You're all caught up" : 'No open merge requests'}</p>
-            <span className="mr-list-empty-hint">
-              {!showApproved && approvedCount > 0
-                ? 'There are no merge requests waiting for your review.'
-                : isSmallScreen
-                ? 'Pull down to refresh'
-                : 'Sync with GitLab to fetch merge requests'}
-            </span>
-            {!showApproved && approvedCount > 0 && (
-              <button className="mr-list-approved-banner" onClick={onToggleApproved}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                  <polyline points="22 4 12 14.01 9 11.01" />
-                </svg>
-                View {approvedCount} approved {approvedCount === 1 ? 'MR' : 'MRs'}
-              </button>
-            )}
-          </div>
-        ) : filteredMrs.length === 0 ? (
-          <div className="mr-list-empty">
-            <p>No merge requests match your search</p>
-          </div>
-        ) : (
-          filteredMrs.map((mr, index) => (
-            <MRListItem
-              key={mr.id}
-              ref={(el) => {
-                if (el) itemRefs.current.set(index, el);
-                else itemRefs.current.delete(index);
-              }}
-              mr={mr}
-              selected={mr.id === selectedMrId || index === focusIndex}
-              isNew={newMrIds.has(mr.id)}
-              onClick={() => handleSelect(mr, index)}
-              highlightQuery={filterQuery}
-              condensed={condensed}
-            />
-          ))
-        )}
-        {!showApproved && approvedCount > 0 && mrs.length > 0 && (
-          <button
-            className="mr-list-approved-banner"
-            onClick={onToggleApproved}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-            {approvedCount} approved {approvedCount === 1 ? 'MR' : 'MRs'} hidden
-          </button>
-        )}
+        <div className={`mr-list-rows${searchSlot != null ? ' mr-list-rows--fill' : ''}`}>
+          {mrs.length === 0 ? (
+            <div className="mr-list-empty">
+              <p>{!showApproved && approvedCount > 0 ? "You're all caught up" : 'No open merge requests'}</p>
+              <span className="mr-list-empty-hint">
+                {!showApproved && approvedCount > 0
+                  ? 'There are no merge requests waiting for your review.'
+                  : isSmallScreen
+                  ? 'Pull down to refresh'
+                  : 'Sync with GitLab to fetch merge requests'}
+              </span>
+              {!showApproved && approvedCount > 0 && (
+                <button className="mr-list-approved-banner" onClick={onToggleApproved}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
+                  View {approvedCount} approved {approvedCount === 1 ? 'MR' : 'MRs'}
+                </button>
+              )}
+            </div>
+          ) : filteredMrs.length === 0 ? (
+            <div className="mr-list-empty">
+              <p>No merge requests match your search</p>
+            </div>
+          ) : (
+            filteredMrs.map((mr, index) => (
+              <MRListItem
+                key={mr.id}
+                ref={(el) => {
+                  if (el) itemRefs.current.set(index, el);
+                  else itemRefs.current.delete(index);
+                }}
+                mr={mr}
+                selected={mr.id === selectedMrId || index === focusIndex}
+                isNew={newMrIds.has(mr.id)}
+                onClick={() => handleSelect(mr, index)}
+                highlightQuery={filterQuery}
+                condensed={condensed}
+              />
+            ))
+          )}
+          {!showApproved && approvedCount > 0 && mrs.length > 0 && (
+            <button
+              className="mr-list-approved-banner"
+              onClick={onToggleApproved}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+              {approvedCount} approved {approvedCount === 1 ? 'MR' : 'MRs'} hidden
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="mr-list-footer">
