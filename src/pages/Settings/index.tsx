@@ -116,6 +116,7 @@ const SECTION_GROUPS: SectionGroup[] = [
         label: 'File Navigation',
         description: 'Arrow-key jump distance in the diff viewer',
         tauriOnly: true,
+        desktopOnly: true,
       },
       {
         id: 'cli',
