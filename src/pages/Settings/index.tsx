@@ -15,6 +15,7 @@
 import { useState, useEffect } from 'react';
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import BackButton from '../../components/BackButton';
+import { PageHeader } from '../../components/PageHeader';
 import { CaretRightIcon } from '../../components/icons';
 import { isTauri } from '../../services/transport';
 import { getNotificationSettings } from '../../services/tauri';
@@ -250,9 +251,7 @@ export default function Settings({ updateChecker }: SettingsProps) {
   if (isSmallScreen && !activeDef) {
     return (
       <div className="settings-page">
-        <header className="settings-header settings-header--root">
-          <h1>Settings</h1>
-        </header>
+        <PageHeader title="Settings" />
         <main className="settings-content">
           <nav className="settings-mobile-list">
             {groups.map((group) => (
@@ -288,10 +287,10 @@ export default function Settings({ updateChecker }: SettingsProps) {
   if (isSmallScreen && activeDef) {
     return (
       <div className="settings-page">
-        <header className="settings-header settings-header--sub">
-          <BackButton to="/settings" title="Back to Settings" />
-          <h1>{activeDef.label}</h1>
-        </header>
+        <PageHeader
+          title={activeDef.label}
+          leading={<BackButton to="/settings" title="Back to Settings" />}
+        />
         <main className="settings-content">
           <p className="settings-detail-description">{activeDef.description}</p>
           <div className="settings-detail-content">
@@ -309,9 +308,7 @@ export default function Settings({ updateChecker }: SettingsProps) {
   // Desktop: rail + detail pane.
   return (
     <div className="settings-page">
-      <header className="settings-header settings-header--root">
-        <h1>Settings</h1>
-      </header>
+      <PageHeader title={activeDef?.label ?? 'Settings'} />
       <div className="settings-body">
         <nav className="settings-rail" aria-label="Settings sections">
           {groups.map((group) => (
@@ -337,10 +334,7 @@ export default function Settings({ updateChecker }: SettingsProps) {
         </nav>
         {activeDef && (
           <main className="settings-detail" key={activeDef.id}>
-            <header className="settings-detail-header">
-              <h2>{activeDef.label}</h2>
-              <p>{activeDef.description}</p>
-            </header>
+            <p className="settings-detail-description">{activeDef.description}</p>
             <div className="settings-detail-content">
               <SectionContent
                 id={activeDef.id}

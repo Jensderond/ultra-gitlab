@@ -16,77 +16,6 @@
 }
 
 /* ================================================
-   HEADER
-   ================================================ */
-
-/* Padding, h1 type scale, accent bar and background all match the shared
-   <PageHeader> used by Issues/Pipelines/My MRs — Settings is a primary
-   sidebar/tab destination too, so its header should read as the same chrome,
-   not a distinct sub-page. In particular: no background/blur of its own —
-   the glass-gradient this used to have created a visible seam against the
-   plain --bg-primary that .app-content extends up under the status bar/notch. */
-.settings-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 24px 32px 20px;
-  position: relative;
-  z-index: 10;
-  flex-shrink: 0;
-  animation: settingsHeaderSlide 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.settings-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 32px;
-  right: 32px;
-  height: 1px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    var(--border-color) 15%,
-    var(--text-fuji) 50%,
-    var(--border-color) 85%,
-    transparent 100%);
-  opacity: 0.6;
-}
-
-@keyframes settingsHeaderSlide {
-  from { opacity: 0; transform: translateY(-12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.settings-header h1 {
-  margin: 0;
-  font-family: var(--ui-font, 'Noto Sans JP', -apple-system, sans-serif);
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  line-height: 1;
-}
-
-/* Vertical accent bar */
-.settings-header h1::before {
-  content: '';
-  display: block;
-  width: 3px;
-  height: 22px;
-  background: linear-gradient(180deg,
-    var(--accent-color) 0%,
-    var(--accent-hover) 60%,
-    transparent 100%);
-  border-radius: 1.5px;
-  box-shadow: 0 0 14px var(--wave-glow-strong);
-  flex-shrink: 0;
-}
-
-
-/* ================================================
    CONTENT AREA
    ================================================ */
 
@@ -248,21 +177,6 @@
   border-radius: 4px;
 }
 
-.settings-detail-header {
-  max-width: 640px;
-  margin: 0 auto 18px;
-}
-
-.settings-detail-header h2 {
-  margin: 0 0 6px;
-  font-family: var(--ui-font, 'Noto Sans JP', sans-serif);
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--text-primary);
-}
-
-.settings-detail-header p,
 .settings-detail-description {
   margin: 0;
   font-size: 13px;
@@ -1732,35 +1646,7 @@
   }
 }
 
-/* Compact header on phone widths — matches the shared <PageHeader> breakpoint. */
-@media (max-width: 767px) {
-  .settings-header {
-    padding: 14px 16px 12px;
-  }
-
-  .settings-header h1 {
-    font-size: 15px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    gap: 10px;
-  }
-
-  .settings-header h1::before {
-    height: 14px;
-  }
-}
-
-/* On touch devices (iOS) there's no traffic-light window chrome to clear, and
-   .app-content already reserves env(safe-area-inset-top) for the status bar/notch —
-   so the header's own top padding only needs to be a small visual gap, not clearance. */
-@media (max-width: 767px) and (hover: none), (max-width: 767px) and (pointer: coarse) {
-  .settings-header {
-    padding-top: 6px;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .settings-header,
   .settings-content,
   .settings-rail,
   .settings-detail {

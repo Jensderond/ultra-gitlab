@@ -51,3 +51,35 @@ test.describe('Page header heights — mobile', () => {
     expect((await page.locator('.page-header').boundingBox())!.height).toBe(MOBILE_HEIGHT);
   });
 });
+
+test.describe('Settings header heights', () => {
+  test('desktop rail+detail header matches the same height and shows the active section', async ({ page }) => {
+    await page.goto('/settings');
+    await expect(page.locator('h1')).toHaveText('GitLab Instances');
+    expect((await page.locator('.page-header').boundingBox())!.height).toBe(DESKTOP_HEIGHT);
+  });
+
+  test.describe('mobile', () => {
+    test.use({ viewport: { width: 390, height: 844 } });
+
+    test('category list header matches the mobile height', async ({ page }) => {
+      await page.goto('/settings');
+      await expect(page.locator('h1')).toHaveText('Settings');
+      expect((await page.locator('.page-header').boundingBox())!.height).toBe(MOBILE_HEIGHT);
+    });
+
+    test('drill-in header matches the mobile height and the back button fits inside it', async ({ page }) => {
+      await page.goto('/settings/instances');
+      await expect(page.locator('h1')).toHaveText('GitLab Instances');
+
+      const headerBox = (await page.locator('.page-header').boundingBox())!;
+      expect(headerBox.height).toBe(MOBILE_HEIGHT);
+
+      const backButton = page.locator('.back-button-icon');
+      await expect(backButton).toBeVisible();
+      const backBox = (await backButton.boundingBox())!;
+      expect(backBox.y).toBeGreaterThanOrEqual(headerBox.y);
+      expect(backBox.y + backBox.height).toBeLessThanOrEqual(headerBox.y + headerBox.height);
+    });
+  });
+});
