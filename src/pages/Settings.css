@@ -975,48 +975,6 @@ fieldset.setting-row {
   cursor: not-allowed;
 }
 
-.checkbox-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: color 0.15s ease;
-}
-
-.checkbox-label:hover {
-  color: var(--text-primary);
-}
-
-.checkbox-label input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  margin-top: 1px;
-  flex-shrink: 0;
-  cursor: pointer;
-  accent-color: var(--accent-color);
-}
-
-.checkbox-label input[type="checkbox"]:disabled {
-  cursor: not-allowed;
-}
-
-.checkbox-description {
-  display: block;
-  font-size: 11px;
-  color: var(--text-tertiary);
-  font-weight: 400;
-  margin-top: 2px;
-}
-
 /* ================================================
    APPEARANCE / THEME SWATCHES
    ================================================ */
@@ -1247,10 +1205,9 @@ fieldset.setting-row {
    ================================================ */
 
 .font-selector {
-  margin-top: 20px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .font-selector-label {
@@ -1884,20 +1841,7 @@ fieldset.setting-row {
   border-color: var(--text-fuji);
 }
 
-/* Condensed MR list toggle */
-.condensed-toggle-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-top: 20px;
-  padding: 16px 12px 12px;
-  border-top: 1px solid var(--border-color);
-  border-radius: 6px;
-  box-shadow: 0 0 0 0 transparent;
-  transition: box-shadow 200ms ease, background-color 200ms ease;
-}
-
+/* One-shot highlight pulse for the condensed MR list row (deep link) */
 .condensed-toggle-row--pulse {
   animation: condensedTogglePulse 2.4s ease-out;
 }
@@ -1915,24 +1859,6 @@ fieldset.setting-row {
     box-shadow: 0 0 0 0 transparent;
     background-color: transparent;
   }
-}
-
-.condensed-toggle-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.condensed-toggle-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.condensed-toggle-description {
-  font-size: 12px;
-  color: var(--text-tertiary);
 }
 
 /* On mobile, Settings is a main tab in the bottom nav — a back arrow on the

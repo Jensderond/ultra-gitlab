@@ -10,6 +10,7 @@ import { queryKeys } from '../../lib/queryKeys';
 import { deriveTheme } from '../../themes/deriveTheme';
 import { waitForElement } from '../../services/productTour';
 import { PRODUCT_TOUR_REPLAY_EVENT } from '../../hooks/useProductTour';
+import { SettingsGroup, SettingsRow } from './SettingsGroup';
 import type { Theme } from '../../types';
 
 /** Theme preset list for the appearance section. */
@@ -258,7 +259,9 @@ export default function AppearanceSection({ highlightCondensed = false }: Appear
 
   return (
     <>
-      <div className="theme-swatches">
+      <SettingsGroup title="Theme">
+        <SettingsRow vertical>
+          <div className="theme-swatches">
         {PRESET_THEME_IDS.map((id) => {
           const def = THEME_PRESETS[id];
           if (!def) return null;
@@ -314,9 +317,9 @@ export default function AppearanceSection({ highlightCondensed = false }: Appear
             <span className="theme-swatch-label">Custom</span>
           </button>
         )}
-      </div>
+          </div>
 
-      {editing ? (
+          {editing ? (
         <div className="custom-theme-editor">
           <div className="custom-theme-pickers">
             <label className="custom-theme-picker">
@@ -355,74 +358,89 @@ export default function AppearanceSection({ highlightCondensed = false }: Appear
             )}
           </div>
         </div>
-      ) : (
-        <div className="custom-theme-controls">
-          {customColors && theme.id === 'custom' ? (
-            <button className="custom-theme-create" onClick={handleEditCustom}>Edit Custom Theme</button>
           ) : (
-            <button className="custom-theme-create" onClick={handleCreateCustom}>Create Custom Theme</button>
+            <div className="custom-theme-controls">
+              {customColors && theme.id === 'custom' ? (
+                <button className="custom-theme-create" onClick={handleEditCustom}>Edit Custom Theme</button>
+              ) : (
+                <button className="custom-theme-create" onClick={handleCreateCustom}>Create Custom Theme</button>
+              )}
+            </div>
           )}
-        </div>
-      )}
+        </SettingsRow>
+      </SettingsGroup>
 
-      <FontCombobox
-        label="Page Title Font"
-        labelId="font-selector-label"
-        fonts={allFonts}
-        value={uiFont}
-        onSelect={setUiFont}
-        loading={systemFontsLoading}
-        error={systemFontsError}
-      />
+      <SettingsGroup title="Fonts">
+        <SettingsRow vertical>
+          <FontCombobox
+            label="Page Title Font"
+            labelId="font-selector-label"
+            fonts={allFonts}
+            value={uiFont}
+            onSelect={setUiFont}
+            loading={systemFontsLoading}
+            error={systemFontsError}
+          />
+        </SettingsRow>
+        <SettingsRow vertical>
+          <FontCombobox
+            label="Display Font"
+            labelId="display-font-selector-label"
+            fonts={allFonts}
+            value={displayFont}
+            onSelect={setDisplayFont}
+            loading={systemFontsLoading}
+            error={systemFontsError}
+          />
+        </SettingsRow>
+        <SettingsRow vertical>
+          <FontCombobox
+            label="Diffs Font"
+            labelId="diffs-font-selector-label"
+            fonts={allFonts}
+            value={diffsFont}
+            onSelect={setDiffsFont}
+            loading={systemFontsLoading}
+            error={systemFontsError}
+          />
+        </SettingsRow>
+      </SettingsGroup>
 
-      <FontCombobox
-        label="Display Font"
-        labelId="display-font-selector-label"
-        fonts={allFonts}
-        value={displayFont}
-        onSelect={setDisplayFont}
-        loading={systemFontsLoading}
-        error={systemFontsError}
-      />
-
-      <FontCombobox
-        label="Diffs Font"
-        labelId="diffs-font-selector-label"
-        fonts={allFonts}
-        value={diffsFont}
-        onSelect={setDiffsFont}
-        loading={systemFontsLoading}
-        error={systemFontsError}
-      />
-
-      <div
-        ref={condensedRowRef}
-        className={`condensed-toggle-row${pulseCondensed ? ' condensed-toggle-row--pulse' : ''}`}
-      >
-        <div className="condensed-toggle-text">
-          <span className="condensed-toggle-label">Condensed MR list</span>
-          <span className="condensed-toggle-description">Show merge requests as compact single-line rows.</span>
-        </div>
-        <button
-          className={`companion-toggle ${condensed ? 'active' : ''}`}
-          onClick={handleToggleCondensed}
-          role="switch"
-          aria-checked={condensed}
-          aria-label="Toggle condensed MR list view"
+      <SettingsGroup title="Behavior">
+        <div
+          ref={condensedRowRef}
+          className={`settings-row${pulseCondensed ? ' condensed-toggle-row--pulse' : ''}`}
         >
-          <span className="companion-toggle-knob" />
-        </button>
-      </div>
-
-      <div className="condensed-toggle-row">
-        <div className="condensed-toggle-text">
-          <span className="condensed-toggle-label">Product tour</span>
-          <span className="condensed-toggle-description">Replay the first-run walkthrough of the app.</span>
+          <div className="settings-row-text">
+            <span className="settings-row-label">Condensed MR list</span>
+            <span className="settings-row-desc">Show merge requests as compact single-line rows.</span>
+          </div>
+          <div className="settings-row-control">
+            <button
+              className={`companion-toggle ${condensed ? 'active' : ''}`}
+              onClick={handleToggleCondensed}
+              role="switch"
+              aria-checked={condensed}
+              aria-label="Toggle condensed MR list view"
+            >
+              <span className="companion-toggle-knob" />
+            </button>
+          </div>
         </div>
-        <button className="update-check-button" onClick={handleReplayTour}>
-          Replay product tour
-        </button>
-      </div>
+
+        <SettingsRow
+          label="Product tour"
+          description="Replay the first-run walkthrough of the app."
+        >
+          <button
+            className="update-check-button"
+            aria-label="Replay product tour"
+            onClick={handleReplayTour}
+          >
+            Replay
+          </button>
+        </SettingsRow>
+      </SettingsGroup>
     </>
   );
 }

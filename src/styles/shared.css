@@ -56,12 +56,14 @@
 .permission-banner {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 6px;
+  gap: 12px;
+  padding: 11px 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--warning-bg);
+  border-radius: 12px;
   font-size: 13px;
-  background: var(--color-warning-bg, #fef3cd);
-  color: var(--color-warning-text, #856404);
+  background: var(--warning-light);
+  color: var(--warning-text, var(--text-secondary));
 }
 
 .permission-banner span {

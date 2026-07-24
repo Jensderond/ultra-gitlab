@@ -3,8 +3,35 @@ import { getNotificationSettings, updateNotificationSettings, sendNativeNotifica
 import { openExternalUrl } from '../../services/transport';
 import type { NotificationSettings } from '../../types';
 import { useToast } from '../../components/Toast';
+import { SettingsGroup, SettingsRow } from './SettingsGroup';
 
 type PermissionStatus = 'granted' | 'denied' | 'not_determined' | 'unknown';
+
+/** Switch-styled toggle used on notification rows. */
+function ToggleSwitch({
+  checked,
+  disabled,
+  ariaLabel,
+  onChange,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  ariaLabel: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      className={`companion-toggle ${checked ? 'active' : ''}`}
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+    >
+      <span className="companion-toggle-knob" />
+    </button>
+  );
+}
 
 /**
  * Notification settings section.
@@ -95,9 +122,9 @@ export default function NotificationsSection() {
       {loading ? (
         <p className="loading">Loading settings...</p>
       ) : notifSettings ? (
-        <div className="sync-settings-form">
+        <>
           {permissionStatus === 'denied' && (
-            <div className="permission-banner" style={{ marginBottom: 12 }}>
+            <div className="permission-banner">
               <span>
                 Notification permission was denied. Enable it in System Settings to receive OS notifications.
               </span>
@@ -110,7 +137,7 @@ export default function NotificationsSection() {
             </div>
           )}
           {permissionStatus === 'not_determined' && (
-            <div className="permission-banner" style={{ marginBottom: 12 }}>
+            <div className="permission-banner">
               <span>
                 Native notification permission not granted. Enable it to receive OS notifications.
               </span>
@@ -123,55 +150,55 @@ export default function NotificationsSection() {
               </button>
             </div>
           )}
-          <div className="checkbox-group">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
+          <SettingsGroup
+            title="Alerts"
+            footer={saving ? <span className="saving-indicator">Saving...</span> : undefined}
+          >
+            <SettingsRow
+              label="MR ready to merge"
+              description="Notify when your MR has all approvals and pipeline passed"
+            >
+              <ToggleSwitch
                 checked={notifSettings.mrReadyToMerge}
-                onChange={(e) => handleNotifToggle('mrReadyToMerge', e.target.checked)}
                 disabled={saving}
+                ariaLabel="Toggle MR ready to merge notifications"
+                onChange={(checked) => handleNotifToggle('mrReadyToMerge', checked)}
               />
-              <span>
-                MR ready to merge
-                <span className="checkbox-description">Notify when your MR has all approvals and pipeline passed</span>
-              </span>
-            </label>
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
+            </SettingsRow>
+            <SettingsRow
+              label="Pipeline status (pinned projects)"
+              description="Notify when a pinned project pipeline status changes"
+            >
+              <ToggleSwitch
                 checked={notifSettings.pipelineStatusPinned}
-                onChange={(e) => handleNotifToggle('pipelineStatusPinned', e.target.checked)}
                 disabled={saving}
+                ariaLabel="Toggle pinned pipeline notifications"
+                onChange={(checked) => handleNotifToggle('pipelineStatusPinned', checked)}
               />
-              <span>
-                Pipeline status (pinned projects)
-                <span className="checkbox-description">Notify when a pinned project pipeline status changes</span>
-              </span>
-            </label>
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
+            </SettingsRow>
+            <SettingsRow
+              label="Native OS notifications"
+              description="Show notifications in macOS Notification Center"
+            >
+              <ToggleSwitch
                 checked={notifSettings.nativeNotificationsEnabled}
-                onChange={(e) => handleNotifToggle('nativeNotificationsEnabled', e.target.checked)}
                 disabled={saving}
+                ariaLabel="Toggle native OS notifications"
+                onChange={(checked) => handleNotifToggle('nativeNotificationsEnabled', checked)}
               />
-              <span>
-                Native OS notifications
-                <span className="checkbox-description">Show notifications in macOS Notification Center</span>
-              </span>
-            </label>
-          </div>
-
-          {saving && (
-            <p className="saving-indicator">Saving...</p>
-          )}
-
-          <div style={{ marginTop: 12 }}>
-            <button className="add-button" onClick={handleTestNotification}>
-              Test Notification
-            </button>
-          </div>
-        </div>
+            </SettingsRow>
+          </SettingsGroup>
+          <SettingsGroup>
+            <SettingsRow
+              label="Test notification"
+              description="Send a sample alert to check everything works"
+            >
+              <button className="update-check-button" onClick={handleTestNotification}>
+                Send Test
+              </button>
+            </SettingsRow>
+          </SettingsGroup>
+        </>
       ) : (
         <p className="error-message">Failed to load notification settings</p>
       )}
