@@ -486,3 +486,71 @@
 .mr-list-item--condensed.is-new::before {
   display: none;
 }
+
+/* ── Snooze ──────────────────────────────────────────────────────────── */
+
+.mr-snooze-control {
+  position: relative;
+  display: inline-flex;
+  margin-left: 8px;
+}
+
+.mr-snooze-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  /* Hidden until row hover on pointer devices; see media queries below. */
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.mr-list-item:hover .mr-snooze-button,
+.mr-list-item.selected .mr-snooze-button,
+.mr-snooze-button:focus-visible,
+.mr-snooze-button[aria-expanded='true'],
+.mr-snooze-button--active {
+  opacity: 1;
+}
+
+.mr-snooze-button:hover,
+.mr-snooze-button:focus-visible {
+  background: var(--overlay-hover);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.mr-snooze-button--active {
+  color: var(--warning-color);
+}
+
+/* Touch devices: no hover — keep the button always visible and enlarge
+   the tap target. */
+@media (hover: none) {
+  .mr-snooze-button {
+    opacity: 1;
+    width: 44px;
+    height: 44px;
+  }
+}
+
+.mr-snoozed-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 10px;
+  color: var(--warning-color);
+  background: var(--warning-light);
+}
+
+.mr-list-item.snoozed {
+  opacity: 0.65;
+}

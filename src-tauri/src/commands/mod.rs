@@ -27,6 +27,7 @@ pub mod notifications;
 pub mod pipeline;
 pub mod reviewers;
 pub mod settings;
+pub mod snooze;
 pub mod sync;
 
 // Re-export commands for registration in lib.rs
@@ -76,6 +77,7 @@ pub use pipeline::{
     search_projects, toggle_pin_pipeline_project, visit_pipeline_project,
 };
 pub use reviewers::get_mr_reviewers;
+pub use snooze::{snooze_mr, unsnooze_mr};
 pub use settings::{
     get_collapse_patterns, get_settings, get_sync_settings, update_collapse_patterns,
     update_custom_theme_colors, update_diffs_font, update_display_font,

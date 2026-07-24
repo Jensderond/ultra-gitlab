@@ -69,6 +69,8 @@ export interface MergeRequest {
   cachedAt: number;
   userHasApproved: boolean;
   headPipelineStatus: string | null;
+  /** Snooze expiry (Unix seconds) if the MR is snoozed; past values mean lapsed. */
+  snoozedUntil: number | null;
 }
 
 export interface MRFilter {

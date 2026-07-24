@@ -52,6 +52,7 @@ pub struct MergeRequestListItem {
     pub cached_at: i64,
     pub user_has_approved: bool,
     pub head_pipeline_status: Option<String>,
+    pub snoozed_until: Option<i64>,
 }
 
 impl From<MergeRequest> for MergeRequestListItem {
@@ -84,6 +85,7 @@ impl From<MergeRequest> for MergeRequestListItem {
             cached_at: mr.cached_at,
             user_has_approved: mr.user_has_approved,
             head_pipeline_status: mr.head_pipeline_status,
+            snoozed_until: mr.snoozed_until,
         }
     }
 }

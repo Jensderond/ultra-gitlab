@@ -162,6 +162,20 @@ export const defaultShortcuts: ShortcutDefinition[] = [
     category: 'list',
     context: 'mr-list',
   },
+  {
+    id: 'snooze-mr',
+    description: 'Snooze selected MR',
+    defaultKey: 'z',
+    category: 'list',
+    context: 'mr-list',
+  },
+  {
+    id: 'toggle-snoozed',
+    description: 'Show/hide snoozed MRs',
+    defaultKey: 'Shift+Z',
+    category: 'list',
+    context: 'mr-list',
+  },
 
   // Diff viewer shortcuts
   {

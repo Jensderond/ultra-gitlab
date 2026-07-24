@@ -8,6 +8,8 @@ import { forwardRef } from 'react';
 import type { MergeRequest, ApprovalStatus } from '../../types';
 import UserAvatar from '../UserAvatar/UserAvatar';
 import HighlightText from '../HighlightText/HighlightText';
+import SnoozeMenu from './SnoozeMenu';
+import { isSnoozed, formatSnoozeUntil } from '../../lib/snooze';
 import './MRListItem.css';
 
 interface MRListItemProps {
@@ -23,6 +25,14 @@ interface MRListItemProps {
   highlightQuery?: string;
   /** Render the compact single-line layout */
   condensed?: boolean;
+  /** Whether the snooze preset menu is open for this row */
+  snoozeMenuOpen?: boolean;
+  /** Open/close the snooze preset menu */
+  onSnoozeMenuOpenChange?: (open: boolean) => void;
+  /** Snooze this MR until a Unix timestamp (seconds) */
+  onSnooze?: (until: number) => void;
+  /** Clear this MR's snooze */
+  onUnsnooze?: () => void;
 }
 
 /**
@@ -84,18 +94,84 @@ function condensedApprovalClass(mr: MergeRequest): string {
   return getApprovalClass(mr.approvalStatus);
 }
 
+/** Clock icon for the snooze button. */
+function SnoozeIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
 /**
  * Single merge request list item.
  */
 const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
-  function MRListItem({ mr, selected, isNew, onClick, highlightQuery, condensed }, ref) {
+  function MRListItem(
+    {
+      mr,
+      selected,
+      isNew,
+      onClick,
+      highlightQuery,
+      condensed,
+      snoozeMenuOpen,
+      onSnoozeMenuOpenChange,
+      onSnooze,
+      onUnsnooze,
+    },
+    ref
+  ) {
+    const snoozed = isSnoozed(mr);
     const classNames = ['mr-list-item'];
     if (condensed) classNames.push('mr-list-item--condensed');
     if (selected) classNames.push('selected');
     if (isNew) classNames.push('is-new');
     if (mr.userHasApproved) classNames.push('user-approved');
+    if (snoozed) classNames.push('snoozed');
 
     const projectLabel = mr.projectName?.replace(/^Customers\s*\/\s*/, '') ?? '';
+
+    const snoozeControl = onSnoozeMenuOpenChange && onSnooze && (
+      <span className="mr-snooze-control">
+        {snoozed ? (
+          <button
+            className="mr-snooze-button mr-snooze-button--active"
+            title={`Snoozed until ${formatSnoozeUntil(mr.snoozedUntil!)} — click to unsnooze`}
+            aria-label="Unsnooze merge request"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUnsnooze?.();
+            }}
+          >
+            <SnoozeIcon />
+          </button>
+        ) : (
+          <button
+            className="mr-snooze-button"
+            title="Snooze"
+            aria-label="Snooze merge request"
+            aria-expanded={snoozeMenuOpen}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSnoozeMenuOpenChange(!snoozeMenuOpen);
+            }}
+          >
+            <SnoozeIcon />
+          </button>
+        )}
+        {snoozeMenuOpen && !snoozed && (
+          <SnoozeMenu
+            onSnooze={(until) => {
+              onSnooze(until);
+              onSnoozeMenuOpenChange(false);
+            }}
+            onClose={() => onSnoozeMenuOpenChange(false)}
+          />
+        )}
+      </span>
+    );
 
     return (
       <div
@@ -141,6 +217,7 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
             <span className="mr-condensed-author">
               {highlightQuery ? <HighlightText text={mr.authorUsername} query={highlightQuery} /> : mr.authorUsername}
             </span>
+            {snoozeControl}
           </div>
         </div>
       ) : (
@@ -153,6 +230,7 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
               </span>
             )}
             <span className="mr-time">{formatRelativeTime(mr.updatedAt)}</span>
+            {snoozeControl}
           </div>
 
           <h4 className="mr-title">
@@ -170,6 +248,11 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
           </div>
 
           <div className="mr-item-footer">
+            {snoozed && (
+              <span className="mr-snoozed-badge" title="Hidden from the list until then">
+                Snoozed until {formatSnoozeUntil(mr.snoozedUntil!)}
+              </span>
+            )}
             {mr.userHasApproved && (
               <span className="mr-approval approval-user-approved">✓ You approved</span>
             )}

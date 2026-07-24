@@ -30,6 +30,8 @@ pub struct MrRow {
     /// True when an auto-merge claim is active for this MR (the desktop's sync
     /// engine merges it once GitLab reports it mergeable).
     pub auto_merge: bool,
+    /// Snooze expiry (Unix seconds) if the MR is snoozed in the desktop app.
+    pub snoozed_until: Option<i64>,
 }
 
 impl MrRow {
@@ -63,6 +65,7 @@ impl From<MergeRequest> for MrRow {
             state: m.state,
             web_url: m.web_url,
             auto_merge: false, // filled from auto_merge_claims by the loaders
+            snoozed_until: m.snoozed_until,
         }
     }
 }
@@ -128,11 +131,13 @@ async fn auto_merge_ids(pool: &DbPool) -> std::collections::HashSet<i64> {
 pub async fn load_review(pool: &DbPool, instance_id: i64) -> Result<Vec<MrRow>, AppError> {
     let rows = mr_query::list_review_mrs(pool, instance_id, ReviewFilter::default()).await?;
     let claimed = auto_merge_ids(pool).await;
-    // Hide MRs the user has already approved — once reviewed, they drop off the list.
+    let now = chrono::Utc::now().timestamp();
+    // Hide MRs the user has already approved — once reviewed, they drop off the
+    // list — and MRs with an active snooze (set from the desktop app).
     Ok(rows
         .into_iter()
         .map(MrRow::from)
-        .filter(|r| !r.user_has_approved)
+        .filter(|r| !r.user_has_approved && r.snoozed_until.is_none_or(|until| until <= now))
         .map(|mut r| {
             r.auto_merge = claimed.contains(&r.id);
             r

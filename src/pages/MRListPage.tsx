@@ -6,11 +6,15 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useHotkey, parseHotkey } from '@tanstack/react-hotkeys';
 import { MRList } from '../components/MRList';
 import type { MRListHandle } from '../components/MRList';
 import type { MergeRequest } from '../types';
 import { useSmallScreen } from '../hooks/useSmallScreen';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
+import { useShortcuts } from '../components/ShortcutsProvider';
+import { useSnoozeMRMutation } from '../hooks/queries/useSnoozeMRMutation';
+import { isSnoozed } from '../lib/snooze';
 import { useListSearch } from '../hooks/useListSearch';
 import { useCondensedModeAnnouncement } from '../hooks/useCondensedModeAnnouncement';
 import SearchBar from '../components/SearchBar/SearchBar';
@@ -56,6 +60,9 @@ export default function MRListPage() {
   const isSmallScreen = useSmallScreen();
   const mrListRef = useRef<MRListHandle>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
+  const [showSnoozed, setShowSnoozed] = useState(false);
+  const [snoozeMenuMrId, setSnoozeMenuMrId] = useState<number | null>(null);
+  const { unsnooze } = useSnoozeMRMutation();
 
   // Shift+H toggles approved MR visibility
   useEffect(() => {
@@ -162,6 +169,22 @@ export default function MRListPage() {
     enabled: !loading && navItemCount > 0,
   });
 
+  // Snooze shortcuts: `z` snoozes (or unsnoozes) the focused MR,
+  // `Shift+Z` toggles snoozed visibility.
+  const { getKey } = useShortcuts();
+  useHotkey(parseHotkey(getKey('toggle-snoozed') ?? 'Shift+Z'), () => {
+    setShowSnoozed(v => !v);
+  });
+  useHotkey(parseHotkey(getKey('snooze-mr') ?? 'z'), () => {
+    const mr = filteredMrsRef.current[focusIndex];
+    if (!mr) return;
+    if (isSnoozed(mr)) {
+      unsnooze.mutate({ mrId: mr.id });
+    } else {
+      setSnoozeMenuMrId(current => (current === mr.id ? null : mr.id));
+    }
+  });
+
   // Reset focus to first item when query changes
   useEffect(() => {
     if (isSearchOpen) {
@@ -243,6 +266,22 @@ export default function MRListPage() {
                 </span>
               </button>
             </div>
+            <div className="approved-toggle-wrapper">
+              <button
+                className={`approved-toggle-button${showSnoozed ? ' approved-toggle-button--active' : ''}`}
+                onClick={() => setShowSnoozed(v => !v)}
+                aria-label={showSnoozed ? 'Hide snoozed merge requests' : 'Show snoozed merge requests'}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                <span className="approved-toggle-popover">
+                  <span className="approved-toggle-popover-shortcut"><kbd>Shift</kbd>+<kbd>Z</kbd></span>
+                  <span>{showSnoozed ? 'Hide snoozed' : 'Show snoozed'}</span>
+                </span>
+              </button>
+            </div>
           </>
         }
       />
@@ -272,6 +311,10 @@ export default function MRListPage() {
             onFilteredCountChange={handleFilteredCountChange}
             showApproved={showApproved}
             onToggleApproved={() => setShowApproved(v => !v)}
+            showSnoozed={showSnoozed}
+            onToggleSnoozed={() => setShowSnoozed(v => !v)}
+            snoozeMenuMrId={snoozeMenuMrId}
+            onSnoozeMenuChange={setSnoozeMenuMrId}
             condensed={condensed}
             onRefresh={() => manualSyncAndWait(true)}
             onRefreshingChange={setSyncing}
