@@ -1,11 +1,16 @@
 /* Reusable page header — calligraphic title bar with refresh + actions slot.
-   Used on overview pages (MR list, My MRs, Issues, …). */
+   Used on every top-level page (MR list, My MRs, Issues, Pipelines,
+   Settings…) — height is a fixed constant per breakpoint (60px desktop /
+   56px mobile) so every screen's header is pixel-identical regardless of
+   which action buttons or leading control (e.g. a BackButton) it renders. */
 
 .page-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  padding: 24px 32px 20px;
+  height: 60px;
+  padding: 0 32px;
+  box-sizing: border-box;
   user-select: none;
   -webkit-user-select: none;
   position: relative;
@@ -58,7 +63,7 @@
 .page-header-title-group {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 12px;
 }
 
 .page-header-actions {
@@ -72,7 +77,8 @@
    tab bar (which carries its own iconography for wayfinding). */
 @media (max-width: 767px) {
   .page-header {
-    padding: 14px 16px 12px;
+    height: 56px;
+    padding: 0 16px;
   }
 
   .page-header h1 {
@@ -84,15 +90,6 @@
 
   .page-header h1::before {
     height: 14px;
-  }
-}
-
-/* On touch devices (iOS) there's no traffic-light window chrome to clear, and
-   .app-content already reserves env(safe-area-inset-top) for the status bar/notch —
-   so the header's own top padding only needs to be a small visual gap, not clearance. */
-@media (max-width: 767px) and (hover: none), (max-width: 767px) and (pointer: coarse) {
-  .page-header {
-    padding-top: 6px;
   }
 }
 
