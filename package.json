@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "ios:install": "./scripts/ios-install.sh",
+    "ios:testflight": "./scripts/testflight-upload.sh",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
