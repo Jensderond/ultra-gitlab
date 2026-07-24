@@ -1,9 +1,8 @@
 /* Instance setup form — styled to match the native settings groups */
 
 .instance-setup {
-  background: var(--overlay-glass-light);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
+  background: var(--overlay-hover);
+  border-radius: 10px;
   padding: 16px;
   margin-bottom: 22px;
 }

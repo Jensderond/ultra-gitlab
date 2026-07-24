@@ -59,8 +59,7 @@
   gap: 12px;
   padding: 11px 16px;
   margin-bottom: 16px;
-  border: 1px solid var(--warning-bg);
-  border-radius: 12px;
+  border-radius: 10px;
   font-size: 13px;
   background: var(--warning-light);
   color: var(--warning-text, var(--text-secondary));

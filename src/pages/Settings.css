@@ -276,9 +276,8 @@
 }
 
 .settings-group {
-  background: var(--overlay-glass-light);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
+  background: var(--overlay-hover);
+  border-radius: 10px;
   overflow: hidden;
 }
 
@@ -382,7 +381,7 @@
 }
 
 .settings-row-action:hover:not(:disabled) {
-  background: var(--overlay-hover);
+  background: var(--overlay-surface);
 }
 
 .settings-row-action:disabled {
@@ -420,9 +419,8 @@
 }
 
 .settings-mobile-card {
-  background: var(--overlay-glass-light);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
+  background: var(--overlay-hover);
+  border-radius: 10px;
   overflow: hidden;
 }
 
@@ -437,7 +435,7 @@
 
 .settings-mobile-row:hover,
 .settings-mobile-row:active {
-  background: var(--overlay-hover);
+  background: var(--overlay-surface);
 }
 
 .settings-mobile-row + .settings-mobile-row {
@@ -686,7 +684,7 @@
 .instance-menu-trigger:hover,
 .instance-menu-trigger[data-popup-open] {
   color: var(--text-primary);
-  background: var(--overlay-hover);
+  background: var(--overlay-surface);
 }
 
 .instance-menu-positioner {
@@ -1414,7 +1412,7 @@
 }
 
 .shortcut-editor-item:hover {
-  background: var(--overlay-hover);
+  background: var(--overlay-surface);
 }
 
 .shortcut-editor-item.editing {
