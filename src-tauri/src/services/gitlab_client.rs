@@ -199,6 +199,56 @@ pub struct GitLabFileDiff {
     pub diff: String,
 }
 
+/// Response shape of `GET /projects/:id/merge_requests/:iid/changes`.
+///
+/// Unlike the `/versions/:id` endpoint (flat `*_commit_sha` fields plus a
+/// `diffs` array), `/changes` nests the commit SHAs under `diff_refs` and
+/// names the file array `changes`. It returns the MR's *latest* diff (the
+/// current head), which is exactly what `get_merge_request_diff` wants, in a
+/// single request. Extra fields on each change entry (a_mode, collapsed, …)
+/// are ignored. This endpoint is marked deprecated in newer GitLab docs but
+/// is still served by current releases; `get_merge_request_diff` falls back to
+/// the two-call `/versions` path if an instance no longer supports it.
+#[derive(Debug, Deserialize)]
+struct GitLabChangesResponse {
+    #[serde(default)]
+    diff_refs: Option<GitLabDiffRefs>,
+    #[serde(default)]
+    changes: Vec<GitLabFileDiff>,
+}
+
+/// Commit SHAs of a diff, as returned nested under `diff_refs` by `/changes`.
+///
+/// Empty MRs report `null` here, so each field tolerates null via
+/// `null_to_empty_string`, matching `GitLabDiffVersion`'s behavior.
+#[derive(Debug, Default, Deserialize)]
+struct GitLabDiffRefs {
+    #[serde(default, deserialize_with = "null_to_empty_string")]
+    base_sha: String,
+    #[serde(default, deserialize_with = "null_to_empty_string")]
+    head_sha: String,
+    #[serde(default, deserialize_with = "null_to_empty_string")]
+    start_sha: String,
+}
+
+impl GitLabChangesResponse {
+    /// Map the `/changes` response into the shared `GitLabDiffVersion` shape.
+    ///
+    /// `id` is set to 0: `/changes` does not expose a diff-version id, and no
+    /// caller of `get_merge_request_diff` reads that field (it exists only to
+    /// mirror the `/versions/:id` payload).
+    fn into_diff_version(self) -> GitLabDiffVersion {
+        let refs = self.diff_refs.unwrap_or_default();
+        GitLabDiffVersion {
+            id: 0,
+            head_commit_sha: refs.head_sha,
+            base_commit_sha: refs.base_sha,
+            start_commit_sha: refs.start_sha,
+            diffs: self.changes,
+        }
+    }
+}
+
 /// GitLab note/comment from API.
 #[derive(Debug, Clone, Deserialize)]
 pub struct GitLabNote {
@@ -960,8 +1010,66 @@ impl GitLabClient {
         self.handle_response(response, &endpoint).await
     }
 
-    /// Get the latest diff version for a merge request.
+    /// Get the latest diff for a merge request.
+    ///
+    /// Prefers a single call to `/changes`, which returns the latest diff's
+    /// commit SHAs (`diff_refs`) and per-file diffs together. If an instance
+    /// no longer serves `/changes` (HTTP 404/405 — e.g. a future GitLab that
+    /// fully removes the deprecated endpoint), transparently falls back to the
+    /// legacy two-call `/versions` path so sync never breaks.
     pub async fn get_merge_request_diff(
+        &self,
+        project_id: i64,
+        mr_iid: i64,
+    ) -> Result<GitLabDiffVersion, AppError> {
+        if let Some(diff) = self
+            .get_merge_request_diff_via_changes(project_id, mr_iid)
+            .await?
+        {
+            return Ok(diff);
+        }
+
+        log::warn!(
+            "MR !{} (project {}): /changes unavailable, falling back to /versions",
+            mr_iid,
+            project_id
+        );
+        self.get_merge_request_diff_via_versions(project_id, mr_iid)
+            .await
+    }
+
+    /// Single-call diff fetch via `GET .../changes`.
+    ///
+    /// Returns `Ok(None)` when the endpoint is not available on this instance
+    /// (HTTP 404/405), signalling the caller to fall back to `/versions`.
+    /// Other non-success statuses (401, 5xx, …) propagate as errors.
+    async fn get_merge_request_diff_via_changes(
+        &self,
+        project_id: i64,
+        mr_iid: i64,
+    ) -> Result<Option<GitLabDiffVersion>, AppError> {
+        let endpoint = format!(
+            "/projects/{}/merge_requests/{}/changes",
+            project_id, mr_iid
+        );
+        let url = self.api_url(&endpoint);
+        let response = self.send_with_retry(self.client.get(&url)).await?;
+
+        if matches!(
+            response.status(),
+            StatusCode::NOT_FOUND | StatusCode::METHOD_NOT_ALLOWED
+        ) {
+            return Ok(None);
+        }
+
+        let changes: GitLabChangesResponse = self.handle_response(response, &endpoint).await?;
+        Ok(Some(changes.into_diff_version()))
+    }
+
+    /// Legacy two-call diff fetch: list versions, then fetch the newest one.
+    ///
+    /// Kept as a fallback for instances that no longer serve `/changes`.
+    async fn get_merge_request_diff_via_versions(
         &self,
         project_id: i64,
         mr_iid: i64,
@@ -1897,6 +2005,51 @@ mod tests {
         assert_eq!(state.approvals.approvals_required, 0);
         assert!(state.approvals.approved_by.is_empty());
         assert!(state.head_pipeline_status.is_none());
+    }
+
+    #[test]
+    fn changes_response_maps_nested_diff_refs_to_flat_version() {
+        // `/changes` nests SHAs under `diff_refs` and names the file array
+        // `changes`; verify it maps onto the flat `GitLabDiffVersion` shape.
+        let body = serde_json::json!({
+            "diff_refs": {
+                "base_sha": "aaa",
+                "head_sha": "bbb",
+                "start_sha": "ccc"
+            },
+            "changes": [
+                {
+                    "old_path": "a.txt",
+                    "new_path": "a.txt",
+                    "new_file": false,
+                    "renamed_file": false,
+                    "deleted_file": false,
+                    "diff": "@@ -1 +1 @@\n-x\n+y\n",
+                    "a_mode": "100644",
+                    "collapsed": false
+                }
+            ]
+        });
+
+        let resp: GitLabChangesResponse = serde_json::from_value(body).unwrap();
+        let version = resp.into_diff_version();
+        assert_eq!(version.base_commit_sha, "aaa");
+        assert_eq!(version.head_commit_sha, "bbb");
+        assert_eq!(version.start_commit_sha, "ccc");
+        assert_eq!(version.diffs.len(), 1);
+        assert_eq!(version.diffs[0].new_path, "a.txt");
+    }
+
+    #[test]
+    fn changes_response_tolerates_null_diff_refs_for_empty_mr() {
+        // Empty MRs (no commits) return `diff_refs: null` and no changes.
+        let body = serde_json::json!({ "diff_refs": null });
+        let resp: GitLabChangesResponse = serde_json::from_value(body).unwrap();
+        let version = resp.into_diff_version();
+        assert_eq!(version.base_commit_sha, "");
+        assert_eq!(version.head_commit_sha, "");
+        assert_eq!(version.start_commit_sha, "");
+        assert!(version.diffs.is_empty());
     }
 
     #[test]
