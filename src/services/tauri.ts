@@ -377,6 +377,30 @@ export async function processAutoMergeNow(): Promise<void> {
 }
 
 /**
+ * Snooze payload from the backend.
+ */
+export interface MrSnooze {
+  mrId: number;
+  snoozedAt: number;
+  snoozeUntil: number;
+}
+
+/**
+ * Snooze an MR until the given Unix timestamp (seconds). Re-snoozing
+ * overwrites the previous expiry.
+ */
+export async function snoozeMR(mrId: number, until: number): Promise<MrSnooze> {
+  return invoke<MrSnooze>('snooze_mr', { mrId, until });
+}
+
+/**
+ * Remove the snooze for an MR so it reappears in the review list.
+ */
+export async function unsnoozeMR(mrId: number): Promise<void> {
+  return invoke<void>('unsnooze_mr', { mrId });
+}
+
+/**
  * Auto-run claim payload from the backend: a manual pipeline job armed to
  * run automatically once the rest of its pipeline succeeds.
  */

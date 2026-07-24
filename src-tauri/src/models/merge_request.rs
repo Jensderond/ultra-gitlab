@@ -132,6 +132,11 @@ pub struct MergeRequest {
     /// Used to retain merged/closed MRs for 24h before hard-purge.
     #[sqlx(default)]
     pub state_changed_at: Option<i64>,
+
+    /// Snooze expiry (Unix timestamp) from `mr_snoozes`, if the MR is snoozed.
+    /// A value in the past means the snooze has lapsed and the MR is visible.
+    #[sqlx(default)]
+    pub snoozed_until: Option<i64>,
 }
 
 impl MergeRequest {

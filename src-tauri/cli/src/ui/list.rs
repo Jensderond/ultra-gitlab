@@ -158,6 +158,7 @@ mod tests {
             state: "opened".into(),
             web_url: "http://x".into(),
             auto_merge: false,
+            snoozed_until: None,
         }
     }
 

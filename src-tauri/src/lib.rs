@@ -16,6 +16,7 @@ use commands::{
     claim_auto_merge, clear_test_data, get_auto_merge_claim, process_auto_merge_now,
     unclaim_auto_merge,
     claim_auto_run, list_auto_run_claims, unclaim_auto_run,
+    snooze_mr, unsnooze_mr,
     delete_comment, delete_gitlab_instance, discard_failed_action, generate_test_data, get_action_counts,
     get_approval_status, get_avatar, get_avatars, get_cache_stats, get_cached_file_pair,
     get_collapse_patterns, get_comments,
@@ -370,6 +371,8 @@ pub fn run() {
             unclaim_auto_merge,
             get_auto_merge_claim,
             process_auto_merge_now,
+            snooze_mr,
+            unsnooze_mr,
             // Auto-run
             claim_auto_run,
             unclaim_auto_run,

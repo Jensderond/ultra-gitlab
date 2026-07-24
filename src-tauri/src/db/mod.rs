@@ -13,6 +13,7 @@ pub mod known_users;
 pub mod notification_settings;
 pub mod pipeline_cache;
 pub mod pool;
+pub mod snooze;
 
 use std::path::{Path, PathBuf};
 use thiserror::Error;
@@ -158,6 +159,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0024_auto_run_claims",
         include_str!("migrations/0024_auto_run_claims.sql"),
+    ),
+    (
+        "0025_mr_snoozes",
+        include_str!("migrations/0025_mr_snoozes.sql"),
     ),
 ];
 

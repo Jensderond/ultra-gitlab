@@ -24,7 +24,8 @@ const MR_COLUMNS: &str = r#"
     mr.web_url, mr.created_at, mr.updated_at, mr.merged_at,
     mr.approval_status, mr.approvals_required, mr.approvals_count,
     mr.labels, mr.reviewers, mr.cached_at, mr.user_has_approved,
-    mr.head_pipeline_status, mr.state_changed_at
+    mr.head_pipeline_status, mr.state_changed_at,
+    (SELECT s.snooze_until FROM mr_snoozes s WHERE s.mr_id = mr.id) AS snoozed_until
 "#;
 
 /// MRs for review: excludes the authenticated user's own authored MRs and
@@ -313,6 +314,21 @@ mod tests {
         assert_eq!(with.len(), 1, "draft shown when include_drafts=true");
         let without = list_my_mrs(&pool, inst, false, false).await.unwrap();
         assert!(without.is_empty(), "draft hidden when include_drafts=false");
+    }
+
+    #[tokio::test]
+    async fn review_carries_snoozed_until() {
+        let (_dir, pool, inst) = pool_with_mr("alice", 0, "opened", "snoozable").await;
+        let before = list_review_mrs(&pool, inst, ReviewFilter::default()).await.unwrap();
+        assert_eq!(before[0].snoozed_until, None, "no snooze row → None");
+
+        crate::db::snooze::upsert_snooze(&pool, 1, 9_999_999_999, 0).await.unwrap();
+        let after = list_review_mrs(&pool, inst, ReviewFilter::default()).await.unwrap();
+        assert_eq!(after[0].snoozed_until, Some(9_999_999_999), "snooze expiry surfaces on the row");
+
+        crate::db::snooze::delete_snooze(&pool, 1).await.unwrap();
+        let cleared = list_review_mrs(&pool, inst, ReviewFilter::default()).await.unwrap();
+        assert_eq!(cleared[0].snoozed_until, None, "unsnooze clears the field");
     }
 
     #[tokio::test]

@@ -1,0 +1,65 @@
+/* Snooze preset menu: anchored popover on desktop, bottom sheet on touch. */
+
+.snooze-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  min-width: 200px;
+  padding: 6px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.snooze-menu-title {
+  padding: 6px 10px 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.snooze-menu-option {
+  display: block;
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 10px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.snooze-menu-option:hover,
+.snooze-menu-option:focus-visible {
+  background: var(--overlay-hover);
+  outline: none;
+}
+
+/* Bottom sheet on narrow viewports (mobile companion): full-width, big
+   tap targets. */
+@media (max-width: 640px) {
+  .snooze-menu {
+    position: fixed;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 12px 12px 0 0;
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .snooze-menu-option {
+    min-height: 44px;
+    padding: 12px 14px;
+    font-size: 15px;
+  }
+}

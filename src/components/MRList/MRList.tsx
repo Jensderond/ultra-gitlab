@@ -8,6 +8,8 @@ import { useState, useEffect, useCallback, useRef, useMemo, useImperativeHandle 
 import type { ReactNode, Ref } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMRListQuery } from '../../hooks/queries/useMRListQuery';
+import { useSnoozeMRMutation } from '../../hooks/queries/useSnoozeMRMutation';
+import { isSnoozed } from '../../lib/snooze';
 import type { MergeRequest } from '../../types';
 import MRListItem from './MRListItem';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
@@ -53,6 +55,14 @@ interface MRListProps {
   showApproved?: boolean;
   /** Callback to toggle the showApproved filter */
   onToggleApproved?: () => void;
+  /** When true, show snoozed MRs (hidden by default) */
+  showSnoozed?: boolean;
+  /** Callback to toggle the showSnoozed filter */
+  onToggleSnoozed?: () => void;
+  /** MR id whose snooze preset menu is open (controlled by the page for the `z` shortcut) */
+  snoozeMenuMrId?: number | null;
+  /** Open (id) or close (null) the snooze preset menu */
+  onSnoozeMenuChange?: (mrId: number | null) => void;
   /** Render rows in the compact single-line layout */
   condensed?: boolean;
   /** Called when the user pulls to refresh (touch). Awaited to keep the spinner visible until done. */
@@ -87,6 +97,10 @@ export default function MRList({
   onFilteredCountChange,
   showApproved = false,
   onToggleApproved,
+  showSnoozed = false,
+  onToggleSnoozed,
+  snoozeMenuMrId = null,
+  onSnoozeMenuChange,
   condensed = false,
   onRefresh,
   onRefreshingChange,
@@ -130,6 +144,8 @@ export default function MRList({
     onRefreshingChange?.(refreshing);
   }, [refreshing, onRefreshingChange]);
 
+  const { snooze, unsnooze } = useSnoozeMRMutation();
+
   // UI-only state
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
@@ -137,14 +153,20 @@ export default function MRList({
   const syncingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Apply showApproved filter to query data
-  const mrs = useMemo(() => {
+  // Apply showApproved, then showSnoozed filters to query data
+  const afterApproved = useMemo(() => {
     const data = query.data ?? [];
     return showApproved ? data : data.filter(mr => !mr.userHasApproved);
   }, [query.data, showApproved]);
 
+  const mrs = useMemo(
+    () => (showSnoozed ? afterApproved : afterApproved.filter(mr => !isSnoozed(mr))),
+    [afterApproved, showSnoozed]
+  );
+
   const totalFetched = query.data?.length ?? 0;
-  const approvedCount = totalFetched - mrs.length;
+  const approvedCount = totalFetched - afterApproved.length;
+  const snoozedCount = afterApproved.length - mrs.length;
 
   // Filter MRs by search query
   const filteredMrs = useMemo(() => {
@@ -302,9 +324,13 @@ export default function MRList({
         <div className={`mr-list-rows${searchSlot != null ? ' mr-list-rows--fill' : ''}`}>
           {mrs.length === 0 ? (
             <div className="mr-list-empty">
-              <p>{!showApproved && approvedCount > 0 ? "You're all caught up" : 'No open merge requests'}</p>
+              <p>
+                {(!showApproved && approvedCount > 0) || (!showSnoozed && snoozedCount > 0)
+                  ? "You're all caught up"
+                  : 'No open merge requests'}
+              </p>
               <span className="mr-list-empty-hint">
-                {!showApproved && approvedCount > 0
+                {(!showApproved && approvedCount > 0) || (!showSnoozed && snoozedCount > 0)
                   ? 'There are no merge requests waiting for your review.'
                   : isSmallScreen
                   ? 'Pull down to refresh'
@@ -314,6 +340,15 @@ export default function MRList({
                 <button className="mr-list-approved-banner" onClick={onToggleApproved}>
                   <CheckCircleIcon size={14} />
                   View {approvedCount} approved {approvedCount === 1 ? 'MR' : 'MRs'}
+                </button>
+              )}
+              {!showSnoozed && snoozedCount > 0 && (
+                <button className="mr-list-approved-banner" onClick={onToggleSnoozed}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  View {snoozedCount} snoozed {snoozedCount === 1 ? 'MR' : 'MRs'}
                 </button>
               )}
             </div>
@@ -335,6 +370,10 @@ export default function MRList({
                 onClick={() => handleSelect(mr, index)}
                 highlightQuery={filterQuery}
                 condensed={condensed}
+                snoozeMenuOpen={snoozeMenuMrId === mr.id}
+                onSnoozeMenuOpenChange={(open) => onSnoozeMenuChange?.(open ? mr.id : null)}
+                onSnooze={(until) => snooze.mutate({ mrId: mr.id, until })}
+                onUnsnooze={() => unsnooze.mutate({ mrId: mr.id })}
               />
             ))
           )}
@@ -345,6 +384,18 @@ export default function MRList({
             >
               <CheckCircleIcon size={14} />
               {approvedCount} approved {approvedCount === 1 ? 'MR' : 'MRs'} hidden
+            </button>
+          )}
+          {!showSnoozed && snoozedCount > 0 && mrs.length > 0 && (
+            <button
+              className="mr-list-approved-banner"
+              onClick={onToggleSnoozed}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+              {snoozedCount} snoozed {snoozedCount === 1 ? 'MR' : 'MRs'} hidden
             </button>
           )}
         </div>
