@@ -30,7 +30,7 @@ import useDeepLink from './hooks/useDeepLink';
 import { useProductTour } from './hooks/useProductTour';
 import { useSmallScreen } from './hooks/useSmallScreen';
 import { CommandId, CommandCategory, commandDefinitions } from './commands/registry';
-import { manualSync } from './services/storage';
+import { runManualRefresh } from './services/manualRefresh';
 import { useInstancesQuery } from './hooks/queries/useInstancesQuery';
 import { queryKeys } from './lib/queryKeys';
 import { listPipelineProjects, visitPipelineProject } from './services/tauri';
@@ -167,7 +167,7 @@ function AppContent() {
 
   useHotkey(parseHotkey(getKey('trigger-sync') ?? 'Mod+R'), () => {
     trackShortcut('Mod+R', 'trigger_sync', 'global');
-    manualSync(true).catch(console.error);
+    runManualRefresh().catch(console.error);
   }, { enabled: isTauri });
 
   useHotkey(parseHotkey(getKey('keyboard-help') ?? 'Shift+/'), () => {
@@ -230,7 +230,7 @@ function AppContent() {
 
       // Sync commands always available
       [CommandId.TriggerSync]: () => {
-        manualSync(true).catch(console.error);
+        runManualRefresh().catch(console.error);
       },
 
       // Go back - context dependent
