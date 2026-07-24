@@ -1,99 +1,115 @@
-/* Instance setup form styles */
+/* Instance setup form — styled to match the native settings groups */
 
 .instance-setup {
-  background: var(--card-bg);
+  background: var(--overlay-glass-light);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 1.5rem;
-  margin-bottom: 1rem;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 22px;
 }
 
 .instance-setup h3 {
-  margin: 0 0 1rem;
-  font-size: 1.1rem;
+  margin: 0 0 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .instance-setup form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 14px;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 5px;
 }
 
 .form-group label {
   font-weight: 500;
-  font-size: 0.9rem;
+  font-size: 13px;
+  color: var(--text-primary);
 }
 
 .form-group input {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-color, #ccc);
-  border-radius: 4px;
-  font-size: 1rem;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  font-size: 13px;
   font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-dim);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: var(--primary-color, #0066cc);
-  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--wave-glow);
 }
 
 .form-group input:disabled {
-  background: var(--disabled-bg);
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .form-help {
-  color: var(--text-muted, #666);
-  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .form-help code {
-  background: var(--code-bg);
-  padding: 0.1rem 0.3rem;
-  border-radius: 3px;
-  font-size: 0.85em;
+  font-family: 'IBM Plex Mono', monospace;
+  background: var(--overlay-surface);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--accent-hover);
 }
 
 .form-error {
-  background: var(--error-bg, #fee);
-  color: var(--error-color, #c00);
-  padding: 0.75rem 1rem;
-  border-radius: 4px;
+  background: var(--error-light);
+  color: var(--error-color);
+  border: 1px solid var(--error-bg);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
 }
 
 .form-success {
-  background: var(--success-bg, #efe);
-  color: var(--success-color, #060);
-  padding: 0.75rem 1rem;
-  border-radius: 4px;
+  background: var(--success-bg, var(--overlay-surface));
+  color: var(--success-color);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
 }
 
 .form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+  gap: 8px;
+  margin-top: 2px;
 }
 
 .cancel-button {
-  background: var(--card-bg);
-  color: var(--text-primary);
+  background: var(--overlay-surface);
+  color: var(--text-tertiary);
   border: 1px solid var(--border-color);
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  padding: 7px 16px;
+  border-radius: 7px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
 }
 
 .cancel-button:hover:not(:disabled) {
-  background: var(--bg-hover);
+  background: var(--overlay-surface-hover);
+  color: var(--text-secondary);
+  border-color: var(--text-fuji);
 }
 
 .cancel-button:disabled {
@@ -102,17 +118,19 @@
 }
 
 .submit-button {
-  background: var(--primary-color, #0066cc);
-  color: #fff;
+  background: var(--accent-color);
+  color: var(--bg-secondary);
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  padding: 7px 16px;
+  border-radius: 7px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.2s ease;
 }
 
 .submit-button:hover:not(:disabled) {
-  background: var(--primary-hover, #0052a3);
+  background: var(--accent-hover);
 }
 
 .submit-button:disabled {

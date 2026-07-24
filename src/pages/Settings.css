@@ -484,35 +484,25 @@
    BUTTONS
    ================================================ */
 
-/* Add Instance button */
+/* Quiet action button (permission banners, small inline actions) */
 .add-button {
-  padding: 8px 18px;
+  padding: 7px 14px;
   font-family: 'Noto Sans JP', sans-serif;
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.02em;
-  border: 1px solid var(--wave-glow-strong);
+  border: 1px solid var(--border-color);
   border-radius: 7px;
-  background: linear-gradient(135deg,
-    var(--wave-glow) 0%,
-    var(--wave-glow) 100%);
-  color: var(--accent-hover);
+  background: var(--overlay-surface);
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: all 0.2s ease;
 }
 
 .add-button:hover:not(:disabled) {
-  background: linear-gradient(135deg,
-    var(--wave-glow-strong) 0%,
-    var(--wave-glow) 100%);
-  border-color: var(--accent-color);
-  color: var(--accent-crystal);
-  box-shadow: 0 4px 20px var(--wave-glow);
-  transform: translateY(-1px);
-}
-
-.add-button:active {
-  transform: translateY(0);
+  background: var(--overlay-surface-hover);
+  border-color: var(--text-fuji);
+  color: var(--text-primary);
 }
 
 .add-button:disabled {
@@ -582,68 +572,43 @@
   list-style: none;
   padding: 0;
   margin: 0;
+}
+
+/* One instance = one grouped row (with editors expanding below) */
+.instance-row {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  padding: 12px 16px;
+  box-sizing: border-box;
 }
 
-.instance-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 16px 18px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  transition: background 0.15s ease, border-color 0.2s ease;
+.instance-row + .instance-row {
+  border-top: 1px solid var(--overlay-divider);
 }
 
-.instance-item:hover {
-  background: var(--overlay-hover);
+.instance-list + .settings-row-action {
+  border-top: 1px solid var(--overlay-divider);
 }
 
-/* Default instance gets a subtle left accent */
-.instance-item--default {
-  border-left: 2px solid var(--accent-color);
-  background: linear-gradient(90deg,
-    var(--wave-glow) 0%,
-    transparent 30%);
-}
-
-.instance-item--default:hover {
-  background: linear-gradient(90deg,
-    var(--wave-glow-strong) 0%,
-    var(--overlay-hover) 30%);
-}
-
-/* ── Header: name + badge + action buttons ── */
-
-.instance-header {
+.instance-row-main {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
+  min-height: 32px;
 }
 
-.instance-identity {
-  display: flex;
+.instance-row-name {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
-}
-
-.instance-name {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .instance-default-badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: 1px 7px;
   border-radius: 4px;
   font-size: 10px;
   font-weight: 600;
@@ -651,62 +616,7 @@
   letter-spacing: 0.5px;
   background: var(--accent-bg);
   color: var(--accent-color);
-  border: 1px solid var(--wave-glow-strong);
   flex-shrink: 0;
-}
-
-.instance-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.instance-action-btn {
-  padding: 4px 12px;
-  font-family: 'Noto Sans JP', sans-serif;
-  font-size: 11px;
-  font-weight: 500;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.instance-action-btn--default {
-  background: var(--wave-glow);
-  border: 1px solid var(--wave-glow-strong);
-  color: var(--accent-hover);
-}
-
-.instance-action-btn--default:hover {
-  background: var(--wave-glow-strong);
-  border-color: var(--accent-color);
-  color: var(--accent-crystal);
-  box-shadow: 0 2px 12px var(--wave-glow);
-}
-
-.instance-action-btn--delete {
-  background: none;
-  border: 1px solid transparent;
-  color: var(--text-muted);
-}
-
-.instance-action-btn--delete:hover {
-  color: var(--error-color);
-  background: var(--error-light);
-  border-color: var(--error-bg);
-}
-
-/* ── Meta row: URL, date, status pills ── */
-
-.instance-meta-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-muted);
 }
 
 .instance-url {
@@ -715,49 +625,126 @@
   color: var(--text-tertiary);
 }
 
-.instance-meta-text {
-  color: var(--text-muted);
-}
-
 .instance-meta-separator {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  opacity: 0.5;
-  flex-shrink: 0;
+  margin: 0 5px;
+  color: var(--text-muted);
+  opacity: 0.6;
 }
 
-.instance-status-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 7px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+.instance-status--ok {
+  color: var(--text-tertiary);
 }
 
-.instance-status-pill--warn {
-  background: var(--warning-light);
+.instance-status--warn {
   color: var(--accent-ronin);
-  border: 1px solid var(--warning-bg);
 }
 
-.instance-status-pill--error {
+.instance-status--error {
+  color: var(--error-color);
+}
+
+.instance-rename-input {
+  padding: 3px 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--bg-dim);
+  border: 1px solid var(--accent-color);
+  border-radius: 6px;
+  outline: none;
+  max-width: 220px;
+}
+
+.instance-quiet-btn {
+  padding: 5px 12px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: var(--overlay-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.instance-quiet-btn:hover {
+  color: var(--text-primary);
+  background: var(--overlay-surface-hover);
+  border-color: var(--text-fuji);
+}
+
+/* ── Instance actions menu (⋯) ── */
+
+.instance-menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.instance-menu-trigger:hover,
+.instance-menu-trigger[data-popup-open] {
+  color: var(--text-primary);
+  background: var(--overlay-hover);
+}
+
+.instance-menu-positioner {
+  z-index: 1000;
+}
+
+.instance-menu-popup {
+  min-width: 200px;
+  padding: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.instance-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  outline: none;
+}
+
+.instance-menu-item[data-highlighted] {
+  background: var(--overlay-surface);
+  color: var(--text-primary);
+}
+
+.instance-menu-item[data-disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.instance-menu-item--danger {
+  color: var(--error-color);
+}
+
+.instance-menu-item--danger[data-highlighted] {
   background: var(--error-light);
   color: var(--error-color);
-  border: 1px solid var(--error-bg);
 }
 
-/* ── Controls row: inline action buttons ── */
-
-.instance-controls {
-  display: flex;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 8px;
+.instance-menu-separator {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--overlay-divider);
 }
 
 /* ================================================

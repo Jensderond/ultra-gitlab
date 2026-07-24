@@ -7,7 +7,8 @@ import {
 } from '../../services/gitlab';
 import { getTokenInfo } from '../../services/tauri';
 import type { TokenInfo } from '../../types';
-import InstanceItem from './InstanceItem.variant-terminal';
+import InstanceItem from './InstanceItem';
+import { SettingsGroup } from './SettingsGroup';
 import { useInstancesQuery } from '../../hooks/queries/useInstancesQuery';
 import { queryKeys } from '../../lib/queryKeys';
 
@@ -71,16 +72,6 @@ export default function InstancesSection() {
 
   return (
     <div data-tour="settings-instances">
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button
-          className="add-button"
-          onClick={() => setShowSetup(true)}
-          disabled={showSetup}
-        >
-          + Add Instance
-        </button>
-      </div>
-
       {error && <div className="error-message">{error}</div>}
 
       {showSetup && (
@@ -92,25 +83,36 @@ export default function InstancesSection() {
 
       {loading ? (
         <p className="loading">Loading instances...</p>
-      ) : instances.length === 0 ? (
-        <p className="empty-state">
-          No GitLab instances configured.
-          <br />
-          Add one to start reviewing merge requests.
-        </p>
       ) : (
-        <ul className="instance-list">
-          {instances.map((inst) => (
-            <InstanceItem
-              key={inst.id}
-              inst={inst}
-              tokenInfo={tokenInfoMap[inst.id]}
-              onDelete={handleDelete}
-              onSetDefault={handleSetDefault}
-              onTokenUpdated={() => queryClient.invalidateQueries({ queryKey: queryKeys.instances() })}
-            />
-          ))}
-        </ul>
+        <SettingsGroup>
+          {instances.length === 0 ? (
+            <p className="empty-state">
+              No GitLab instances configured.
+              <br />
+              Add one to start reviewing merge requests.
+            </p>
+          ) : (
+            <ul className="instance-list">
+              {instances.map((inst) => (
+                <InstanceItem
+                  key={inst.id}
+                  inst={inst}
+                  tokenInfo={tokenInfoMap[inst.id]}
+                  onDelete={handleDelete}
+                  onSetDefault={handleSetDefault}
+                  onTokenUpdated={() => queryClient.invalidateQueries({ queryKey: queryKeys.instances() })}
+                />
+              ))}
+            </ul>
+          )}
+          <button
+            className="settings-row-action"
+            onClick={() => setShowSetup(true)}
+            disabled={showSetup}
+          >
+            + Add Instance…
+          </button>
+        </SettingsGroup>
       )}
     </div>
   );
