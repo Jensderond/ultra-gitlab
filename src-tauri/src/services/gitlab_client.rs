@@ -1480,6 +1480,104 @@ impl GitLabClient {
         Ok(result)
     }
 
+    /// Batch-fetch raw text file contents for many paths at a single ref in one
+    /// (or a few, batch-size-limited) GraphQL round trip(s), instead of one REST
+    /// call per file.
+    ///
+    /// Returns a map of `path -> content` for every path that came back with a
+    /// non-null `rawTextBlob` whose byte length matches the blob's reported
+    /// `size`. Paths that are **missing** from the response, have a **null**
+    /// `rawTextBlob` (binary blobs), or whose returned content length does **not**
+    /// match `size` (a possible silent truncation) are deliberately omitted from
+    /// the map — the caller MUST fall back to the per-file REST path for those so
+    /// no file is ever cached with wrong or partial content.
+    ///
+    /// Returns `Err` only for a hard failure (project not accessible, GraphQL
+    /// field unsupported by the instance, transport error), signalling the caller
+    /// to fall back to REST for the whole set.
+    pub async fn batch_fetch_file_contents(
+        &self,
+        project_full_path: &str,
+        ref_sha: &str,
+        paths: &[String],
+    ) -> Result<std::collections::HashMap<String, String>, AppError> {
+        let mut result = std::collections::HashMap::new();
+
+        for chunk in paths.chunks(Self::GRAPHQL_BATCH_SIZE) {
+            let query = build_blobs_query(project_full_path, ref_sha, chunk);
+            let data = self.graphql(&query).await?;
+
+            let project = data.get("project");
+            if project.map(|p| p.is_null()).unwrap_or(true) {
+                return Err(AppError::internal(format!(
+                    "GraphQL blobs response has null project '{}'",
+                    project_full_path
+                )));
+            }
+
+            let nodes = project
+                .and_then(|p| p.get("repository"))
+                .filter(|r| !r.is_null())
+                .and_then(|r| r.get("blobs"))
+                .and_then(|b| b.get("nodes"))
+                .and_then(|n| n.as_array())
+                .ok_or_else(|| {
+                    AppError::internal(format!(
+                        "GraphQL blobs response missing nodes for project '{}'",
+                        project_full_path
+                    ))
+                })?;
+
+            for node in nodes {
+                let Some(path) = node.get("path").and_then(|p| p.as_str()) else {
+                    continue;
+                };
+
+                // Binary blobs return `rawTextBlob: null` — skip so the caller
+                // fetches them via REST (matching pre-existing behaviour).
+                let Some(content) = node.get("rawTextBlob").and_then(|c| c.as_str()) else {
+                    continue;
+                };
+
+                // `size` is a String scalar (byte size). Guard against silent
+                // truncation: only trust content whose UTF-8 byte length exactly
+                // matches the blob's reported byte size. `String::len()` is the
+                // byte length in Rust, so this is a direct comparison.
+                let reported_size = node
+                    .get("size")
+                    .and_then(|s| s.as_str())
+                    .and_then(|s| s.parse::<usize>().ok());
+
+                match reported_size {
+                    Some(size) if content.len() == size => {
+                        result.insert(path.to_string(), content.to_string());
+                    }
+                    Some(size) => {
+                        log::warn!(
+                            "GraphQL blob for '{}' @ {} has content length {} != reported size {}; \
+                             skipping (REST fallback)",
+                            path,
+                            ref_sha,
+                            content.len(),
+                            size
+                        );
+                    }
+                    None => {
+                        // No usable size to verify against — don't risk caching
+                        // possibly-truncated content; let REST handle it.
+                        log::warn!(
+                            "GraphQL blob for '{}' @ {} has no parseable size; skipping (REST fallback)",
+                            path,
+                            ref_sha
+                        );
+                    }
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
     /// Fetch which jobs in a pipeline are `when: manual`, keyed by REST job id.
     ///
     /// GitLab's REST jobs API does not expose a manual indicator, so this uses
@@ -1668,6 +1766,33 @@ impl GitLabClient {
             .map(|b| b.to_vec())
             .map_err(|e| AppError::internal(format!("Failed to read file bytes: {}", e)))
     }
+}
+
+/// Build a GraphQL query fetching raw text content for several blobs at a
+/// single ref in one request.
+///
+/// `size` is requested alongside `rawTextBlob` so the caller can verify the
+/// returned content was not silently truncated. `size` is a GraphQL `String`
+/// scalar (byte count).
+fn build_blobs_query(project_full_path: &str, ref_sha: &str, paths: &[String]) -> String {
+    let path_literal = serde_json::to_string(project_full_path)
+        .unwrap_or_else(|_| format!("\"{}\"", project_full_path));
+    let ref_literal =
+        serde_json::to_string(ref_sha).unwrap_or_else(|_| format!("\"{}\"", ref_sha));
+    let paths_list = paths
+        .iter()
+        .map(|p| serde_json::to_string(p).unwrap_or_else(|_| format!("\"{}\"", p)))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    format!(
+        "query {{ project(fullPath: {path}) {{ repository {{ \
+         blobs(paths: [{paths}], ref: {ref_}) {{ \
+         nodes {{ path size rawTextBlob }} }} }} }} }}",
+        path = path_literal,
+        paths = paths_list,
+        ref_ = ref_literal,
+    )
 }
 
 /// Build the aliased GraphQL query fetching approval + pipeline state for
@@ -1961,6 +2086,23 @@ mod tests {
         assert!(query.contains("p1: project(fullPath: \"group/sub/proj-b\")"));
         assert!(query.contains("iids: [\"5\"]"));
         assert!(query.contains("headPipeline { status }"));
+    }
+
+    #[test]
+    fn test_build_blobs_query() {
+        let paths = vec![
+            "src/main.rs".to_string(),
+            "path/with \"quotes\".txt".to_string(),
+        ];
+        let query = build_blobs_query("group/sub/proj", "abc123def", &paths);
+
+        assert!(query.contains("project(fullPath: \"group/sub/proj\")"));
+        assert!(query.contains("ref: \"abc123def\""));
+        // Paths are JSON-escaped string literals.
+        assert!(query.contains("\"src/main.rs\""));
+        assert!(query.contains("\"path/with \\\"quotes\\\".txt\""));
+        // Requests fields needed for the truncation guard.
+        assert!(query.contains("path size rawTextBlob"));
     }
 
     #[test]

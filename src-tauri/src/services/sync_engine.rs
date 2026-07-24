@@ -31,7 +31,6 @@ use crate::services::sync_queue;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::{mpsc, RwLock};
 use tokio::time;
@@ -1481,6 +1480,7 @@ impl SyncEngine {
                 self.cache_file_contents(
                     local_mr_id,
                     mr.project_id,
+                    &extract_project_path(&mr.web_url),
                     instance_id,
                     client,
                     &diff,
@@ -1935,13 +1935,12 @@ impl SyncEngine {
         &self,
         mr_id: i64,
         project_id: i64,
+        project_full_path: &str,
         instance_id: i64,
         client: &GitLabClient,
         diff: &GitLabDiffVersion,
         prev_shas: Option<&(String, String)>,
     ) {
-        use sha2::{Digest, Sha256};
-
         // If base_sha and head_sha are unchanged, skip all file fetching
         if let Some((prev_base, prev_head)) = prev_shas {
             if prev_base == &diff.base_commit_sha && prev_head == &diff.head_commit_sha {
@@ -1964,22 +1963,22 @@ impl SyncEngine {
             }
         }
 
-        use futures::stream::{self, StreamExt};
-
-        const MAX_CONCURRENT_FILE_FETCHES: usize = 6;
-
         let instance_id_str = instance_id.to_string();
-        let skipped = Arc::new(AtomicU32::new(0));
 
-        // Filter out binary files before building the concurrent stream
+        // Filter out binary files (by extension) before fetching anything.
         let non_binary_diffs: Vec<_> = diff
             .diffs
             .iter()
             .filter(|fd| !is_binary_extension(&fd.new_path) && !is_binary_extension(&fd.old_path))
             .collect();
 
-        // Build a list of fetch tasks: (path, ref_sha, version_label)
-        let mut fetch_tasks: Vec<(String, String, &str)> = Vec::new();
+        // Build the two sides: base-side paths at base_commit_sha, head-side
+        // paths at head_commit_sha. A path is only fetched if it isn't already
+        // cached for that version (the existing DB-dedup check).
+        let mut base_paths: Vec<String> = Vec::new();
+        let mut head_paths: Vec<String> = Vec::new();
+        let mut skipped: u32 = 0;
+
         for file_diff in &non_binary_diffs {
             let change_type = if file_diff.new_file {
                 "added"
@@ -1991,96 +1990,210 @@ impl SyncEngine {
 
             // Base version for non-added files
             if change_type != "added" {
-                fetch_tasks.push((
-                    file_diff.old_path.clone(),
-                    diff.base_commit_sha.clone(),
-                    "base",
-                ));
+                let cached =
+                    crate::db::file_cache::has_cached_version(&self.pool, mr_id, &file_diff.old_path, "base")
+                        .await
+                        .unwrap_or(false);
+                if cached {
+                    skipped += 1;
+                } else {
+                    base_paths.push(file_diff.old_path.clone());
+                }
             }
 
             // Head version for non-deleted files
             if change_type != "deleted" {
-                fetch_tasks.push((
-                    file_diff.new_path.clone(),
-                    diff.head_commit_sha.clone(),
-                    "head",
-                ));
+                let cached =
+                    crate::db::file_cache::has_cached_version(&self.pool, mr_id, &file_diff.new_path, "head")
+                        .await
+                        .unwrap_or(false);
+                if cached {
+                    skipped += 1;
+                } else {
+                    head_paths.push(file_diff.new_path.clone());
+                }
             }
         }
 
-        stream::iter(fetch_tasks)
-            .for_each_concurrent(MAX_CONCURRENT_FILE_FETCHES, |(path, ref_sha, version)| {
-                let pool = self.pool.clone();
-                let client = client.clone();
-                let instance_id_str = instance_id_str.clone();
-                let skipped = skipped.clone();
-                async move {
-                    // Skip if already cached
-                    let has_cached =
-                        crate::db::file_cache::has_cached_version(&pool, mr_id, &path, version)
-                            .await
-                            .unwrap_or(false);
+        // De-duplicate paths within a side (the same path can legitimately appear
+        // once, but guard against duplicate diff entries).
+        base_paths.sort();
+        base_paths.dedup();
+        head_paths.sort();
+        head_paths.dedup();
 
-                    if has_cached {
-                        skipped.fetch_add(1, Ordering::Relaxed);
-                        return;
-                    }
+        self.cache_file_side(
+            mr_id,
+            project_id,
+            project_full_path,
+            &instance_id_str,
+            client,
+            &diff.base_commit_sha,
+            "base",
+            base_paths,
+        )
+        .await;
 
-                    match client
-                        .get_file_content(project_id, &path, &ref_sha)
-                        .await
-                    {
-                        Ok(content) => {
-                            let mut hasher = Sha256::new();
-                            hasher.update(content.as_bytes());
-                            let sha = format!("{:x}", hasher.finalize());
-                            let size_bytes = content.len() as i64;
+        self.cache_file_side(
+            mr_id,
+            project_id,
+            project_full_path,
+            &instance_id_str,
+            client,
+            &diff.head_commit_sha,
+            "head",
+            head_paths,
+        )
+        .await;
 
-                            if let Err(e) = crate::db::file_cache::upsert_file_blob(
-                                &pool, &sha, &content, size_bytes,
-                            )
-                            .await
-                            {
-                                log::warn!(
-                                    "Failed to cache {} blob for {}: {}",
-                                    version, path, e
-                                );
+        if skipped > 0 {
+            log::debug!(
+                "Skipped {} already-cached file versions for MR {}",
+                skipped,
+                mr_id
+            );
+        }
+    }
+
+    /// Fetch and cache one side (all `paths` at `ref_sha` for `version`) using a
+    /// batched GraphQL query, falling back to per-file REST for any path the
+    /// GraphQL response can't safely satisfy.
+    #[allow(clippy::too_many_arguments)]
+    async fn cache_file_side(
+        &self,
+        mr_id: i64,
+        project_id: i64,
+        project_full_path: &str,
+        instance_id_str: &str,
+        client: &GitLabClient,
+        ref_sha: &str,
+        version: &str,
+        paths: Vec<String>,
+    ) {
+        if paths.is_empty() {
+            return;
+        }
+
+        // Try the batched GraphQL path first (one round trip per GRAPHQL_BATCH_SIZE
+        // chunk). Paths it can't safely satisfy are collected for REST fallback.
+        // A hard GraphQL failure (field unsupported, project inaccessible, etc.)
+        // falls the entire side back to REST — exactly today's behaviour.
+        let rest_fallback: Vec<String> = if project_full_path.is_empty() {
+            paths
+        } else {
+            match client
+                .batch_fetch_file_contents(project_full_path, ref_sha, &paths)
+                .await
+            {
+                Ok(contents) => {
+                    let mut misses = Vec::new();
+                    for path in paths {
+                        match contents.get(&path) {
+                            Some(content) => {
+                                self.store_file_content(
+                                    mr_id,
+                                    project_id,
+                                    instance_id_str,
+                                    &path,
+                                    version,
+                                    content,
+                                )
+                                .await;
                             }
-                            if let Err(e) = crate::db::file_cache::upsert_file_version(
-                                &pool,
+                            None => misses.push(path),
+                        }
+                    }
+                    if !misses.is_empty() {
+                        log::debug!(
+                            "GraphQL blob batch missed {} {} file(s) for MR {}; using REST fallback",
+                            misses.len(),
+                            version,
+                            mr_id
+                        );
+                    }
+                    misses
+                }
+                Err(e) => {
+                    log::warn!(
+                        "GraphQL blob batch failed for MR {} ({} side, {} files): {} — falling back to REST",
+                        mr_id,
+                        version,
+                        paths.len(),
+                        e
+                    );
+                    paths
+                }
+            }
+        };
+
+        if rest_fallback.is_empty() {
+            return;
+        }
+
+        use futures::stream::{self, StreamExt};
+        const MAX_CONCURRENT_FILE_FETCHES: usize = 6;
+
+        stream::iter(rest_fallback)
+            .for_each_concurrent(MAX_CONCURRENT_FILE_FETCHES, |path| {
+                let client = client.clone();
+                async move {
+                    match client.get_file_content(project_id, &path, ref_sha).await {
+                        Ok(content) => {
+                            self.store_file_content(
                                 mr_id,
+                                project_id,
+                                instance_id_str,
                                 &path,
                                 version,
-                                &sha,
-                                &instance_id_str,
-                                project_id,
+                                &content,
                             )
-                            .await
-                            {
-                                log::warn!(
-                                    "Failed to cache {} version for {}: {}",
-                                    version, path, e
-                                );
-                            }
+                            .await;
                         }
                         Err(e) => {
-                            log::warn!(
-                                "Failed to fetch {} content for {}: {}",
-                                version, path, e
-                            );
+                            log::warn!("Failed to fetch {} content for {}: {}", version, path, e);
                         }
                     }
                 }
             })
             .await;
+    }
 
-        let skipped_count = skipped.load(Ordering::Relaxed);
-        if skipped_count > 0 {
-            log::debug!(
-                "Skipped {} already-cached file versions for MR {}",
-                skipped_count,
-                mr_id
-            );
+    /// SHA-256 hash `content` and upsert it into `file_blobs` + `file_versions`.
+    /// Shared by both the GraphQL and REST fetch paths so cache writes are
+    /// identical regardless of how the content was fetched.
+    async fn store_file_content(
+        &self,
+        mr_id: i64,
+        project_id: i64,
+        instance_id_str: &str,
+        path: &str,
+        version: &str,
+        content: &str,
+    ) {
+        use sha2::{Digest, Sha256};
+
+        let mut hasher = Sha256::new();
+        hasher.update(content.as_bytes());
+        let sha = format!("{:x}", hasher.finalize());
+        let size_bytes = content.len() as i64;
+
+        if let Err(e) =
+            crate::db::file_cache::upsert_file_blob(&self.pool, &sha, content, size_bytes).await
+        {
+            log::warn!("Failed to cache {} blob for {}: {}", version, path, e);
+        }
+        if let Err(e) = crate::db::file_cache::upsert_file_version(
+            &self.pool,
+            mr_id,
+            path,
+            version,
+            &sha,
+            instance_id_str,
+            project_id,
+        )
+        .await
+        {
+            log::warn!("Failed to cache {} version for {}: {}", version, path, e);
         }
     }
 
