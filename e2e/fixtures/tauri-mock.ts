@@ -451,7 +451,13 @@ export async function mockTauriIPC(
       invoke: async (cmd: string, args: Record<string, unknown> = {}) => {
         const handler = handlers[cmd];
         if (handler) {
-          return handler(args);
+          // Real Tauri IPC serializes every response, so the app always
+          // receives fresh objects. Handlers here mutate seed data in place
+          // and return live references — without a clone, react-query's
+          // structural sharing sees "unchanged" data after a refetch and
+          // never notifies subscribers.
+          const result = await handler(args);
+          return result === undefined ? undefined : structuredClone(result);
         }
         console.warn(`[Tauri Mock] Unhandled command: ${cmd}`, args);
         return undefined;
