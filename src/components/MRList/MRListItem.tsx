@@ -124,13 +124,11 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
     if (condensed) classNames.push('mr-list-item--condensed');
     if (selected) classNames.push('selected');
     if (isNew) classNames.push('is-new');
-    if (mr.userHasApproved) classNames.push('user-approved');
-    if (snoozed) classNames.push('snoozed');
 
     const projectLabel = mr.projectName?.replace(/^Customers\s*\/\s*/, '') ?? '';
 
-    // MRs you already approved are dimmed and hidden by default — snoozing them
-    // adds nothing, so drop the control. An already-snoozed row keeps it so the
+    // MRs you already approved live in their own tab — snoozing them adds
+    // nothing, so drop the control. An already-snoozed row keeps it so the
     // unsnooze affordance never disappears.
     const canSnooze = !mr.userHasApproved || snoozed;
 

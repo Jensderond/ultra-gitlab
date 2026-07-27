@@ -165,8 +165,9 @@ test.describe('Desktop keeps the overlay search', () => {
 
     await expect(page.locator(SLOT)).not.toBeAttached();
 
-    // Header button opens the overlay bar above the list, as before.
-    await page.locator('button[aria-label="Search merge requests"]').click();
+    // No search button in the header at desktop width — ⌘F is the way in.
+    await expect(page.locator('button[aria-label="Search merge requests"]')).not.toBeAttached();
+    await page.keyboard.press('Control+f');
     await expect(page.locator('.mr-list-page-content > .search-bar')).toBeVisible();
   });
 });

@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useHotkey, parseHotkey } from '@tanstack/react-hotkeys';
 import { MRList } from '../components/MRList';
-import type { MRListHandle } from '../components/MRList';
+import type { MRListHandle, MrTab, MrTabCounts } from '../components/MRList';
 import type { MergeRequest } from '../types';
 import { useSmallScreen } from '../hooks/useSmallScreen';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
@@ -25,7 +25,7 @@ import { manualSyncAndWait } from '../services/storage';
 import { ShortcutBar } from '../components/ShortcutBar';
 import type { ShortcutDef } from '../components/ShortcutBar';
 import { PageHeader } from '../components/PageHeader';
-import { SearchIcon, CheckCircleIcon } from '../components/icons';
+import { SearchIcon } from '../components/icons';
 import './MRListPage.css';
 
 const defaultShortcuts: ShortcutDef[] = [
@@ -39,6 +39,13 @@ const searchShortcuts: ShortcutDef[] = [
   { key: '↑/↓', label: 'navigate' },
   { key: 'Enter', label: 'open' },
   { key: 'Esc', label: 'close search' },
+];
+
+/** The status tabs, in display order, mapped to their count field. */
+const STATUS_TABS: { id: MrTab; label: string; countKey: keyof MrTabCounts }[] = [
+  { id: 'needs-review', label: 'Needs review', countKey: 'needsReview' },
+  { id: 'approved', label: 'Approved', countKey: 'approved' },
+  { id: 'snoozed', label: 'Snoozed', countKey: 'snoozed' },
 ];
 
 /**
@@ -55,16 +62,16 @@ export default function MRListPage() {
   useCondensedModeAnnouncement();
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
   const [mrs, setMrs] = useState<MergeRequest[]>([]);
-  const [showApproved, setShowApproved] = useState(false);
+  const [activeTab, setActiveTab] = useState<MrTab>('needs-review');
+  const [tabCounts, setTabCounts] = useState<MrTabCounts>({ needsReview: 0, approved: 0, snoozed: 0 });
   const [syncing, setSyncing] = useState(false);
   const isSmallScreen = useSmallScreen();
   const mrListRef = useRef<MRListHandle>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
-  const [showSnoozed, setShowSnoozed] = useState(false);
   const [snoozeMenuMrId, setSnoozeMenuMrId] = useState<number | null>(null);
   const { unsnooze } = useSnoozeMRMutation();
 
-  // Shift+H toggles approved MR visibility
+  // Shift+H jumps to the Approved tab (and back to Needs review).
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (
@@ -73,7 +80,7 @@ export default function MRListPage() {
       ) return;
       if (e.shiftKey && e.key === 'H') {
         e.preventDefault();
-        setShowApproved(v => !v);
+        setActiveTab(t => (t === 'approved' ? 'needs-review' : 'approved'));
       }
     }
     window.addEventListener('keydown', handleKeyDown);
@@ -90,9 +97,13 @@ export default function MRListPage() {
     query,
     isSearchOpen,
     setQuery,
-    openSearch,
     closeSearch,
   } = useListSearch({ items: [] as MergeRequest[], getSearchableText: () => [] });
+
+  // A live filter spans every status, so the tabs stop filtering and become a
+  // read-only breakdown of where the matches are. Touch screens keep the bar
+  // revealed without an "open" flag, so a non-empty query is the only signal.
+  const filtering = (isSmallScreen || isSearchOpen) && query.trim().length > 0;
 
   // Track filtered counts from MRList
   const handleFilteredCountChange = useCallback((counts: { filtered: number; total: number }) => {
@@ -101,18 +112,13 @@ export default function MRListPage() {
 
   // On small screens the search bar lives collapsed inside the list; the
   // header button reveals it AND focuses it (the only path that may open the
-  // keyboard — pull-revealing never focuses).
+  // keyboard — pull-revealing never focuses). Focus goes first, inside the tap
+  // gesture, so iOS actually opens the keyboard; preventScroll keeps the
+  // browser from jump-cutting past the smooth reveal.
   const handleHeaderSearch = useCallback(() => {
-    if (isSmallScreen) {
-      // Focus first, inside the tap gesture, so iOS actually opens the
-      // keyboard; preventScroll keeps the browser from jump-cutting past the
-      // smooth reveal.
-      mobileSearchInputRef.current?.focus({ preventScroll: true });
-      mrListRef.current?.revealSearch();
-    } else {
-      openSearch();
-    }
-  }, [isSmallScreen, openSearch]);
+    mobileSearchInputRef.current?.focus({ preventScroll: true });
+    mrListRef.current?.revealSearch();
+  }, []);
 
   const closeMobileSearch = useCallback(() => {
     setQuery('');
@@ -134,7 +140,7 @@ export default function MRListPage() {
 
   // Compute filtered MRs in parent for correct selection during search
   const filteredMrs = useMemo(() => {
-    if (!isSearchOpen || !query?.trim()) return mrs;
+    if (!filtering) return mrs;
     const q = query.toLowerCase();
     return mrs.filter((mr) => {
       const title = mr.title?.toLowerCase() ?? '';
@@ -142,10 +148,15 @@ export default function MRListPage() {
       const project = mr.projectName?.toLowerCase() ?? '';
       return title.includes(q) || author.includes(q) || project.includes(q);
     });
-  }, [mrs, query, isSearchOpen]);
+  }, [mrs, query, filtering]);
 
   const filteredMrsRef = useRef(filteredMrs);
   filteredMrsRef.current = filteredMrs;
+
+  // Keep the active tab in a ref so the (rarely-changing) navigate callbacks
+  // below don't need to be recreated every time the user switches tabs.
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
 
   // Handle Enter to open selected MR
   const handleSelectByIndex = useCallback(
@@ -153,14 +164,14 @@ export default function MRListPage() {
       const list = filteredMrsRef.current;
       const mr = list[index];
       if (mr) {
-        navigate(`/mrs/${mr.id}`);
+        navigate(`/mrs/${mr.id}`, { state: { fromTab: activeTabRef.current } });
       }
     },
     [navigate]
   );
 
   // Use filtered count for keyboard nav when search is active
-  const navItemCount = isSearchOpen && query ? filteredMrs.length : mrs.length;
+  const navItemCount = filtering ? filteredMrs.length : mrs.length;
 
   // Keyboard navigation hook
   const { focusIndex, setFocusIndex, moveNext, movePrev, selectFocused } = useKeyboardNav({
@@ -173,7 +184,7 @@ export default function MRListPage() {
   // `Shift+Z` toggles snoozed visibility.
   const { getKey } = useShortcuts();
   useHotkey(parseHotkey(getKey('toggle-snoozed') ?? 'Shift+Z'), () => {
-    setShowSnoozed(v => !v);
+    setActiveTab(t => (t === 'snoozed' ? 'needs-review' : 'snoozed'));
   });
   useHotkey(parseHotkey(getKey('snooze-mr') ?? 'z'), () => {
     const mr = filteredMrsRef.current[focusIndex];
@@ -192,19 +203,26 @@ export default function MRListPage() {
     }
   }, [query, isSearchOpen, setFocusIndex]);
 
-  // Reset focus to first item when returning from MR detail with Escape
+  // Restore focus/tab state when returning from MR detail. `tab` re-selects
+  // whichever status tab the MR was opened from — otherwise every detail
+  // visit would bounce the user back to "Needs review" on the way out.
   useEffect(() => {
-    if ((location.state as { focusLatest?: boolean })?.focusLatest) {
+    const state = location.state as { focusLatest?: boolean; tab?: MrTab } | null;
+    if (!state) return;
+    if (state.focusLatest) {
       setFocusIndex(0);
-      // Clear state to prevent re-triggering
-      window.history.replaceState({}, '');
     }
+    if (state.tab) {
+      setActiveTab(state.tab);
+    }
+    // Clear state to prevent re-triggering
+    window.history.replaceState({}, '');
   }, [location.state, setFocusIndex]);
 
   // Handle MR click from list
   const handleSelectMR = useCallback(
     (mr: MergeRequest) => {
-      navigate(`/mrs/${mr.id}`);
+      navigate(`/mrs/${mr.id}`, { state: { fromTab: activeTabRef.current } });
     },
     [navigate]
   );
@@ -235,11 +253,42 @@ export default function MRListPage() {
 
   return (
     <div className="mr-list-page">
-      <PageHeader
-        title="Merge Requests"
-        refreshing={syncing}
-        actions={
-          <>
+      <PageHeader title="Merge Requests" refreshing={syncing} />
+
+      <div className="mr-status-bar">
+        <nav
+          className={`mr-tabs${filtering ? ' mr-tabs--filtering' : ''}`}
+          role="tablist"
+          aria-label={filtering ? 'Matches per status' : 'Merge request status'}
+        >
+          {STATUS_TABS.map((tab) => {
+            const active = activeTab === tab.id;
+            const count = tabCounts[tab.countKey];
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                disabled={filtering}
+                title={filtering ? `${count} matching ${tab.label.toLowerCase()}` : undefined}
+                className={`mr-tab${active && !filtering ? ' mr-tab--active' : ''}`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                {tab.label}
+                <span
+                  className={`mr-tab-count${filtering && count > 0 ? ' mr-tab-count--match' : ''}`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </nav>
+        <div className="mr-status-bar-controls">
+          {/* Touch only — on pointer screens ⌘F is the way in, advertised by
+              the shortcut bar at the foot of the page. */}
+          {isSmallScreen && (
             <button
               type="button"
               className="header-search-button"
@@ -248,43 +297,14 @@ export default function MRListPage() {
             >
               <SearchIcon size={16} />
             </button>
-            <InstanceSwitcher
-              instances={instances}
-              selectedId={selectedInstanceId}
-              onSelect={setSelectedInstanceId}
-            />
-            <div className="approved-toggle-wrapper">
-              <button
-                className={`approved-toggle-button${showApproved ? ' approved-toggle-button--active' : ''}`}
-                onClick={() => setShowApproved(v => !v)}
-                aria-label={showApproved ? 'Hide approved merge requests' : 'Show approved merge requests'}
-              >
-                <CheckCircleIcon size={16} />
-                <span className="approved-toggle-popover">
-                  <span className="approved-toggle-popover-shortcut"><kbd>Shift</kbd>+<kbd>H</kbd></span>
-                  <span>{showApproved ? 'Hide approved' : 'Show approved'}</span>
-                </span>
-              </button>
-            </div>
-            <div className="approved-toggle-wrapper">
-              <button
-                className={`approved-toggle-button${showSnoozed ? ' approved-toggle-button--active' : ''}`}
-                onClick={() => setShowSnoozed(v => !v)}
-                aria-label={showSnoozed ? 'Hide snoozed merge requests' : 'Show snoozed merge requests'}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 16 14" />
-                </svg>
-                <span className="approved-toggle-popover">
-                  <span className="approved-toggle-popover-shortcut"><kbd>Shift</kbd>+<kbd>Z</kbd></span>
-                  <span>{showSnoozed ? 'Hide snoozed' : 'Show snoozed'}</span>
-                </span>
-              </button>
-            </div>
-          </>
-        }
-      />
+          )}
+          <InstanceSwitcher
+            instances={instances}
+            selectedId={selectedInstanceId}
+            onSelect={setSelectedInstanceId}
+          />
+        </div>
+      </div>
 
       <main className="mr-list-page-content" data-tour="mr-list">
         {!isSmallScreen && isSearchOpen && (
@@ -309,10 +329,9 @@ export default function MRListPage() {
             onMRsLoaded={handleMRsLoaded}
             filterQuery={isSmallScreen ? query : isSearchOpen ? query : undefined}
             onFilteredCountChange={handleFilteredCountChange}
-            showApproved={showApproved}
-            onToggleApproved={() => setShowApproved(v => !v)}
-            showSnoozed={showSnoozed}
-            onToggleSnoozed={() => setShowSnoozed(v => !v)}
+            activeTab={activeTab}
+            onSelectTab={setActiveTab}
+            onCountsChange={setTabCounts}
             snoozeMenuMrId={snoozeMenuMrId}
             onSnoozeMenuChange={setSnoozeMenuMrId}
             condensed={condensed}

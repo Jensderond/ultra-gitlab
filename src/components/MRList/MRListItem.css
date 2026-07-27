@@ -281,16 +281,12 @@
 }
 
 /* ================================================
-   USER-APPROVED STATE — Dimmed to de-emphasize
+   USER-APPROVED STATE
    ================================================ */
 
-.mr-list-item.user-approved {
-  opacity: 0.5;
-}
-
-.mr-list-item.user-approved:hover {
-  opacity: 0.75;
-}
+/* Approved rows used to be dimmed to push them down the page. The status tabs
+   do that job now — and a filter spans every tab, so a dimmed match would read
+   as disabled rather than as done. The approval badge carries the state. */
 
 .approval-user-approved {
   background: var(--success-light);
@@ -551,6 +547,5 @@
   background: var(--warning-light);
 }
 
-.mr-list-item.snoozed {
-  opacity: 0.65;
-}
+/* Snoozed rows aren't dimmed either — same reasoning as approved above. The
+   snoozed badge and its "until" time carry the state. */

@@ -5,8 +5,9 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import type { ApprovalButtonRef } from '../../components/Approval';
+import type { MrTab } from '../../components/MRList';
 import { CommentOverlay, type CommentOverlayRef } from '../../components/CommentOverlay';
 import { ActivityDrawer, ActivityFeed, CommentInput } from '../../components/ActivityDrawer';
 import { useActivityData } from '../../hooks/useActivityData';
@@ -38,7 +39,11 @@ interface MRDetailPageProps {
 export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const mrId = parseInt(id || '0', 10);
+  // Which status tab the list was showing when this MR was opened — threaded
+  // back on every "return to list" navigation so the tab bar doesn't reset.
+  const fromTab = (location.state as { fromTab?: MrTab } | null)?.fromTab;
 
   const approvalButtonRef = useRef<ApprovalButtonRef>(null);
   const commentOverlayRef = useRef<CommentOverlayRef>(null);
@@ -198,7 +203,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     onMarkViewedAndNext: markViewedAndNext,
     onToggleHideGenerated: () => dispatch({ type: 'TOGGLE_HIDE_GENERATED' }),
     onCopyLink: copyToClipboard,
-    onEscapeBack: () => navigate('/mrs', { replace: true, state: { focusLatest: true } }),
+    onEscapeBack: () => navigate('/mrs', { replace: true, state: { focusLatest: true, tab: fromTab } }),
   });
 
   if (loading) {
@@ -214,7 +219,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
       <div className="mr-detail-page">
         <div className="mr-detail-error">
           <p>{error || 'Merge request not found'}</p>
-          <button onClick={() => navigate('/mrs', { replace: true })}>Back to list</button>
+          <button onClick={() => navigate('/mrs', { replace: true, state: { tab: fromTab } })}>Back to list</button>
         </div>
       </div>
     );
@@ -235,7 +240,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
                 Open in GitLab
               </button>
             )}
-            <button className="mr-state-banner-btn" onClick={() => navigate('/mrs', { replace: true })}>
+            <button className="mr-state-banner-btn" onClick={() => navigate('/mrs', { replace: true, state: { tab: fromTab } })}>
               Back to list
             </button>
           </div>
@@ -252,7 +257,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         onToggleMobileSidebar={() => dispatch({ type: 'TOGGLE_MOBILE_SIDEBAR' })}
         onApproved={(trigger) => {
           trackMRApproved(mrId, Math.round((Date.now() - mrEnteredAtRef.current) / 1000), trigger);
-          navigate('/mrs', { replace: true });
+          navigate('/mrs', { replace: true, state: { tab: fromTab } });
         }}
         onUnapproved={(trigger) => trackMRUnapproved(mrId, trigger)}
         hideApproval={isMergedOrClosed}
@@ -344,7 +349,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         approvalButtonRef={approvalButtonRef}
         onApproved={(trigger) => {
           trackMRApproved(mrId, Math.round((Date.now() - mrEnteredAtRef.current) / 1000), trigger);
-          navigate('/mrs', { replace: true });
+          navigate('/mrs', { replace: true, state: { tab: fromTab } });
         }}
         onUnapproved={(trigger) => trackMRUnapproved(mrId, trigger)}
         hideApproval={isMergedOrClosed}

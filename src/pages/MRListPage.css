@@ -85,115 +85,135 @@
   background: var(--overlay-glass);
 }
 
-/* Wrapper provides positioning context for the popover */
-.approved-toggle-wrapper {
+/* ================================================
+   STATUS BAR — tabbed status nav + list controls
+   ================================================ */
+
+/* Sits directly under the page header: status tabs on the left, search +
+   workspace controls on the right. Bracketed by the header's hairline above
+   and its own hairline below so the toolbar reads as one distinct band. */
+.mr-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 48px;
+  padding: 0 32px;
+  flex-shrink: 0;
   position: relative;
+  z-index: 5;
+  box-shadow: inset 0 -1px 0 var(--border-color);
 }
 
-/* Approved toggle button — mirrors refresh-button style */
-.approved-toggle-button {
-  display: inline-flex;
+.mr-tabs {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* Quiet segmented tabs — the active tab is a soft fill, not a glowing accent,
+   matching the app's restrained active-state treatment elsewhere. */
+.mr-tab {
+  display: inline-flex;
+  /* baseline, not center — the label (Noto Sans JP) and count (IBM Plex
+     Mono) sit at different sizes/metrics, so centering their line boxes
+     never lines up; matches .settings-rail-item's label+value convention. */
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 12px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   color: var(--text-tertiary);
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
+  border: none;
+  border-radius: 7px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
+  white-space: nowrap;
+  box-shadow: none;
+  transition: color 0.18s ease, background 0.18s ease;
 }
 
-.approved-toggle-button:hover {
-  color: var(--accent-color);
-  border-color: var(--border-color);
+/* Overrides the global button:hover glow (App.css) — these tabs stay flat,
+   never a raised/blurred card, even on hover. */
+.mr-tab:hover {
+  color: var(--text-secondary);
+  background: var(--overlay-glass);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.mr-tab--active {
+  color: var(--text-primary);
   background: var(--overlay-glass);
 }
 
-.approved-toggle-button:focus {
+.mr-tab:focus-visible {
   outline: none;
-  border-color: var(--accent-color);
   box-shadow: 0 0 0 2px var(--wave-glow);
 }
 
-.approved-toggle-button--active {
-  color: var(--accent-color);
-  border-color: var(--wave-glow-strong);
-  background: var(--wave-glow);
-  box-shadow: 0 0 8px var(--wave-glow);
-}
-
-.approved-toggle-button--active:hover {
-  background: var(--wave-glow-strong);
-  box-shadow: 0 0 14px var(--wave-glow);
-}
-
-/* Hover popover — appears below the button */
-.approved-toggle-popover {
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  white-space: nowrap;
-  padding: 7px 12px;
-  font-family: 'Noto Sans JP', sans-serif;
+/* Count badge — mono digits, tuned so a zero recedes and the active tab's
+   count reads as the emphasized one. */
+.mr-tab-count {
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
-  font-weight: 400;
-  color: var(--text-secondary);
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-  gap: 5px;
-  z-index: 100;
-  pointer-events: none;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text-muted);
+  transition: color 0.18s ease;
 }
 
-/* Arrow pointing up */
-.approved-toggle-popover::before {
-  content: '';
-  position: absolute;
-  top: -5px;
-  right: 9px;
-  width: 8px;
-  height: 8px;
-  background: var(--bg-tertiary);
-  border-left: 1px solid var(--border-color);
-  border-top: 1px solid var(--border-color);
-  transform: rotate(45deg);
+.mr-tab--active .mr-tab-count {
+  color: var(--accent-color);
 }
 
-/* Only devices with a real hover state (mouse/trackpad) get the tooltip —
-   on touch there's no way to "unhover", so it would just stick open after a tap. */
-@media (hover: hover) and (pointer: fine) {
-  .approved-toggle-button:hover .approved-toggle-popover {
-    display: flex;
-  }
+/* While a filter is running it searches every status at once, so the tabs stop
+   acting as a filter and read as a breakdown: no active fill, no hover, and
+   the accent moves onto whichever counts actually hold matches. */
+.mr-tabs--filtering .mr-tab,
+.mr-tabs--filtering .mr-tab:hover {
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: default;
+  opacity: 1;
 }
 
-.approved-toggle-popover-shortcut {
+.mr-tab-count--match {
+  color: var(--accent-color);
+}
+
+.mr-status-bar-controls {
   display: flex;
   align-items: center;
-  gap: 3px;
-  color: var(--text-muted);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
-.approved-toggle-popover kbd {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  color: var(--text-tertiary);
-  background: var(--overlay-glass);
-  border: 1px solid var(--overlay-divider);
-  border-bottom-width: 2px;
-  border-radius: 4px;
-  padding: 1px 5px;
+@media (max-width: 767px) {
+  .mr-status-bar {
+    height: 44px;
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  /* Let the tabs scroll horizontally rather than crowd the controls. */
+  .mr-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .mr-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mr-tab {
+    padding: 5px 9px;
+    font-size: 12px;
+    gap: 6px;
+  }
 }
 
 /* Instance selector — minimal, inline with header */

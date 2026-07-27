@@ -23,6 +23,15 @@ import './MRList.css';
 const SYNCING_INDICATOR_DELAY_MS = 350;
 const UPDATED_INDICATOR_DURATION_MS = 2000;
 
+/** The three mutually-exclusive status views a merge request can fall into. */
+export type MrTab = 'needs-review' | 'approved' | 'snoozed';
+
+export interface MrTabCounts {
+  needsReview: number;
+  approved: number;
+  snoozed: number;
+}
+
 /**
  * Format a timestamp as relative time string.
  */
@@ -51,14 +60,12 @@ interface MRListProps {
   filterQuery?: string;
   /** Callback when filtered/total counts change */
   onFilteredCountChange?: (counts: { filtered: number; total: number }) => void;
-  /** When true, show MRs the user has already approved (hidden by default) */
-  showApproved?: boolean;
-  /** Callback to toggle the showApproved filter */
-  onToggleApproved?: () => void;
-  /** When true, show snoozed MRs (hidden by default) */
-  showSnoozed?: boolean;
-  /** Callback to toggle the showSnoozed filter */
-  onToggleSnoozed?: () => void;
+  /** Which status tab is active — selects which category of MRs to display. */
+  activeTab?: MrTab;
+  /** Switch the active status tab (used by the empty-state shortcut buttons). */
+  onSelectTab?: (tab: MrTab) => void;
+  /** Reports the per-category counts so the page can render the tab badges. */
+  onCountsChange?: (counts: MrTabCounts) => void;
   /** MR id whose snooze preset menu is open (controlled by the page for the `z` shortcut) */
   snoozeMenuMrId?: number | null;
   /** Open (id) or close (null) the snooze preset menu */
@@ -95,10 +102,9 @@ export default function MRList({
   onMRsLoaded,
   filterQuery,
   onFilteredCountChange,
-  showApproved = false,
-  onToggleApproved,
-  showSnoozed = false,
-  onToggleSnoozed,
+  activeTab = 'needs-review',
+  onSelectTab,
+  onCountsChange,
   snoozeMenuMrId = null,
   onSnoozeMenuChange,
   condensed = false,
@@ -153,42 +159,91 @@ export default function MRList({
   const syncingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Apply showApproved, then showSnoozed filters to query data
-  const afterApproved = useMemo(() => {
+  // Partition the fetched MRs into the three mutually-exclusive status
+  // categories. Approval wins over snooze: an approved MR is never counted
+  // as snoozed (snoozing is hidden on approved MRs anyway).
+  const categories = useMemo(() => {
     const data = query.data ?? [];
-    return showApproved ? data : data.filter(mr => !mr.userHasApproved);
-  }, [query.data, showApproved]);
+    const needsReview: MergeRequest[] = [];
+    const approved: MergeRequest[] = [];
+    const snoozed: MergeRequest[] = [];
+    for (const mr of data) {
+      if (mr.userHasApproved) approved.push(mr);
+      else if (isSnoozed(mr)) snoozed.push(mr);
+      else needsReview.push(mr);
+    }
+    return { needsReview, approved, snoozed };
+  }, [query.data]);
 
-  const mrs = useMemo(
-    () => (showSnoozed ? afterApproved : afterApproved.filter(mr => !isSnoozed(mr))),
-    [afterApproved, showSnoozed]
-  );
+  const mrs =
+    activeTab === 'approved'
+      ? categories.approved
+      : activeTab === 'snoozed'
+        ? categories.snoozed
+        : categories.needsReview;
 
-  const totalFetched = query.data?.length ?? 0;
-  const approvedCount = totalFetched - afterApproved.length;
-  const snoozedCount = afterApproved.length - mrs.length;
+  const approvedCount = categories.approved.length;
+  const snoozedCount = categories.snoozed.length;
 
-  // Filter MRs by search query
-  const filteredMrs = useMemo(() => {
-    if (!filterQuery?.trim()) return mrs;
-    const q = filterQuery.toLowerCase();
-    return mrs.filter((mr) => {
+  const q = filterQuery?.trim().toLowerCase() ?? '';
+  const filtering = q.length > 0;
+
+  const matchesQuery = useCallback(
+    (mr: MergeRequest) => {
+      if (!q) return true;
       const title = mr.title?.toLowerCase() ?? '';
       const author = mr.authorUsername?.toLowerCase() ?? '';
       const project = mr.projectName?.toLowerCase() ?? '';
       return title.includes(q) || author.includes(q) || project.includes(q);
-    });
-  }, [mrs, filterQuery]);
+    },
+    [q],
+  );
+
+  // Filtering suspends the tab selection and searches every status at once —
+  // a match sitting one tab over is exactly what the filter is meant to
+  // surface, not hide. Order stays needs review → approved → snoozed.
+  const scope = useMemo(
+    () =>
+      filtering
+        ? [...categories.needsReview, ...categories.approved, ...categories.snoozed]
+        : mrs,
+    [filtering, categories, mrs],
+  );
+
+  const filteredMrs = useMemo(() => scope.filter(matchesQuery), [scope, matchesQuery]);
+
+  // Surface the counts the status tabs are labelled with. While filtering they
+  // become per-tab match counts, so the tabs read as a breakdown of where the
+  // results live rather than as a filter that's being ignored.
+  const tabCounts = useMemo(
+    () => ({
+      needsReview: filtering
+        ? categories.needsReview.filter(matchesQuery).length
+        : categories.needsReview.length,
+      approved: filtering
+        ? categories.approved.filter(matchesQuery).length
+        : categories.approved.length,
+      snoozed: filtering
+        ? categories.snoozed.filter(matchesQuery).length
+        : categories.snoozed.length,
+    }),
+    [filtering, categories, matchesQuery],
+  );
+
+  useEffect(() => {
+    onCountsChange?.(tabCounts);
+  }, [tabCounts, onCountsChange]);
 
   // Report filtered counts to parent
   useEffect(() => {
-    onFilteredCountChange?.({ filtered: filteredMrs.length, total: mrs.length });
-  }, [filteredMrs.length, mrs.length, onFilteredCountChange]);
+    onFilteredCountChange?.({ filtered: filteredMrs.length, total: scope.length });
+  }, [filteredMrs.length, scope.length, onFilteredCountChange]);
 
-  // Notify parent when MRs change
+  // Notify parent when MRs change. Sends the search scope, not the tab, so the
+  // page's keyboard navigation walks the same rows the list renders.
   useEffect(() => {
-    onMRsLoaded?.(mrs);
-  }, [mrs, onMRsLoaded]);
+    onMRsLoaded?.(scope);
+  }, [scope, onMRsLoaded]);
 
   // Track previous query data to detect new MRs
   const previousDataRef = useRef<MergeRequest[]>([]);
@@ -294,7 +349,7 @@ export default function MRList({
   const error = query.error instanceof Error ? query.error.message : query.error ? 'Failed to load merge requests' : null;
 
   // Render loading state (foreground — first load with no data)
-  if (query.isLoading && mrs.length === 0) {
+  if (query.isLoading && scope.length === 0) {
     return (
       <div className="mr-list-loading">
         <span>Loading merge requests...</span>
@@ -303,7 +358,7 @@ export default function MRList({
   }
 
   // Render error state
-  if (error && mrs.length === 0) {
+  if (error && scope.length === 0) {
     return (
       <div className="mr-list-error">
         <span>{error}</span>
@@ -322,39 +377,20 @@ export default function MRList({
         )}
         <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} />
         <div className={`mr-list-rows${searchSlot != null ? ' mr-list-rows--fill' : ''}`}>
-          {mrs.length === 0 ? (
-            <div className="mr-list-empty">
-              <p>
-                {(!showApproved && approvedCount > 0) || (!showSnoozed && snoozedCount > 0)
-                  ? "You're all caught up"
-                  : 'No open merge requests'}
-              </p>
-              <span className="mr-list-empty-hint">
-                {(!showApproved && approvedCount > 0) || (!showSnoozed && snoozedCount > 0)
-                  ? 'There are no merge requests waiting for your review.'
-                  : isSmallScreen
-                  ? 'Pull down to refresh'
-                  : 'Sync with GitLab to fetch merge requests'}
-              </span>
-              {!showApproved && approvedCount > 0 && (
-                <button className="mr-list-approved-banner" onClick={onToggleApproved}>
-                  <CheckCircleIcon size={14} />
-                  View {approvedCount} approved {approvedCount === 1 ? 'MR' : 'MRs'}
-                </button>
-              )}
-              {!showSnoozed && snoozedCount > 0 && (
-                <button className="mr-list-approved-banner" onClick={onToggleSnoozed}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 16 14" />
-                  </svg>
-                  View {snoozedCount} snoozed {snoozedCount === 1 ? 'MR' : 'MRs'}
-                </button>
-              )}
-            </div>
+          {scope.length === 0 ? (
+            <EmptyState
+              activeTab={activeTab}
+              approvedCount={approvedCount}
+              snoozedCount={snoozedCount}
+              isSmallScreen={isSmallScreen}
+              onSelectTab={onSelectTab}
+            />
           ) : filteredMrs.length === 0 ? (
             <div className="mr-list-empty">
-              <p>No merge requests match your search</p>
+              <p>No merge requests match “{filterQuery}”</p>
+              <p className="mr-list-empty-hint">
+                Searched needs review, approved, and snoozed.
+              </p>
             </div>
           ) : (
             filteredMrs.map((mr, index) => (
@@ -376,27 +412,6 @@ export default function MRList({
                 onUnsnooze={() => unsnooze.mutate({ mrId: mr.id })}
               />
             ))
-          )}
-          {!showApproved && approvedCount > 0 && mrs.length > 0 && (
-            <button
-              className="mr-list-approved-banner"
-              onClick={onToggleApproved}
-            >
-              <CheckCircleIcon size={14} />
-              {approvedCount} approved {approvedCount === 1 ? 'MR' : 'MRs'} hidden
-            </button>
-          )}
-          {!showSnoozed && snoozedCount > 0 && mrs.length > 0 && (
-            <button
-              className="mr-list-approved-banner"
-              onClick={onToggleSnoozed}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-              {snoozedCount} snoozed {snoozedCount === 1 ? 'MR' : 'MRs'} hidden
-            </button>
           )}
         </div>
       </div>
@@ -426,6 +441,73 @@ export default function MRList({
             </>
           )}
         </span>
+      </div>
+    </div>
+  );
+}
+
+interface EmptyStateProps {
+  activeTab: MrTab;
+  approvedCount: number;
+  snoozedCount: number;
+  isSmallScreen: boolean;
+  onSelectTab?: (tab: MrTab) => void;
+}
+
+/**
+ * The list's empty state, phrased per active tab. On "Needs review" it becomes
+ * a caught-up message with shortcuts into whichever other tabs still hold work.
+ */
+function EmptyState({ activeTab, approvedCount, snoozedCount, isSmallScreen, onSelectTab }: EmptyStateProps) {
+  if (activeTab === 'approved') {
+    return (
+      <div className="mr-list-empty">
+        <p>No approved merge requests</p>
+        <span className="mr-list-empty-hint">Merge requests you've approved will show up here.</span>
+      </div>
+    );
+  }
+
+  if (activeTab === 'snoozed') {
+    return (
+      <div className="mr-list-empty">
+        <p>Nothing snoozed</p>
+        <span className="mr-list-empty-hint">Snooze a merge request to set it aside and check back later.</span>
+      </div>
+    );
+  }
+
+  const hasElsewhere = approvedCount > 0 || snoozedCount > 0;
+
+  if (!hasElsewhere) {
+    return (
+      <div className="mr-list-empty">
+        <p>No open merge requests</p>
+        <span className="mr-list-empty-hint">
+          {isSmallScreen ? 'Pull down to refresh' : 'Sync with GitLab to fetch merge requests'}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mr-list-empty">
+      <span className="mr-list-empty-icon">
+        <CheckCircleIcon size={40} />
+      </span>
+      <p>You're all caught up</p>
+      <span className="mr-list-empty-hint">No merge requests currently need your review.</span>
+      <div className="mr-list-empty-actions">
+        {approvedCount > 0 && (
+          <button className="mr-list-empty-button" onClick={() => onSelectTab?.('approved')}>
+            View approved
+          </button>
+        )}
+        {snoozedCount > 0 && (
+          <button className="mr-list-empty-button" onClick={() => onSelectTab?.('snoozed')}>
+            Review snoozed
+          </button>
+        )}
       </div>
     </div>
   );
