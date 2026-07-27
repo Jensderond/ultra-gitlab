@@ -8,7 +8,15 @@ import type { IssueWithProject } from '../../types';
 import UserAvatar from '../UserAvatar/UserAvatar';
 import HighlightText from '../HighlightText/HighlightText';
 import { StarIcon } from '../icons';
+import { splitProjectName } from '../../lib/projectName';
 import './IssueListItem.css';
+
+/**
+ * Root group hidden from the label outright rather than just dimmed — the one
+ * local convention here. Every other group still shows, so an instance that
+ * doesn't use this layout loses nothing.
+ */
+const HIDDEN_ROOT_GROUP = /^customers$/i;
 
 interface IssueListItemProps {
   issue: IssueWithProject;
@@ -52,10 +60,16 @@ const IssueListItem = forwardRef<HTMLDivElement, IssueListItemProps>(function Is
     }
   }, [issue.assigneeUsernames]);
 
-  const projectLabel =
+  // The leading group is shared by nearly every project, so a filter never
+  // matches it (see lib/projectName). It's still shown — dimmed, so the row
+  // reads as "this part isn't what you searched" — unless it's the one root
+  // group that's on literally every row.
+  const { namespace, rest: projectLabel } = splitProjectName(
     issue.projectCustomName && issue.projectCustomName.trim().length > 0
       ? issue.projectCustomName
-      : issue.projectNameWithNamespace ?? '';
+      : issue.projectNameWithNamespace,
+  );
+  const projectNamespace = HIDDEN_ROOT_GROUP.test(namespace) ? '' : namespace;
 
   const projectOriginal = issue.projectNameWithNamespace ?? issue.projectPathWithNamespace ?? '';
   const projectTooltip =
@@ -94,6 +108,9 @@ const IssueListItem = forwardRef<HTMLDivElement, IssueListItemProps>(function Is
           <span className="issue-iid">#{issue.iid}</span>
           {projectLabel && (
             <span className="issue-project" title={projectTooltip}>
+              {projectNamespace && (
+                <span className="issue-project-namespace">{projectNamespace} / </span>
+              )}
               {highlightQuery ? (
                 <HighlightText text={projectLabel} query={highlightQuery} />
               ) : (

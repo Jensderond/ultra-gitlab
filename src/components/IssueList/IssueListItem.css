@@ -147,6 +147,12 @@
   max-width: 220px;
 }
 
+/* The leading group never matches a filter, so it recedes behind the part
+   that does. */
+.issue-project-namespace {
+  color: var(--text-muted);
+}
+
 .issue-project-star {
   font-size: 10px;
   color: var(--warning-color, #e6c07b);
