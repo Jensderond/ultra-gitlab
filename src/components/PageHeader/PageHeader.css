@@ -44,6 +44,18 @@
   align-items: center;
   gap: 16px;
   line-height: 1;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+/* The title truncates only after the meta slot has given up all its space
+   (see the shrink weights below) — a long job name must not push the
+   actions out of the bar. */
+.page-header-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Room for descenders; the header height is fixed, so this shifts nothing. */
+  line-height: 1.25;
 }
 
 .page-header h1::before {
@@ -64,6 +76,17 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+}
+
+/* Secondary context beside the title — it, not the title, gives up space. */
+.page-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  overflow: hidden;
+  flex-shrink: 100;
 }
 
 .page-header-actions {

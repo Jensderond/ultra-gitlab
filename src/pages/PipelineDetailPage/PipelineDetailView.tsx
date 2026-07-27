@@ -57,6 +57,7 @@ export default function PipelineDetailView({
   const {
     jobs,
     loading,
+    refreshing,
     error,
     actionLoading,
     pipelineStatus,
@@ -147,6 +148,7 @@ export default function PipelineDetailView({
         pipelineRef={pipelineRef}
         pipelineWebUrl={pipelineWebUrl}
         onRefresh={refresh}
+        refreshing={refreshing}
         onBack={showBackButton ? onClose : undefined}
         backTitle={backTitle}
       />

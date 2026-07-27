@@ -14,6 +14,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { List, useDynamicRowHeight, useListCallbackRef } from 'react-window';
 import type { RowComponentProps } from 'react-window';
 import BackButton from '../components/BackButton';
+import { PageHeader } from '../components/PageHeader';
 import { openExternalUrl } from '../services/transport';
 import { trackShortcut } from '../services/analytics';
 import { parseLog, formatSectionName } from '../utils/logLineParser';
@@ -23,6 +24,7 @@ import type { PipelineJobStatus } from '../types';
 import { useJobTraceQuery } from '../hooks/queries/useJobTraceQuery';
 import { usePipelineJobsQuery } from '../hooks/queries/usePipelineJobsQuery';
 import { useCopyToast } from '../hooks/useCopyToast';
+import { useSmallScreen } from '../hooks/useSmallScreen';
 import { CaretDownIcon } from '../components/icons';
 import './JobLogPage.css';
 
@@ -75,11 +77,28 @@ function AnsiSegments({ segments }: { segments: AnsiSegment[] }) {
   </>;
 }
 
-/** Render a single log line with line number + optional timestamp + content. */
-function LogLineRow({ line, showTimestamp }: { line: LogLine; showTimestamp?: boolean }) {
+/**
+ * Render a single log line: optional line number + optional timestamp + content.
+ *
+ * On phones both gutters are dropped (see `showGutter` at the call site) — at
+ * 390px they cost about half the line width, which forced nearly every line to
+ * wrap three or four times. The spans are omitted rather than hidden with CSS
+ * so virtualized rows stay cheap.
+ */
+function LogLineRow({
+  line,
+  showLineNumber,
+  showTimestamp,
+}: {
+  line: LogLine;
+  showLineNumber?: boolean;
+  showTimestamp?: boolean;
+}) {
   return (
     <div className="log-line">
-      <span className="log-line-number">{line.lineNumber}</span>
+      {showLineNumber && (
+        <span className="log-line-number">{line.lineNumber}</span>
+      )}
       {showTimestamp && (
         <span className="log-line-timestamp">{line.timestamp ?? ''}</span>
       )}
@@ -98,6 +117,7 @@ type LogRow =
 
 interface LogRowProps {
   rows: LogRow[];
+  showLineNumber: boolean;
   showTimestamp: boolean;
   onToggleSection: (name: string) => void;
 }
@@ -108,6 +128,7 @@ function VirtualLogRow({
   style,
   ariaAttributes,
   rows,
+  showLineNumber,
   showTimestamp,
   onToggleSection,
 }: RowComponentProps<LogRowProps>) {
@@ -133,7 +154,11 @@ function VirtualLogRow({
   }
   return (
     <div style={style} {...ariaAttributes}>
-      <LogLineRow line={row.line} showTimestamp={showTimestamp} />
+      <LogLineRow
+        line={row.line}
+        showLineNumber={showLineNumber}
+        showTimestamp={showTimestamp}
+      />
     </div>
   );
 }
@@ -166,6 +191,8 @@ export default function JobLogPage() {
   const [followMode, setFollowMode] = useState(ACTIVE_STATUSES.has(initialStatus));
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [showCopyToast, copyToClipboard] = useCopyToast();
+  // Phones drop the line-number and timestamp gutters entirely — see LogLineRow.
+  const showGutter = !useSmallScreen();
 
   const isActive = ACTIVE_STATUSES.has(currentStatus);
 
@@ -295,42 +322,28 @@ export default function JobLogPage() {
 
   return (
     <div className="job-log-page">
-      <header className="job-log-header">
-        <div className="job-log-header-left">
-          <BackButton to={backUrl} title="Back to pipeline" />
-          <div className="job-log-title-group">
-            <h1>
-              {jobName}
-              <span className={`pipeline-badge pipeline-badge--${currentStatus}`}>
-                {currentStatus === 'running' && <span className="pipeline-badge-pulse" />}
-                {jobStatusLabel(currentStatus)}
+      <PageHeader
+        title={jobName}
+        leading={<BackButton to={backUrl} title="Back to pipeline" />}
+        meta={
+          <>
+            <span className={`pipeline-badge pipeline-badge--${currentStatus}`}>
+              {currentStatus === 'running' && <span className="pipeline-badge-pulse" />}
+              {jobStatusLabel(currentStatus)}
+            </span>
+            {isActive && (
+              <span className="job-log-live-badge">
+                <span className="job-log-live-pulse" />
+                Live
               </span>
-              {isActive && (
-                <span className="job-log-live-badge">
-                  <span className="job-log-live-pulse" />
-                  Live
-                </span>
-              )}
-            </h1>
-            <div className="job-log-meta">
-              {stage && <span className="job-log-stage">{stage}</span>}
-              {duration && (
-                <span className="job-log-duration">{formatDuration(Number(duration))}</span>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="job-log-header-right">
-          <button
-            className={`job-log-follow-btn${followMode ? ' job-log-follow-btn--active' : ''}`}
-            onClick={() => setFollowMode((prev) => !prev)}
-            title={followMode ? 'Disable auto-scroll' : 'Enable auto-scroll'}
-          >
-            <CaretDownIcon size={14} />
-            Follow
-          </button>
-        </div>
-      </header>
+            )}
+            {stage && <span className="job-log-stage">{stage}</span>}
+            {duration && (
+              <span className="job-log-duration">{formatDuration(Number(duration))}</span>
+            )}
+          </>
+        }
+      />
 
       <main className="job-log-content">
         {loading ? (
@@ -343,7 +356,7 @@ export default function JobLogPage() {
         ) : trace.length === 0 ? (
           <div className="job-log-empty">No log output for this job.</div>
         ) : (
-          <div className={`job-log-trace${parsedLog.timestamped ? ' job-log-trace--timestamped' : ''}`}>
+          <div className="job-log-trace">
             <List
               listRef={setListApi}
               rowComponent={VirtualLogRow}
@@ -351,7 +364,8 @@ export default function JobLogPage() {
               rowHeight={rowHeight}
               rowProps={{
                 rows,
-                showTimestamp: parsedLog.timestamped,
+                showLineNumber: showGutter,
+                showTimestamp: showGutter && parsedLog.timestamped,
                 onToggleSection: toggleSection,
               }}
               overscanCount={20}
@@ -359,6 +373,20 @@ export default function JobLogPage() {
           </div>
         )}
       </main>
+
+      {/* Auto-scroll toggle floats over the log instead of sitting in the
+          header — it belongs to the trace you are reading, and on phones the
+          56px header has no room for it. */}
+      <button
+        type="button"
+        className={`job-log-follow-fab${followMode ? ' job-log-follow-fab--active' : ''}`}
+        onClick={() => setFollowMode((prev) => !prev)}
+        title={followMode ? 'Disable auto-scroll' : 'Enable auto-scroll'}
+        aria-pressed={followMode}
+      >
+        <CaretDownIcon size={14} />
+        <span className="job-log-follow-label">Follow</span>
+      </button>
 
       {showCopyToast && (
         <div className="copy-toast">Link copied</div>

@@ -29,7 +29,7 @@ test.describe('Downstream pipelines (bridge/trigger jobs)', () => {
 
     // Navigated to the downstream pipeline in its own project.
     await expect(page).toHaveURL(/\/pipelines\/11\/3002\?/);
-    await expect(page.locator('.pipeline-detail-title-group h1')).toContainText('Pipeline #3002');
+    await expect(page.locator('.page-header h1')).toContainText('Pipeline #3002');
     await expect(page.getByText('build-docs')).toBeVisible();
 
     // Escape returns to the parent pipeline, not the dashboard.
@@ -51,7 +51,7 @@ test.describe('Downstream pipelines (bridge/trigger jobs)', () => {
       .click();
 
     // Dialog stays open, now showing the downstream pipeline's jobs.
-    await expect(overlay.locator('.pipeline-detail-title-group h1')).toContainText('Pipeline #3002');
+    await expect(overlay.locator('.page-header h1')).toContainText('Pipeline #3002');
     await expect(overlay.getByText('build-docs')).toBeVisible();
     await expect(page).toHaveURL(/\/my-mrs\/201$/);
   });

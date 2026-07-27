@@ -7,69 +7,12 @@
   flex-direction: column;
   height: 100%;
   background: var(--bg-primary);
-}
-
-/* Header */
-.job-log-header {
-  padding: 24px 32px 20px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  /* Positioning context for the floating Follow control. */
   position: relative;
-  z-index: 10;
-  flex-shrink: 0;
-  animation: pipelinesHeaderReveal 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.job-log-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 32px;
-  right: 32px;
-  height: 1px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    var(--border-color) 15%,
-    var(--text-muted) 50%,
-    var(--border-color) 85%,
-    transparent 100%);
-  opacity: 0.6;
-}
-
-.job-log-header-left {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  min-width: 0;
-}
-
-.job-log-title-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.job-log-title-group h1 {
-  font-family: var(--font-display, 'Inter', system-ui, sans-serif);
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  margin: 0;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  line-height: 1.2;
-}
-
-.job-log-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
+/* Header — uses the shared <PageHeader>; only the meta slot (status badge,
+   live badge, stage, duration) is local. */
 .job-log-stage {
   font-size: 12px;
   font-weight: 600;
@@ -84,20 +27,16 @@
   color: var(--text-tertiary);
 }
 
-/* Header right area */
-.job-log-header-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-/* Follow mode toggle button */
-.job-log-follow-btn {
+/* Follow mode toggle — floats over the bottom-right of the trace. */
+.job-log-follow-fab {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  z-index: 50;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 8px 14px;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
   font-weight: 600;
@@ -106,25 +45,49 @@
   color: var(--text-secondary);
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
-.job-log-follow-btn:hover {
+.job-log-follow-fab:hover {
   color: var(--text-primary);
   border-color: var(--text-muted);
 }
 
-.job-log-follow-btn--active {
+.job-log-follow-fab--active {
   color: var(--accent-color);
   background: rgba(99, 102, 241, 0.1);
   border-color: rgba(99, 102, 241, 0.3);
 }
 
-.job-log-follow-btn--active:hover {
+.job-log-follow-fab--active:hover {
   color: var(--accent-color);
   border-color: rgba(99, 102, 241, 0.5);
+}
+
+/* Phones: a round icon-only button, matching the pipelines search FAB. */
+@media (max-width: 767px) {
+  .job-log-follow-fab {
+    right: 16px;
+    bottom: 16px;
+    width: 52px;
+    height: 52px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  .job-log-follow-label {
+    display: none;
+  }
+
+  /* The stage and duration would crowd the 56px bar out of the name. */
+  .page-header .job-log-stage,
+  .page-header .job-log-duration {
+    display: none;
+  }
 }
 
 /* Content area — scrolling happens inside the virtualized list, not here */
@@ -246,8 +209,43 @@
   flex: 1;
   min-width: 0;
   white-space: pre-wrap;
-  word-break: break-all;
+  /* Wrap at spaces when possible and only break inside a token (long paths,
+     hashes) when it cannot fit — `break-all` split ordinary words mid-word. */
+  overflow-wrap: anywhere;
+  word-break: normal;
   tab-size: 8;
+}
+
+/* Phones: the line-number and timestamp gutters cost ~160px of a 326px line —
+   roughly half the screen — so the trace runs full width instead. The spans are
+   not rendered at all (see LogLineRow); these rules reclaim the surrounding
+   padding they used to provide. Section duration badges still carry the timing. */
+@media (max-width: 767px) {
+  .job-log-content {
+    padding: 0 10px 10px;
+  }
+
+  .job-log-trace {
+    margin-top: 10px;
+  }
+
+  /* The left inset used to come from .log-line-number's padding. */
+  .log-line {
+    padding: 0 12px;
+  }
+
+  /* With no line numbers, a hanging indent is what tells a wrapped
+     continuation apart from the start of the next log line. */
+  .log-line-content {
+    padding-left: 14px;
+    text-indent: -14px;
+  }
+
+  /* Roomier tap target for collapsing a section. */
+  .log-section-header {
+    min-height: 36px;
+    padding: 4px 12px;
+  }
 }
 
 /* ============================================================================

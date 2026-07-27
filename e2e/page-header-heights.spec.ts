@@ -52,6 +52,82 @@ test.describe('Page header heights — mobile', () => {
   });
 });
 
+test.describe('Pipeline detail header heights', () => {
+  const PIPELINE_URL =
+    '/pipelines/10/3001?instance=1&project=frontend%2Fweb-app&ref=main' +
+    '&url=https%3A%2F%2Fgitlab.example.com%2Ffrontend%2Fweb-app%2F-%2Fpipelines%2F3001';
+
+  test('desktop drill-in header matches the shared height and keeps its meta on one line', async ({ page }) => {
+    await page.goto(PIPELINE_URL);
+    await expect(page.locator('.page-header h1')).toHaveText('Pipeline #3001');
+
+    const headerBox = (await page.locator('.page-header').boundingBox())!;
+    expect(headerBox.height).toBe(DESKTOP_HEIGHT);
+
+    // Back button, project path and ref all sit inside the fixed-height bar.
+    for (const selector of ['.back-button-icon', '.pipeline-detail-project', '.pipeline-detail-ref']) {
+      const box = (await page.locator(selector).first().boundingBox())!;
+      expect(box.y).toBeGreaterThanOrEqual(headerBox.y);
+      expect(box.y + box.height).toBeLessThanOrEqual(headerBox.y + headerBox.height);
+    }
+  });
+
+  test.describe('mobile', () => {
+    test.use({ viewport: { width: 390, height: 844 } });
+
+    test('header matches the mobile height and drops the project/ref meta', async ({ page }) => {
+      await page.goto(PIPELINE_URL);
+      await expect(page.locator('.page-header h1')).toHaveText('Pipeline #3001');
+      expect((await page.locator('.page-header').boundingBox())!.height).toBe(MOBILE_HEIGHT);
+
+      await expect(page.locator('.page-header .pipeline-detail-project')).toBeHidden();
+      await expect(page.locator('.page-header .pipeline-detail-ref')).toBeHidden();
+    });
+  });
+});
+
+test.describe('Job log header heights', () => {
+  const JOB_LOG_URL =
+    '/pipelines/10/3001/jobs/4001?instance=1&name=lint&status=success&stage=test' +
+    '&duration=100&project=frontend%2Fweb-app&ref=main';
+
+  test('desktop header matches the shared height; Follow floats over the trace', async ({ page }) => {
+    await page.goto(JOB_LOG_URL);
+    await expect(page.locator('.page-header h1')).toHaveText('lint');
+
+    const headerBox = (await page.locator('.page-header').boundingBox())!;
+    expect(headerBox.height).toBe(DESKTOP_HEIGHT);
+
+    // The auto-scroll toggle lives over the log, well below the header.
+    const fabBox = (await page.locator('.job-log-follow-fab').boundingBox())!;
+    expect(fabBox.y).toBeGreaterThan(headerBox.y + headerBox.height);
+  });
+
+  test.describe('mobile', () => {
+    test.use({ viewport: { width: 390, height: 844 } });
+
+    test('header matches the mobile height and Follow stays a floating control', async ({ page }) => {
+      await page.goto(JOB_LOG_URL);
+      await expect(page.locator('.page-header h1')).toHaveText('lint');
+
+      const headerBox = (await page.locator('.page-header').boundingBox())!;
+      expect(headerBox.height).toBe(MOBILE_HEIGHT);
+
+      // Stage/duration are dropped so the name and status badge get the bar.
+      await expect(page.locator('.page-header .job-log-stage')).toBeHidden();
+      await expect(page.locator('.page-header .job-log-duration')).toBeHidden();
+
+      const fab = page.locator('.job-log-follow-fab');
+      await expect(fab).toBeVisible();
+      const fabBox = (await fab.boundingBox())!;
+      expect(fabBox.y).toBeGreaterThan(headerBox.y + headerBox.height);
+      // Icon-only circle on phones.
+      expect(Math.round(fabBox.width)).toBe(52);
+      await expect(page.locator('.job-log-follow-label')).toBeHidden();
+    });
+  });
+});
+
 test.describe('Settings header heights', () => {
   test('desktop rail+detail header matches the same height and shows the active section', async ({ page }) => {
     await page.goto('/settings');

@@ -9,64 +9,12 @@
   background: var(--bg-primary);
 }
 
-/* Header */
-.pipeline-detail-header {
-  padding: 24px 32px 20px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  position: relative;
-  z-index: 10;
-  animation: pipelinesHeaderReveal 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.pipeline-detail-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 32px;
-  right: 32px;
-  height: 1px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    var(--border-color) 15%,
-    var(--text-muted) 50%,
-    var(--border-color) 85%,
-    transparent 100%);
-  opacity: 0.6;
-}
-
-.pipeline-detail-header-left {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  min-width: 0;
-}
-
-
-.pipeline-detail-title-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.pipeline-detail-title-group h1 {
-  font-family: var(--font-display, 'Inter', system-ui, sans-serif);
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  margin: 0;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  line-height: 1.2;
-}
-
+/* Header — uses the shared <PageHeader>; only the meta slot (status badge,
+   project, ref) and the icon action buttons are local. */
 .pipeline-detail-status {
   font-size: 10px;
   vertical-align: middle;
+  flex-shrink: 0;
 }
 
 .pipeline-detail-project {
@@ -81,13 +29,18 @@
   font-size: 12px;
   font-family: 'IBM Plex Mono', monospace;
   color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.pipeline-detail-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
+/* Phone widths: the title and status badge earn their place, the project
+   path and ref do not — they'd shove the actions off the 56px bar. */
+@media (max-width: 767px) {
+  .page-header .pipeline-detail-project,
+  .page-header .pipeline-detail-ref {
+    display: none;
+  }
 }
 
 .pipeline-detail-action-btn {

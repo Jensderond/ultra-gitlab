@@ -189,6 +189,8 @@ export function usePipelineData({
   return {
     jobs: jobsQuery.data ?? [],
     loading: jobsQuery.isLoading,
+    /** Background refetch only — the first load is reported via `loading`. */
+    refreshing: jobsQuery.isFetching && !jobsQuery.isLoading,
     error: jobsQuery.error ? 'Failed to load pipeline jobs' : null,
     actionLoading: activeActions,
     pipelineStatus,

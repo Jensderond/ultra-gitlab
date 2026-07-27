@@ -15,7 +15,7 @@ test.describe('Pipeline detail dialog (from MR detail)', () => {
     const overlay = page.locator('.pipeline-detail-dialog-overlay');
     await expect(overlay).toBeVisible();
     await expect(overlay.locator('.pipeline-detail-page')).toBeVisible();
-    await expect(overlay.locator('.pipeline-detail-title-group h1')).toContainText('Pipeline #3001');
+    await expect(overlay.locator('.page-header h1')).toContainText('Pipeline #3001');
 
     // URL did not change — MR detail page is still mounted underneath
     await expect(page).toHaveURL(/\/my-mrs\/201$/);

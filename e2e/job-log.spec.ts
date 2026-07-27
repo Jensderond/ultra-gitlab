@@ -50,9 +50,9 @@ test.describe('Job Log Page (virtualized)', () => {
     expect(renderedLines).toBeLessThan(300);
 
     // The UI stays interactive: the follow toggle responds to a click
-    const followBtn = page.locator('.job-log-follow-btn');
+    const followBtn = page.locator('.job-log-follow-fab');
     await followBtn.click();
-    await expect(followBtn).toHaveClass(/job-log-follow-btn--active/);
+    await expect(followBtn).toHaveClass(/job-log-follow-fab--active/);
   });
 
   test('scrolling to the bottom reaches the last line', async ({ page }) => {
