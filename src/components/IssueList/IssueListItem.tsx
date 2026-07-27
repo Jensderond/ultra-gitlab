@@ -9,7 +9,7 @@ import UserAvatar from '../UserAvatar/UserAvatar';
 import HighlightText from '../HighlightText/HighlightText';
 import { StarIcon } from '../icons';
 import { splitProjectName } from '../../lib/projectName';
-import { useSwipeAction } from '../../hooks/useSwipeAction';
+import SwipeActionRow from '../SwipeActionRow/SwipeActionRow';
 import './IssueListItem.css';
 
 /**
@@ -41,17 +41,9 @@ const IssueListItem = forwardRef<HTMLDivElement, IssueListItemProps>(function Is
   { issue, selected, onClick, onToggleStar, highlightQuery },
   ref,
 ) {
-  const { containerRef, offset, dragging, settling, pastThreshold } =
-    useSwipeAction<HTMLDivElement>({
-      onTrigger: () => onToggleStar?.(),
-      disabled: !onToggleStar,
-    });
-
   const classNames = ['issue-list-item'];
   if (selected) classNames.push('selected');
   if (issue.state === 'closed') classNames.push('state-closed');
-  if (dragging) classNames.push('is-swiping');
-  if (settling) classNames.push('is-settling');
 
   const labels = useMemo(() => {
     try {
@@ -87,33 +79,24 @@ const IssueListItem = forwardRef<HTMLDivElement, IssueListItemProps>(function Is
       : projectOriginal;
 
   return (
-    <div ref={ref} className="issue-swipe">
-      {(dragging || settling) && (
-        <div
-          className={`issue-swipe-action${pastThreshold ? ' is-armed' : ''}`}
-          aria-hidden
-        >
-          <StarIcon filled={pastThreshold ? !issue.starred : issue.starred} size={20} />
-        </div>
-      )}
-      <div
-        ref={containerRef}
-        className={classNames.join(' ')}
-        style={offset > 0 ? { transform: `translateX(${-offset}px)` } : undefined}
-        onClick={() => {
-          // A tap that ended a swipe must not navigate; `settling` is still
-          // true in the click's timing window right after touchend.
-          if (dragging || settling) return;
-          onClick?.();
-        }}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
+    <SwipeActionRow
+      ref={ref}
+      icon={<StarIcon filled={issue.starred} size={20} />}
+      armedIcon={<StarIcon filled={!issue.starred} size={20} />}
+      onTrigger={() => onToggleStar?.()}
+      disabled={!onToggleStar}
+      rowClassName={classNames.join(' ')}
+      rowProps={{
+        onClick,
+        role: 'button',
+        tabIndex: 0,
+        onKeyDown: (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             onClick?.();
           }
-        }}
-      >
+        },
+      }}
+    >
       <button
         type="button"
         className={`issue-star-button${issue.starred ? ' is-starred' : ''}`}
@@ -205,8 +188,7 @@ const IssueListItem = forwardRef<HTMLDivElement, IssueListItemProps>(function Is
           </div>
         )}
       </div>
-      </div>
-    </div>
+    </SwipeActionRow>
   );
 });
 

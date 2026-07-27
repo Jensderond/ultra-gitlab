@@ -1,0 +1,46 @@
+/* Swipe-left action row: wrapper clips the translating row; the action layer
+   behind it is revealed by the drag. Consumers keep their own row styling —
+   these rules only add the gesture chrome. */
+
+.swipe-row {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Horizontal gestures belong to the row; vertical stays native scroll. */
+.swipe-row-item {
+  touch-action: pan-y;
+}
+
+.swipe-row-action {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 24px;
+  color: var(--text-muted);
+  background: var(--overlay-hover);
+}
+
+.swipe-row-action.is-armed {
+  color: var(--warning-color, #e6c07b);
+  background: var(--warning-light);
+}
+
+/* Rows are transparent at rest; while a swipe is live they must be opaque so
+   the action layer only shows in the gap the drag reveals. The descendant
+   selector out-specifies consumer rules like `.mr-list-item.selected`
+   regardless of stylesheet import order. */
+.swipe-row .swipe-row-item.is-swiping,
+.swipe-row .swipe-row-item.is-settling {
+  background: var(--bg-primary);
+}
+
+.swipe-row .swipe-row-item.is-swiping {
+  transition: none;
+}
+
+.swipe-row .swipe-row-item.is-settling {
+  transition: transform 0.2s ease, background 0.2s ease;
+}
