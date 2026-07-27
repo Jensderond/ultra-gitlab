@@ -52,12 +52,3 @@ pub async fn get_snooze(pool: &DbPool, mr_id: i64) -> Result<Option<SnoozeRow>, 
     .fetch_optional(pool)
     .await
 }
-
-/// Remove snoozes whose expiry has passed. Housekeeping; safe to call often.
-pub async fn delete_expired(pool: &DbPool, now: i64) -> Result<(), sqlx::Error> {
-    sqlx::query("DELETE FROM mr_snoozes WHERE snooze_until <= ?")
-        .bind(now)
-        .execute(pool)
-        .await?;
-    Ok(())
-}
