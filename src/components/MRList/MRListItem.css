@@ -3,7 +3,7 @@
 
 .mr-list-item {
   position: relative;
-  padding: 14px 32px;
+  padding: 12px 32px;
   background: transparent;
   user-select: none;
   -webkit-user-select: none;
@@ -536,6 +536,15 @@
 /* Touch devices: no hover — keep the button always visible and enlarge
    the tap target. */
 @media (hover: none) {
+  .mr-list-item {
+    padding: 10px 16px;
+  }
+
+  .mr-list-item::after {
+    left: 16px;
+    right: 16px;
+  }
+
   .mr-snooze-button {
     opacity: 1;
     width: 44px;

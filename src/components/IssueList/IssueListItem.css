@@ -4,7 +4,7 @@
   position: relative;
   display: flex;
   gap: 12px;
-  padding: 14px 32px;
+  padding: 12px 32px;
   background: transparent;
   user-select: none;
   -webkit-user-select: none;
@@ -293,4 +293,21 @@
   font-size: 10px;
   font-weight: 500;
   color: var(--text-muted);
+}
+
+/* Touch devices: the leading star column disappears (swipe-left stars the
+   row instead) and the row tightens up. */
+@media (hover: none) {
+  .issue-list-item {
+    padding: 10px 16px;
+  }
+
+  .issue-list-item::after {
+    left: 16px;
+    right: 16px;
+  }
+
+  .issue-star-button {
+    display: none;
+  }
 }
