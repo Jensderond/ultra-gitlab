@@ -5,6 +5,7 @@
  */
 
 import { forwardRef } from 'react';
+import { Clock } from '@phosphor-icons/react';
 import type { MergeRequest, ApprovalStatus } from '../../types';
 import UserAvatar from '../UserAvatar/UserAvatar';
 import HighlightText from '../HighlightText/HighlightText';
@@ -96,12 +97,7 @@ function condensedApprovalClass(mr: MergeRequest): string {
 
 /** Clock icon for the snooze button. */
 function SnoozeIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
-    </svg>
-  );
+  return <Clock size={14} weight="bold" />;
 }
 
 /**
@@ -133,7 +129,12 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
 
     const projectLabel = mr.projectName?.replace(/^Customers\s*\/\s*/, '') ?? '';
 
-    const snoozeControl = onSnoozeMenuOpenChange && onSnooze && (
+    // MRs you already approved are dimmed and hidden by default — snoozing them
+    // adds nothing, so drop the control. An already-snoozed row keeps it so the
+    // unsnooze affordance never disappears.
+    const canSnooze = !mr.userHasApproved || snoozed;
+
+    const snoozeControl = canSnooze && onSnoozeMenuOpenChange && onSnooze && (
       <span className="mr-snooze-control">
         {snoozed ? (
           <button
