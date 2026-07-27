@@ -15,6 +15,7 @@ import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { useShortcuts } from '../components/ShortcutsProvider';
 import { useSnoozeMRMutation } from '../hooks/queries/useSnoozeMRMutation';
 import { isSnoozed } from '../lib/snooze';
+import { projectSearchText } from '../lib/projectName';
 import { useListSearch } from '../hooks/useListSearch';
 import { useCondensedModeAnnouncement } from '../hooks/useCondensedModeAnnouncement';
 import SearchBar from '../components/SearchBar/SearchBar';
@@ -145,7 +146,7 @@ export default function MRListPage() {
     return mrs.filter((mr) => {
       const title = mr.title?.toLowerCase() ?? '';
       const author = mr.authorUsername?.toLowerCase() ?? '';
-      const project = mr.projectName?.toLowerCase() ?? '';
+      const project = projectSearchText(mr.projectName).toLowerCase();
       return title.includes(q) || author.includes(q) || project.includes(q);
     });
   }, [mrs, query, filtering]);

@@ -38,6 +38,7 @@ import { CmdIcon, StarIcon, PencilIcon } from '../components/icons';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { useManualRefreshHandler } from '../hooks/useManualRefreshHandler';
 import { PullToRefreshIndicator } from '../components/PullToRefresh';
+import { projectSearchText } from '../lib/projectName';
 import './IssuesPage.css';
 
 const listShortcuts: ShortcutDef[] = [
@@ -107,7 +108,9 @@ export default function IssuesPage() {
     return issues.filter((i) => {
       const title = i.title?.toLowerCase() ?? '';
       const author = i.authorUsername?.toLowerCase() ?? '';
-      const project = (i.projectCustomName ?? i.projectNameWithNamespace ?? '').toLowerCase();
+      const project = projectSearchText(
+        i.projectCustomName ?? i.projectNameWithNamespace,
+      ).toLowerCase();
       return title.includes(q) || author.includes(q) || project.includes(q);
     });
   }, [issues, query, isSearchOpen]);

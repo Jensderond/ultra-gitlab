@@ -1,9 +1,12 @@
-/* SearchBar */
+/* SearchBar
+   Two forms of the same bar — a keyboard prompt on pointer screens, a touch
+   search field on small ones. Both sit as a band directly under the status
+   bar, so both borrow its hairline and its 32px / 12px content gutter. */
 
-@keyframes searchBarSlideDown {
+@keyframes searchBarFadeIn {
   from {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-4px);
   }
   to {
     opacity: 1;
@@ -14,20 +17,24 @@
 .search-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-  animation: searchBarSlideDown 0.15s ease;
+  flex-shrink: 0;
   font-family: 'Noto Sans JP', sans-serif;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--border-color);
+  animation: searchBarFadeIn 0.16s ease-out;
 }
 
-.search-bar-icon {
-  flex-shrink: 0;
-  color: var(--text-tertiary);
-  font-size: 13px;
-  display: flex;
-  align-items: center;
+/* App.css styles every bare input and button as a raised control — rounded,
+   padded, drop-shadowed. None of that belongs in this bar, so each part opts
+   out first. Class selectors, not `.search-bar input`, so the per-part rules
+   further down can still set their own padding and radius. */
+.search-bar-input,
+.search-bar-esc,
+.search-bar-clear,
+.search-bar-cancel {
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .search-bar-input {
@@ -36,6 +43,7 @@
   background: transparent;
   border: none;
   font-size: 13px;
+  font-weight: 500;
   font-family: 'Noto Sans JP', sans-serif;
   color: var(--text-primary);
   outline: none;
@@ -45,36 +53,139 @@
   color: var(--text-tertiary);
 }
 
+/* Match counter. Tabular figures so the numbers don't shuffle the row
+   sideways on every keystroke. */
 .search-bar-count {
   flex-shrink: 0;
-  font-size: 11px;
   font-family: 'IBM Plex Mono', monospace;
-  font-weight: 500;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
   color: var(--text-muted);
   white-space: nowrap;
 }
 
-.search-bar-close {
+.search-bar-count b {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.search-bar-count--empty {
+  color: var(--warning-color);
+}
+
+/* ================================================
+   PROMPT — pointer screens, keyboard-only entry
+   ================================================ */
+
+.search-bar--prompt {
+  gap: 10px;
+  height: 44px;
+  padding: 0 32px;
+}
+
+/* Sits in the accent so the eye lands on the row the moment ⌘F opens it. */
+.search-bar-sigil {
+  flex-shrink: 0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--accent-color);
+  user-select: none;
+}
+
+.search-bar--prompt .search-bar-input {
+  height: 100%;
+}
+
+/* Keycap, matching the shortcut bar's vocabulary — the way out of a
+   keyboard-only bar is a key, so it's drawn as one (and still clickable). */
+.search-bar-esc {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  padding: 0 7px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: linear-gradient(180deg,
+    var(--overlay-surface) 0%,
+    var(--overlay-glass) 100%);
+  border: 1px solid var(--overlay-divider);
+  border-bottom-width: 2px;
+  border-bottom-color: var(--overlay-glass);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.search-bar-esc:hover {
+  color: var(--text-secondary);
+  border-color: var(--border-color);
+}
+
+/* ================================================
+   FIELD — touch screens, tap to open
+   ================================================ */
+
+.search-bar--field {
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.search-bar-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  transition: border-color 0.15s ease;
+}
+
+.search-bar-field:focus-within {
+  border-color: var(--overlay-divider);
+}
+
+.search-bar-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--text-tertiary);
+}
+
+.search-bar-clear {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
+  color: var(--bg-tertiary);
+  background: var(--text-tertiary);
   border: none;
-  background: transparent;
-  color: var(--text-tertiary);
+  border-radius: 50%;
   cursor: pointer;
-  border-radius: 3px;
-  font-size: 14px;
-  line-height: 1;
-  transition: all 0.15s ease;
-  padding: 0;
 }
 
-.search-bar-close:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+.search-bar-cancel {
+  flex-shrink: 0;
+  padding: 0 2px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 13px;
+  color: var(--accent-color);
+  background: transparent;
+  border: none;
+  cursor: pointer;
 }
 
 /* iOS auto-zooms the whole page on focusing any input under 16px, and the
@@ -82,5 +193,18 @@
 @media (max-width: 767px) {
   .search-bar-input {
     font-size: 16px;
+  }
+}
+
+.search-bar-esc:focus-visible,
+.search-bar-clear:focus-visible,
+.search-bar-cancel:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-bar {
+    animation: none;
   }
 }

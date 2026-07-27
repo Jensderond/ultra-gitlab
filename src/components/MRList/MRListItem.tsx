@@ -11,7 +11,15 @@ import UserAvatar from '../UserAvatar/UserAvatar';
 import HighlightText from '../HighlightText/HighlightText';
 import SnoozeMenu from './SnoozeMenu';
 import { isSnoozed, formatSnoozeUntil } from '../../lib/snooze';
+import { splitProjectName } from '../../lib/projectName';
 import './MRListItem.css';
+
+/**
+ * Root group hidden from the label outright rather than just dimmed — the one
+ * local convention here. Every other group still shows, so an instance that
+ * doesn't use this layout loses nothing.
+ */
+const HIDDEN_ROOT_GROUP = /^customers$/i;
 
 interface MRListItemProps {
   /** The merge request data */
@@ -125,7 +133,25 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
     if (selected) classNames.push('selected');
     if (isNew) classNames.push('is-new');
 
-    const projectLabel = mr.projectName?.replace(/^Customers\s*\/\s*/, '') ?? '';
+    // The leading group is shared by nearly every project, so a filter never
+    // matches it (see lib/projectName). It's still shown — dimmed, so the row
+    // reads as "this part isn't what you searched" — unless it's the one root
+    // group that's on literally every row.
+    const { namespace, rest: projectLabel } = splitProjectName(mr.projectName);
+    const projectNamespace = HIDDEN_ROOT_GROUP.test(namespace) ? '' : namespace;
+
+    const projectText = (
+      <>
+        {projectNamespace && (
+          <span className="mr-project-namespace">{projectNamespace} / </span>
+        )}
+        {highlightQuery ? (
+          <HighlightText text={projectLabel} query={highlightQuery} />
+        ) : (
+          projectLabel
+        )}
+      </>
+    );
 
     // MRs you already approved live in their own tab — snoozing them adds
     // nothing, so drop the control. An already-snoozed row keeps it so the
@@ -189,9 +215,7 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
         <div className="mr-condensed">
           <div className="mr-condensed-top">
             {projectLabel && (
-              <span className="mr-condensed-project">
-                {highlightQuery ? <HighlightText text={projectLabel} query={highlightQuery} /> : projectLabel}
-              </span>
+              <span className="mr-condensed-project">{projectText}</span>
             )}
             <span className="mr-condensed-time">{formatRelativeTime(mr.updatedAt)}</span>
           </div>
@@ -224,9 +248,7 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
           <div className="mr-item-header">
             <span className="mr-iid">!{mr.iid}</span>
             {mr.projectName && (
-              <span className="mr-project">
-                {highlightQuery ? <HighlightText text={projectLabel} query={highlightQuery} /> : projectLabel}
-              </span>
+              <span className="mr-project">{projectText}</span>
             )}
             <span className="mr-time">{formatRelativeTime(mr.updatedAt)}</span>
             {snoozeControl}

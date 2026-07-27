@@ -10,7 +10,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useHotkey, parseHotkey } from '@tanstack/react-hotkeys';
 import MRListItem from '../components/MRList/MRListItem';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
+import { useSmallScreen } from '../hooks/useSmallScreen';
 import { useListSearch } from '../hooks/useListSearch';
+import { projectSearchText } from '../lib/projectName';
 import { useCondensedModeAnnouncement } from '../hooks/useCondensedModeAnnouncement';
 import SearchBar from '../components/SearchBar/SearchBar';
 import type { MergeRequest } from '../types';
@@ -131,6 +133,8 @@ export default function MyMRsPage() {
   const mrs = myMRsQuery.data ?? [];
   const loading = myMRsQuery.isLoading;
 
+  const isSmallScreen = useSmallScreen();
+
   // Search/filter state — filters mrs at the page level
   const {
     query,
@@ -143,7 +147,11 @@ export default function MyMRsPage() {
     totalCount,
   } = useListSearch({
     items: mrs,
-    getSearchableText: (mr: MergeRequest) => [mr.title, mr.authorUsername, mr.projectName],
+    getSearchableText: (mr: MergeRequest) => [
+      mr.title,
+      mr.authorUsername,
+      projectSearchText(mr.projectName),
+    ],
   });
 
   mrsRef.current = filteredItems;
@@ -226,14 +234,18 @@ export default function MyMRsPage() {
         refreshing={refreshing}
         actions={
           <>
-            <button
-              type="button"
-              className="header-search-button"
-              onClick={openSearch}
-              aria-label="Search your merge requests"
-            >
-              <SearchIcon size={16} />
-            </button>
+            {/* Touch only — on pointer screens ⌘F is the way in, advertised by
+                the shortcut bar at the foot of the page. */}
+            {isSmallScreen && (
+              <button
+                type="button"
+                className="header-search-button"
+                onClick={openSearch}
+                aria-label="Search your merge requests"
+              >
+                <SearchIcon size={16} />
+              </button>
+            )}
             <button
               type="button"
               className={`recently-merged-toggle ${showDrafts ? 'is-on' : ''}`}

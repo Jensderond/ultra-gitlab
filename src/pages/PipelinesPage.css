@@ -538,6 +538,10 @@
     position: relative;
   }
 
+  .pipelines-section-title {
+      padding-top: 12px;
+  }
+
   .pipelines-search-fab {
     position: absolute;
     right: 16px;

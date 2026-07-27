@@ -550,6 +550,28 @@
     width: 44px;
     height: 44px;
   }
+
+  /* Selection is a pointer-device idea: a tap navigates straight into the MR,
+     so highlighting the row you came from just leaves stale emphasis behind.
+     The "new" accent bar still shows — that's about the MR, not the cursor. */
+  .mr-list-item.selected,
+  .mr-list-item:focus.selected,
+  .mr-list-item--condensed.selected,
+  .mr-list-item--condensed:focus.selected {
+    background: transparent;
+  }
+
+  .mr-list-item.selected:not(.is-new)::before {
+    display: none;
+  }
+
+  .mr-list-item.selected .mr-iid {
+    color: var(--text-muted);
+  }
+
+  .mr-list-item.selected .mr-project {
+    color: var(--text-secondary);
+  }
 }
 
 .mr-snoozed-badge {

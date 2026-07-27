@@ -110,7 +110,7 @@ test.describe('Mobile collapsed search + pull-to-refresh', () => {
     await page.locator(INPUT).fill('carol');
     await expect(page.locator('.mr-list-item')).toHaveCount(1);
 
-    await page.locator(`${SLOT} .search-bar-close`).click();
+    await page.locator(`${SLOT} .search-bar-cancel`).click();
     await expect(page.locator('.mr-list-item')).toHaveCount(4);
     await expect
       .poll(() => content.evaluate((el) => el.scrollTop), { timeout: 3000 })

@@ -10,6 +10,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useMRListQuery } from '../../hooks/queries/useMRListQuery';
 import { useSnoozeMRMutation } from '../../hooks/queries/useSnoozeMRMutation';
 import { isSnoozed } from '../../lib/snooze';
+import { projectSearchText } from '../../lib/projectName';
 import type { MergeRequest } from '../../types';
 import MRListItem from './MRListItem';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
@@ -193,7 +194,7 @@ export default function MRList({
       if (!q) return true;
       const title = mr.title?.toLowerCase() ?? '';
       const author = mr.authorUsername?.toLowerCase() ?? '';
-      const project = mr.projectName?.toLowerCase() ?? '';
+      const project = projectSearchText(mr.projectName).toLowerCase();
       return title.includes(q) || author.includes(q) || project.includes(q);
     },
     [q],

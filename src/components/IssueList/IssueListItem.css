@@ -48,23 +48,6 @@
   background: linear-gradient(90deg, var(--wave-glow) 0%, transparent 40%, transparent 100%);
 }
 
-.issue-list-item.selected::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 8px;
-  bottom: 8px;
-  width: 2px;
-  background: linear-gradient(
-    180deg,
-    var(--accent-color) 0%,
-    var(--accent-hover) 60%,
-    transparent 100%
-  );
-  border-radius: 0 1px 1px 0;
-  box-shadow: 0 0 10px var(--wave-glow-strong);
-}
-
 .issue-list-item:focus {
   outline: none;
   background: var(--overlay-hover);
@@ -360,5 +343,16 @@
 
   .issue-star-inline {
     display: inline-flex;
+  }
+
+  /* Selection is a pointer-device idea: a tap navigates straight into the
+     issue, so highlighting the row you came from just leaves stale emphasis
+     behind. Matches MRListItem. */
+  .issue-list-item.selected {
+    background: transparent;
+  }
+
+  .issue-list-item.selected .issue-iid {
+    color: var(--text-muted);
   }
 }
