@@ -60,9 +60,7 @@ test.describe('Touch issue list layout', () => {
     expect(padding).toBe('10px 16px');
   });
 
-  test('condensed MR rows keep their density on touch (padding not overridden)', async ({
-    page,
-  }) => {
+  test('condensed MR rows keep their vertical density on touch', async ({ page }) => {
     // Re-register the mock with condensed mode on; the later init script wins.
     await mockTauriIPC(page, { settings: { mrListCondensed: true } });
     await page.goto('/mrs');
@@ -71,8 +69,9 @@ test.describe('Touch issue list layout', () => {
     await expect(row).toBeVisible();
     await expect(row).toHaveClass(/mr-list-item--condensed/);
 
+    // 8px keeps the condensed rhythm; the 16px edges match the regular rows.
     const padding = await row.evaluate((el) => getComputedStyle(el).padding);
-    expect(padding).toBe('8px 24px');
+    expect(padding).toBe('8px 16px');
   });
 
   test('starred issue shows an inline star in the header', async ({ page }) => {

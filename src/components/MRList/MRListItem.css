@@ -533,8 +533,8 @@
   color: var(--warning-color);
 }
 
-/* Touch devices: no hover — keep the button always visible and enlarge
-   the tap target. */
+/* Touch devices: tightened row edges, and swipe-left replaces the snooze
+   button as the affordance. */
 @media (hover: none) {
   .mr-list-item:not(.mr-list-item--condensed) {
     padding: 10px 16px;
@@ -545,10 +545,19 @@
     right: 16px;
   }
 
+  /* Condensed keeps its tighter vertical rhythm but shares the 16px edges. */
+  .mr-list-item--condensed {
+    padding: 8px 16px;
+  }
+
+  .mr-list-item--condensed::after {
+    left: 16px;
+    right: 16px;
+  }
+
+  /* Swipe-left is the snooze affordance on touch; the button column goes. */
   .mr-snooze-button {
-    opacity: 1;
-    width: 44px;
-    height: 44px;
+    display: none;
   }
 
   /* Selection is a pointer-device idea: a tap navigates straight into the MR,
