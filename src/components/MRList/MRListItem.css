@@ -122,6 +122,12 @@
   color: var(--text-tertiary);
 }
 
+/* The leading group never matches a filter, so it recedes behind the part
+   that does. Same treatment in the condensed row. */
+.mr-project-namespace {
+  color: var(--text-muted);
+}
+
 /* Timestamp */
 .mr-time {
   margin-left: auto;
