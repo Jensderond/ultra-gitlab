@@ -536,11 +536,11 @@
 /* Touch devices: no hover — keep the button always visible and enlarge
    the tap target. */
 @media (hover: none) {
-  .mr-list-item {
+  .mr-list-item:not(.mr-list-item--condensed) {
     padding: 10px 16px;
   }
 
-  .mr-list-item::after {
+  .mr-list-item:not(.mr-list-item--condensed)::after {
     left: 16px;
     right: 16px;
   }

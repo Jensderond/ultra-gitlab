@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures/test-base';
+import { mockTauriIPC } from './fixtures/tauri-mock';
 import type { Locator } from '@playwright/test';
 
 /**
@@ -59,6 +60,21 @@ test.describe('Touch issue list layout', () => {
     expect(padding).toBe('10px 16px');
   });
 
+  test('condensed MR rows keep their density on touch (padding not overridden)', async ({
+    page,
+  }) => {
+    // Re-register the mock with condensed mode on; the later init script wins.
+    await mockTauriIPC(page, { settings: { mrListCondensed: true } });
+    await page.goto('/mrs');
+
+    const row = page.locator('.mr-list-item').first();
+    await expect(row).toBeVisible();
+    await expect(row).toHaveClass(/mr-list-item--condensed/);
+
+    const padding = await row.evaluate((el) => getComputedStyle(el).padding);
+    expect(padding).toBe('8px 24px');
+  });
+
   test('starred issue shows an inline star in the header', async ({ page }) => {
     const starredRow = page.locator(ROW).filter({ hasText: 'Dark mode flashes' });
     await expect(starredRow.locator('.issue-star-inline')).toBeVisible();
@@ -92,14 +108,34 @@ test.describe('Touch issue list layout', () => {
 
   test('swipe does not open the issue detail', async ({ page }) => {
     const row = page.locator(ROW).filter({ hasText: 'Login button misaligned' });
-    await touchSwipe(row, -140);
 
     // Synthetic TouchEvents never produce a browser click on their own, so
     // this test would pass even if IssueListItem's click guard were deleted.
     // Dispatch a click explicitly, inside the settle window, to exercise it.
-    await row.evaluate((el) => {
+    // The swipe and the click are dispatched in a single evaluate call so no
+    // Node roundtrip sits between touchend and the click — on a slow runner
+    // that gap could otherwise let the 220ms settle window lapse before the
+    // click fires, producing a flaky pass. A single macrotask tick (still
+    // entirely inside this one evaluate call) is left between touchend and
+    // the click so React's batched `dragging`/`settling` state update from
+    // the touch handler actually flushes first — dispatching the click in
+    // the same synchronous stack as touchend would let the click handler
+    // read stale pre-swipe state and navigate for real.
+    await row.evaluate(async (el, delta) => {
+      const touch = (x: number) =>
+        new Touch({ identifier: 1, target: el, clientX: x, clientY: 200 });
+      const opts = { bubbles: true, cancelable: true };
+      el.dispatchEvent(new TouchEvent('touchstart', { ...opts, touches: [touch(300)] }));
+      const steps = 8;
+      for (let i = 1; i <= steps; i++) {
+        el.dispatchEvent(
+          new TouchEvent('touchmove', { ...opts, touches: [touch(300 + (delta * i) / steps)] }),
+        );
+      }
+      el.dispatchEvent(new TouchEvent('touchend', { ...opts, touches: [] }));
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
       el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    });
+    }, -140);
 
     await expect(row.locator('.issue-star-inline')).toBeVisible();
     await expect(page).toHaveURL(/\/issues$/);

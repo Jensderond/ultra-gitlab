@@ -8,6 +8,7 @@
   background: transparent;
   user-select: none;
   -webkit-user-select: none;
+  touch-action: pan-y;
   border: none;
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
