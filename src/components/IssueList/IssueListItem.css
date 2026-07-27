@@ -108,6 +108,14 @@
   transform: scale(0.92);
 }
 
+/* Inline starred indicator — the touch-device stand-in for the star button. */
+.issue-star-inline {
+  display: none;
+  align-items: center;
+  color: var(--warning-color, #e6c07b);
+  flex-shrink: 0;
+}
+
 .issue-item-body {
   flex: 1 1 auto;
   min-width: 0;
@@ -309,5 +317,9 @@
 
   .issue-star-button {
     display: none;
+  }
+
+  .issue-star-inline {
+    display: inline-flex;
   }
 }

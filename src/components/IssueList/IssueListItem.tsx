@@ -105,6 +105,11 @@ const IssueListItem = forwardRef<HTMLDivElement, IssueListItemProps>(function Is
 
       <div className="issue-item-body">
         <div className="issue-item-header">
+          {issue.starred && (
+            <span className="issue-star-inline" aria-label="Starred">
+              <StarIcon filled size={12} />
+            </span>
+          )}
           <span className="issue-iid">#{issue.iid}</span>
           {projectLabel && (
             <span className="issue-project" title={projectTooltip}>

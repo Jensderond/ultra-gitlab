@@ -40,6 +40,14 @@ test.describe('Touch issue list layout', () => {
       .evaluate((el) => getComputedStyle(el).padding);
     expect(padding).toBe('10px 16px');
   });
+
+  test('starred issue shows an inline star in the header', async ({ page }) => {
+    const starredRow = page.locator(ROW).filter({ hasText: 'Dark mode flashes' });
+    await expect(starredRow.locator('.issue-star-inline')).toBeVisible();
+
+    const plainRow = page.locator(ROW).filter({ hasText: 'Login button misaligned' });
+    await expect(plainRow.locator('.issue-star-inline')).toHaveCount(0);
+  });
 });
 
 test.describe('Desktop issue list keeps the star column', () => {
@@ -54,5 +62,14 @@ test.describe('Desktop issue list keeps the star column', () => {
       .first()
       .evaluate((el) => getComputedStyle(el).padding);
     expect(padding).toBe('12px 32px');
+  });
+
+  test('inline star stays hidden on hover-capable devices', async ({ page }) => {
+    await page.goto('/issues');
+    await expect(page.locator(ROW).first()).toBeVisible();
+
+    const inline = page.locator('.issue-star-inline');
+    await expect(inline).toBeAttached(); // rendered for the starred seed issue…
+    await expect(inline).toBeHidden(); // …but display: none at desktop
   });
 });
