@@ -29,11 +29,12 @@
   pointer-events: none;
 }
 
-/* Remove divider from last item */
-.mr-list-item:last-child {
+/* Remove divider from last item. The row is always the only child of its
+   .swipe-row wrapper, so :last-child is keyed on the wrapper. */
+.swipe-row:last-child .mr-list-item {
   border-bottom: none;
 }
-.mr-list-item:last-child::after {
+.swipe-row:last-child .mr-list-item::after {
   display: none;
 }
 
@@ -533,6 +534,17 @@
   color: var(--warning-color);
 }
 
+/* Inline snoozed indicator — the touch-device stand-in for the clock button
+   in the condensed row (the full layout shows the snoozed badge instead).
+   Must precede the touch block below: the display override there wins by
+   cascade order at equal specificity. */
+.mr-snooze-inline {
+  display: none;
+  align-items: center;
+  color: var(--warning-color);
+  flex-shrink: 0;
+}
+
 /* Touch devices: tightened row edges, and swipe-left replaces the snooze
    button as the affordance. */
 @media (hover: none) {
@@ -558,6 +570,10 @@
   /* Swipe-left is the snooze affordance on touch; the button column goes. */
   .mr-snooze-button {
     display: none;
+  }
+
+  .mr-snooze-inline {
+    display: inline-flex;
   }
 
   /* Selection is a pointer-device idea: a tap navigates straight into the MR,

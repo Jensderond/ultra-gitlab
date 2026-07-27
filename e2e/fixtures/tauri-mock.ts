@@ -23,12 +23,15 @@ import * as seed from './seed-data';
  */
 export async function mockTauriIPC(
   page: Page,
-  overrides?: { settings?: Partial<typeof seed.settings> },
+  overrides?: {
+    settings?: Partial<typeof seed.settings>;
+    mergeRequests?: typeof seed.mergeRequests;
+  },
 ) {
   // Serialize seed data to inject into the browser context
   const seedJSON = JSON.stringify({
     instances: seed.instances,
-    mergeRequests: seed.mergeRequests,
+    mergeRequests: overrides?.mergeRequests ?? seed.mergeRequests,
     myMergeRequests: seed.myMergeRequests,
     diffFiles: seed.diffFiles,
     diffRefsMap: seed.diffRefsMap,
@@ -100,6 +103,24 @@ export async function mockTauriIPC(
       // -- Merge Requests --
       get_merge_requests: () => data.mergeRequests,
       list_my_merge_requests: () => data.myMergeRequests,
+      snooze_mr: (args) => {
+        const mr = [...data.mergeRequests, ...data.myMergeRequests].find(
+          (m: { id: number }) => m.id === args.mrId,
+        );
+        if (mr) mr.snoozedUntil = args.until as number;
+        return {
+          mrId: args.mrId,
+          snoozedAt: Math.floor(Date.now() / 1000),
+          snoozeUntil: args.until,
+        };
+      },
+      unsnooze_mr: (args) => {
+        const mr = [...data.mergeRequests, ...data.myMergeRequests].find(
+          (m: { id: number }) => m.id === args.mrId,
+        );
+        if (mr) mr.snoozedUntil = null;
+        return null;
+      },
       get_merge_request_detail: (args) => {
         const mrId = args.mrId as number;
         const all = [...data.mergeRequests, ...data.myMergeRequests];

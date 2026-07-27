@@ -4,12 +4,13 @@
  * Displays a compact view of an MR with key information.
  */
 
-import { forwardRef } from 'react';
+import { forwardRef, useRef } from 'react';
 import { Clock } from '@phosphor-icons/react';
 import type { MergeRequest, ApprovalStatus } from '../../types';
 import UserAvatar from '../UserAvatar/UserAvatar';
 import HighlightText from '../HighlightText/HighlightText';
 import SnoozeMenu from './SnoozeMenu';
+import SwipeActionRow from '../SwipeActionRow/SwipeActionRow';
 import { isSnoozed, formatSnoozeUntil } from '../../lib/snooze';
 import { splitProjectName } from '../../lib/projectName';
 import './MRListItem.css';
@@ -158,6 +159,13 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
     // unsnooze affordance never disappears.
     const canSnooze = !mr.userHasApproved || snoozed;
 
+    // Swipe-left mirrors the snooze control: unsnoozed rows get the preset
+    // sheet, snoozed rows unsnooze directly. The sheet is a fixed-position
+    // bottom sheet on narrow screens, so it opens via onSettled — after the
+    // row's transform is gone and can't hijack the sheet's containing block.
+    const menuPendingRef = useRef(false);
+    const swipeDisabled = !canSnooze || !onSnoozeMenuOpenChange || !onSnooze;
+
     const snoozeControl = canSnooze && onSnoozeMenuOpenChange && onSnooze && (
       <span className="mr-snooze-control">
         {snoozed ? (
@@ -199,16 +207,33 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
     );
 
     return (
-      <div
+      <SwipeActionRow
         ref={ref}
-        className={classNames.join(' ')}
-        onClick={onClick}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            onClick?.();
+        icon={<Clock size={20} weight="bold" />}
+        onTrigger={() => {
+          if (snoozed) {
+            onUnsnooze?.();
+          } else {
+            menuPendingRef.current = true;
           }
+        }}
+        onSettled={() => {
+          if (menuPendingRef.current) {
+            menuPendingRef.current = false;
+            onSnoozeMenuOpenChange?.(true);
+          }
+        }}
+        disabled={swipeDisabled}
+        rowClassName={classNames.join(' ')}
+        rowProps={{
+          onClick,
+          role: 'button',
+          tabIndex: 0,
+          onKeyDown: (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              onClick?.();
+            }
+          },
         }}
       >
       {condensed ? (
@@ -216,6 +241,11 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
           <div className="mr-condensed-top">
             {projectLabel && (
               <span className="mr-condensed-project">{projectText}</span>
+            )}
+            {snoozed && (
+              <span className="mr-snooze-inline" role="img" aria-label="Snoozed">
+                <Clock size={11} weight="bold" />
+              </span>
             )}
             <span className="mr-condensed-time">{formatRelativeTime(mr.updatedAt)}</span>
           </div>
@@ -299,7 +329,7 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
           </div>
         </>
       )}
-    </div>
+    </SwipeActionRow>
   );
   }
 );
