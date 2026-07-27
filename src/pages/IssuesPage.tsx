@@ -385,9 +385,11 @@ export default function IssuesPage() {
           </div>
         </aside>
 
-        <main className="issues-main" ref={pullRef}>
-          <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} />
-
+        {/* The filter toggle and search bar sit outside `.issues-main` so they
+            stay pinned: `.issues-main` is the scroll container the
+            pull-to-refresh gesture is bound to, and the hook only arms when
+            that element's scrollTop is 0. */}
+        <div className="issues-main-column">
           <button
             type="button"
             className="issues-mobile-filter-toggle"
@@ -414,58 +416,62 @@ export default function IssuesPage() {
             />
           )}
 
-          {issuesQuery.isLoading ? (
-            <div className="issues-main-loading">Loading issues…</div>
-          ) : issues.length === 0 ? (
-            scope === 'starred' ? (
+          <main className="issues-main" ref={pullRef}>
+            <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} />
+
+            {issuesQuery.isLoading ? (
+              <div className="issues-main-loading">Loading issues…</div>
+            ) : issues.length === 0 ? (
+              scope === 'starred' ? (
+                <div className="issues-main-empty">
+                  <p>No starred issues yet.</p>
+                  <p className="issues-main-empty-hint">
+                    Star an issue by pressing <kbd>s</kbd> on the focused row, or by clicking the
+                    star icon. Starred issues appear here across all your projects.
+                  </p>
+                </div>
+              ) : (
+                <div className="issues-main-empty">
+                  <p>
+                    {scope === 'assigned'
+                      ? 'No open issues assigned to you.'
+                      : 'No issues cached for this scope.'}
+                  </p>
+                  <button type="button" className="primary-button" onClick={handleSync} disabled={syncing}>
+                    {syncing ? 'Syncing…' : 'Sync from GitLab'}
+                  </button>
+                </div>
+              )
+            ) : filteredIssues.length === 0 ? (
               <div className="issues-main-empty">
-                <p>No starred issues yet.</p>
-                <p className="issues-main-empty-hint">
-                  Star an issue by pressing <kbd>s</kbd> on the focused row, or by clicking the
-                  star icon. Starred issues appear here across all your projects.
-                </p>
+                <p>No issues match your search.</p>
               </div>
             ) : (
-              <div className="issues-main-empty">
-                <p>
-                  {scope === 'assigned'
-                    ? 'No open issues assigned to you.'
-                    : 'No issues cached for this scope.'}
-                </p>
-                <button type="button" className="primary-button" onClick={handleSync} disabled={syncing}>
-                  {syncing ? 'Syncing…' : 'Sync from GitLab'}
-                </button>
+              <div className="issues-list">
+                {filteredIssues.map((issue, index) => (
+                  <IssueListItem
+                    key={issue.id}
+                    ref={(el) => {
+                      if (el) itemRefs.current.set(index, el);
+                      else itemRefs.current.delete(index);
+                    }}
+                    issue={issue}
+                    selected={index === focusIndex}
+                    onClick={() => {
+                      if (selectedInstanceId != null) {
+                        navigate(
+                          `/issues/${selectedInstanceId}/${issue.projectId}/${issue.iid}`,
+                        );
+                      }
+                    }}
+                    onToggleStar={() => handleStarIssue(issue.id)}
+                    highlightQuery={isSearchOpen ? query : undefined}
+                  />
+                ))}
               </div>
-            )
-          ) : filteredIssues.length === 0 ? (
-            <div className="issues-main-empty">
-              <p>No issues match your search.</p>
-            </div>
-          ) : (
-            <div className="issues-list">
-              {filteredIssues.map((issue, index) => (
-                <IssueListItem
-                  key={issue.id}
-                  ref={(el) => {
-                    if (el) itemRefs.current.set(index, el);
-                    else itemRefs.current.delete(index);
-                  }}
-                  issue={issue}
-                  selected={index === focusIndex}
-                  onClick={() => {
-                    if (selectedInstanceId != null) {
-                      navigate(
-                        `/issues/${selectedInstanceId}/${issue.projectId}/${issue.iid}`,
-                      );
-                    }
-                  }}
-                  onToggleStar={() => handleStarIssue(issue.id)}
-                  highlightQuery={isSearchOpen ? query : undefined}
-                />
-              ))}
-            </div>
-          )}
-        </main>
+            )}
+          </main>
+        </div>
       </div>
 
       <footer className="issues-page-footer">

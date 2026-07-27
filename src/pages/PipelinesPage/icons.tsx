@@ -9,7 +9,14 @@ export function RemoveIcon({ filled = false }: { filled?: boolean } = {}) {
 }
 
 export function SearchIcon() {
-  return <MagnifyingGlass size={14} weight="bold" opacity={0.5} />;
+  return (
+    <MagnifyingGlass
+      size={14}
+      weight="bold"
+      opacity={0.5}
+      className="pipelines-search-icon"
+    />
+  );
 }
 
 export function ExternalLinkIcon({ filled = false }: { filled?: boolean } = {}) {

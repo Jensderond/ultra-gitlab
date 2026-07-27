@@ -26,6 +26,7 @@ export async function mockTauriIPC(
   overrides?: {
     settings?: Partial<typeof seed.settings>;
     mergeRequests?: typeof seed.mergeRequests;
+    issues?: typeof seed.issues;
   },
 ) {
   // Serialize seed data to inject into the browser context
@@ -46,7 +47,7 @@ export async function mockTauriIPC(
     pipelineJobs: seed.pipelineJobs,
     downstreamPipelineJobs: seed.downstreamPipelineJobs,
     notificationSettings: seed.notificationSettings,
-    issues: seed.issues,
+    issues: overrides?.issues ?? seed.issues,
   });
 
   await page.addInitScript((dataJSON: string) => {

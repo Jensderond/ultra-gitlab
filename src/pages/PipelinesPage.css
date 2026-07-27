@@ -42,8 +42,13 @@
   border-color: var(--accent-color);
 }
 
+.pipelines-search-icon {
+  flex-shrink: 0;
+}
+
 .pipelines-search-input {
   flex: 1;
+  min-width: 0;
   border: none;
   background: none;
   outline: none;
@@ -225,7 +230,7 @@
   cursor: grabbing;
 }
 
-.pipelines-grid-item > .pipeline-card {
+.pipeline-card {
   flex: 1;
   min-width: 0;
 }

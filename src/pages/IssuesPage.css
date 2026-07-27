@@ -219,12 +219,30 @@
 
 /* ===== Main column ===== */
 
+/* Holds the pinned chrome (mobile filter toggle, search bar) above the
+   scrolling list, so neither scrolls out of view. */
+.issues-main-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* This is the scroll container, not `.issues-list` inside it: pull-to-refresh
+   is bound here and gates on `scrollTop`, so the scroll has to happen on this
+   element or the gesture arms at every scroll position and swallows every
+   scroll-back-to-the-top. Same shape as `.mr-list-content` on the MR list. */
 .issues-main {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  overflow: hidden;
+  min-height: 0;
+  overflow-y: auto;
+  /* Don't chain overscroll to the page — the top overscroll belongs to the
+     pull-to-refresh gesture. */
+  overscroll-behavior-y: contain;
 }
 
 .issues-main-loading,
@@ -261,7 +279,6 @@
 
 .issues-list {
   flex: 1;
-  overflow-y: auto;
 }
 
 /* ===== Mobile: 260px rail → slide-in drawer, same pattern as the
