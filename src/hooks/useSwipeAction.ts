@@ -107,6 +107,14 @@ export function useSwipeAction<T extends HTMLElement>({
           }
           if (dx <= -INTENT_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
             s.armed = true;
+            // A new gesture can arm while the previous release is still
+            // settling (within SETTLE_MS) — clear it so `is-settling` never
+            // coexists with `is-swiping` (their transitions conflict).
+            if (settleTimer.current) {
+              clearTimeout(settleTimer.current);
+              settleTimer.current = null;
+            }
+            setSettling(false);
             setDragging(true);
           } else {
             return; // intent not decided yet
@@ -134,13 +142,26 @@ export function useSwipeAction<T extends HTMLElement>({
       node.addEventListener('touchcancel', handleTouchCancel);
 
       // React 19 ref-cleanup: called when the node detaches or this callback
-      // identity changes, so add/remove always share one closure.
+      // identity changes (e.g. `disabled` flips), so add/remove always share
+      // one closure. Always return to idle here — otherwise a mid-gesture
+      // detach/disable can leave `settling` stuck true forever, and the
+      // consumer's click guard (`if (dragging || settling) return`) would
+      // then swallow every future tap.
       return () => {
         node.removeEventListener('touchstart', handleTouchStart);
         node.removeEventListener('touchmove', handleTouchMove);
         node.removeEventListener('touchend', handleTouchEnd);
         node.removeEventListener('touchcancel', handleTouchCancel);
-        if (settleTimer.current) clearTimeout(settleTimer.current);
+        if (settleTimer.current) {
+          clearTimeout(settleTimer.current);
+          settleTimer.current = null;
+        }
+        s.tracking = false;
+        s.armed = false;
+        s.distance = 0;
+        setDragging(false);
+        setSettling(false);
+        setOffset(0);
       };
     },
     [disabled],

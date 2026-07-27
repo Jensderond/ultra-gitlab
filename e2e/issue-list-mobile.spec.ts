@@ -94,6 +94,13 @@ test.describe('Touch issue list layout', () => {
     const row = page.locator(ROW).filter({ hasText: 'Login button misaligned' });
     await touchSwipe(row, -140);
 
+    // Synthetic TouchEvents never produce a browser click on their own, so
+    // this test would pass even if IssueListItem's click guard were deleted.
+    // Dispatch a click explicitly, inside the settle window, to exercise it.
+    await row.evaluate((el) => {
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
     await expect(row.locator('.issue-star-inline')).toBeVisible();
     await expect(page).toHaveURL(/\/issues$/);
   });
