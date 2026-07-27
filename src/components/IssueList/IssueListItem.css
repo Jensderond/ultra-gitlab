@@ -14,7 +14,7 @@
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-.issue-list-item:last-child {
+.issue-swipe:last-child .issue-list-item {
   border-bottom: none;
 }
 
@@ -35,7 +35,7 @@
   pointer-events: none;
 }
 
-.issue-list-item:last-child::after {
+.issue-swipe:last-child .issue-list-item::after {
   display: none;
 }
 
@@ -75,6 +75,44 @@
 
 .issue-list-item.state-closed:hover {
   opacity: 0.8;
+}
+
+/* Swipe-to-star (touch): wrapper clips the translating row; the action layer
+   behind it is revealed by the drag. */
+.issue-swipe {
+  position: relative;
+  overflow: hidden;
+}
+
+.issue-swipe-action {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 24px;
+  color: var(--text-muted);
+  background: var(--overlay-hover);
+}
+
+.issue-swipe-action.is-armed {
+  color: var(--warning-color, #e6c07b);
+  background: var(--warning-light);
+}
+
+/* The row is transparent at rest; while a swipe is live it must be opaque so
+   the action layer only shows in the gap the drag reveals. */
+.issue-list-item.is-swiping,
+.issue-list-item.is-settling {
+  background: var(--bg-primary);
+}
+
+.issue-list-item.is-swiping {
+  transition: none;
+}
+
+.issue-list-item.is-settling {
+  transition: transform 0.2s ease, background 0.2s ease;
 }
 
 /* Star button */

@@ -216,6 +216,11 @@ export async function mockTauriIPC(
         ) ?? null,
       list_cached_issue_notes: () => [],
       list_cached_issues: () => data.issues,
+      toggle_issue_star: (args) => {
+        const issue = data.issues.find((i: { id: number }) => i.id === args.issueId);
+        if (issue) issue.starred = !issue.starred;
+        return issue?.starred ?? false;
+      },
       // @mention candidates. `bob` has no cached name (avatar-only); `derond`
       // carries a real name so typing a first name resolves a different username.
       list_known_users: () => [
