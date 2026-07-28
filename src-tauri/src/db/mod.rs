@@ -7,6 +7,7 @@
 
 pub mod auto_merge;
 pub mod auto_run;
+pub mod custom_filter;
 pub mod file_cache;
 pub mod issue_notes;
 pub mod known_users;
@@ -163,6 +164,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0025_mr_snoozes",
         include_str!("migrations/0025_mr_snoozes.sql"),
+    ),
+    (
+        "0026_custom_mr_filters",
+        include_str!("migrations/0026_custom_mr_filters.sql"),
     ),
 ];
 

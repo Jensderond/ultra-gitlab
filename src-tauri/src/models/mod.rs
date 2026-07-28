@@ -6,6 +6,7 @@
 //! All models derive Serialize for Tauri IPC and FromRow for SQLx database queries.
 
 pub mod comment;
+pub mod custom_mr_filter;
 pub mod diff;
 pub mod gitlab_instance;
 pub mod issue;
@@ -18,6 +19,7 @@ pub mod sync_action;
 
 // Re-exports for convenient access
 pub use comment::{Comment, LineType, NewComment};
+pub use custom_mr_filter::CustomMrFilter;
 pub use diff::{ChangeType, Diff, DiffFile};
 pub use gitlab_instance::{GitLabInstance, NewGitLabInstance};
 pub use issue::{Issue, IssueState, UpsertIssue};
