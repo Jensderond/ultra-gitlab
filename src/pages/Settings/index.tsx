@@ -31,6 +31,7 @@ import SyncSettingsSection from './SyncSettingsSection';
 import CliSection from './CliSection';
 import AppearanceSection from './AppearanceSection';
 import NotificationsSection from './NotificationsSection';
+import CustomFilterSection from './CustomFilterSection';
 import CollapsePatternsEditor from './CollapsePatternsEditor';
 import NavigationSection from './NavigationSection';
 import ShortcutEditor from './ShortcutEditor';
@@ -43,6 +44,7 @@ interface SettingsProps {
 type SectionId =
   | 'instances'
   | 'sync'
+  | 'custom-filter'
   | 'appearance'
   | 'notifications'
   | 'shortcuts'
@@ -78,6 +80,12 @@ const SECTION_GROUPS: SectionGroup[] = [
         id: 'sync',
         label: 'Sync',
         description: 'How often merge request data refreshes',
+      },
+      {
+        id: 'custom-filter',
+        label: 'Custom Filter',
+        description: 'Sync extra merge requests beyond your reviews',
+        tauriOnly: true,
       },
     ],
   },
@@ -185,6 +193,7 @@ function SectionContent({
   switch (id) {
     case 'instances': return <InstancesSection />;
     case 'sync': return <SyncSettingsSection />;
+    case 'custom-filter': return <CustomFilterSection />;
     case 'appearance': return <AppearanceSection highlightCondensed={highlightCondensed} />;
     case 'notifications': return <NotificationsSection />;
     case 'shortcuts': return <ShortcutEditor />;

@@ -1653,3 +1653,49 @@
     animation: none;
   }
 }
+
+/* ================================================
+   CUSTOM MR FILTER
+   ================================================ */
+
+.custom-filter-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-row-control .custom-filter-input {
+  padding: 8px 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--bg-dim);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  width: 200px;
+}
+
+.settings-row-control .custom-filter-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.custom-filter-count--warn {
+  color: var(--warning-color, #e6c07b);
+}
+
+.custom-filter-save {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--bg-dim);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.custom-filter-save:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

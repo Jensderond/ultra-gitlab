@@ -4,34 +4,9 @@ import { openExternalUrl } from '../../services/transport';
 import type { NotificationSettings } from '../../types';
 import { useToast } from '../../components/Toast';
 import { SettingsGroup, SettingsRow } from './SettingsGroup';
+import ToggleSwitch from './ToggleSwitch';
 
 type PermissionStatus = 'granted' | 'denied' | 'not_determined' | 'unknown';
-
-/** Switch-styled toggle used on notification rows. */
-function ToggleSwitch({
-  checked,
-  disabled,
-  ariaLabel,
-  onChange,
-}: {
-  checked: boolean;
-  disabled?: boolean;
-  ariaLabel: string;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <button
-      className={`companion-toggle ${checked ? 'active' : ''}`}
-      role="switch"
-      aria-checked={checked}
-      aria-label={ariaLabel}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-    >
-      <span className="companion-toggle-knob" />
-    </button>
-  );
-}
 
 /**
  * Notification settings section.
