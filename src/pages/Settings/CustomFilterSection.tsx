@@ -24,10 +24,33 @@ function emptyFilter(instanceId: number): CustomMrFilter {
   };
 }
 
-/** Normalize a text input value: trimmed, empty string → null. */
+/**
+ * Map a raw text input value to state: empty string → null, otherwise kept
+ * verbatim (no trimming) so spaces mid-typing (e.g. "in review") aren't
+ * collapsed back out on every keystroke.
+ */
 function toNullable(value: string): string | null {
-  const trimmed = value.trim();
-  return trimmed === '' ? null : trimmed;
+  return value === '' ? null : value;
+}
+
+/**
+ * Normalize a filter for use at a boundary (save / test): trim the free-text
+ * fields and collapse empty-after-trim to null. The in-state filter keeps
+ * raw values so the inputs stay typeable; this is applied only right before
+ * the value leaves the component.
+ */
+function normalizeFilter(filter: CustomMrFilter): CustomMrFilter {
+  const trimToNull = (value: string | null): string | null => {
+    if (value === null) return null;
+    const trimmed = value.trim();
+    return trimmed === '' ? null : trimmed;
+  };
+  return {
+    ...filter,
+    authorUsername: trimToNull(filter.authorUsername),
+    notAuthorUsername: trimToNull(filter.notAuthorUsername),
+    labels: trimToNull(filter.labels),
+  };
 }
 
 function InstanceFilterCard({
@@ -57,7 +80,7 @@ function InstanceFilterCard({
       return;
     }
     const timer = setTimeout(() => {
-      testCustomMrFilter(filter)
+      testCustomMrFilter(normalizeFilter(filter))
         .then((n) => {
           setMatchCount(n);
           setTestError(null);
@@ -79,7 +102,7 @@ function InstanceFilterCard({
     if (!filter) return;
     setSaving(true);
     try {
-      await setCustomMrFilter(filter);
+      await setCustomMrFilter(normalizeFilter(filter));
       addToast({ type: 'info', title: 'Custom filter saved', body: instance.name ?? instance.url });
       if (filter.enabled) {
         // Surface the new MRs right away.

@@ -96,7 +96,12 @@ Lifecycle edge cases (no new code needed):
   Review list) — the same mechanism that handles being removed as a reviewer.
 - **Filter matches too many MRs:** the existing `max_mrs_per_sync` cap
   truncates the merged set and disables soft-purge for that cycle, exactly as
-  today. The Settings UI warns before this happens (see below).
+  today. The Settings UI warns before this happens (see below). Independently,
+  if a scope's GitLab response itself has further pages (`next_page` present
+  on the `per_page=100` fetch — most plausible for `scope=all` on the custom
+  filter), that scope's fetch is marked incomplete and soft-purge is disabled
+  for the cycle even if the merged, deduplicated set stays under
+  `max_mrs_per_sync`.
 
 ## Commands & Service Layer
 

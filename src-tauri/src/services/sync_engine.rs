@@ -1208,6 +1208,16 @@ impl SyncEngine {
                         response.data.len(),
                         scope
                     );
+                    // A scope with more pages than we fetched is an incomplete view:
+                    // a cached MR missing from this fetch may simply be on a later
+                    // page, so soft-purge must be disabled this cycle.
+                    if response.pagination.next_page.is_some() {
+                        complete = false;
+                        eprintln!(
+                            "[sync] {} MR fetch has more pages — soft-purge disabled this cycle",
+                            scope
+                        );
+                    }
                     merge_unique(&mut all_mrs, response.data);
                 }
                 // Auth failures must propagate so the caller can prompt re-auth.
