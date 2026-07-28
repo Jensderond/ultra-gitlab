@@ -574,6 +574,23 @@ export interface NotificationSettings {
 }
 
 // ============================================================================
+// Custom MR Filter
+// ============================================================================
+
+/** Per-instance user-defined MR sync filter (issue #28). */
+export interface CustomMrFilter {
+  instanceId: number;
+  enabled: boolean;
+  /** GitLab wip param: 'yes' (only drafts), 'no' (exclude drafts), null = any. */
+  draft: string | null;
+  authorUsername: string | null;
+  notAuthorUsername: string | null;
+  /** Comma-separated label names (AND-semantics). */
+  labels: string | null;
+  updatedAt: number;
+}
+
+// ============================================================================
 // CLI Install
 // ============================================================================
 

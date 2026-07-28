@@ -36,6 +36,7 @@ import type {
   ProjectSearchResult,
   PipelineJob,
   NotificationSettings,
+  CustomMrFilter,
   ResolvedMr,
   IssueWithProject,
   IssueFilter,
@@ -1085,6 +1086,27 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
  */
 export async function updateNotificationSettings(settings: NotificationSettings): Promise<void> {
   return invoke<void>('update_notification_settings', { settings });
+}
+
+/**
+ * Get the custom MR filter for an instance (null when never configured).
+ */
+export async function getCustomMrFilter(instanceId: number): Promise<CustomMrFilter | null> {
+  return invoke<CustomMrFilter | null>('get_custom_mr_filter', { instanceId });
+}
+
+/**
+ * Save the custom MR filter for filter.instanceId.
+ */
+export async function setCustomMrFilter(filter: CustomMrFilter): Promise<void> {
+  return invoke<void>('set_custom_mr_filter', { filter });
+}
+
+/**
+ * Count MRs matching a (possibly unsaved) filter via GitLab's x-total header.
+ */
+export async function testCustomMrFilter(filter: CustomMrFilter): Promise<number> {
+  return invoke<number>('test_custom_mr_filter', { filter });
 }
 
 /**
