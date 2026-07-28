@@ -19,7 +19,7 @@ use commands::{
     snooze_mr, unsnooze_mr,
     delete_comment, delete_gitlab_instance, discard_failed_action, generate_test_data, get_action_counts,
     get_approval_status, get_avatar, get_avatars, get_cache_stats, get_cached_file_pair,
-    get_collapse_patterns, get_comments,
+    get_collapse_patterns, get_comments, get_custom_mr_filter,
     get_diagnostics_report, get_diff_content, get_diff_file,
     get_diff_file_metadata, get_diff_files, get_diff_hunks, get_diff_refs, get_file_comments,
     get_file_content, get_file_content_base64, get_gitattributes, get_gitlab_instances,
@@ -31,7 +31,7 @@ use commands::{
     add_issue_note, get_cached_issue_detail, get_token_info,
     list_cached_issue_notes, list_cached_issues,
     list_issue_assignee_candidates, list_issue_projects, list_known_users, list_my_merge_requests,
-    refresh_issue_detail, set_issue_assignees, set_issue_description, set_issue_state,
+    refresh_issue_detail, set_issue_assignees, set_issue_description, set_issue_state, set_custom_mr_filter,
     list_pipeline_projects, merge_mr, play_pipeline_job,
     resolve_mr_by_web_url, fetch_mr_by_web_url,
     rebase_mr, refresh_avatars, refresh_gitattributes, rename_instance,
@@ -42,6 +42,7 @@ use commands::{
     send_native_notification,
     set_default_instance, setup_gitlab_instance,
     sync_my_issues, sync_project_issues,
+    test_custom_mr_filter,
     toggle_issue_star, toggle_pin_pipeline_project, toggle_project_star, trigger_sync, unapprove_mr,
     update_collapse_patterns,
     update_custom_theme_colors, update_diffs_font,
@@ -379,6 +380,10 @@ pub fn run() {
             list_auto_run_claims,
             // Reviewers
             get_mr_reviewers,
+            // Custom MR Filter
+            get_custom_mr_filter,
+            set_custom_mr_filter,
+            test_custom_mr_filter,
             // Notifications
             get_notification_settings,
             update_notification_settings,

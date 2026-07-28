@@ -17,6 +17,7 @@ pub mod auto_run;
 pub mod cli;
 pub mod avatar;
 pub mod comments;
+pub mod custom_filter;
 pub mod diagnostics;
 pub mod fonts;
 pub mod gitattributes;
@@ -46,6 +47,7 @@ pub use comments::{
     add_comment, delete_comment, get_comments, get_file_comments, reply_to_comment,
     resolve_discussion,
 };
+pub use custom_filter::{get_custom_mr_filter, set_custom_mr_filter, test_custom_mr_filter};
 pub use fonts::list_system_fonts;
 pub use diagnostics::{
     clear_test_data, generate_test_data, get_cache_stats, get_diagnostics_report, get_memory_stats,

@@ -687,7 +687,7 @@ fn parse_range(s: &str) -> Option<(i64, i64)> {
 /// Create a GitLab client for the given instance.
 ///
 /// Helper function to avoid duplication between file content commands.
-async fn create_gitlab_client(
+pub(crate) async fn create_gitlab_client(
     pool: &State<'_, DbPool>,
     instance_id: i64,
 ) -> Result<GitLabClient, AppError> {
