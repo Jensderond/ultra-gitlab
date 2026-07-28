@@ -858,7 +858,8 @@ impl SyncEngine {
             self.fetch_mrs_for_instance(
                 &client,
                 &config,
-                current_username.as_deref().unwrap_or("unknown")
+                current_username.as_deref().unwrap_or("unknown"),
+                instance.id,
             ),
             async {
                 if speculative_groups.is_empty() {
@@ -1107,6 +1108,7 @@ impl SyncEngine {
         client: &GitLabClient,
         config: &SyncConfig,
         username: &str,
+        instance_id: i64,
     ) -> Result<FetchedMrs, AppError> {
         let mut all_mrs: Vec<GitLabMergeRequest> = Vec::new();
         // Tracks whether we successfully fetched every scope without truncation.
@@ -1155,23 +1157,50 @@ impl SyncEngine {
             ..Default::default()
         };
 
+        // Fourth, user-defined scope (issue #28): all open MRs matching the
+        // instance's custom filter. Fail-open on DB errors — a broken filter
+        // must never block the reviewer-based sync.
+        let custom_filter = crate::db::custom_filter::get_custom_filter(&self.pool, instance_id)
+            .await
+            .unwrap_or_else(|e| {
+                eprintln!("[sync] failed to load custom filter (skipping): {}", e);
+                None
+            })
+            .filter(|f| f.enabled);
+        let custom_query = custom_filter
+            .as_ref()
+            .map(MergeRequestsQuery::from_custom_filter);
+
         eprintln!(
             "[sync] Fetching authored/reviewing/assigned MRs for user '{}' concurrently",
             username
         );
 
-        // All three are independent — fetch them concurrently.
-        let (authored, reviewing, assigned) = tokio::join!(
+        // All scopes are independent — fetch them concurrently. The custom
+        // scope is optional; when disabled its future resolves to None.
+        let custom_fetch = async {
+            match custom_query.as_ref() {
+                Some(q) => Some(client.list_merge_requests(q).await),
+                None => None,
+            }
+        };
+        let (authored, reviewing, assigned, custom) = tokio::join!(
             client.list_merge_requests(&authored_query),
             client.list_merge_requests(&reviewing_query),
             client.list_merge_requests(&assigned_query),
+            custom_fetch,
         );
 
-        for (scope, result) in [
+        let mut scope_results = vec![
             ("authored", authored),
             ("reviewing", reviewing),
             ("assigned", assigned),
-        ] {
+        ];
+        if let Some(result) = custom {
+            scope_results.push(("custom-filter", result));
+        }
+
+        for (scope, result) in scope_results {
             match result {
                 Ok(response) => {
                     eprintln!(
