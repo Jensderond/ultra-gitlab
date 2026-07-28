@@ -11,7 +11,7 @@ import { test, expect } from './fixtures/test-base';
 const FAB = '.pipelines-search-fab';
 const OVERLAY = '.pipelines-search-overlay';
 const OVERLAY_INPUT = `${OVERLAY} .pipelines-search-input`;
-const INLINE_INPUT = '.pipelines-search-container .pipelines-search-input';
+const INLINE_INPUT = '.pipelines-search-container .search-bar-input';
 
 test.describe('Desktop keeps the inline search bar', () => {
   test('inline input is present and no floating button renders', async ({ page }) => {

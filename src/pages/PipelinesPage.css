@@ -27,6 +27,13 @@
   -webkit-user-select: none;
 }
 
+/* The reused SearchBar prompt already gets 32px of horizontal padding from
+   the shared search-bar CSS; this container adds its own 32px, so cancel one
+   out here. */
+.pipelines-search-bar {
+  padding: 0;
+}
+
 .pipelines-search-input-wrapper {
   display: flex;
   align-items: center;
@@ -61,17 +68,6 @@
 
 .pipelines-search-input::placeholder {
   color: var(--text-muted);
-}
-
-.pipelines-search-hint {
-  font-size: 11px;
-  font-family: 'IBM Plex Mono', monospace;
-  color: var(--text-muted);
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 3px;
-  padding: 1px 5px;
-  line-height: 1;
 }
 
 .pipelines-search-spinner {

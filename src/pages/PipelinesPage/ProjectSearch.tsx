@@ -4,6 +4,7 @@ import { searchProjects } from '../../services/tauri';
 import { useSmallScreen } from '../../hooks/useSmallScreen';
 import type { ProjectSearchResult } from '../../types';
 import { SearchIcon } from './icons';
+import '../../components/SearchBar/SearchBar.css';
 
 interface ProjectSearchProps {
   selectedInstanceId: number | null;
@@ -50,9 +51,14 @@ export default function ProjectSearch({ selectedInstanceId, onSelectResult }: Pr
     };
   }, [searchQuery, selectedInstanceId]);
 
-  // `/` keyboard shortcut to focus search (desktop; inline input only)
+  // `/` or ⌘F/Ctrl+F to focus search (desktop; inline input only)
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'f' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
       if (
         e.key === '/' &&
         !e.metaKey &&
@@ -178,12 +184,14 @@ export default function ProjectSearch({ selectedInstanceId, onSelectResult }: Pr
 
   return (
     <div className="pipelines-search-container" ref={searchContainerRef}>
-      <div className="pipelines-search-input-wrapper">
-        <SearchIcon />
+      <div className="search-bar search-bar--prompt pipelines-search-bar">
+        <span className="search-bar-sigil" aria-hidden="true">
+          /
+        </span>
         <input
           ref={searchInputRef}
           type="text"
-          className="pipelines-search-input"
+          className="search-bar-input"
           placeholder="Search projects to add..."
           spellCheck={false}
           autoCorrect="off"
@@ -207,9 +215,6 @@ export default function ProjectSearch({ selectedInstanceId, onSelectResult }: Pr
           }}
         />
         {searchLoading && <span className="pipelines-search-spinner" />}
-        {!searchQuery && (
-          <kbd className="pipelines-search-hint">/</kbd>
-        )}
       </div>
       {searchOpen && searchQuery.trim() && (
         <div className="pipelines-search-dropdown">
