@@ -122,6 +122,27 @@ pub struct MergeRequestsQuery {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "not[approved_by_usernames][]")]
     pub not_approved_by_usernames: Option<String>,
+
+    /// Filter by labels (comma-separated names, AND-semantics).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub labels: Option<String>,
+}
+
+impl MergeRequestsQuery {
+    /// Query for the user-defined custom filter scope (issue #28): all open
+    /// MRs visible on the instance, narrowed by the filter's optional params.
+    pub fn from_custom_filter(filter: &crate::models::CustomMrFilter) -> Self {
+        MergeRequestsQuery {
+            state: Some("opened".to_string()),
+            scope: Some("all".to_string()),
+            per_page: Some(100),
+            draft: filter.draft.clone(),
+            author_username: filter.author_username.clone(),
+            not_author_username: filter.not_author_username.clone(),
+            labels: filter.labels.clone(),
+            ..Default::default()
+        }
+    }
 }
 
 /// Nested head_pipeline object from GitLab MR API.
@@ -2313,5 +2334,58 @@ mod tests {
     fn parse_manual_flags_empty_on_missing_pipeline() {
         let data = serde_json::json!({ "project": { "pipeline": null } });
         assert!(parse_manual_flags(&data).is_empty());
+    }
+
+    #[cfg(test)]
+    mod custom_filter_query_tests {
+        use super::*;
+        use crate::models::CustomMrFilter;
+
+        fn filter() -> CustomMrFilter {
+            CustomMrFilter {
+                instance_id: 1,
+                enabled: true,
+                draft: Some("no".to_string()),
+                author_username: None,
+                not_author_username: Some("renovate-bot".to_string()),
+                labels: Some("magento,backend".to_string()),
+                updated_at: 0,
+            }
+        }
+
+        #[test]
+        fn from_custom_filter_maps_all_knobs() {
+            let q = MergeRequestsQuery::from_custom_filter(&filter());
+            assert_eq!(q.state.as_deref(), Some("opened"), "state is fixed to opened");
+            assert_eq!(q.scope.as_deref(), Some("all"), "scope is fixed to all");
+            assert_eq!(q.per_page, Some(100));
+            assert_eq!(q.draft.as_deref(), Some("no"));
+            assert_eq!(q.author_username, None);
+            assert_eq!(q.not_author_username.as_deref(), Some("renovate-bot"));
+            assert_eq!(q.labels.as_deref(), Some("magento,backend"));
+            assert_eq!(q.reviewer_username, None, "custom scope must not be reviewer-bound");
+        }
+
+        #[test]
+        fn from_custom_filter_omits_unset_knobs() {
+            let mut f = filter();
+            f.draft = None;
+            f.not_author_username = None;
+            f.labels = None;
+            let q = MergeRequestsQuery::from_custom_filter(&f);
+            assert_eq!(q.draft, None);
+            assert_eq!(q.not_author_username, None);
+            assert_eq!(q.labels, None);
+        }
+
+        #[test]
+        fn labels_param_serializes_without_rename() {
+            let q = MergeRequestsQuery {
+                labels: Some("magento".to_string()),
+                ..Default::default()
+            };
+            let json = serde_json::to_string(&q).unwrap();
+            assert!(json.contains("\"labels\":\"magento\""), "got: {json}");
+        }
     }
 }
