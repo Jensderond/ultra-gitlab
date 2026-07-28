@@ -84,6 +84,9 @@ export async function mockTauriIPC(
     }
     const autoMergeClaims = new Map<number, MockAutoMergeClaim>();
 
+    // -- Custom MR filter state (per-page, resets on each test navigation) --
+    const customFilters = new Map<number, unknown>();
+
     // Command handlers — return data matching the Rust backend shape
     const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
       // -- Instances --
@@ -425,6 +428,15 @@ export async function mockTauriIPC(
       get_notification_settings: () => data.notificationSettings,
       update_notification_settings: () => undefined,
       send_native_notification: () => undefined,
+
+      // -- Custom MR filter --
+      get_custom_mr_filter: (args) => customFilters.get(args.instanceId as number) ?? null,
+      set_custom_mr_filter: (args) => {
+        const filter = args.filter as { instanceId: number };
+        customFilters.set(filter.instanceId, filter);
+        return undefined;
+      },
+      test_custom_mr_filter: () => 42,
 
       // -- Avatars --
       get_avatar: () => null,
