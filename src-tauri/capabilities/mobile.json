@@ -12,6 +12,7 @@
     "store:default",
     "deep-link:default",
     "log:default",
-    "os:default"
+    "os:default",
+    "haptics:allow-impact-feedback"
   ]
 }

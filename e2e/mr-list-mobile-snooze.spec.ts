@@ -31,6 +31,42 @@ async function touchSwipe(row: Locator, deltaX: number) {
   }, deltaX);
 }
 
+/**
+ * Drag leftward and hold — no touchend, so the row stays mid-gesture. Returns
+ * with the finger still down; call `touchRelease` to finish. Splitting the
+ * dispatch from the assertion matters: React batches the state updates from a
+ * single evaluate, so mid-drag styles are only observable after a round-trip.
+ */
+async function touchSwipeHold(row: Locator, deltaX: number) {
+  await row.evaluate((el, delta) => {
+    const touch = (x: number) =>
+      new Touch({ identifier: 1, target: el, clientX: x, clientY: 200 });
+    const opts = { bubbles: true, cancelable: true };
+    el.dispatchEvent(new TouchEvent('touchstart', { ...opts, touches: [touch(300)] }));
+    const steps = 8;
+    for (let i = 1; i <= steps; i++) {
+      el.dispatchEvent(
+        new TouchEvent('touchmove', { ...opts, touches: [touch(300 + (delta * i) / steps)] }),
+      );
+    }
+  }, deltaX);
+}
+
+async function touchRelease(row: Locator) {
+  await row.evaluate((el) => {
+    el.dispatchEvent(new TouchEvent('touchend', { bubbles: true, cancelable: true, touches: [] }));
+  });
+}
+
+/** Uniform scale factor (matrix m11) from an element's computed transform. */
+async function scaleOf(el: Locator): Promise<number> {
+  return el.evaluate((node) => {
+    const t = getComputedStyle(node).transform;
+    if (t === 'none') return 1;
+    return new DOMMatrixReadOnly(t).a;
+  });
+}
+
 test.describe('Touch MR list snooze', () => {
   test.use({ viewport: { width: 390, height: 664 }, hasTouch: true });
 
@@ -134,6 +170,52 @@ test.describe('Touch MR list snooze', () => {
     await touchSwipe(row, -140);
     await page.waitForTimeout(400);
     await expect(page.locator('.snooze-menu')).toHaveCount(0);
+  });
+
+  // Feedback for the threshold crossing. The haptic that fires alongside this
+  // is iOS-native and unobservable here (and absent in the Simulator too) —
+  // only the scale animation is testable.
+  test('action icon grows with the drag, then pops past the threshold', async ({ page }) => {
+    const row = page.locator(ROW).filter({ hasText: 'Add dark mode toggle' });
+    const action = page.locator('.swipe-row-action');
+    const track = page.locator('.swipe-row-action-icon');
+    const pop = page.locator('.swipe-row-action-icon-pop');
+
+    // Below the 72px threshold: partially grown, not yet armed.
+    await touchSwipeHold(row, -40);
+    await expect(action).toBeVisible();
+    await expect(action).not.toHaveClass(/is-armed/);
+
+    const progress = await action.evaluate((el) =>
+      parseFloat(getComputedStyle(el).getPropertyValue('--swipe-progress')),
+    );
+    expect(progress).toBeGreaterThan(0.4);
+    expect(progress).toBeLessThan(1);
+
+    const midScale = await scaleOf(track);
+    expect(midScale).toBeGreaterThan(0.6);
+    expect(midScale).toBeLessThan(1);
+    // Unarmed: the pop layer contributes nothing yet.
+    expect(await scaleOf(pop)).toBeCloseTo(1, 2);
+
+    await touchRelease(row);
+    await page.waitForTimeout(400);
+
+    // Past the threshold: progress saturates and the pop layer overshoots.
+    await touchSwipeHold(row, -100);
+    await expect(action).toHaveClass(/is-armed/);
+    expect(
+      await action.evaluate((el) =>
+        parseFloat(getComputedStyle(el).getPropertyValue('--swipe-progress')),
+      ),
+    ).toBeCloseTo(1, 5);
+    expect(await scaleOf(track)).toBeCloseTo(1, 2);
+
+    // Wait out the 260ms spring before reading its resting value.
+    await page.waitForTimeout(400);
+    expect(await scaleOf(pop)).toBeCloseTo(1.18, 2);
+
+    await touchRelease(row);
   });
 
   test('condensed snoozed row shows the inline clock on touch', async ({ page }) => {

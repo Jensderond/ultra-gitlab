@@ -118,6 +118,9 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init());
 
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_haptics::init());
+
     builder
         .setup(|app| {
             // Initialize database

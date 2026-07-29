@@ -7,7 +7,14 @@
  * swipe is suppressed before it reaches `rowProps.onClick`.
  */
 
-import { forwardRef, useEffect, useRef, type HTMLAttributes, type ReactNode } from 'react';
+import {
+  forwardRef,
+  useEffect,
+  useRef,
+  type CSSProperties,
+  type HTMLAttributes,
+  type ReactNode,
+} from 'react';
 import { useSwipeAction } from '../../hooks/useSwipeAction';
 import './SwipeActionRow.css';
 
@@ -38,7 +45,7 @@ const SwipeActionRow = forwardRef<HTMLDivElement, SwipeActionRowProps>(function 
   ref,
 ) {
   const triggeredRef = useRef(false);
-  const { containerRef, offset, dragging, settling, pastThreshold } =
+  const { containerRef, offset, progress, dragging, settling, pastThreshold } =
     useSwipeAction<HTMLDivElement>({
       onTrigger: () => {
         triggeredRef.current = true;
@@ -66,8 +73,21 @@ const SwipeActionRow = forwardRef<HTMLDivElement, SwipeActionRowProps>(function 
   return (
     <div ref={ref} className="swipe-row">
       {(dragging || settling) && (
-        <div className={`swipe-row-action${pastThreshold ? ' is-armed' : ''}`} aria-hidden>
-          {pastThreshold ? (armedIcon ?? icon) : icon}
+        <div
+          className={`swipe-row-action${pastThreshold ? ' is-armed' : ''}`}
+          style={{ '--swipe-progress': progress } as CSSProperties}
+          aria-hidden
+        >
+          {/* Two nested scale layers: the outer one tracks the finger 1:1 with
+              no transition, the inner one springs past 1.0 when armed. They
+              can't share a single transform — a spring transition on the
+              finger-tracked scale would lag the drag. Both stay mounted across
+              the icon/armedIcon swap so the spring is never cut short. */}
+          <span className="swipe-row-action-icon">
+            <span className="swipe-row-action-icon-pop">
+              {pastThreshold ? (armedIcon ?? icon) : icon}
+            </span>
+          </span>
         </div>
       )}
       <div

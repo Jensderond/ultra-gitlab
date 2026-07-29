@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { hapticImpact } from '../services/haptics';
 
 /** Leftward drag distance (px) required before release triggers the action. */
 const TRIGGER_THRESHOLD = 72;
@@ -22,6 +23,8 @@ interface UseSwipeActionResult<T extends HTMLElement> {
   containerRef: (node: T | null) => void | (() => void);
   /** Current leftward drag distance in px (0 when idle). */
   offset: number;
+  /** Drag distance as a fraction of the trigger threshold, clamped to 0…1. */
+  progress: number;
   /** True while the finger is down and the gesture has claimed the touch. */
   dragging: boolean;
   /** True while the row animates back after release. */
@@ -58,6 +61,7 @@ export function useSwipeAction<T extends HTMLElement>({
     tracking: false, // finger down, intent not yet decided
     armed: false, // gesture claimed the touch (horizontal intent)
     distance: 0,
+    crossed: false, // distance is currently past TRIGGER_THRESHOLD
   });
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -78,6 +82,7 @@ export function useSwipeAction<T extends HTMLElement>({
         s.tracking = false;
         s.armed = false;
         s.distance = 0;
+        s.crossed = false;
       }
 
       function handleTouchStart(e: TouchEvent) {
@@ -87,6 +92,7 @@ export function useSwipeAction<T extends HTMLElement>({
         s.tracking = true;
         s.armed = false;
         s.distance = 0;
+        s.crossed = false;
       }
 
       function handleTouchMove(e: TouchEvent) {
@@ -131,6 +137,18 @@ export function useSwipeAction<T extends HTMLElement>({
               );
         setOffset(s.distance);
         if (e.cancelable) e.preventDefault();
+
+        // Haptic on the upward threshold crossing only — sequenced after
+        // preventDefault so the IPC call never sits in front of the scroll
+        // lock, and fired here rather than from an effect on `pastThreshold`
+        // to save a render frame (perceptible for a tap). Dragging back below
+        // re-arms it, so a deliberate re-cross buzzes again while holding the
+        // finger at the boundary does not.
+        const past = s.distance >= TRIGGER_THRESHOLD;
+        if (past !== s.crossed) {
+          s.crossed = past;
+          if (past) void hapticImpact();
+        }
       }
 
       const handleTouchEnd = () => release(true);
@@ -159,6 +177,7 @@ export function useSwipeAction<T extends HTMLElement>({
         s.tracking = false;
         s.armed = false;
         s.distance = 0;
+        s.crossed = false;
         setDragging(false);
         setSettling(false);
         setOffset(0);
@@ -170,6 +189,7 @@ export function useSwipeAction<T extends HTMLElement>({
   return {
     containerRef,
     offset,
+    progress: Math.min(1, offset / TRIGGER_THRESHOLD),
     dragging,
     settling,
     pastThreshold: dragging && offset >= TRIGGER_THRESHOLD,

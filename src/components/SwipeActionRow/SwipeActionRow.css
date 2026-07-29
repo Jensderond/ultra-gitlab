@@ -28,6 +28,34 @@
   background: var(--warning-light);
 }
 
+/* Icon grows as the drag approaches the threshold, then springs past 1.0 the
+   moment it arms. Split across two layers because one transform can't hold
+   both: the finger-tracked scale needs no transition (or it lags the drag),
+   while the armed pop needs a springy one. Scales multiply, so at the
+   threshold — progress exactly 1 — the icon lands at 1 x 1.18. */
+.swipe-row-action-icon {
+  display: flex;
+  transform: scale(calc(0.6 + 0.4 * var(--swipe-progress, 0)));
+}
+
+.swipe-row-action-icon-pop {
+  display: flex;
+  transform: scale(1);
+  /* Control point past 1 is what produces the overshoot. */
+  transition: transform 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.swipe-row-action.is-armed .swipe-row-action-icon-pop {
+  transform: scale(1.18);
+}
+
+/* The size change is state, so it stays; only the overshoot animation goes. */
+@media (prefers-reduced-motion: reduce) {
+  .swipe-row-action-icon-pop {
+    transition: none;
+  }
+}
+
 /* Rows are transparent at rest; while a swipe is live they must be opaque so
    the action layer only shows in the gap the drag reveals. The descendant
    selector out-specifies consumer rules like `.mr-list-item.selected`
