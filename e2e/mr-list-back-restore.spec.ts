@@ -21,9 +21,10 @@ const withApproved = mergeRequests.map((mr) =>
 );
 
 /** A list long enough to scroll, entirely inside the Approved tab. */
+const FILLER_COUNT = 40;
 const manyApproved = [
   ...mergeRequests,
-  ...Array.from({ length: 40 }, (_, i) => ({
+  ...Array.from({ length: FILLER_COUNT }, (_, i) => ({
     ...mergeRequests[0],
     id: 9000 + i,
     iid: 9000 + i,
@@ -87,24 +88,23 @@ test.describe('returning to the MR list', () => {
 
     await page.locator('.mr-tab', { hasText: 'Approved' }).click();
     const content = page.locator('.mr-list-content');
-    await expect(page.locator(ROW).first()).toBeVisible();
-
-    await content.evaluate((el) => {
-      el.scrollTop = 600;
-    });
-    const before = await content.evaluate((el) => el.scrollTop);
-    expect(before).toBeGreaterThan(400);
+    // Wait for the *approved* rows specifically. "Some row is visible" is not a
+    // readiness gate here — the four needs-review rows satisfy it, and scrolling
+    // a four-row list clamps to nearly zero.
+    await expect(page.locator(ROW)).toHaveCount(FILLER_COUNT);
 
     const row = page.locator(ROW).filter({ hasText: 'approved filler 12' });
     await row.scrollIntoViewIfNeeded();
     const offset = await content.evaluate((el) => el.scrollTop);
+    expect(offset).toBeGreaterThan(400);
     await row.click();
     await expect(page).toHaveURL(/\/mrs\/90/);
 
     await page.goBack();
-    await expect(page.locator(ROW).first()).toBeVisible();
+    await expect(page.locator(ROW)).toHaveCount(FILLER_COUNT);
 
-    const restored = await content.evaluate((el) => el.scrollTop);
-    expect(Math.abs(restored - offset)).toBeLessThan(20);
+    await expect
+      .poll(async () => Math.abs((await content.evaluate((el) => el.scrollTop)) - offset))
+      .toBeLessThan(20);
   });
 });
