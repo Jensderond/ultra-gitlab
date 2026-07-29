@@ -4,7 +4,15 @@
  * Displays a list of merge requests with filtering and selection.
  */
 
-import { useState, useEffect, useCallback, useRef, useMemo, useImperativeHandle } from 'react';
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useRef,
+  useMemo,
+  useImperativeHandle,
+} from 'react';
 import type { ReactNode, Ref } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMRListQuery } from '../../hooks/queries/useMRListQuery';
@@ -13,6 +21,7 @@ import { isSnoozed } from '../../lib/snooze';
 import { projectSearchText } from '../../lib/projectName';
 import type { MergeRequest } from '../../types';
 import MRListItem from './MRListItem';
+import { positionKey, readPosition, writePosition } from './listPosition';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { useManualRefreshHandler } from '../../hooks/useManualRefreshHandler';
 import { useSearchReveal } from '../../hooks/useSearchReveal';
@@ -135,11 +144,17 @@ export default function MRList({
 
   // Both hooks observe the same scroll container: reveal watches native
   // scrolling for the collapsed search bar, pull owns the overscroll gesture.
+  // The third consumer is position restore, which needs the node directly.
+  // Held in state, not a ref: the container only exists once the query has
+  // resolved, and the restore has to run when it appears.
+  const [scrollNode, setScrollNode] = useState<HTMLDivElement | null>(null);
   const contentRef = useCallback(
     (node: HTMLDivElement | null) => {
+      setScrollNode(node);
       const cleanupPull = pullRef(node);
       const cleanupReveal = revealRef(node);
       return () => {
+        setScrollNode(null);
         cleanupPull?.();
         cleanupReveal?.();
       };
@@ -245,6 +260,45 @@ export default function MRList({
   useEffect(() => {
     onMRsLoaded?.(scope);
   }, [scope, onMRsLoaded]);
+
+  // ---- Reading position, remembered per tab -------------------------------
+  // Opening an MR unmounts this component, and the return trip is often a
+  // history POP — iOS's native edge-swipe-back — which rebuilds it from
+  // scratch and can carry no state with it. Hence a store outside React.
+  // A filtered list is a different set of rows, so it takes no part in this.
+  const posKey = positionKey(instanceId, activeTab);
+
+  useEffect(() => {
+    if (filtering) return;
+    writePosition(posKey, { focusIndex });
+  }, [posKey, focusIndex, filtering]);
+
+  // Read the offset on the way out — when the list unmounts, or when the tab
+  // changes and `posKey` moves on. Listening for `scroll` instead would race:
+  // the browser dispatches those on a frame boundary, so opening an MR right
+  // after a flick could navigate before the final offset was ever recorded.
+  useLayoutEffect(() => {
+    if (!scrollNode || filtering) return;
+    return () => writePosition(posKey, { scrollTop: scrollNode.scrollTop });
+  }, [scrollNode, posKey, filtering]);
+
+  // Restore once per tab per mount — never again, or it would fight the user's
+  // own scrolling. Runs in a layout effect so the list is never painted at the
+  // wrong offset first.
+  const restoredKeyRef = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (!scrollNode || filtering) return;
+    if (restoredKeyRef.current === posKey) return;
+    // No rows yet means nothing to scroll to; wait for the query to land.
+    if (filteredMrs.length === 0) return;
+    restoredKeyRef.current = posKey;
+    const saved = readPosition(posKey);
+    if (!saved) return;
+    // On touch the container starts scrolled down past the collapsed search
+    // bar. Only ever restore further down, never back up into that bar.
+    if (saved.scrollTop > scrollNode.scrollTop) scrollNode.scrollTop = saved.scrollTop;
+    if (saved.focusIndex > 0) onFocusChange?.(saved.focusIndex);
+  }, [scrollNode, posKey, filtering, filteredMrs.length, onFocusChange]);
 
   // Track previous query data to detect new MRs
   const previousDataRef = useRef<MergeRequest[]>([]);

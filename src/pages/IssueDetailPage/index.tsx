@@ -13,14 +13,14 @@
  */
 
 import { useCallback, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import type { IssueRef } from '../../components/Markdown';
+import { useBackTo } from '../../hooks/useBackTo';
 import IssueDetailView from './IssueDetailView';
 import { IssueDetailDialog } from './IssueDetailDialog';
 import './IssueDetailPage.css';
 
 export default function IssueDetailPage() {
-  const navigate = useNavigate();
   const params = useParams<{ instanceId: string; projectId: string; issueIid: string }>();
   const instanceId = Number(params.instanceId);
   const projectId = Number(params.projectId);
@@ -36,9 +36,7 @@ export default function IssueDetailPage() {
     setStack((s) => s.slice(0, -1));
   }, []);
 
-  const goBackToList = useCallback(() => {
-    navigate('/issues', { replace: true });
-  }, [navigate]);
+  const goBackToList = useBackTo('/issues');
 
   const top = stack.length > 0 ? stack[stack.length - 1] : null;
 

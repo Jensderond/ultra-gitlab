@@ -16,6 +16,8 @@ interface MRHeaderProps {
   approvalButtonRef: RefObject<ApprovalButtonRef | null>;
   snoozeButtonRef: RefObject<SnoozeButtonRef | null>;
   onToggleMobileSidebar: () => void;
+  /** Return to the MR list. Owned by the page so it can pop history. */
+  onBack: () => void;
   onApproved: (trigger: 'button' | 'keyboard') => void;
   onUnapproved?: (trigger: 'button' | 'keyboard') => void;
   /** Hide approval button for merged/closed MRs */
@@ -33,6 +35,7 @@ export default function MRHeader({
   approvalButtonRef,
   snoozeButtonRef,
   onToggleMobileSidebar,
+  onBack,
   onApproved,
   onUnapproved,
   hideApproval,
@@ -42,7 +45,7 @@ export default function MRHeader({
   return (
     <header className="mr-detail-header">
       <div className="mr-header-top">
-        <BackButton to="/mrs" title="Back to MRs" />
+        <BackButton onClick={onBack} title="Back to MRs" />
         <span className="mr-iid">!{mr.iid}</span>
         {mr.projectName && (
           <span className="mr-project">{mr.projectName.replace(/^Customers\s*\/\s*/, '')}</span>

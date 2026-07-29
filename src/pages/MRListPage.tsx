@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useHotkey, parseHotkey } from '@tanstack/react-hotkeys';
 import { MRList } from '../components/MRList';
 import type { MRListHandle, MrTab, MrTabCounts } from '../components/MRList';
@@ -47,12 +47,20 @@ const STATUS_TABS: { id: MrTab; label: string; countKey: keyof MrTabCounts }[] =
   { id: 'snoozed', label: 'Snoozed', countKey: 'snoozed' },
 ];
 
+const DEFAULT_TAB: MrTab = 'needs-review';
+
+/** Read the tab out of `?tab=`, falling back to the default for junk values. */
+function parseTab(value: string | null): MrTab {
+  const match = STATUS_TABS.find((tab) => tab.id === value);
+  return match ? match.id : DEFAULT_TAB;
+}
+
 /**
  * Page for displaying the merge request list.
  */
 export default function MRListPage() {
   const navigate = useNavigate();
-  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const instancesQuery = useInstancesQuery();
   const instances = instancesQuery.data ?? [];
   const loading = instancesQuery.isLoading;
@@ -61,7 +69,10 @@ export default function MRListPage() {
   useCondensedModeAnnouncement();
   const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null);
   const [mrs, setMrs] = useState<MergeRequest[]>([]);
-  const [activeTab, setActiveTab] = useState<MrTab>('needs-review');
+  // The active tab lives in the URL, not in React state, so that *any* way back
+  // to this page restores it — including a history POP, which is what the iOS
+  // edge-swipe-back gesture fires and which cannot carry `navigate()` state.
+  const activeTab = parseTab(searchParams.get('tab'));
   const [tabCounts, setTabCounts] = useState<MrTabCounts>({ needsReview: 0, approved: 0, snoozed: 0 });
   const [syncing, setSyncing] = useState(false);
   const isSmallScreen = useSmallScreen();
@@ -69,6 +80,22 @@ export default function MRListPage() {
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   // Only opened by swipe-left on touch; there is no snooze button in the rows.
   const [snoozeMenuMrId, setSnoozeMenuMrId] = useState<number | null>(null);
+
+  // Lets the setter below resolve updater functions (`t => ...`) without
+  // depending on the current tab, so it stays stable across tab switches.
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+
+  // Switching tabs replaces the current history entry rather than pushing one:
+  // the tab is a view of this page, not a place of its own, so back should still
+  // leave the list instead of walking through the tabs you visited.
+  const setActiveTab = useCallback(
+    (next: MrTab | ((prev: MrTab) => MrTab)) => {
+      const tab = typeof next === 'function' ? next(activeTabRef.current) : next;
+      navigate(tab === DEFAULT_TAB ? '/mrs' : `/mrs?tab=${tab}`, { replace: true });
+    },
+    [navigate],
+  );
 
   // Shift+H jumps to the Approved tab (and back to Needs review).
   useEffect(() => {
@@ -84,7 +111,7 @@ export default function MRListPage() {
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [setActiveTab]);
   const mrsRef = useRef<MergeRequest[]>([]);
   const [filteredCounts, setFilteredCounts] = useState({ filtered: 0, total: 0 });
 
@@ -152,18 +179,13 @@ export default function MRListPage() {
   const filteredMrsRef = useRef(filteredMrs);
   filteredMrsRef.current = filteredMrs;
 
-  // Keep the active tab in a ref so the (rarely-changing) navigate callbacks
-  // below don't need to be recreated every time the user switches tabs.
-  const activeTabRef = useRef(activeTab);
-  activeTabRef.current = activeTab;
-
   // Handle Enter to open selected MR
   const handleSelectByIndex = useCallback(
     (index: number) => {
       const list = filteredMrsRef.current;
       const mr = list[index];
       if (mr) {
-        navigate(`/mrs/${mr.id}`, { state: { fromTab: activeTabRef.current } });
+        navigate(`/mrs/${mr.id}`);
       }
     },
     [navigate]
@@ -192,26 +214,10 @@ export default function MRListPage() {
     }
   }, [query, isSearchOpen, setFocusIndex]);
 
-  // Restore focus/tab state when returning from MR detail. `tab` re-selects
-  // whichever status tab the MR was opened from — otherwise every detail
-  // visit would bounce the user back to "Needs review" on the way out.
-  useEffect(() => {
-    const state = location.state as { focusLatest?: boolean; tab?: MrTab } | null;
-    if (!state) return;
-    if (state.focusLatest) {
-      setFocusIndex(0);
-    }
-    if (state.tab) {
-      setActiveTab(state.tab);
-    }
-    // Clear state to prevent re-triggering
-    window.history.replaceState({}, '');
-  }, [location.state, setFocusIndex]);
-
   // Handle MR click from list
   const handleSelectMR = useCallback(
     (mr: MergeRequest) => {
-      navigate(`/mrs/${mr.id}`, { state: { fromTab: activeTabRef.current } });
+      navigate(`/mrs/${mr.id}`);
     },
     [navigate]
   );

@@ -6,10 +6,11 @@
  */
 
 import { useState, useReducer, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { openExternalUrl } from '../../services/transport';
 import { useCopyToast } from '../../hooks/useCopyToast';
+import { useBackTo } from '../../hooks/useBackTo';
 import BackButton from '../../components/BackButton';
 import TabBar from '../../components/TabBar';
 import { useMyMRData } from './useMyMRData';
@@ -38,7 +39,6 @@ const shortcuts: ShortcutDef[] = [
 
 export default function MyMRDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const mrId = parseInt(id || '0', 10);
 
@@ -55,9 +55,7 @@ export default function MyMRDetailPage() {
   const { data: settings } = useSettingsQuery();
   const codeTab = useCodeTab(mrId, mr, activeTab);
 
-  const goBack = useCallback(() => {
-    navigate('/my-mrs', { replace: true });
-  }, [navigate]);
+  const goBack = useBackTo('/my-mrs');
 
   const handleMerged = useCallback(() => {
     // Optimistically remove the merged MR from the list cache

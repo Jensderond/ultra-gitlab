@@ -5,10 +5,9 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import type { ApprovalButtonRef } from '../../components/Approval';
 import type { SnoozeButtonRef } from '../../components/Snooze/SnoozeButton';
-import type { MrTab } from '../../components/MRList';
 import { CommentOverlay, type CommentOverlayRef } from '../../components/CommentOverlay';
 import { ActivityDrawer, ActivityFeed, CommentInput } from '../../components/ActivityDrawer';
 import { useActivityData } from '../../hooks/useActivityData';
@@ -17,6 +16,7 @@ import type { SelectedLineRange } from '../../components/PierreDiffViewer';
 import { useFileContent } from '../../hooks/useFileContent';
 import { useCopyToast } from '../../hooks/useCopyToast';
 import { useSmallScreen } from '../../hooks/useSmallScreen';
+import { useBackTo } from '../../hooks/useBackTo';
 import { useMRData } from './useMRData';
 import { useFileComments } from './useFileComments';
 import { useViewReducer } from './viewReducer';
@@ -39,12 +39,11 @@ interface MRDetailPageProps {
 
 export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const location = useLocation();
   const mrId = parseInt(id || '0', 10);
-  // Which status tab the list was showing when this MR was opened — threaded
-  // back on every "return to list" navigation so the tab bar doesn't reset.
-  const fromTab = (location.state as { fromTab?: MrTab } | null)?.fromTab;
+
+  // The list entry carries its status tab in the URL and its reading position
+  // is keyed to it, so returning through history restores both.
+  const backToList = useBackTo('/mrs');
 
   const approvalButtonRef = useRef<ApprovalButtonRef>(null);
   const snoozeButtonRef = useRef<SnoozeButtonRef>(null);
@@ -206,7 +205,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     onMarkViewedAndNext: markViewedAndNext,
     onToggleHideGenerated: () => dispatch({ type: 'TOGGLE_HIDE_GENERATED' }),
     onCopyLink: copyToClipboard,
-    onEscapeBack: () => navigate('/mrs', { replace: true, state: { focusLatest: true, tab: fromTab } }),
+    onEscapeBack: () => backToList(),
   });
 
   if (loading) {
@@ -222,7 +221,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
       <div className="mr-detail-page">
         <div className="mr-detail-error">
           <p>{error || 'Merge request not found'}</p>
-          <button onClick={() => navigate('/mrs', { replace: true, state: { tab: fromTab } })}>Back to list</button>
+          <button onClick={() => backToList()}>Back to list</button>
         </div>
       </div>
     );
@@ -243,7 +242,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
                 Open in GitLab
               </button>
             )}
-            <button className="mr-state-banner-btn" onClick={() => navigate('/mrs', { replace: true, state: { tab: fromTab } })}>
+            <button className="mr-state-banner-btn" onClick={() => backToList()}>
               Back to list
             </button>
           </div>
@@ -259,9 +258,10 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         approvalButtonRef={approvalButtonRef}
         snoozeButtonRef={snoozeButtonRef}
         onToggleMobileSidebar={() => dispatch({ type: 'TOGGLE_MOBILE_SIDEBAR' })}
+        onBack={backToList}
         onApproved={(trigger) => {
           trackMRApproved(mrId, Math.round((Date.now() - mrEnteredAtRef.current) / 1000), trigger);
-          navigate('/mrs', { replace: true, state: { tab: fromTab } });
+          backToList();
         }}
         onUnapproved={(trigger) => trackMRUnapproved(mrId, trigger)}
         hideApproval={isMergedOrClosed}
@@ -353,7 +353,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         approvalButtonRef={approvalButtonRef}
         onApproved={(trigger) => {
           trackMRApproved(mrId, Math.round((Date.now() - mrEnteredAtRef.current) / 1000), trigger);
-          navigate('/mrs', { replace: true, state: { tab: fromTab } });
+          backToList();
         }}
         onUnapproved={(trigger) => trackMRUnapproved(mrId, trigger)}
         hideApproval={isMergedOrClosed}

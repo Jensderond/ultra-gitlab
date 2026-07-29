@@ -8,6 +8,7 @@
 import { useCallback } from 'react';
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import type { PipelineJob, PipelineStatus } from '../../types';
+import { useBackTo } from '../../hooks/useBackTo';
 import PipelineDetailView from './PipelineDetailView';
 import { projectPathFromPipelineUrl } from './utils';
 import '../PipelineDetailPage.css';
@@ -27,9 +28,9 @@ export default function PipelineDetailPage() {
   const pid = Number(projectId);
   const plid = Number(pipelineId);
 
-  const handleClose = useCallback(() => {
-    navigate(backRoute || '/pipelines', { replace: true });
-  }, [navigate, backRoute]);
+  // `backRoute` only serves deep links now — a pushed downstream pipeline pops
+  // straight back to the parent it was opened from.
+  const handleClose = useBackTo(backRoute || '/pipelines');
 
   const handleSelectPipeline = useCallback(
     (pipeline: PipelineStatus) => {
