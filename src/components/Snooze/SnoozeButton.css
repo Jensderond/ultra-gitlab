@@ -1,0 +1,41 @@
+/* Detail-page snooze control. Matches .activity-header-toggle so the header
+   actions read as one row of equal-weight buttons. */
+
+.mr-snooze-action {
+  position: relative;
+  display: inline-flex;
+}
+
+.mr-snooze-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: var(--overlay-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mr-snooze-action-btn:hover {
+  color: var(--text-primary);
+  background: var(--overlay-surface-hover);
+  border-color: var(--text-fuji);
+}
+
+.mr-snooze-action-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px var(--wave-glow);
+}
+
+/* Snoozed: the button is the state indicator as well as the way out of it. */
+.mr-snooze-action-btn--active,
+.mr-snooze-action-btn--active:hover {
+  color: var(--warning-color);
+  border-color: var(--warning-color);
+}

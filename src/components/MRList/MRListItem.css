@@ -7,8 +7,9 @@
   background: transparent;
   user-select: none;
   -webkit-user-select: none;
+  /* One divider per row: the inset ink-wash below. A border-bottom here drew a
+     second, full-bleed line in the same colour directly against it. */
   border: none;
-  border-bottom: 1px solid var(--border-color);
   cursor: pointer;
   transition: background 0.2s ease, border-color 0.2s ease;
 }
@@ -17,7 +18,7 @@
 .mr-list-item::after {
   content: '';
   position: absolute;
-  bottom: -1px;
+  bottom: 0;
   left: 32px;
   right: 32px;
   height: 1px;
@@ -31,9 +32,6 @@
 
 /* Remove divider from last item. The row is always the only child of its
    .swipe-row wrapper, so :last-child is keyed on the wrapper. */
-.swipe-row:last-child .mr-list-item {
-  border-bottom: none;
-}
 .swipe-row:last-child .mr-list-item::after {
   display: none;
 }
@@ -131,7 +129,7 @@
 
 /* Timestamp */
 .mr-time {
-  margin-left: auto;
+  margin-inline-start: auto;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
   font-weight: 400;
@@ -261,7 +259,7 @@
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 
 .mr-label {
@@ -358,6 +356,9 @@
 
 .mr-list-item--condensed {
   padding: 8px 24px;
+  /* Adapt to the row, not the window: this list renders in the desktop pane and
+     in the full-width mobile view. */
+  container-type: inline-size;
 }
 
 .mr-list-item--condensed::after {
@@ -367,7 +368,7 @@
 
 .mr-list-item--condensed.is-new .mr-condensed-top::after {
   content: 'NEW';
-  margin-left: 4px;
+  margin-inline-start: 4px;
   padding: 0 5px;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 8px;
@@ -407,7 +408,7 @@
 
 .mr-condensed-time {
   flex-shrink: 0;
-  margin-left: auto;
+  margin-inline-start: auto;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 10.5px;
   color: var(--text-secondary);
@@ -445,6 +446,8 @@
   white-space: nowrap;
 }
 
+/* Fixed 16px slot for every state. Sizing the box per state made the whole
+   trailing cluster shift row to row, so the status column read as ragged. */
 .mr-condensed-approval {
   flex-shrink: 0;
   width: 16px;
@@ -460,12 +463,21 @@
   box-sizing: border-box;
 }
 
-/* Pending: draw as a ring instead of relying on a ○ glyph (which renders off-center) */
+/* Pending: draw as a ring instead of relying on a ○ glyph (which renders
+   off-center). The ring is 12px drawn inside the 16px slot, so the glyph is
+   smaller than "approved" without moving the column. */
 .mr-condensed-approval--ring {
+  background: transparent;
+  border: none;
+}
+
+.mr-condensed-approval--ring::before {
+  content: '';
   width: 12px;
   height: 12px;
-  background: transparent;
+  border-radius: 50%;
   border: 1.5px solid var(--warning-color);
+  box-sizing: border-box;
 }
 
 .mr-condensed-author {
@@ -477,6 +489,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Narrow rows: the title is what you scan, so the author name yields rather than
+   taking ~100px off it. The avatar still carries authorship. */
+@container (max-width: 480px) {
+  .mr-condensed-author {
+    display: none;
+  }
 }
 
 /* Condensed selection: full-row accent wash instead of the gradient + left bar */
@@ -492,61 +512,24 @@
 
 /* ── Snooze ──────────────────────────────────────────────────────────── */
 
+/* Positioning context for the swipe-opened preset sheet. Rendered only while
+   that sheet is open and it holds nothing else, so it adds no row width. */
 .mr-snooze-control {
   position: relative;
   display: inline-flex;
-  margin-left: 8px;
 }
 
-.mr-snooze-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  background: none;
-  border: none;
-  border-radius: 6px;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  /* Hidden until row hover on pointer devices; see media queries below. */
-  opacity: 0;
-  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
-}
-
-.mr-list-item:hover .mr-snooze-button,
-.mr-list-item.selected .mr-snooze-button,
-.mr-snooze-button:focus-visible,
-.mr-snooze-button[aria-expanded='true'],
-.mr-snooze-button--active {
-  opacity: 1;
-}
-
-.mr-snooze-button:hover,
-.mr-snooze-button:focus-visible {
-  background: var(--overlay-hover);
-  color: var(--text-primary);
-  outline: none;
-}
-
-.mr-snooze-button--active {
-  color: var(--warning-color);
-}
-
-/* Inline snoozed indicator — the touch-device stand-in for the clock button
-   in the condensed row (the full layout shows the snoozed badge instead).
-   Must precede the touch block below: the display override there wins by
-   cascade order at equal specificity. */
+/* Inline snoozed indicator for the condensed row (the full layout shows the
+   "Snoozed until …" badge instead). Shown on every device: with the clock
+   button gone this is the only thing marking a condensed row as snoozed. */
 .mr-snooze-inline {
-  display: none;
+  display: inline-flex;
   align-items: center;
   color: var(--warning-color);
   flex-shrink: 0;
 }
 
-/* Touch devices: tightened row edges, and swipe-left replaces the snooze
-   button as the affordance. */
+/* Touch devices: tightened row edges, and swipe-left is the snooze affordance. */
 @media (hover: none) {
   .mr-list-item:not(.mr-list-item--condensed) {
     padding: 10px 16px;
@@ -565,15 +548,6 @@
   .mr-list-item--condensed::after {
     left: 16px;
     right: 16px;
-  }
-
-  /* Swipe-left is the snooze affordance on touch; the button column goes. */
-  .mr-snooze-button {
-    display: none;
-  }
-
-  .mr-snooze-inline {
-    display: inline-flex;
   }
 
   /* Selection is a pointer-device idea: a tap navigates straight into the MR,

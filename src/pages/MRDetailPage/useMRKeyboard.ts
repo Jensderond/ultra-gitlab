@@ -6,6 +6,7 @@ import { buildGitLabSuggestionBlock, extractSuggestionSelectionText } from '../.
 import { trackShortcut } from '../../services/analytics';
 import { useShortcuts } from '../../components/ShortcutsProvider';
 import type { ApprovalButtonRef } from '../../components/Approval';
+import type { SnoozeButtonRef } from '../../components/Snooze/SnoozeButton';
 import type { CommentOverlayRef } from '../../components/CommentOverlay';
 import type { SelectedLineRange } from '../../components/PierreDiffViewer';
 
@@ -15,6 +16,7 @@ interface UseMRKeyboardOptions {
   isSmallScreen: boolean;
   webUrl?: string;
   approvalButtonRef: React.RefObject<ApprovalButtonRef | null>;
+  snoozeButtonRef: React.RefObject<SnoozeButtonRef | null>;
   commentOverlayRef: React.RefObject<CommentOverlayRef | null>;
   lineSelectionRef: React.RefObject<SelectedLineRange | null>;
   onNavigateFile: (direction: number) => void;
@@ -32,6 +34,7 @@ export function useMRKeyboard({
   isSmallScreen,
   webUrl,
   approvalButtonRef,
+  snoozeButtonRef,
   commentOverlayRef,
   lineSelectionRef,
   onNavigateFile,
@@ -99,6 +102,12 @@ export function useMRKeyboard({
   useHotkey(parseHotkey(getKey('approve') ?? 'a'), () => {
     trackShortcut('a', 'toggle_approval', 'mr_detail');
     approvalButtonRef.current?.toggle();
+  });
+
+  // Moved here from the MR list, where it drove a per-row clock button.
+  useHotkey(parseHotkey(getKey('snooze-mr') ?? 'z'), () => {
+    trackShortcut('z', 'toggle_snooze', 'mr_detail');
+    snoozeButtonRef.current?.toggle();
   });
 
   useHotkey(parseHotkey(getKey('open-in-browser') ?? 'o'), () => {

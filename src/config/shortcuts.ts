@@ -164,10 +164,10 @@ export const defaultShortcuts: ShortcutDefinition[] = [
   },
   {
     id: 'snooze-mr',
-    description: 'Snooze selected MR',
+    description: 'Snooze MR',
     defaultKey: 'z',
-    category: 'list',
-    context: 'mr-list',
+    category: 'review',
+    context: 'mr-detail',
   },
   {
     id: 'toggle-snoozed',

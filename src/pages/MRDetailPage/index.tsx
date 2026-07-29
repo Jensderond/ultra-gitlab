@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import type { ApprovalButtonRef } from '../../components/Approval';
+import type { SnoozeButtonRef } from '../../components/Snooze/SnoozeButton';
 import type { MrTab } from '../../components/MRList';
 import { CommentOverlay, type CommentOverlayRef } from '../../components/CommentOverlay';
 import { ActivityDrawer, ActivityFeed, CommentInput } from '../../components/ActivityDrawer';
@@ -46,6 +47,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   const fromTab = (location.state as { fromTab?: MrTab } | null)?.fromTab;
 
   const approvalButtonRef = useRef<ApprovalButtonRef>(null);
+  const snoozeButtonRef = useRef<SnoozeButtonRef>(null);
   const commentOverlayRef = useRef<CommentOverlayRef>(null);
   const mrEnteredAtRef = useRef(Date.now());
   const lineSelectionRef = useRef<SelectedLineRange | null>(null);
@@ -195,6 +197,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     isSmallScreen,
     webUrl: mr?.webUrl,
     approvalButtonRef,
+    snoozeButtonRef,
     commentOverlayRef,
     lineSelectionRef,
     onNavigateFile: navigateFile,
@@ -254,6 +257,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
         isSmallScreen={isSmallScreen}
         fileCount={files.length}
         approvalButtonRef={approvalButtonRef}
+        snoozeButtonRef={snoozeButtonRef}
         onToggleMobileSidebar={() => dispatch({ type: 'TOGGLE_MOBILE_SIDEBAR' })}
         onApproved={(trigger) => {
           trackMRApproved(mrId, Math.round((Date.now() - mrEnteredAtRef.current) / 1000), trigger);

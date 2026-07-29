@@ -13,8 +13,6 @@ import type { MergeRequest } from '../types';
 import { useSmallScreen } from '../hooks/useSmallScreen';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { useShortcuts } from '../components/ShortcutsProvider';
-import { useSnoozeMRMutation } from '../hooks/queries/useSnoozeMRMutation';
-import { isSnoozed } from '../lib/snooze';
 import { projectSearchText } from '../lib/projectName';
 import { useListSearch } from '../hooks/useListSearch';
 import { useCondensedModeAnnouncement } from '../hooks/useCondensedModeAnnouncement';
@@ -69,8 +67,8 @@ export default function MRListPage() {
   const isSmallScreen = useSmallScreen();
   const mrListRef = useRef<MRListHandle>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
+  // Only opened by swipe-left on touch; there is no snooze button in the rows.
   const [snoozeMenuMrId, setSnoozeMenuMrId] = useState<number | null>(null);
-  const { unsnooze } = useSnoozeMRMutation();
 
   // Shift+H jumps to the Approved tab (and back to Needs review).
   useEffect(() => {
@@ -187,16 +185,6 @@ export default function MRListPage() {
   useHotkey(parseHotkey(getKey('toggle-snoozed') ?? 'Shift+Z'), () => {
     setActiveTab(t => (t === 'snoozed' ? 'needs-review' : 'snoozed'));
   });
-  useHotkey(parseHotkey(getKey('snooze-mr') ?? 'z'), () => {
-    const mr = filteredMrsRef.current[focusIndex];
-    if (!mr) return;
-    if (isSnoozed(mr)) {
-      unsnooze.mutate({ mrId: mr.id });
-    } else {
-      setSnoozeMenuMrId(current => (current === mr.id ? null : mr.id));
-    }
-  });
-
   // Reset focus to first item when query changes
   useEffect(() => {
     if (isSearchOpen) {

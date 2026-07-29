@@ -4,9 +4,12 @@ import { mockTauriIPC } from './fixtures/tauri-mock';
 import { mergeRequests } from './fixtures/seed-data';
 
 /**
- * Touch-device MR list: condensed rows share the 16px side edges, the snooze
- * clock button is gone (swipe-left snoozes instead), and swipe drives the
- * snooze sheet. Desktop keeps the hover-revealed button.
+ * Touch-device MR list: condensed rows share the 16px side edges and swipe-left
+ * drives the snooze sheet.
+ *
+ * There is no per-row snooze button on any device — snoozing is an MR detail
+ * page action (see mr-detail-snooze.spec.ts). Swipe-left is the only list-level
+ * affordance, and it is touch-only.
  */
 
 const ROW = '.mr-list-item';
@@ -49,8 +52,8 @@ test.describe('Touch MR list snooze', () => {
     expect(padding).toBe('8px 16px');
   });
 
-  test('snooze button is hidden on touch', async ({ page }) => {
-    await expect(page.locator('.mr-snooze-button').first()).toBeHidden();
+  test('no row renders a snooze button', async ({ page }) => {
+    await expect(page.locator('.mr-snooze-button')).toHaveCount(0);
   });
 
   test('swipe left opens the snooze sheet; a preset snoozes the MR', async ({ page }) => {
@@ -68,6 +71,23 @@ test.describe('Touch MR list snooze', () => {
     await page.locator('.mr-tab', { hasText: 'Snoozed' }).click();
     await expect(page.locator(ROW).filter({ hasText: 'Add dark mode toggle' })).toBeVisible();
     await expect(page.locator('.mr-snoozed-badge')).toBeVisible();
+  });
+
+  // The bottom nav bar (.app-sidebar in its mobile bottom-bar mode) sits at
+  // the same screen edge as the sheet's last preset. A lower z-index on the
+  // sheet let the (opaque) nav bar cover that preset so it couldn't be tapped.
+  test('bottom nav does not cover the last preset', async ({ page }) => {
+    const row = page.locator(ROW).filter({ hasText: 'Add dark mode toggle' });
+    await touchSwipe(row, -140);
+
+    const lastOption = page.locator('.snooze-menu-option', { hasText: 'Next week' });
+    await expect(lastOption).toBeVisible();
+
+    // An un-forced click fails if another element (the nav bar) intercepts
+    // pointer events at this location.
+    await lastOption.click();
+    await expect(page.locator('.snooze-menu')).toBeHidden();
+    await expect(page.locator(ROW).filter({ hasText: 'Add dark mode toggle' })).toHaveCount(0);
   });
 
   test('short swipe does not open the sheet', async ({ page }) => {
@@ -130,14 +150,38 @@ test.describe('Touch MR list snooze', () => {
   });
 });
 
-test.describe('Desktop MR list keeps the snooze button', () => {
-  test('button exists and is not display:none', async ({ page }) => {
+test.describe('Desktop MR list has no snooze control', () => {
+  test('rows render neither a snooze button nor a control host', async ({ page }) => {
     await page.goto('/mrs');
     await expect(page.locator(ROW).first()).toBeVisible();
 
-    const button = page.locator('.mr-snooze-button').first();
-    await expect(button).toBeAttached();
-    // Hidden-until-hover uses opacity on desktop, never display.
-    expect(await button.evaluate((el) => getComputedStyle(el).display)).not.toBe('none');
+    await expect(page.locator('.mr-snooze-button')).toHaveCount(0);
+    // The menu host only exists while the swipe sheet is open, which needs touch.
+    await expect(page.locator('.mr-snooze-control')).toHaveCount(0);
+  });
+
+  test('hovering a row reveals no trailing control', async ({ page }) => {
+    await page.goto('/mrs');
+    const row = page.locator(ROW).first();
+    await row.hover();
+    await expect(page.locator('.mr-snooze-button')).toHaveCount(0);
+  });
+
+  test('condensed snoozed row shows the inline clock on desktop too', async ({ page }) => {
+    await mockTauriIPC(page, {
+      settings: { mrListCondensed: true },
+      mergeRequests: mergeRequests.map((mr) =>
+        // Well past any preset, so the row is unambiguously snoozed.
+        mr.id === 101 ? { ...mr, snoozedUntil: Math.floor(Date.now() / 1000) + 86_400 } : mr,
+      ),
+    });
+    await page.goto('/mrs');
+
+    await page.locator('.mr-tab', { hasText: 'Snoozed' }).click();
+    const row = page.locator(ROW).filter({ hasText: 'Add dark mode toggle' });
+    await expect(row).toBeVisible();
+    // Previously the clock only appeared under (hover: none); with the button
+    // gone it is the only snoozed marker in a condensed row on every device.
+    await expect(row.locator('.mr-snooze-inline')).toBeVisible();
   });
 });

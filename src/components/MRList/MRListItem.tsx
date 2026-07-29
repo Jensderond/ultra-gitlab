@@ -104,11 +104,6 @@ function condensedApprovalClass(mr: MergeRequest): string {
   return getApprovalClass(mr.approvalStatus);
 }
 
-/** Clock icon for the snooze button. */
-function SnoozeIcon() {
-  return <Clock size={14} weight="bold" />;
-}
-
 /**
  * Single merge request list item.
  */
@@ -164,45 +159,22 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
     // bottom sheet on narrow screens, so it opens via onSettled — after the
     // row's transform is gone and can't hijack the sheet's containing block.
     const menuPendingRef = useRef(false);
+    const snoozeAnchorRef = useRef<HTMLSpanElement>(null);
     const swipeDisabled = !canSnooze || !onSnoozeMenuOpenChange || !onSnooze;
 
-    const snoozeControl = canSnooze && onSnoozeMenuOpenChange && onSnooze && (
-      <span className="mr-snooze-control">
-        {snoozed ? (
-          <button
-            className="mr-snooze-button mr-snooze-button--active"
-            title={`Snoozed until ${formatSnoozeUntil(mr.snoozedUntil!)} — click to unsnooze`}
-            aria-label="Unsnooze merge request"
-            onClick={(e) => {
-              e.stopPropagation();
-              onUnsnooze?.();
-            }}
-          >
-            <SnoozeIcon />
-          </button>
-        ) : (
-          <button
-            className="mr-snooze-button"
-            title="Snooze"
-            aria-label="Snooze merge request"
-            aria-expanded={snoozeMenuOpen}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSnoozeMenuOpenChange(!snoozeMenuOpen);
-            }}
-          >
-            <SnoozeIcon />
-          </button>
-        )}
-        {snoozeMenuOpen && !snoozed && (
-          <SnoozeMenu
-            onSnooze={(until) => {
-              onSnooze(until);
-              onSnoozeMenuOpenChange(false);
-            }}
-            onClose={() => onSnoozeMenuOpenChange(false)}
-          />
-        )}
+    // No snooze button in the row — snoozing is an MR detail page action, and
+    // swipe-left on touch. This host exists only while the swipe-opened preset
+    // sheet is up, so a row costs no trailing space for a control it lacks.
+    const snoozeMenu = snoozeMenuOpen && !snoozed && canSnooze && onSnooze && onSnoozeMenuOpenChange && (
+      <span className="mr-snooze-control" ref={snoozeAnchorRef}>
+        <SnoozeMenu
+          anchorRef={snoozeAnchorRef}
+          onSnooze={(until) => {
+            onSnooze(until);
+            onSnoozeMenuOpenChange(false);
+          }}
+          onClose={() => onSnoozeMenuOpenChange(false)}
+        />
       </span>
     );
 
@@ -260,6 +232,12 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
             <span className="mr-condensed-title">
               {highlightQuery ? <HighlightText text={mr.title} query={highlightQuery} /> : mr.title}
             </span>
+            <span className="mr-condensed-author">
+              {highlightQuery ? <HighlightText text={mr.authorUsername} query={highlightQuery} /> : mr.authorUsername}
+            </span>
+            {/* Status sits last, after the author, so it lands on the row's
+                trailing edge in every row — before the author it drifted with
+                the length of each username. */}
             <span
               className={`mr-condensed-approval ${condensedApprovalClass(mr)}${isPendingApproval(mr) ? ' mr-condensed-approval--ring' : ''}`}
               title={approvalTitle(mr)}
@@ -267,10 +245,7 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
             >
               {approvalGlyph(mr)}
             </span>
-            <span className="mr-condensed-author">
-              {highlightQuery ? <HighlightText text={mr.authorUsername} query={highlightQuery} /> : mr.authorUsername}
-            </span>
-            {snoozeControl}
+            {snoozeMenu}
           </div>
         </div>
       ) : (
@@ -281,7 +256,7 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
               <span className="mr-project">{projectText}</span>
             )}
             <span className="mr-time">{formatRelativeTime(mr.updatedAt)}</span>
-            {snoozeControl}
+            {snoozeMenu}
           </div>
 
           <h4 className="mr-title">

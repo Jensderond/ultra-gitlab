@@ -1,10 +1,12 @@
 /* Snooze preset menu: anchored popover on desktop, bottom sheet on touch. */
 
 .snooze-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  z-index: 30;
+  position: fixed;
+  top: var(--snooze-menu-top, 0px);
+  right: var(--snooze-menu-right, 0px);
+  /* Above .app-sidebar's mobile bottom-bar mode (z-index: 100) — otherwise
+     the bar covers the sheet's bottom-most preset. */
+  z-index: 200;
   min-width: 200px;
   padding: 6px;
   background: var(--bg-tertiary);
