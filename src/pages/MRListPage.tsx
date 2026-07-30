@@ -55,6 +55,13 @@ function parseTab(value: string | null): MrTab {
   return match ? match.id : DEFAULT_TAB;
 }
 
+/** Step `delta` places along the tab strip, wrapping at either end. */
+function stepTab(current: MrTab, delta: number): MrTab {
+  const index = STATUS_TABS.findIndex((tab) => tab.id === current);
+  const count = STATUS_TABS.length;
+  return STATUS_TABS[(index + delta + count) % count].id;
+}
+
 /**
  * Page for displaying the merge request list.
  */
@@ -97,21 +104,6 @@ export default function MRListPage() {
     [navigate],
   );
 
-  // Shift+H jumps to the Approved tab (and back to Needs review).
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      ) return;
-      if (e.shiftKey && e.key === 'H') {
-        e.preventDefault();
-        setActiveTab(t => (t === 'approved' ? 'needs-review' : 'approved'));
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setActiveTab]);
   const mrsRef = useRef<MergeRequest[]>([]);
   const [filteredCounts, setFilteredCounts] = useState({ filtered: 0, total: 0 });
 
@@ -207,6 +199,18 @@ export default function MRListPage() {
   useHotkey(parseHotkey(getKey('toggle-snoozed') ?? 'Shift+Z'), () => {
     setActiveTab(t => (t === 'snoozed' ? 'needs-review' : 'snoozed'));
   });
+
+  // ⌃⌥←/→ walks the status tabs tmux-style, wrapping at both ends. Disabled
+  // while filtering: the strip is a read-only match breakdown then, so stepping
+  // would move `?tab=` with nothing on screen reading as active. Note the
+  // absence of `ignoreInputs: false` — unlike its neighbours, this binding must
+  // stay out of text fields, where ⌥← is macOS word-jump.
+  useHotkey(parseHotkey(getKey('prev-tab') ?? 'Control+Alt+ArrowLeft'), () => {
+    setActiveTab(t => stepTab(t, -1));
+  }, { enabled: !filtering });
+  useHotkey(parseHotkey(getKey('next-tab') ?? 'Control+Alt+ArrowRight'), () => {
+    setActiveTab(t => stepTab(t, 1));
+  }, { enabled: !filtering });
   // Reset focus to first item when query changes
   useEffect(() => {
     if (isSearchOpen) {

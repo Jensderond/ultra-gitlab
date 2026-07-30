@@ -166,4 +166,67 @@ test.describe('MR List Page', () => {
       await expect(hint).toContainText('j');
     });
   });
+
+  test.describe('Status tab shortcuts', () => {
+    test('⌃⌥→ steps forward through the tabs and wraps', async ({ page }) => {
+      await page.goto('/mrs');
+      await expect(page.locator('.mr-list-content')).toBeVisible();
+
+      const needsReview = page.getByRole('tab', { name: /Needs review/ });
+      const approved = page.getByRole('tab', { name: /Approved/ });
+      const snoozed = page.getByRole('tab', { name: /Snoozed/ });
+
+      await expect(needsReview).toHaveAttribute('aria-selected', 'true');
+
+      await page.keyboard.press('Control+Alt+ArrowRight');
+      await expect(approved).toHaveAttribute('aria-selected', 'true');
+      await expect(page).toHaveURL(/\?tab=approved/);
+
+      await page.keyboard.press('Control+Alt+ArrowRight');
+      await expect(snoozed).toHaveAttribute('aria-selected', 'true');
+      await expect(page).toHaveURL(/\?tab=snoozed/);
+
+      // Wrapping lands on the default tab, which drops the query string entirely.
+      await page.keyboard.press('Control+Alt+ArrowRight');
+      await expect(needsReview).toHaveAttribute('aria-selected', 'true');
+      await expect(page).toHaveURL(/\/mrs$/);
+    });
+
+    test('⌃⌥← steps backward, wrapping to the last tab', async ({ page }) => {
+      await page.goto('/mrs');
+      await expect(page.locator('.mr-list-content')).toBeVisible();
+
+      await page.keyboard.press('Control+Alt+ArrowLeft');
+      await expect(page.getByRole('tab', { name: /Snoozed/ })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+      await expect(page).toHaveURL(/\?tab=snoozed/);
+    });
+
+    test('tab shortcuts are inert while a search filter is live', async ({ page }) => {
+      await page.goto('/mrs');
+      await expect(page.locator('.mr-list-content')).toBeVisible();
+
+      await page.keyboard.press('Control+f');
+      await page.locator('.search-bar-input').fill('web-app');
+      await expect(page.locator('.search-bar-count')).toHaveText('3 of 4');
+
+      // Blur the input so the keypress isn't merely swallowed by useHotkey's
+      // ignore-inputs default — this has to exercise the `enabled` guard itself.
+      // The search bar has no blur handler, so the filter stays live.
+      await page.locator('.search-bar-input').blur();
+      await page.keyboard.press('Control+Alt+ArrowRight');
+
+      await expect(page).toHaveURL(/\/mrs$/);
+
+      // Closing the search must reveal the tab we started on, not one that an
+      // invisible keypress moved us to while the strip was read-only.
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('tab', { name: /Needs review/ })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+    });
+  });
 });

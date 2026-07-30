@@ -176,6 +176,23 @@ export const defaultShortcuts: ShortcutDefinition[] = [
     category: 'list',
     context: 'mr-list',
   },
+  // The status tabs are a strip you step along, so they take arrow bindings
+  // rather than a jump key per tab. Filed under `navigation` to sit with the
+  // other tab-switching entries in Settings, not under `list`.
+  {
+    id: 'prev-tab',
+    description: 'Previous status tab',
+    defaultKey: 'Control+Alt+ArrowLeft',
+    category: 'navigation',
+    context: 'mr-list',
+  },
+  {
+    id: 'next-tab',
+    description: 'Next status tab',
+    defaultKey: 'Control+Alt+ArrowRight',
+    category: 'navigation',
+    context: 'mr-list',
+  },
 
   // Diff viewer shortcuts
   {
