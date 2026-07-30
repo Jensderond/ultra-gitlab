@@ -228,5 +228,13 @@ test.describe('MR List Page', () => {
         'true',
       );
     });
+
+    test('the footer advertises the tab shortcut', async ({ page }) => {
+      await page.goto('/mrs');
+
+      const bar = page.locator('.shortcut-bar');
+      await expect(bar).toContainText('tabs');
+      await expect(bar.locator('kbd[aria-label="⌃⌥←/→"]')).toBeVisible();
+    });
   });
 });

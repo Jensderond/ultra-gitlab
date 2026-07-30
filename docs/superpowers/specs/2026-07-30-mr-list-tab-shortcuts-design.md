@@ -111,7 +111,7 @@ The page's local `defaultShortcuts` array (the footer `ShortcutBar`, distinct fr
 config module's export of the same name) gains a fifth item:
 
 ```ts
-{ key: '⌃⌥←→', label: 'tabs' }
+{ key: '⌃⌥←/→', label: 'tabs' }
 ```
 
 ## Testing

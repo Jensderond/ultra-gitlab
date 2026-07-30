@@ -30,6 +30,7 @@ import './MRListPage.css';
 const defaultShortcuts: ShortcutDef[] = [
   { key: 'j/k', label: 'navigate' },
   { key: 'Enter', label: 'open' },
+  { key: '⌃⌥←/→', label: 'tabs' },
   { key: '⌘F', label: 'search' },
   { key: '?', label: 'help' },
 ];
