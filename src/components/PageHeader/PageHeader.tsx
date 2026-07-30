@@ -11,8 +11,9 @@ interface PageHeaderProps {
   /** Secondary context rendered after the title — status badges, the branch
       a drill-in screen belongs to. Truncates before the title does. */
   meta?: ReactNode;
-  /** Shows the header refresh feedback (centered spinner on desktop, bottom
-      progress bar everywhere) — absolutely positioned, never shifts layout. */
+  /** Shows the header refresh feedback (inline spinner on desktop, bottom
+      progress bar everywhere). The spinner takes its space from the meta slot,
+      so it never overlaps it and never shifts the page content below. */
   refreshing?: boolean;
   actions?: ReactNode;
 }

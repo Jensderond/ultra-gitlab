@@ -72,6 +72,46 @@ test.describe('Pipeline detail header heights', () => {
     }
   });
 
+  test('the refreshing indicator stays clear of the project/ref meta', async ({ page }) => {
+    // A long project path + ref pushes the meta past the middle of the bar,
+    // where the refresh feedback used to be centered on top of it.
+    const LONG_META_URL =
+      '/pipelines/10/3001?instance=1&project=frontend%2Fplatform%2Fweb-application-monorepo' +
+      '&ref=feature%2Fa-rather-long-branch-name&url=https%3A%2F%2Fgitlab.example.com%2Fx%2F-%2Fpipelines%2F3001';
+
+    // Slow the jobs refetch so the transient indicator can be measured.
+    await page.addInitScript(() => {
+      type Invoke = (cmd: string, args: unknown) => Promise<unknown>;
+      const internals = (window as unknown as { __TAURI_INTERNALS__: { invoke: Invoke } })
+        .__TAURI_INTERNALS__;
+      const original = internals.invoke;
+      internals.invoke = (cmd, args) =>
+        cmd === 'get_pipeline_jobs'
+          ? new Promise((resolve) => setTimeout(() => resolve(original(cmd, args)), 2000))
+          : original(cmd, args);
+    });
+
+    await page.goto(LONG_META_URL);
+    // The initial load must settle first — `refreshing` is only true for a
+    // refetch, so clicking Refresh mid-load would be a no-op.
+    await expect(page.locator('.pipeline-job-name').first()).toBeVisible();
+    await expect(page.locator('.page-header-refreshing')).toHaveCount(0);
+
+    await page.locator('button[title="Refresh"]').click();
+
+    const indicator = page.locator('.page-header-refreshing');
+    await expect(indicator).toBeVisible();
+    const headerBox = (await page.locator('.page-header').boundingBox())!;
+    const indicatorBox = (await indicator.boundingBox())!;
+    const metaBox = (await page.locator('.page-header-meta').boundingBox())!;
+    const actionsBox = (await page.locator('.page-header-actions').boundingBox())!;
+
+    // Meta → indicator → actions, in that order, with nothing overlapping.
+    expect(indicatorBox.x).toBeGreaterThanOrEqual(metaBox.x + metaBox.width);
+    expect(actionsBox.x).toBeGreaterThanOrEqual(indicatorBox.x + indicatorBox.width);
+    expect(headerBox.height).toBe(DESKTOP_HEIGHT);
+  });
+
   test.describe('mobile', () => {
     test.use({ viewport: { width: 390, height: 844 } });
 

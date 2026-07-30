@@ -93,6 +93,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 /* Compact nav-bar treatment on phone widths — the 26px display title reads
@@ -116,15 +117,16 @@
   }
 }
 
-/* Refresh feedback — absolutely positioned so it never shifts layout. */
+/* Refresh feedback — a flex item between the title group and the actions, so
+   it can never sit on top of the meta slot (project name, ref). It claims its
+   width from the title group, whose meta shrinks first (flex-shrink: 100);
+   page content below the header is untouched either way. */
 .page-header-refreshing {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+  margin: 0 16px;
   color: var(--accent-color);
   pointer-events: none;
   animation: page-header-refreshing-fade 0.2s ease;
