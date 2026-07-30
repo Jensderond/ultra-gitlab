@@ -215,6 +215,38 @@ test.describe('Touch MR list tab swipe', () => {
     await expect(page.locator(ROW).filter({ hasText: 'Add dark mode toggle' })).toBeVisible();
   });
 
+  test('returning from an MR detail keeps the panes aligned with the tabs', async ({ page }) => {
+    // An approved MR gives the hidden Approved pane a row that exists in the
+    // very first commit after the back-navigation remount (warm query cache) —
+    // the setup where a mount-time scrollIntoView in a hidden pane can drag
+    // the overflow-hidden pager viewport sideways by a full pane.
+    const withApproved = mergeRequests.map((mr) =>
+      mr.id === 101 ? { ...mr, userHasApproved: true } : mr,
+    );
+    await mockTauriIPC(page, { mergeRequests: withApproved });
+    await page.goto('/mrs');
+
+    const row = page.locator(ROW).filter({ hasText: 'Resolve login redirect loop' });
+    await row.click();
+    await expect(page).toHaveURL(/\/mrs\/102/);
+    await page.goBack();
+
+    await expect(page.locator('.mr-tab--active')).toHaveText(/Needs review/);
+    await expect(page.locator(ROW).first()).toBeVisible();
+    // A stray smooth scroll starts only after the remount's effects flush, so
+    // an immediate read passes even when the viewport is about to drift — let
+    // any such scroll finish before judging where the panes ended up.
+    await page.waitForTimeout(600);
+    // The tab strip and the visible pane must agree: any horizontal scroll on
+    // the pager viewport shows the pane one over from the active tab.
+    expect(await page.locator('.tab-pager').evaluate((el) => el.scrollLeft)).toBe(0);
+    // And the pane under the finger must be the needs-review one.
+    const activePaneX = await page
+      .locator(ACTIVE_PANE)
+      .evaluate((el) => el.getBoundingClientRect().x);
+    expect(Math.round(activePaneX)).toBe(0);
+  });
+
   test('filtering disables the pager', async ({ page }) => {
     await page.locator('button[aria-label="Search merge requests"]').click();
     await page.locator('.search-bar-input').fill('dark');

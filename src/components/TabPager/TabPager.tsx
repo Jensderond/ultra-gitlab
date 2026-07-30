@@ -77,7 +77,20 @@ export default function TabPager({
 
   const viewportRef = useCallback(
     (node: HTMLDivElement | null) => {
-      if (!node || disabled) return;
+      if (!node) return;
+
+      // The viewport never scrolls — panes move by transform only. But an
+      // overflow-hidden box is still a scroll container to scrollIntoView()
+      // and focus(), so code inside a hidden pane can drag scrollLeft off
+      // zero and leave every tab showing its neighbour's pane. Snap back.
+      const clampScroll = () => {
+        if (node.scrollLeft !== 0) node.scrollLeft = 0;
+      };
+      node.addEventListener('scroll', clampScroll);
+
+      if (disabled) {
+        return () => node.removeEventListener('scroll', clampScroll);
+      }
       const s = gesture.current;
       const viewportNode = node; // Preserve narrowed type for closures
 
@@ -236,6 +249,7 @@ export default function TabPager({
       // React 19 ref-cleanup: runs when the node detaches or `disabled`
       // flips, so a mid-gesture disable can never leave the track dragged.
       return () => {
+        viewportNode.removeEventListener('scroll', clampScroll);
         viewportNode.removeEventListener('touchstart', handleTouchStart);
         viewportNode.removeEventListener('touchmove', handleTouchMove);
         viewportNode.removeEventListener('touchend', handleTouchEnd);

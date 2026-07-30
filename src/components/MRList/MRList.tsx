@@ -384,10 +384,13 @@ export default function MRList({
 
   const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
-  // Auto-scroll to keep focused item visible
+  // Auto-scroll to keep focused item visible. Never from a hidden pager pane:
+  // scrollIntoView scrolls *every* ancestor scroll container, and the pager's
+  // overflow-hidden viewport is still one programmatically — a hidden pane
+  // "revealing" its row drags the whole track sideways, showing the wrong tab.
   useEffect(() => {
     const element = itemRefs.current.get(focusIndex);
-    if (element) {
+    if (element && !element.closest('[inert]')) {
       element.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
   }, [focusIndex]);
