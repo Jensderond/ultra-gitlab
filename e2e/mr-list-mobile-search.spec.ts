@@ -11,7 +11,10 @@ import type { Locator } from '@playwright/test';
  * pull-to-refresh gesture with an armed "Release to refresh" state.
  */
 
-const CONTENT = '.mr-list-content';
+// Small screens now render three MRList panes side by side in the pager (one
+// per status tab), so a bare `.mr-list-content` matches all three — scope to
+// the one pane that isn't inert.
+const CONTENT = '.tab-pager-pane:not([inert]) .mr-list-content';
 const SLOT = '.mr-list-search-slot';
 const INPUT = `${SLOT} .search-bar-input`;
 

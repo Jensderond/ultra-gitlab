@@ -20,6 +20,8 @@ const COMMIT_FRACTION = 0.4;
 const FLICK_VELOCITY = 0.3;
 /** Minimum finger travel (px) before a flick may commit — filters jitter. */
 const FLICK_MIN_DRAG = 24;
+/** Minimum time (ms) between samples to trust for a velocity reading. */
+const MIN_VELOCITY_DT = 1;
 /** Damping applied when dragging outward at either end (non-wrapping). */
 const RUBBER_BAND = 0.3;
 
@@ -146,9 +148,14 @@ export default function TabPager({
         }
 
         const dt = e.timeStamp - s.lastT;
-        // Synthetic test events share a timestamp; a dt of 0 must not
-        // produce an Infinity flick.
-        if (dt > 0) s.velocity = (x - s.lastX) / dt;
+        // Browser touch timestamps are clamped to coarse buckets (Chrome
+        // rounds to ~0.1ms), so a tiny nonzero dt is noise, not a fast
+        // finger — dividing by it manufactures a velocity in the
+        // hundreds-of-px/ms range from a few pixels of motion, clearing
+        // FLICK_VELOCITY for gestures that never flicked. Real touch
+        // sampling reports well above this floor (8ms+ between events),
+        // so gating here never affects a genuine flick.
+        if (dt >= MIN_VELOCITY_DT) s.velocity = (x - s.lastX) / dt;
         s.lastX = x;
         s.lastT = e.timeStamp;
         s.fingerDx = dx;

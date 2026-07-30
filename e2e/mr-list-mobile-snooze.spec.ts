@@ -13,6 +13,11 @@ import { mergeRequests } from './fixtures/seed-data';
  */
 
 const ROW = '.mr-list-item';
+// Small screens render three MRList panes side by side in the pager; a row
+// that just changed status now mounts (inert, off-screen) in its new pane
+// before the DOM count of `.mr-list-item` across the whole page drops to
+// reflect it leaving the pane that's actually on screen.
+const ACTIVE_PANE = '.tab-pager-pane:not([inert])';
 
 /** Dispatch a synthetic leftward touch-drag on a row, then release. */
 async function touchSwipe(row: Locator, deltaX: number) {
@@ -103,7 +108,9 @@ test.describe('Touch MR list snooze', () => {
     await menu.locator('.snooze-menu-option', { hasText: '1 hour' }).click();
 
     // Snoozed rows leave Needs review and appear under the Snoozed tab.
-    await expect(page.locator(ROW).filter({ hasText: 'Add dark mode toggle' })).toHaveCount(0);
+    await expect(
+      page.locator(`${ACTIVE_PANE} ${ROW}`).filter({ hasText: 'Add dark mode toggle' }),
+    ).toHaveCount(0);
     await page.locator('.mr-tab', { hasText: 'Snoozed' }).click();
     await expect(page.locator(ROW).filter({ hasText: 'Add dark mode toggle' })).toBeVisible();
     await expect(page.locator('.mr-snoozed-badge')).toBeVisible();
@@ -123,7 +130,9 @@ test.describe('Touch MR list snooze', () => {
     // pointer events at this location.
     await lastOption.click();
     await expect(page.locator('.snooze-menu')).toBeHidden();
-    await expect(page.locator(ROW).filter({ hasText: 'Add dark mode toggle' })).toHaveCount(0);
+    await expect(
+      page.locator(`${ACTIVE_PANE} ${ROW}`).filter({ hasText: 'Add dark mode toggle' }),
+    ).toHaveCount(0);
   });
 
   test('short swipe does not open the sheet', async ({ page }) => {
@@ -151,7 +160,9 @@ test.describe('Touch MR list snooze', () => {
     // (Menu absence is checked after the settle window; see 'short swipe'.)
     await page.waitForTimeout(400);
     await expect(page.locator('.snooze-menu')).toHaveCount(0);
-    await expect(page.locator(ROW).filter({ hasText: 'Add dark mode toggle' })).toHaveCount(0);
+    await expect(
+      page.locator(`${ACTIVE_PANE} ${ROW}`).filter({ hasText: 'Add dark mode toggle' }),
+    ).toHaveCount(0);
     await page.locator('.mr-tab', { hasText: 'Needs review' }).click();
     await expect(page.locator(ROW).filter({ hasText: 'Add dark mode toggle' })).toBeVisible();
   });
