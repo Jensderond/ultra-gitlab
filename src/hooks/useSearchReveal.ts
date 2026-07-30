@@ -33,6 +33,13 @@ export function useSearchReveal<T extends HTMLElement>(
 ): UseSearchRevealResult<T> {
   const searchWrapRef = useRef<HTMLDivElement | null>(null);
   const nodeRef = useRef<T | null>(null);
+  // The DOM node this hook has already collapsed. A sibling hook on the same
+  // container (pull-to-refresh, position restore) changing identity makes
+  // React detach and re-attach this ref callback on the *same* node — most
+  // often a pager pane's per-activation prop toggle. Node identity alone
+  // tells the two cases apart, so re-collapsing is skipped unless it's
+  // actually a new node.
+  const collapsedNodeRef = useRef<T | null>(null);
 
   // Scroll offset at which the search bar sits fully above the viewport
   // (content-space position of the wrapper's bottom edge). Measured on
@@ -54,7 +61,13 @@ export function useSearchReveal<T extends HTMLElement>(
       if (!node || !enabled) return;
 
       // Start collapsed: the bar hides above the fold until pulled down.
-      node.scrollTop = collapsedOffset();
+      // Once per node — a re-attach on the same node means a mid-life
+      // identity change elsewhere, not a fresh mount, and must not clobber
+      // whatever scroll position the node already has.
+      if (collapsedNodeRef.current !== node) {
+        collapsedNodeRef.current = node;
+        node.scrollTop = collapsedOffset();
+      }
 
       let touching = false;
       let settleTimer: number | null = null;

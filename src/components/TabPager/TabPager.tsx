@@ -91,6 +91,14 @@ export default function TabPager({
         s.velocity = 0;
       }
 
+      function resumeSettle() {
+        // Only meaningful after a mid-settle grab froze the track below; an
+        // ordinary gesture never sets dragging, so this is a no-op then.
+        if (s.seed === 0) return;
+        setDragging(false);
+        setDragOffset(0);
+      }
+
       function handleTouchStart(e: TouchEvent) {
         if (e.touches.length !== 1) return;
         reset();
@@ -103,8 +111,12 @@ export default function TabPager({
           e.target instanceof Element && e.target.closest('[data-swipe-row]') != null;
 
         // Grab a settling track mid-flight: seed the drag from where the
-        // track visually is and skip the intent phase — horizontal motion is
-        // already established and the finger should freeze it.
+        // track visually is and freeze it there. This does NOT arm the
+        // gesture — a touch landing during the 300ms settle still has to
+        // pass the normal intent test below, so a vertical scroll or a
+        // leftward grab on a swipe row can hand the touch back exactly as
+        // it would for a touch that started at rest, and a tap-to-stop with
+        // no real movement can't be mistaken for a horizontal drag.
         const track = trackRef.current;
         const width = viewportNode.clientWidth;
         if (track && width > 0) {
@@ -113,7 +125,6 @@ export default function TabPager({
             const offset =
               new DOMMatrixReadOnly(t).m41 + activeIndexRef.current * width;
             if (Math.abs(offset) > 1) {
-              s.armed = true;
               s.seed = offset;
               s.offset = offset;
               setDragging(true);
@@ -132,7 +143,10 @@ export default function TabPager({
         if (!s.armed) {
           if (Math.abs(dy) >= Math.abs(dx) && Math.abs(dy) > INTENT_THRESHOLD) {
             // Vertical — scrolling and pull-to-refresh own it, for good.
+            // If this touch had frozen a mid-settle track, hand it back by
+            // letting the settle transition finish from the frozen point.
             s.tracking = false;
+            resumeSettle();
             return;
           }
           if (Math.abs(dx) <= INTENT_THRESHOLD || Math.abs(dx) <= Math.abs(dy)) {
@@ -141,6 +155,7 @@ export default function TabPager({
           if (dx < 0 && s.rowOwnsLeft) {
             // Leftward on a swipe-enabled row — the snooze gesture wins.
             s.tracking = false;
+            resumeSettle();
             return;
           }
           s.armed = true;
@@ -176,7 +191,9 @@ export default function TabPager({
           let next = index;
           if (fire) {
             // Nearest pane to where the track visually sits — this is what
-            // makes a tap-to-stop mid-settle land somewhere sensible…
+            // makes releasing right after arming (a mid-settle grab that
+            // moved just past the intent threshold) land somewhere
+            // sensible…
             next = Math.round(index - s.offset / width);
             // …while a deliberate drag or flick always reaches the
             // neighbour the finger was heading for, even short of halfway.
@@ -198,6 +215,12 @@ export default function TabPager({
           // the track transitions straight from the finger position to the
           // committed pane without a snap-back frame.
           if (next !== index) onCommitRef.current(next);
+        } else {
+          // Never armed: either a tap-to-stop that froze a mid-settle track
+          // and then lifted, or a move that already handed the touch back
+          // (which resumed the settle itself, making this a no-op). Either
+          // way nothing commits — just let the settle continue.
+          resumeSettle();
         }
         reset();
       }

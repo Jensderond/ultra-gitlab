@@ -37,6 +37,30 @@ async function touchSwipeX(el: Locator, deltaX: number) {
   }, deltaX);
 }
 
+/**
+ * Dispatch a same-position tap (no movement) on `el`, one animation frame
+ * after being called. Used to land the tap inside the ~300ms settle
+ * transition that follows a commit without depending on real elapsed
+ * time — a single rAF tick is a negligible, machine-speed-independent
+ * fraction of that window, unlike a fixed `waitForTimeout`.
+ */
+async function touchTap(el: Locator) {
+  await el.evaluate((node) => {
+    return new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        const rect = node.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + 20;
+        const touch = new Touch({ identifier: 2, target: node, clientX: x, clientY: y });
+        const opts = { bubbles: true, cancelable: true };
+        node.dispatchEvent(new TouchEvent('touchstart', { ...opts, touches: [touch] }));
+        node.dispatchEvent(new TouchEvent('touchend', { ...opts, touches: [] }));
+        resolve();
+      });
+    });
+  });
+}
+
 test.describe('Touch MR list tab swipe', () => {
   test.use({ viewport: { width: 390, height: 664 }, hasTouch: true });
 
@@ -86,6 +110,50 @@ test.describe('Touch MR list tab swipe', () => {
     await touchSwipeX(content, 220);
 
     await expect(page.locator('.mr-tab--active')).toHaveText(/Needs review/);
+  });
+
+  test('a tap right after a commit swipe does not revert the tab', async ({ page }) => {
+    // Grabbing the track mid-settle must not arm the gesture by itself — a
+    // stationary tap landing inside the transition should let the settle
+    // finish rather than being read as a release back toward the old pane.
+    const content = page.locator(`${ACTIVE_PANE} .mr-list-content`);
+    await touchSwipeX(content, -220); // commits to Approved; track is still settling
+    await touchTap(page.locator('.tab-pager'));
+
+    await expect(page.locator('.mr-tab--active')).toHaveText(/Approved/);
+    await expect(page).toHaveURL(/tab=approved/);
+  });
+
+  test('scroll position survives swiping to another tab and back', async ({ page }) => {
+    // The default fixture's 4 needs-review rows fit on screen with nothing
+    // to scroll — pad it out so the pane has real scroll room.
+    const paddedMRs = Array.from({ length: 30 }, (_, i) => ({
+      ...mergeRequests[0],
+      id: 9000 + i,
+      iid: 9000 + i,
+      title: `feat: padding row ${i}`,
+    }));
+    await mockTauriIPC(page, { mergeRequests: paddedMRs });
+    await page.goto('/mrs');
+    await expect(page.locator(ROW).first()).toBeVisible();
+
+    const activeContent = () => page.locator(`${ACTIVE_PANE} .mr-list-content`);
+    await activeContent().evaluate((el) => {
+      el.scrollTop = 400;
+    });
+    const scrolledTop = await activeContent().evaluate((el) => el.scrollTop);
+    expect(scrolledTop).toBeGreaterThan(200); // sanity: the pane actually scrolled
+
+    await touchSwipeX(activeContent(), -220); // to Approved
+    await expect(page.locator('.mr-tab--active')).toHaveText(/Approved/);
+    await page.waitForTimeout(400); // let the settle transition finish
+
+    await touchSwipeX(activeContent(), 220); // back to Needs review
+    await expect(page.locator('.mr-tab--active')).toHaveText(/Needs review/);
+    await page.waitForTimeout(400);
+
+    const restoredTop = await activeContent().evaluate((el) => el.scrollTop);
+    expect(restoredTop).toBe(scrolledTop);
   });
 
   test('a short swipe springs back without changing tabs', async ({ page }) => {
