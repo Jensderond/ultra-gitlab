@@ -9,6 +9,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useHotkey, parseHotkey } from '@tanstack/react-hotkeys';
 import { MRList } from '../components/MRList';
 import type { MRListHandle, MrTab, MrTabCounts } from '../components/MRList';
+import { TabPager } from '../components/TabPager';
 import type { MergeRequest } from '../types';
 import { useSmallScreen } from '../hooks/useSmallScreen';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
@@ -82,7 +83,17 @@ export default function MRListPage() {
   // edge-swipe-back gesture fires and which cannot carry `navigate()` state.
   const activeTab = parseTab(searchParams.get('tab'));
   const [tabCounts, setTabCounts] = useState<MrTabCounts>({ needsReview: 0, approved: 0, snoozed: 0 });
-  const [syncing, setSyncing] = useState(false);
+  // Refresh state is tracked per tab: a pane can finish its sync after the
+  // user swiped to another tab, and must still be able to clear the header
+  // spinner it turned on.
+  const [syncingTabs, setSyncingTabs] = useState<Partial<Record<MrTab, boolean>>>({});
+  const syncing = STATUS_TABS.some((tab) => syncingTabs[tab.id]);
+
+  const handleRefreshingChange = useCallback((tab: MrTab, refreshing: boolean) => {
+    setSyncingTabs((prev) =>
+      !!prev[tab] === refreshing ? prev : { ...prev, [tab]: refreshing },
+    );
+  }, []);
   const isSmallScreen = useSmallScreen();
   const mrListRef = useRef<MRListHandle>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
@@ -227,6 +238,50 @@ export default function MRListPage() {
     [navigate]
   );
 
+  // One MRList per status tab, side by side in the pager (small screens).
+  // Only the active pane gets the page-level wiring: the manual-refresh
+  // registration is a last-write-wins singleton, and the search bar / count
+  // reporting must not have three writers.
+  const renderPane = (tab: MrTab, instanceId: number) => {
+    const active = tab === activeTab;
+    return (
+      <MRList
+        key={tab}
+        ref={active ? mrListRef : undefined}
+        instanceId={instanceId}
+        activeTab={tab}
+        onSelect={handleSelectMR}
+        onSelectTab={setActiveTab}
+        condensed={condensed}
+        snoozeMenuMrId={snoozeMenuMrId}
+        onSnoozeMenuChange={setSnoozeMenuMrId}
+        onRefreshingChange={(r) => handleRefreshingChange(tab, r)}
+        {...(active
+          ? {
+              focusIndex,
+              onFocusChange: setFocusIndex,
+              onMRsLoaded: handleMRsLoaded,
+              filterQuery: query,
+              onFilteredCountChange: handleFilteredCountChange,
+              onCountsChange: setTabCounts,
+              onRefresh: () => manualSyncAndWait(true),
+              searchSlot: (
+                <SearchBar
+                  query={query}
+                  onQueryChange={setQuery}
+                  onClose={closeMobileSearch}
+                  filteredCount={filteredCounts.filtered}
+                  totalCount={filteredCounts.total}
+                  autoFocus={false}
+                  inputRef={mobileSearchInputRef}
+                />
+              ),
+            }
+          : {})}
+      />
+    );
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -320,37 +375,34 @@ export default function MRListPage() {
           />
         )}
         {selectedInstanceId != null ? (
-          <MRList
-            ref={mrListRef}
-            instanceId={selectedInstanceId}
-            onSelect={handleSelectMR}
-            focusIndex={focusIndex}
-            onFocusChange={setFocusIndex}
-            onMRsLoaded={handleMRsLoaded}
-            filterQuery={isSmallScreen ? query : isSearchOpen ? query : undefined}
-            onFilteredCountChange={handleFilteredCountChange}
-            activeTab={activeTab}
-            onSelectTab={setActiveTab}
-            onCountsChange={setTabCounts}
-            snoozeMenuMrId={snoozeMenuMrId}
-            onSnoozeMenuChange={setSnoozeMenuMrId}
-            condensed={condensed}
-            onRefresh={() => manualSyncAndWait(true)}
-            onRefreshingChange={setSyncing}
-            searchSlot={
-              isSmallScreen ? (
-                <SearchBar
-                  query={query}
-                  onQueryChange={setQuery}
-                  onClose={closeMobileSearch}
-                  filteredCount={filteredCounts.filtered}
-                  totalCount={filteredCounts.total}
-                  autoFocus={false}
-                  inputRef={mobileSearchInputRef}
-                />
-              ) : undefined
-            }
-          />
+          isSmallScreen ? (
+            <TabPager
+              activeIndex={STATUS_TABS.findIndex((tab) => tab.id === activeTab)}
+              onCommit={(index) => setActiveTab(STATUS_TABS[index].id)}
+              disabled={filtering}
+            >
+              {STATUS_TABS.map((tab) => renderPane(tab.id, selectedInstanceId))}
+            </TabPager>
+          ) : (
+            <MRList
+              ref={mrListRef}
+              instanceId={selectedInstanceId}
+              onSelect={handleSelectMR}
+              focusIndex={focusIndex}
+              onFocusChange={setFocusIndex}
+              onMRsLoaded={handleMRsLoaded}
+              filterQuery={isSearchOpen ? query : undefined}
+              onFilteredCountChange={handleFilteredCountChange}
+              activeTab={activeTab}
+              onSelectTab={setActiveTab}
+              onCountsChange={setTabCounts}
+              snoozeMenuMrId={snoozeMenuMrId}
+              onSnoozeMenuChange={setSnoozeMenuMrId}
+              condensed={condensed}
+              onRefresh={() => manualSyncAndWait(true)}
+              onRefreshingChange={(r) => handleRefreshingChange(activeTab, r)}
+            />
+          )
         ) : null}
       </main>
 

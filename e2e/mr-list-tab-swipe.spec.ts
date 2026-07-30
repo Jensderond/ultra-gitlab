@@ -62,4 +62,49 @@ test.describe('Touch MR list tab swipe', () => {
     await expect(row).toBeVisible();
     await expect(row).not.toHaveAttribute('data-swipe-row');
   });
+
+  test('renders the three status panes in a pager', async ({ page }) => {
+    await expect(page.locator('.tab-pager')).toBeVisible();
+    await expect(page.locator('.tab-pager-pane')).toHaveCount(3);
+    // Exactly one pane is interactive; the others are inert for focus/VO.
+    await expect(page.locator('.tab-pager-pane:not([inert])')).toHaveCount(1);
+  });
+
+  test('swipe left pages to the Approved tab and updates the URL', async ({ page }) => {
+    const content = page.locator(`${ACTIVE_PANE} .mr-list-content`);
+    await touchSwipeX(content, -220); // > 40% of the 390px viewport
+
+    await expect(page.locator('.mr-tab--active')).toHaveText(/Approved/);
+    await expect(page).toHaveURL(/tab=approved/);
+  });
+
+  test('swipe right pages back from Approved to Needs review', async ({ page }) => {
+    await page.goto('/mrs?tab=approved');
+    await expect(page.locator('.mr-tab--active')).toHaveText(/Approved/);
+
+    const content = page.locator(`${ACTIVE_PANE} .mr-list-content`);
+    await touchSwipeX(content, 220);
+
+    await expect(page.locator('.mr-tab--active')).toHaveText(/Needs review/);
+  });
+
+  test('a short swipe springs back without changing tabs', async ({ page }) => {
+    const content = page.locator(`${ACTIVE_PANE} .mr-list-content`);
+    await touchSwipeX(content, -60); // below the 156px commit distance
+
+    // Settle window first — an immediate check passes even on a wrong commit.
+    await page.waitForTimeout(400);
+    await expect(page.locator('.mr-tab--active')).toHaveText(/Needs review/);
+    await expect(page).not.toHaveURL(/tab=/);
+  });
+});
+
+test.describe('Desktop MR list has no pager', () => {
+  test('renders a single list without pager wrappers', async ({ page }) => {
+    await page.goto('/mrs');
+    await expect(page.locator('.mr-list-item').first()).toBeVisible();
+
+    await expect(page.locator('.tab-pager')).toHaveCount(0);
+    await expect(page.locator('.mr-list')).toHaveCount(1);
+  });
 });
