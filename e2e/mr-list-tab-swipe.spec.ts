@@ -97,6 +97,67 @@ test.describe('Touch MR list tab swipe', () => {
     await expect(page.locator('.mr-tab--active')).toHaveText(/Needs review/);
     await expect(page).not.toHaveURL(/tab=/);
   });
+
+  test('swipe right at the first tab rubber-bands and stays', async ({ page }) => {
+    const content = page.locator(`${ACTIVE_PANE} .mr-list-content`);
+    await touchSwipeX(content, 220);
+
+    await page.waitForTimeout(400);
+    await expect(page.locator('.mr-tab--active')).toHaveText(/Needs review/);
+    await expect(page).not.toHaveURL(/tab=/);
+  });
+
+  test('swipe left at the last tab rubber-bands and stays', async ({ page }) => {
+    await page.goto('/mrs?tab=snoozed');
+    await expect(page.locator('.mr-tab--active')).toHaveText(/Snoozed/);
+
+    const content = page.locator(`${ACTIVE_PANE} .mr-list-content`);
+    await touchSwipeX(content, -220);
+
+    await page.waitForTimeout(400);
+    await expect(page.locator('.mr-tab--active')).toHaveText(/Snoozed/);
+  });
+
+  test('swipe left on a snoozable row opens the snooze sheet, not the next tab', async ({ page }) => {
+    const row = page.locator(ROW).filter({ hasText: 'Add dark mode toggle' });
+    // Well past the pager's 156px commit distance — proves the pager yielded
+    // to the row rather than merely missing its threshold.
+    await touchSwipeX(row, -220);
+
+    await expect(page.locator('.snooze-menu')).toBeVisible();
+    await expect(page.locator('.mr-tab--active')).toHaveText(/Needs review/);
+    await expect(page).not.toHaveURL(/tab=/);
+  });
+
+  test('swipe right on a swipe-enabled row still pages (rows own left only)', async ({ page }) => {
+    // Park an MR in Snoozed: its rows keep the swipe gesture (unsnooze).
+    const row = page.locator(ROW).filter({ hasText: 'Add dark mode toggle' });
+    await touchSwipeX(row, -140);
+    await page.locator('.snooze-menu-option', { hasText: '1 hour' }).click();
+    await page.locator('.mr-tab', { hasText: 'Snoozed' }).click();
+
+    const snoozedRow = page.locator(ROW).filter({ hasText: 'Add dark mode toggle' });
+    await expect(snoozedRow).toBeVisible();
+    await expect(snoozedRow).toHaveAttribute('data-swipe-row', '');
+    await touchSwipeX(snoozedRow, 220);
+
+    await expect(page.locator('.mr-tab--active')).toHaveText(/Approved/);
+    // The rightward drag must not have unsnoozed the row on the way out.
+    await page.locator('.mr-tab', { hasText: 'Snoozed' }).click();
+    await expect(page.locator(ROW).filter({ hasText: 'Add dark mode toggle' })).toBeVisible();
+  });
+
+  test('filtering disables the pager', async ({ page }) => {
+    await page.locator('button[aria-label="Search merge requests"]').click();
+    await page.locator('.search-bar-input').fill('dark');
+    await expect(page.locator('.mr-tabs--filtering')).toBeVisible();
+
+    const content = page.locator(`${ACTIVE_PANE} .mr-list-content`);
+    await touchSwipeX(content, -220);
+
+    await page.waitForTimeout(400);
+    await expect(page).not.toHaveURL(/tab=/);
+  });
 });
 
 test.describe('Desktop MR list has no pager', () => {
