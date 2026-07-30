@@ -93,6 +93,9 @@ const SwipeActionRow = forwardRef<HTMLDivElement, SwipeActionRowProps>(function 
       <div
         {...rowProps}
         ref={containerRef}
+        // Advertises a live swipe-left gesture to ancestor gesture owners
+        // (TabPager yields leftward drags that start inside one of these).
+        data-swipe-row={disabled ? undefined : ''}
         className={rowClasses.join(' ')}
         style={offset > 0 ? { transform: `translateX(${-offset}px)` } : undefined}
         onClick={(e) => {
