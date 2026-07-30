@@ -7121,7 +7121,7 @@ dependencies = [
 
 [[package]]
 name = "ultra-gitlab"
-version = "0.25.0"
+version = "0.25.1"
 dependencies = [
  "base64 0.22.1",
  "block2",
@@ -7166,7 +7166,7 @@ dependencies = [
 
 [[package]]
 name = "ultra-gitlab-cli"
-version = "0.25.0"
+version = "0.25.1"
 dependencies = [
  "anyhow",
  "chrono",
