@@ -101,7 +101,7 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-muted);
-  padding: 0 12px;
+  padding-inline: 12px;
   margin-bottom: 6px;
 }
 
@@ -178,16 +178,17 @@
 }
 
 .settings-detail-description {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-tertiary);
-}
-
-.settings-detail-description {
   width: 100%;
   max-width: 640px;
-  margin: 0 auto 6px;
+  /* 16px below, against the 7px eyebrow-to-card gap: the page blurb has to read
+     as its own group, not as a caption on the first section. */
+  margin: 0 auto 16px;
+  /* Matches the row inset so the section blurb, the eyebrow below it and the
+     row labels all start on the same leading edge. */
+  padding-inline: 16px;
   box-sizing: border-box;
+  font-size: 13px;
+  color: var(--text-tertiary);
 }
 
 /* ================================================
@@ -199,6 +200,12 @@
   flex-direction: column;
   gap: 7px;
   margin-bottom: 22px;
+}
+
+/* A card's eyebrow shares the row inset (16px) instead of the rail's 12px, so
+   the eyebrow, the row labels and the footer all sit on one leading edge. */
+.settings-group-wrap > .settings-group-eyebrow {
+  padding-inline: 16px;
 }
 
 .settings-group-wrap:last-child {
@@ -1658,10 +1665,17 @@
    CUSTOM MR FILTER
    ================================================ */
 
+/* Cards are spaced by .settings-group-wrap's own margin, like every other
+   settings section — adding a gap here stacked 20px on top of that 22px. */
 .custom-filter-section {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+}
+
+/* Adapt to the card, not the viewport: the same section renders in the 640px
+   desktop detail pane and in the full-width mobile drill-down. */
+.custom-filter-section .settings-group {
+  container-type: inline-size;
 }
 
 .settings-row-control .custom-filter-input {
@@ -1672,7 +1686,34 @@
   background: var(--bg-dim);
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  width: 200px;
+  /* Same rendered width as before; border-box so the stacked variant below can
+     say width: 100% and mean it. */
+  width: 226px;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Below this the label and the field can no longer sit side by side, so stack
+   them full-width rather than shredding the description into one word per line. */
+@container (max-width: 430px) {
+  .custom-filter-section .settings-row:has(.custom-filter-input),
+  .custom-filter-section .settings-row:has(select) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .custom-filter-section .settings-row:has(.custom-filter-input) .settings-row-control,
+  .custom-filter-section .settings-row:has(select) .settings-row-control {
+    flex: 1 1 auto;
+  }
+
+  .custom-filter-section .settings-row:has(.custom-filter-input) .custom-filter-input,
+  .custom-filter-section .settings-row:has(select) select {
+    width: 100%;
+    max-width: none;
+  }
 }
 
 .settings-row-control .custom-filter-input:disabled {

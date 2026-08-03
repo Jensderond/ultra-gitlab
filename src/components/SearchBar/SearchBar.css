@@ -189,9 +189,14 @@
 }
 
 /* iOS auto-zooms the whole page on focusing any input under 16px, and the
-   zoom doesn't reset itself — a real trap now that search is tap-reachable. */
+   zoom doesn't reset itself — a real trap now that search is tap-reachable.
+   Only the focus moment needs 16px; at rest a smaller size reads better. */
 @media (max-width: 767px) {
   .search-bar-input {
+    font-size: 14px;
+  }
+
+  .search-bar-input:focus {
     font-size: 16px;
   }
 }

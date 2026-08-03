@@ -314,11 +314,17 @@
 .pipeline-card-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
-  margin-left: auto;
+  gap: 6px;
+  margin-inline-start: auto;
   flex-shrink: 0;
   opacity: 0;
   transition: opacity 0.15s ease;
+}
+
+/* Remove is destructive and sat 2px from the pin toggle — give it its own
+   clearance so a mis-tap doesn't unpin-then-remove. */
+.pipeline-card-actions .pipeline-card-action-btn--remove {
+  margin-inline-start: 6px;
 }
 
 .pipeline-card:hover .pipeline-card-actions {
