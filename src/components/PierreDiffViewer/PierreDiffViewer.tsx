@@ -68,6 +68,9 @@ export interface PierreDiffViewerProps {
   editMode?: boolean;
   /** Fires with the full edited new-side contents on every editor change */
   onEditContentChange?: (contents: string) => void;
+  /** Folded into the file cache keys. Bump when an edit session ends so
+   *  pierre never serves a render cached while the document was edited. */
+  cacheNonce?: number;
 }
 
 /** Map LineComment[] to Pierre DiffLineAnnotation<LineComment>[]. */
@@ -337,6 +340,7 @@ export function PierreDiffViewer({
   onResolve,
   editMode,
   onEditContentChange,
+  cacheNonce = 0,
 }: PierreDiffViewerProps) {
   const [selectedLines, setSelectedLines] = useState<SelectedLineRange | null>(null);
   const [copied, copyToClipboard] = useCopyToast(1200);
@@ -369,18 +373,18 @@ export function PierreDiffViewer({
     () => ({
       name: filePath,
       contents: oldContent ?? '',
-      cacheKey: `${mrIid}:${filePath}:${sha}:old`,
+      cacheKey: `${mrIid}:${filePath}:${sha}:old:${cacheNonce}`,
     }),
-    [filePath, oldContent, mrIid, sha]
+    [filePath, oldContent, mrIid, sha, cacheNonce]
   );
 
   const newFile: FileContents = useMemo(
     () => ({
       name: filePath,
       contents: newContent ?? '',
-      cacheKey: `${mrIid}:${filePath}:${sha}:new`,
+      cacheKey: `${mrIid}:${filePath}:${sha}:new:${cacheNonce}`,
     }),
-    [filePath, newContent, mrIid, sha]
+    [filePath, newContent, mrIid, sha, cacheNonce]
   );
 
   const handleLineNumberClick = useCallback(

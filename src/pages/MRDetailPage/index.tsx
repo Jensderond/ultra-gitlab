@@ -94,6 +94,8 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   // Bumped when an edit session ends: remounts the diff viewer so pierre's
   // edited document is discarded and the original contents render again.
   const [editSession, setEditSession] = useState(0);
+  const editModeRef = useRef(view.editMode);
+  editModeRef.current = view.editMode;
   const editReady = useHighlighterPreload(
     view.selectedFile,
     !isIOS && !!view.selectedFile && !isImageFile(view.selectedFile),
@@ -105,18 +107,25 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     dispatch({ type: 'ENTER_EDIT_MODE' });
   }, [dispatch]);
 
-  const cancelEditMode = useCallback(() => {
-    dispatch({ type: 'EXIT_EDIT_MODE' });
+  // Session teardown must land in the same render as the editMode flip:
+  // pierre only discards the edited document when the editing viewer instance
+  // is unmounted while still in edit mode. A true→false transition on a
+  // mounted instance keeps the edited content rendered.
+  const endEditSession = useCallback(() => {
     setEditedContent(null);
     setEditSession((s) => s + 1);
-  }, [dispatch]);
+  }, []);
+
+  const cancelEditMode = useCallback(() => {
+    dispatch({ type: 'EXIT_EDIT_MODE' });
+    endEditSession();
+  }, [dispatch, endEditSession]);
 
   const confirmEdit = useCallback(() => {
     if (editedContent === null) return;
     const region = computeEditedRegion(fileContent.modified, editedContent);
     dispatch({ type: 'EXIT_EDIT_MODE' });
-    setEditedContent(null);
-    setEditSession((s) => s + 1);
+    endEditSession();
     if (!region) return;
     const selection = {
       startLine: region.startLine,
@@ -134,7 +143,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
       selection,
       suggestionText,
     );
-  }, [editedContent, fileContent.modified, dispatch]);
+  }, [editedContent, fileContent.modified, dispatch, endEditSession]);
 
   const currentUserQuery = useCurrentUserQuery(mr?.instanceId ?? 0);
   const currentUser = currentUserQuery.data ?? null;
@@ -174,6 +183,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   }, [mrId, clearFileCache]);
 
   const handleFileSelect = useCallback((filePath: string) => {
+    if (editModeRef.current) endEditSession();
     const index = files.findIndex((f) => f.newPath === filePath);
     dispatch({
       type: 'SELECT_FILE',
@@ -182,7 +192,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
       hasSavedState: false,
     });
     previousFileRef.current = filePath;
-  }, [files, dispatch]);
+  }, [files, dispatch, endEditSession]);
 
   const navigableFiles = view.hideGenerated ? reviewableFiles : files;
   const currentFileIndex = navigableFiles.findIndex((f) => f.newPath === view.selectedFile);
@@ -207,11 +217,12 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   }, [view.selectedFile, dispatch, navigateFile, navigableFiles]);
 
   const handleToggleViewMode = useCallback(() => {
+    if (editModeRef.current) endEditSession();
     dispatch({
       type: 'SET_VIEW_MODE',
       mode: view.viewMode === 'unified' ? 'split' : 'unified',
     });
-  }, [view.viewMode, dispatch]);
+  }, [view.viewMode, dispatch, endEditSession]);
 
   const handleLineClick = useCallback((info: DiffLineClickInfo) => {
     const isContext = info.lineType === 'context' || info.lineType === 'context-expanded';
@@ -227,8 +238,6 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
 
   // Cmd+D toggles activity drawer (skip when focus is in text input/textarea,
   // or while the diff editor is active — its shadow root hides focus from us)
-  const editModeRef = useRef(view.editMode);
-  editModeRef.current = view.editMode;
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.metaKey && e.key === 'd') {

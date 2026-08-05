@@ -59,6 +59,30 @@ async function enterEditMode(page: Page) {
   const editBtn = page.locator('.suggest-edit-btn');
   await expect(editBtn).toBeEnabled({ timeout: 15_000 }); // waits for highlighter preload
   await editBtn.click();
+  // Wait for pierre to attach the editor before clicking/typing — the
+  // contentEditable surface appears inside the shadow root slightly after
+  // the edit prop flips.
+  await expect(page.locator('diffs-container [contenteditable="true"]').first()).toBeAttached({ timeout: 10_000 });
+}
+
+/**
+ * Append text at the end of a line and verify it landed. The editor
+ * occasionally isn't focused by the first click (keystrokes are dropped
+ * whole, never partially), so retry the click+type until the text shows.
+ */
+async function typeAtEndOfLine(page: Page, line: number, text: string) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await clickCodeLine(page, line);
+    await page.keyboard.press('End');
+    await page.keyboard.type(text);
+    try {
+      await expect(page.locator('diffs-container')).toContainText(text, { timeout: 2_000 });
+      return;
+    } catch {
+      // Editor wasn't focused yet — retry.
+    }
+  }
+  throw new Error(`Typing "${text}" into line ${line} never landed`);
 }
 
 test.describe('MR Detail Suggestions', () => {
@@ -98,9 +122,7 @@ test.describe('MR Detail Suggest Edit mode', () => {
     await expect(confirmBtn).toBeVisible();
     await expect(confirmBtn).toBeDisabled();
 
-    await clickCodeLine(page, 4);
-    await page.keyboard.press('End');
-    await page.keyboard.type(' // edited');
+    await typeAtEndOfLine(page, 4, ' // edited');
 
     await expect(confirmBtn).toBeEnabled();
     await confirmBtn.click();
@@ -120,14 +142,36 @@ test.describe('MR Detail Suggest Edit mode', () => {
     await expect(page.locator('diffs-container')).toBeVisible({ timeout: 15_000 });
 
     await enterEditMode(page);
-    await clickCodeLine(page, 4);
-    await page.keyboard.press('End');
-    await page.keyboard.type(' // discarded');
+    // typeAtEndOfLine proves the edit landed before the revert assertions —
+    // otherwise broken caret placement would make them pass vacuously.
+    await typeAtEndOfLine(page, 4, ' // discarded');
+    await expect(page.locator('.suggest-edit-confirm')).toBeEnabled();
+
     await page.keyboard.press('Escape');
 
     await expect(page.locator('.suggest-edit-btn')).toBeVisible();
     await expect(page.locator('.comment-input-overlay')).not.toBeVisible();
     await expect(page.locator('diffs-container')).not.toContainText('// discarded');
+  });
+
+  test('switching files mid-edit discards the edit session', async ({ page }) => {
+    await page.goto('/mrs/101');
+    await expect(page.locator('diffs-container')).toBeVisible({ timeout: 15_000 });
+
+    const selectedFile = page.locator('.file-nav-item.selected').first();
+    const firstFileName = (await selectedFile.textContent())?.trim() ?? '';
+
+    await enterEditMode(page);
+    await typeAtEndOfLine(page, 4, ' // stale');
+
+    // Leave edit mode by selecting another file, then return to the first.
+    await page.locator('.file-nav-item:not(.selected)').first().click();
+    await expect(page.locator('.suggest-edit-btn')).toBeVisible();
+    await page.locator('.file-nav-item').filter({ hasText: firstFileName }).first().click();
+
+    await expect(page.locator('diffs-container')).toBeVisible();
+    await expect(page.locator('diffs-container')).not.toContainText('// stale');
+    await expect(page.locator('.suggest-edit-btn')).toBeVisible();
   });
 
   test('file-navigation hotkeys are inert while editing', async ({ page }) => {
