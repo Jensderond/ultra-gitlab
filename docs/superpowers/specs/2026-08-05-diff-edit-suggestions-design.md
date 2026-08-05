@@ -1,7 +1,7 @@
 # Diff Edit Mode → GitLab Suggestions
 
 **Date:** 2026-08-05
-**Status:** Approved
+**Status:** Implemented — manual WKWebView gate passed 2026-08-05 (selection drift seen during the gate was root-caused to the "Geist Mono Variable" diffs font: pierre's canvas-measured overlay positions disagree with DOM rendering for variable fonts in WKWebView; static fonts are pixel-exact and the underlying selection is always correct)
 
 ## Summary
 
