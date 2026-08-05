@@ -26,7 +26,10 @@ import MRDiffContent from './MRDiffContent';
 import MRFilePanel from './MRFilePanel';
 import MRFooter from './MRFooter';
 import { deleteComment } from '../../services/gitlab';
-import { openExternalUrl } from '../../services/transport';
+import { openExternalUrl, isIOS } from '../../services/transport';
+import { isImageFile } from '../../utils/languageDetection';
+import { useHighlighterPreload } from '../../hooks/useHighlighterPreload';
+import { buildGitLabSuggestionBlock, computeEditedRegion } from '../../utils/gitlabSuggestions';
 import { useCurrentUserQuery } from '../../hooks/queries/useCurrentUserQuery';
 import { useSettingsQuery } from '../../hooks/queries/useSettingsQuery';
 import { trackMRApproved, trackMRUnapproved, trackCommentPosted, trackReplyPosted } from '../../services/analytics';
@@ -86,6 +89,47 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
 
   const { data: settings } = useSettingsQuery();
   const { fileComments, removeComment, restoreComment } = useFileComments(mrId, view.selectedFile);
+
+  const [editedContent, setEditedContent] = useState<string | null>(null);
+  const editReady = useHighlighterPreload(
+    view.selectedFile,
+    !isIOS && !!view.selectedFile && !isImageFile(view.selectedFile),
+  );
+  const hasEdits = editedContent !== null && editedContent !== fileContent.modified;
+
+  const enterEditMode = useCallback(() => {
+    setEditedContent(null);
+    dispatch({ type: 'ENTER_EDIT_MODE' });
+  }, [dispatch]);
+
+  const cancelEditMode = useCallback(() => {
+    dispatch({ type: 'EXIT_EDIT_MODE' });
+    setEditedContent(null);
+  }, [dispatch]);
+
+  const confirmEdit = useCallback(() => {
+    if (editedContent === null) return;
+    const region = computeEditedRegion(fileContent.modified, editedContent);
+    dispatch({ type: 'EXIT_EDIT_MODE' });
+    setEditedContent(null);
+    if (!region) return;
+    const selection = {
+      startLine: region.startLine,
+      endLine: region.endLine,
+      isOriginal: false,
+      text: region.replacement,
+    };
+    const suggestionText = buildGitLabSuggestionBlock({
+      startLine: region.startLine,
+      endLine: region.endLine,
+      text: region.replacement,
+    });
+    commentOverlayRef.current?.open(
+      { line: region.endLine, isOriginal: false },
+      selection,
+      suggestionText,
+    );
+  }, [editedContent, fileContent.modified, dispatch]);
 
   const currentUserQuery = useCurrentUserQuery(mr?.instanceId ?? 0);
   const currentUser = currentUserQuery.data ?? null;
@@ -176,10 +220,14 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     lineSelectionRef.current = range;
   }, []);
 
-  // Cmd+D toggles activity drawer (skip when focus is in text input/textarea)
+  // Cmd+D toggles activity drawer (skip when focus is in text input/textarea,
+  // or while the diff editor is active — its shadow root hides focus from us)
+  const editModeRef = useRef(view.editMode);
+  editModeRef.current = view.editMode;
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.metaKey && e.key === 'd') {
+        if (editModeRef.current) return;
         const tag = (e.target as HTMLElement)?.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA') return;
         e.preventDefault();
@@ -206,6 +254,8 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     onToggleHideGenerated: () => dispatch({ type: 'TOGGLE_HIDE_GENERATED' }),
     onCopyLink: copyToClipboard,
     onEscapeBack: () => backToList(),
+    editMode: view.editMode,
+    onExitEditMode: cancelEditMode,
   });
 
   if (loading) {
@@ -305,6 +355,13 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           onReply={async (discussionId, parentId, body) => { await activityReplyToComment(discussionId, parentId, body); trackReplyPosted(mrId); }}
           onResolve={activityResolveDiscussion}
           bottomPadding={activityOpen ? activityHeightVh : undefined}
+          editMode={view.editMode}
+          editReady={editReady}
+          hasEdits={hasEdits}
+          onEnterEditMode={enterEditMode}
+          onConfirmEdit={confirmEdit}
+          onCancelEdit={cancelEditMode}
+          onEditContentChange={setEditedContent}
         />
       </div>
 
