@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeEditedRegion } from './gitlabSuggestions';
+import { buildGitLabSuggestionBlock, computeEditedRegion } from './gitlabSuggestions';
 
 describe('computeEditedRegion', () => {
   it('returns null for identical content', () => {
@@ -74,11 +74,39 @@ describe('computeEditedRegion', () => {
     });
   });
 
+  it('builds a bodiless block for deletion suggestions (GitLab: empty = remove lines)', () => {
+    expect(buildGitLabSuggestionBlock({ startLine: 2, endLine: 3, text: '' })).toBe(
+      '```suggestion:-1+0\n```\n',
+    );
+  });
+
+  it('builds a fenced block around replacement text', () => {
+    expect(buildGitLabSuggestionBlock({ startLine: 4, endLine: 6, text: 'x\ny\nz' })).toBe(
+      '```suggestion:-2+0\nx\ny\nz\n```\n',
+    );
+  });
+
   it('collapses disjoint edits to the full span', () => {
     expect(computeEditedRegion('a\nb\nc\nd\ne', 'a\nB\nc\nD\ne')).toEqual({
       startLine: 2,
       endLine: 4,
       replacement: 'B\nc\nD',
+    });
+  });
+
+  it('handles a multi-line deletion', () => {
+    expect(computeEditedRegion('a\nb\nc\nd', 'a\nd')).toEqual({
+      startLine: 2,
+      endLine: 3,
+      replacement: '',
+    });
+  });
+
+  it('handles whole-file deletion', () => {
+    expect(computeEditedRegion('a\nb', '')).toEqual({
+      startLine: 1,
+      endLine: 2,
+      replacement: '',
     });
   });
 

@@ -96,11 +96,29 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   const [editSession, setEditSession] = useState(0);
   const editModeRef = useRef(view.editMode);
   editModeRef.current = view.editMode;
+  const editedContentRef = useRef(editedContent);
+  editedContentRef.current = editedContent;
+
+  // Flag active edit sessions on the document root so App-level hotkeys
+  // (keyboard-help `?`) can stay inert — they can't see typing inside the
+  // editor's shadow root.
+  useEffect(() => {
+    if (view.editMode) {
+      document.documentElement.dataset.diffEditing = 'true';
+      return () => {
+        delete document.documentElement.dataset.diffEditing;
+      };
+    }
+  }, [view.editMode]);
   const editReady = useHighlighterPreload(
     view.selectedFile,
     !isIOS && !!view.selectedFile && !isImageFile(view.selectedFile),
   );
-  const hasEdits = editedContent !== null && editedContent !== fileContent.modified;
+  // Normalized like computeEditedRegion, so a CRLF-only difference can't
+  // enable Confirm only for confirmEdit to find no region.
+  const hasEdits =
+    editedContent !== null &&
+    editedContent.replace(/\r\n/g, '\n') !== fileContent.modified.replace(/\r\n/g, '\n');
 
   const enterEditMode = useCallback(() => {
     setEditedContent(null);
@@ -112,8 +130,13 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   // is unmounted while still in edit mode. A true→false transition on a
   // mounted instance keeps the edited content rendered.
   const endEditSession = useCallback(() => {
-    setEditedContent(null);
-    setEditSession((s) => s + 1);
+    // No onChange ever fired → pierre's document was never mutated, so skip
+    // the remount (it would only throw away the scroll position).
+    if (editedContentRef.current !== null) {
+      setEditedContent(null);
+      setEditSession((s) => s + 1);
+    }
+    lineSelectionRef.current = null;
   }, []);
 
   const cancelEditMode = useCallback(() => {
@@ -176,11 +199,25 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     appliedInitialRef.current = false;
   }
 
-  // Clear file cache when MR changes
+  // Clear file cache when MR changes; a deep link can swap MRs without
+  // unmounting, so also tear down any edit session dangling from the old MR.
   useEffect(() => {
     previousFileRef.current = null;
     clearFileCache();
-  }, [mrId, clearFileCache]);
+    if (editModeRef.current) {
+      dispatch({ type: 'EXIT_EDIT_MODE' });
+      endEditSession();
+    }
+  }, [mrId, clearFileCache, dispatch, endEditSession]);
+
+  // effectiveViewMode flips with the breakpoint without any dispatch — the
+  // one view-mode transition the reducer can't see. Discard the session.
+  useEffect(() => {
+    if (editModeRef.current) {
+      dispatch({ type: 'EXIT_EDIT_MODE' });
+      endEditSession();
+    }
+  }, [isSmallScreen, dispatch, endEditSession]);
 
   const handleFileSelect = useCallback((filePath: string) => {
     if (editModeRef.current) endEditSession();

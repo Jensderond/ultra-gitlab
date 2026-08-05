@@ -66,21 +66,26 @@ async function enterEditMode(page: Page) {
 }
 
 /**
- * Append text at the end of a line and verify it landed. The editor
- * occasionally isn't focused by the first click (keystrokes are dropped
- * whole, never partially), so retry the click+type until the text shows.
+ * Append text at the end of a line and verify it landed. The first keystroke
+ * after clicking can race the editor's focus and get dropped (sometimes just
+ * the first character — e.g. a leading space — which toContainText's
+ * whitespace-collapsing can't detect). So: prove focus with a sentinel
+ * character first, remove it, then type the real text.
  */
 async function typeAtEndOfLine(page: Page, line: number, text: string) {
   for (let attempt = 0; attempt < 3; attempt++) {
     await clickCodeLine(page, line);
     await page.keyboard.press('End');
-    await page.keyboard.type(text);
+    await page.keyboard.type('§');
     try {
-      await expect(page.locator('diffs-container')).toContainText(text, { timeout: 2_000 });
-      return;
+      await expect(page.locator('diffs-container')).toContainText('§', { timeout: 1_500 });
     } catch {
-      // Editor wasn't focused yet — retry.
+      continue; // Editor wasn't focused yet — re-click and retry.
     }
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type(text);
+    await expect(page.locator('diffs-container')).toContainText(text.trim(), { timeout: 2_000 });
+    return;
   }
   throw new Error(`Typing "${text}" into line ${line} never landed`);
 }

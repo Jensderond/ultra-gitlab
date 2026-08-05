@@ -22,7 +22,11 @@ export function buildGitLabSuggestionBlock(
   const linesAbove = Math.max(0, anchorLine - selection.startLine);
   const linesBelow = Math.max(0, selection.endLine - anchorLine);
 
-  return `\`\`\`suggestion:-${linesAbove}+${linesBelow}\n${selection.text}\n\`\`\`\n`;
+  // An empty text must produce a bodiless block: GitLab treats zero body
+  // lines as "remove these lines", but a single blank body line as
+  // "replace with one blank line".
+  const body = selection.text === '' ? '' : `${selection.text}\n`;
+  return `\`\`\`suggestion:-${linesAbove}+${linesBelow}\n${body}\`\`\`\n`;
 }
 
 export interface EditedRegion {

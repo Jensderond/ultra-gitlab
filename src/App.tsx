@@ -171,6 +171,10 @@ function AppContent() {
   }, { enabled: isTauri });
 
   useHotkey(parseHotkey(getKey('keyboard-help') ?? 'Shift+/'), () => {
+    // Typing `?` inside the diff editor must not open help: the editor lives
+    // in a shadow root, so ignoreInputs cannot detect it — MRDetailPage flags
+    // active edit sessions on the document root instead.
+    if (document.documentElement.dataset.diffEditing) return;
     trackShortcut('?', 'show_keyboard_help', 'global');
     setKeyboardHelpOpen(true);
   });
