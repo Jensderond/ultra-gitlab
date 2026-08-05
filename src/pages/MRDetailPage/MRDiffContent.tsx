@@ -31,6 +31,9 @@ interface MRDiffContentProps {
   editMode?: boolean;
   editReady?: boolean;
   hasEdits?: boolean;
+  /** Remount key for the diff viewer — bumped when an edit session ends so
+   *  pierre's edited document is discarded. */
+  editSessionKey?: number;
   onEnterEditMode?: () => void;
   onConfirmEdit?: () => void;
   onCancelEdit?: () => void;
@@ -61,6 +64,7 @@ export default function MRDiffContent({
   editMode,
   editReady,
   hasEdits,
+  editSessionKey,
   onEnterEditMode,
   onConfirmEdit,
   onCancelEdit,
@@ -133,6 +137,7 @@ export default function MRDiffContent({
 
       {!isImageFile(selectedFile) && !fileContentLoading && !fileContentError && diffRefs && (
         <PierreDiffViewer
+          key={editSessionKey}
           oldContent={fileContent.original}
           newContent={fileContent.modified}
           filePath={selectedFile}

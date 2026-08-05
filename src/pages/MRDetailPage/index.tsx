@@ -91,6 +91,9 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   const { fileComments, removeComment, restoreComment } = useFileComments(mrId, view.selectedFile);
 
   const [editedContent, setEditedContent] = useState<string | null>(null);
+  // Bumped when an edit session ends: remounts the diff viewer so pierre's
+  // edited document is discarded and the original contents render again.
+  const [editSession, setEditSession] = useState(0);
   const editReady = useHighlighterPreload(
     view.selectedFile,
     !isIOS && !!view.selectedFile && !isImageFile(view.selectedFile),
@@ -105,6 +108,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   const cancelEditMode = useCallback(() => {
     dispatch({ type: 'EXIT_EDIT_MODE' });
     setEditedContent(null);
+    setEditSession((s) => s + 1);
   }, [dispatch]);
 
   const confirmEdit = useCallback(() => {
@@ -112,6 +116,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     const region = computeEditedRegion(fileContent.modified, editedContent);
     dispatch({ type: 'EXIT_EDIT_MODE' });
     setEditedContent(null);
+    setEditSession((s) => s + 1);
     if (!region) return;
     const selection = {
       startLine: region.startLine,
@@ -358,6 +363,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           editMode={view.editMode}
           editReady={editReady}
           hasEdits={hasEdits}
+          editSessionKey={editSession}
           onEnterEditMode={enterEditMode}
           onConfirmEdit={confirmEdit}
           onCancelEdit={cancelEditMode}
