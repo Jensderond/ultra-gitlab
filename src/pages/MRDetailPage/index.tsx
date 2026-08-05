@@ -26,7 +26,10 @@ import MRDiffContent from './MRDiffContent';
 import MRFilePanel from './MRFilePanel';
 import MRFooter from './MRFooter';
 import { deleteComment } from '../../services/gitlab';
-import { openExternalUrl } from '../../services/transport';
+import { openExternalUrl, isIOS } from '../../services/transport';
+import { isImageFile } from '../../utils/languageDetection';
+import { useHighlighterPreload } from '../../hooks/useHighlighterPreload';
+import { buildGitLabSuggestionBlock, computeEditedRegion } from '../../utils/gitlabSuggestions';
 import { useCurrentUserQuery } from '../../hooks/queries/useCurrentUserQuery';
 import { useSettingsQuery } from '../../hooks/queries/useSettingsQuery';
 import { trackMRApproved, trackMRUnapproved, trackCommentPosted, trackReplyPosted } from '../../services/analytics';
@@ -87,6 +90,84 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   const { data: settings } = useSettingsQuery();
   const { fileComments, removeComment, restoreComment } = useFileComments(mrId, view.selectedFile);
 
+  const [editedContent, setEditedContent] = useState<string | null>(null);
+  // Bumped when an edit session ends: remounts the diff viewer so pierre's
+  // edited document is discarded and the original contents render again.
+  const [editSession, setEditSession] = useState(0);
+  const editModeRef = useRef(view.editMode);
+  editModeRef.current = view.editMode;
+  const editedContentRef = useRef(editedContent);
+  editedContentRef.current = editedContent;
+
+  // Flag active edit sessions on the document root so App-level hotkeys
+  // (keyboard-help `?`) can stay inert — they can't see typing inside the
+  // editor's shadow root.
+  useEffect(() => {
+    if (view.editMode) {
+      document.documentElement.dataset.diffEditing = 'true';
+      return () => {
+        delete document.documentElement.dataset.diffEditing;
+      };
+    }
+  }, [view.editMode]);
+  const editReady = useHighlighterPreload(
+    view.selectedFile,
+    !isIOS && !!view.selectedFile && !isImageFile(view.selectedFile),
+  );
+  // Normalized like computeEditedRegion, so a CRLF-only difference can't
+  // enable Confirm only for confirmEdit to find no region.
+  const hasEdits =
+    editedContent !== null &&
+    editedContent.replace(/\r\n/g, '\n') !== fileContent.modified.replace(/\r\n/g, '\n');
+
+  const enterEditMode = useCallback(() => {
+    setEditedContent(null);
+    dispatch({ type: 'ENTER_EDIT_MODE' });
+  }, [dispatch]);
+
+  // Session teardown must land in the same render as the editMode flip:
+  // pierre only discards the edited document when the editing viewer instance
+  // is unmounted while still in edit mode. A true→false transition on a
+  // mounted instance keeps the edited content rendered.
+  const endEditSession = useCallback(() => {
+    // No onChange ever fired → pierre's document was never mutated, so skip
+    // the remount (it would only throw away the scroll position).
+    if (editedContentRef.current !== null) {
+      setEditedContent(null);
+      setEditSession((s) => s + 1);
+    }
+    lineSelectionRef.current = null;
+  }, []);
+
+  const cancelEditMode = useCallback(() => {
+    dispatch({ type: 'EXIT_EDIT_MODE' });
+    endEditSession();
+  }, [dispatch, endEditSession]);
+
+  const confirmEdit = useCallback(() => {
+    if (editedContent === null) return;
+    const region = computeEditedRegion(fileContent.modified, editedContent);
+    dispatch({ type: 'EXIT_EDIT_MODE' });
+    endEditSession();
+    if (!region) return;
+    const selection = {
+      startLine: region.startLine,
+      endLine: region.endLine,
+      isOriginal: false,
+      text: region.replacement,
+    };
+    const suggestionText = buildGitLabSuggestionBlock({
+      startLine: region.startLine,
+      endLine: region.endLine,
+      text: region.replacement,
+    });
+    commentOverlayRef.current?.open(
+      { line: region.endLine, isOriginal: false },
+      selection,
+      suggestionText,
+    );
+  }, [editedContent, fileContent.modified, dispatch, endEditSession]);
+
   const currentUserQuery = useCurrentUserQuery(mr?.instanceId ?? 0);
   const currentUser = currentUserQuery.data ?? null;
 
@@ -118,13 +199,28 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     appliedInitialRef.current = false;
   }
 
-  // Clear file cache when MR changes
+  // Clear file cache when MR changes; a deep link can swap MRs without
+  // unmounting, so also tear down any edit session dangling from the old MR.
   useEffect(() => {
     previousFileRef.current = null;
     clearFileCache();
-  }, [mrId, clearFileCache]);
+    if (editModeRef.current) {
+      dispatch({ type: 'EXIT_EDIT_MODE' });
+      endEditSession();
+    }
+  }, [mrId, clearFileCache, dispatch, endEditSession]);
+
+  // effectiveViewMode flips with the breakpoint without any dispatch — the
+  // one view-mode transition the reducer can't see. Discard the session.
+  useEffect(() => {
+    if (editModeRef.current) {
+      dispatch({ type: 'EXIT_EDIT_MODE' });
+      endEditSession();
+    }
+  }, [isSmallScreen, dispatch, endEditSession]);
 
   const handleFileSelect = useCallback((filePath: string) => {
+    if (editModeRef.current) endEditSession();
     const index = files.findIndex((f) => f.newPath === filePath);
     dispatch({
       type: 'SELECT_FILE',
@@ -133,7 +229,7 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
       hasSavedState: false,
     });
     previousFileRef.current = filePath;
-  }, [files, dispatch]);
+  }, [files, dispatch, endEditSession]);
 
   const navigableFiles = view.hideGenerated ? reviewableFiles : files;
   const currentFileIndex = navigableFiles.findIndex((f) => f.newPath === view.selectedFile);
@@ -158,11 +254,12 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   }, [view.selectedFile, dispatch, navigateFile, navigableFiles]);
 
   const handleToggleViewMode = useCallback(() => {
+    if (editModeRef.current) endEditSession();
     dispatch({
       type: 'SET_VIEW_MODE',
       mode: view.viewMode === 'unified' ? 'split' : 'unified',
     });
-  }, [view.viewMode, dispatch]);
+  }, [view.viewMode, dispatch, endEditSession]);
 
   const handleLineClick = useCallback((info: DiffLineClickInfo) => {
     const isContext = info.lineType === 'context' || info.lineType === 'context-expanded';
@@ -176,10 +273,12 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     lineSelectionRef.current = range;
   }, []);
 
-  // Cmd+D toggles activity drawer (skip when focus is in text input/textarea)
+  // Cmd+D toggles activity drawer (skip when focus is in text input/textarea,
+  // or while the diff editor is active — its shadow root hides focus from us)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.metaKey && e.key === 'd') {
+        if (editModeRef.current) return;
         const tag = (e.target as HTMLElement)?.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA') return;
         e.preventDefault();
@@ -206,6 +305,8 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     onToggleHideGenerated: () => dispatch({ type: 'TOGGLE_HIDE_GENERATED' }),
     onCopyLink: copyToClipboard,
     onEscapeBack: () => backToList(),
+    editMode: view.editMode,
+    onExitEditMode: cancelEditMode,
   });
 
   if (loading) {
@@ -305,6 +406,14 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           onReply={async (discussionId, parentId, body) => { await activityReplyToComment(discussionId, parentId, body); trackReplyPosted(mrId); }}
           onResolve={activityResolveDiscussion}
           bottomPadding={activityOpen ? activityHeightVh : undefined}
+          editMode={view.editMode}
+          editReady={editReady}
+          hasEdits={hasEdits}
+          editSessionKey={editSession}
+          onEnterEditMode={enterEditMode}
+          onConfirmEdit={confirmEdit}
+          onCancelEdit={cancelEditMode}
+          onEditContentChange={setEditedContent}
         />
       </div>
 

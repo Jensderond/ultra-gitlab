@@ -8,6 +8,7 @@ export interface ViewState {
   mobileSidebarOpen: boolean;
   viewedPaths: Set<string>;
   hideGenerated: boolean;
+  editMode: boolean;
 }
 
 type ViewAction =
@@ -17,7 +18,9 @@ type ViewAction =
   | { type: 'TOGGLE_MOBILE_SIDEBAR' }
   | { type: 'CLOSE_MOBILE_SIDEBAR' }
   | { type: 'MARK_VIEWED'; path: string }
-  | { type: 'TOGGLE_HIDE_GENERATED' };
+  | { type: 'TOGGLE_HIDE_GENERATED' }
+  | { type: 'ENTER_EDIT_MODE' }
+  | { type: 'EXIT_EDIT_MODE' };
 
 export const initialViewState: ViewState = {
   selectedFile: null,
@@ -27,9 +30,10 @@ export const initialViewState: ViewState = {
   mobileSidebarOpen: false,
   viewedPaths: new Set(),
   hideGenerated: true,
+  editMode: false,
 };
 
-function viewReducer(state: ViewState, action: ViewAction): ViewState {
+export function viewReducer(state: ViewState, action: ViewAction): ViewState {
   switch (action.type) {
     case 'SELECT_FILE':
       return {
@@ -38,9 +42,10 @@ function viewReducer(state: ViewState, action: ViewAction): ViewState {
         fileFocusIndex: action.index,
         collapseState: action.hasSavedState ? 'partial' : 'collapsed',
         mobileSidebarOpen: false,
+        editMode: false,
       };
     case 'SET_VIEW_MODE':
-      return { ...state, viewMode: action.mode };
+      return { ...state, viewMode: action.mode, editMode: false };
     case 'SET_COLLAPSE':
       return { ...state, collapseState: action.state };
     case 'TOGGLE_MOBILE_SIDEBAR':
@@ -51,6 +56,10 @@ function viewReducer(state: ViewState, action: ViewAction): ViewState {
       return { ...state, viewedPaths: new Set(state.viewedPaths).add(action.path) };
     case 'TOGGLE_HIDE_GENERATED':
       return { ...state, hideGenerated: !state.hideGenerated };
+    case 'ENTER_EDIT_MODE':
+      return { ...state, editMode: true };
+    case 'EXIT_EDIT_MODE':
+      return { ...state, editMode: false };
   }
 }
 

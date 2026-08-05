@@ -1,7 +1,7 @@
 # Diff Edit Mode → GitLab Suggestions
 
 **Date:** 2026-08-05
-**Status:** Approved
+**Status:** Implemented — manual WKWebView gate passed 2026-08-05 (selection drift seen during the gate was root-caused to the "Geist Mono Variable" diffs font: pierre's canvas-measured overlay positions disagree with DOM rendering for variable fonts in WKWebView; static fonts are pixel-exact and the underlying selection is always correct)
 
 ## Summary
 
@@ -28,7 +28,7 @@ Desktop-only. iOS keeps the current select-lines + `s` flow.
 
 - **Dependency:** `@pierre/diffs` `^1.2.12` → `^1.3.3`. After install, verify bun.lock has no duplicate transitive entries (see the earlier `@codemirror/state` dedup incident).
 - **`viewReducer.ts`:** add `editMode: boolean`; actions `ENTER_EDIT_MODE` / `EXIT_EDIT_MODE`; `SELECT_FILE` and `SET_VIEW_MODE` reset it to `false`.
-- **`PierreDiffViewer`:** new optional props `editMode: boolean` and `onEditContentChange(edited: string | null)`. When editing: wrap `MultiFileDiff` in `EditProvider` (editor created with `persistState: false`), pass `edit`, gate the editable render on the `preloadHighlighter` promise, report the latest edited contents upward from the editor `onChange`. Line-selection and line-click handlers are disabled while editing.
+- **`PierreDiffViewer`:** new optional props `editMode: boolean` and `onEditContentChange(contents: string)`. When editing: wrap `MultiFileDiff` in `EditProvider` (editor created with `persistState: false`), pass `edit`, gate the editable render on the `preloadHighlighter` promise, report the latest edited contents upward from the editor `onChange`. Line-selection and line-click handlers are disabled while editing.
 - **New `SuggestEditControls`** (`src/pages/MRDetailPage/`): floating pill + confirm/cancel pair. Pure UI; state lives in MRDetailPage.
 - **`MRDetailPage/index.tsx`:** holds edited-content state/ref, wires controls → reducer, runs the mapping on confirm, opens the overlay.
 - **`useMRKeyboard`:** all MR hotkeys suspended while `editMode` is true (single guard at the top). This avoids the shadow-root retargeting trap: window-level handlers see `e.target` retargeted to the `DIFFS-CONTAINER` host, so `e.target.isContentEditable` is `false` while the user is typing in the editor.
@@ -56,8 +56,8 @@ Deliberately **not** accumulating pierre's incremental `EditorChangeEvent`s: rep
 ## Error handling
 
 - **Highlighter preload fails:** edit button stays disabled with a tooltip; diff remains fully usable read-only (fail-open to the current experience).
-- **GitLab rejects the comment position** (e.g. span entirely in unchanged context far from any hunk — same limitation as today's manual flow): the existing overlay mutation error path reports it; the suggestion text is still in the overlay so nothing is lost.
-- **Discard on navigation:** file switch, view-mode switch, or unmount while editing discards silently. `persistState: false` guarantees no editor state leaks between files.
+- **GitLab rejects the comment position** (e.g. span entirely in unchanged context far from any hunk — same limitation as today's manual flow): the overlay stays open (nothing is lost), but the mutation error is currently only logged to the console — visible error feedback and context-line (`isContext`) classification of edit anchors are ticketed fast-follows (see final review, 2026-08-05).
+- **Discard on navigation:** file switch, view-mode switch, MR switch, breakpoint crossing, or unmount while editing discards silently. Implementation note (empirical, 1.3.3): `persistState: false` alone does NOT discard — pierre keeps the edited document rendered on an in-place `edit=false` transition and serves it from content caches keyed by `cacheKey`. Teardown therefore remounts the viewer via an edit-session key and folds a session nonce into the cache keys, synchronously with every exit path.
 
 ## Testing
 

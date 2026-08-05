@@ -1,5 +1,7 @@
-import { MultiFileDiff } from '@pierre/diffs/react';
-import type { FileContents, FileDiffMetadata } from '@pierre/diffs/react';
+import { MultiFileDiff, EditProvider } from '@pierre/diffs/react';
+import type { FileContents, FileDiffMetadata, CreateEditor } from '@pierre/diffs/react';
+import { Editor } from '@pierre/diffs/edit';
+import type { EditorOptions } from '@pierre/diffs/edit';
 import type { DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { TrashIcon, CheckIcon, CopyIcon } from '../icons';
@@ -62,6 +64,13 @@ export interface PierreDiffViewerProps {
   onReply?: (discussionId: string, parentId: number, body: string) => Promise<void>;
   /** Called when the user resolves/unresolves a discussion thread */
   onResolve?: (discussionId: string, resolved: boolean) => Promise<void>;
+  /** Render the diff with pierre's in-place editor active (new side editable) */
+  editMode?: boolean;
+  /** Fires with the full edited new-side contents on every editor change */
+  onEditContentChange?: (contents: string) => void;
+  /** Folded into the file cache keys. Bump when an edit session ends so
+   *  pierre never serves a render cached while the document was edited. */
+  cacheNonce?: number;
 }
 
 /** Map LineComment[] to Pierre DiffLineAnnotation<LineComment>[]. */
@@ -329,6 +338,9 @@ export function PierreDiffViewer({
   onDeleteComment,
   onReply,
   onResolve,
+  editMode,
+  onEditContentChange,
+  cacheNonce = 0,
 }: PierreDiffViewerProps) {
   const [selectedLines, setSelectedLines] = useState<SelectedLineRange | null>(null);
   const [copied, copyToClipboard] = useCopyToast(1200);
@@ -361,18 +373,18 @@ export function PierreDiffViewer({
     () => ({
       name: filePath,
       contents: oldContent ?? '',
-      cacheKey: `${mrIid}:${filePath}:${sha}:old`,
+      cacheKey: `${mrIid}:${filePath}:${sha}:old:${cacheNonce}`,
     }),
-    [filePath, oldContent, mrIid, sha]
+    [filePath, oldContent, mrIid, sha, cacheNonce]
   );
 
   const newFile: FileContents = useMemo(
     () => ({
       name: filePath,
       contents: newContent ?? '',
-      cacheKey: `${mrIid}:${filePath}:${sha}:new`,
+      cacheKey: `${mrIid}:${filePath}:${sha}:new:${cacheNonce}`,
     }),
-    [filePath, newContent, mrIid, sha]
+    [filePath, newContent, mrIid, sha, cacheNonce]
   );
 
   const handleLineNumberClick = useCallback(
@@ -393,11 +405,11 @@ export function PierreDiffViewer({
       lineDiffType: 'word' as const,
       expandUnchanged: false,
       themeType: 'system' as const,
-      onLineNumberClick: onLineClick ? handleLineNumberClick : undefined,
-      enableLineSelection: true,
+      onLineNumberClick: onLineClick && !editMode ? handleLineNumberClick : undefined,
+      enableLineSelection: !editMode,
       onLineSelected: handleLineSelected,
     }),
-    [viewMode, onLineClick, handleLineNumberClick, handleLineSelected]
+    [viewMode, onLineClick, handleLineNumberClick, handleLineSelected, editMode]
   );
 
   const lineAnnotations = useMemo(
@@ -416,6 +428,20 @@ export function PierreDiffViewer({
   onReplyRef.current = onReply;
   const onResolveRef = useRef(onResolve);
   onResolveRef.current = onResolve;
+  const onEditContentChangeRef = useRef(onEditContentChange);
+  onEditContentChangeRef.current = onEditContentChange;
+
+  const createEditor = useCallback<CreateEditor<LineComment>>(
+    (surfaceOptions) => new Editor<LineComment>({ persistState: false, ...surfaceOptions }),
+    [],
+  );
+
+  const editorOptions = useMemo<EditorOptions<LineComment>>(
+    () => ({
+      onChange: (file) => onEditContentChangeRef.current?.(file.contents),
+    }),
+    [],
+  );
 
   const renderAnnotation = useCallback(
     (annotation: DiffLineAnnotation<LineComment>) => (
@@ -432,15 +458,19 @@ export function PierreDiffViewer({
   );
 
   return (
-    <MultiFileDiff
-      oldFile={oldFile}
-      newFile={newFile}
-      options={options}
-      lineAnnotations={lineAnnotations}
-      renderAnnotation={lineAnnotations ? renderAnnotation : undefined}
-      renderHeaderMetadata={renderHeaderMetadata}
-      selectedLines={selectedLines}
-    />
+    <EditProvider createEditor={createEditor}>
+      <MultiFileDiff
+        oldFile={oldFile}
+        newFile={newFile}
+        options={options}
+        edit={editMode}
+        editorOptions={editorOptions}
+        lineAnnotations={lineAnnotations}
+        renderAnnotation={lineAnnotations ? renderAnnotation : undefined}
+        renderHeaderMetadata={renderHeaderMetadata}
+        selectedLines={selectedLines}
+      />
+    </EditProvider>
   );
 }
 

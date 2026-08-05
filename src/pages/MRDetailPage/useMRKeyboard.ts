@@ -26,6 +26,11 @@ interface UseMRKeyboardOptions {
   onToggleHideGenerated: () => void;
   onCopyLink: (url: string) => void;
   onEscapeBack: () => void;
+  /** While the diff editor is active all hotkeys must be inert (shadow-root
+   *  retargeting hides the contentEditable from ignoreInputs) — except Escape,
+   *  which cancels the edit session. */
+  editMode: boolean;
+  onExitEditMode: () => void;
 }
 
 export function useMRKeyboard({
@@ -44,8 +49,11 @@ export function useMRKeyboard({
   onToggleHideGenerated,
   onCopyLink,
   onEscapeBack,
+  editMode,
+  onExitEditMode,
 }: UseMRKeyboardOptions) {
   const { getKey } = useShortcuts();
+  const active = { enabled: !editMode };
 
   const createSelection = useCallback((selection: SelectedLineRange) => {
     const isOriginal = selection.side === 'deletions';
@@ -68,9 +76,9 @@ export function useMRKeyboard({
     onNavigateFile(1);
   }, [onNavigateFile]);
 
-  useHotkey(parseHotkey(nextFileAliases[0] ?? 'n'), handleNextFile);
-  useHotkey(parseHotkey(nextFileAliases[1] ?? 'j'), handleNextFile);
-  useHotkey(parseHotkey(nextFileAliases[2] ?? 'ArrowDown'), handleNextFile);
+  useHotkey(parseHotkey(nextFileAliases[0] ?? 'n'), handleNextFile, active);
+  useHotkey(parseHotkey(nextFileAliases[1] ?? 'j'), handleNextFile, active);
+  useHotkey(parseHotkey(nextFileAliases[2] ?? 'ArrowDown'), handleNextFile, active);
 
   const prevFileAliases = splitAliases(getKey('prev-file') ?? 'p / k / ArrowUp');
   const handlePrevFile = useCallback(() => {
@@ -78,61 +86,61 @@ export function useMRKeyboard({
     onNavigateFile(-1);
   }, [onNavigateFile]);
 
-  useHotkey(parseHotkey(prevFileAliases[0] ?? 'p'), handlePrevFile);
-  useHotkey(parseHotkey(prevFileAliases[1] ?? 'k'), handlePrevFile);
-  useHotkey(parseHotkey(prevFileAliases[2] ?? 'ArrowUp'), handlePrevFile);
+  useHotkey(parseHotkey(prevFileAliases[0] ?? 'p'), handlePrevFile, active);
+  useHotkey(parseHotkey(prevFileAliases[1] ?? 'k'), handlePrevFile, active);
+  useHotkey(parseHotkey(prevFileAliases[2] ?? 'ArrowUp'), handlePrevFile, active);
 
   useHotkey(parseHotkey(normalizeKey(getKey('jump-files-forward') ?? '→')), () => {
     trackShortcut('ArrowRight', 'navigate_file_jump_next', 'mr_detail');
     onNavigateFile(fileJumpCount);
-  });
+  }, active);
 
   useHotkey(parseHotkey(normalizeKey(getKey('jump-files-backward') ?? '←')), () => {
     trackShortcut('ArrowLeft', 'navigate_file_jump_prev', 'mr_detail');
     onNavigateFile(-fileJumpCount);
-  });
+  }, active);
 
   // --- Diff controls ---
   useHotkey(parseHotkey(getKey('toggle-view-mode') ?? 'x'), () => {
     trackShortcut('x', 'toggle_view_mode', 'mr_detail');
     onToggleViewMode();
-  }, { enabled: !isSmallScreen });
+  }, { enabled: !isSmallScreen && !editMode });
 
   // --- Review actions ---
   useHotkey(parseHotkey(getKey('approve') ?? 'a'), () => {
     trackShortcut('a', 'toggle_approval', 'mr_detail');
     approvalButtonRef.current?.toggle();
-  });
+  }, active);
 
   // Moved here from the MR list, where it drove a per-row clock button.
   useHotkey(parseHotkey(getKey('snooze-mr') ?? 'z'), () => {
     trackShortcut('z', 'toggle_snooze', 'mr_detail');
     snoozeButtonRef.current?.toggle();
-  });
+  }, active);
 
   useHotkey(parseHotkey(getKey('open-in-browser') ?? 'o'), () => {
     if (webUrl) {
       trackShortcut('o', 'open_in_browser', 'mr_detail');
       openExternalUrl(webUrl);
     }
-  });
+  }, active);
 
   useHotkey(parseHotkey(getKey('copy-mr-link') ?? 'y'), () => {
     if (webUrl) {
       trackShortcut('y', 'copy_link', 'mr_detail');
       onCopyLink(webUrl);
     }
-  });
+  }, active);
 
   useHotkey(parseHotkey(getKey('mark-viewed') ?? 'v'), () => {
     trackShortcut('v', 'mark_viewed', 'mr_detail');
     onMarkViewedAndNext();
-  });
+  }, active);
 
   useHotkey(parseHotkey(getKey('toggle-generated') ?? 'g'), () => {
     trackShortcut('g', 'toggle_hide_generated', 'mr_detail');
     onToggleHideGenerated();
-  });
+  }, active);
 
   useHotkey(parseHotkey(getKey('add-comment') ?? 'c'), () => {
     if (!selectedFile) return;
@@ -147,7 +155,7 @@ export function useMRKeyboard({
     } else {
       commentOverlayRef.current?.open({ line: 1, isOriginal: false }, null);
     }
-  });
+  }, active);
 
   useHotkey(parseHotkey(getKey('add-suggestion') ?? 's'), () => {
     if (!selectedFile) return;
@@ -165,15 +173,18 @@ export function useMRKeyboard({
       const suggestionText = '```suggestion:-0+0\n\n```\n';
       commentOverlayRef.current?.open({ line: 1, isOriginal: false }, null, suggestionText);
     }
-  });
+  }, active);
 
   useHotkey(parseHotkey(getKey('filter-files') ?? '\\'), () => {
     // Handled elsewhere — just prevent default via TanStack's auto-preventDefault
-  });
+  }, active);
 
-  // Escape: close comment overlay or go back
+  // Escape: cancel diff edit mode, close comment overlay, or go back
   useHotkey(parseHotkey(getKey('go-back') ?? 'Escape'), () => {
-    if (commentOverlayRef.current?.isVisible()) {
+    if (editMode) {
+      trackShortcut('Escape', 'cancel_edit_mode', 'mr_detail');
+      onExitEditMode();
+    } else if (commentOverlayRef.current?.isVisible()) {
       trackShortcut('Escape', 'close_comment_overlay', 'mr_detail');
       commentOverlayRef.current.close();
     } else if (!document.querySelector('.keyboard-help-overlay')) {
