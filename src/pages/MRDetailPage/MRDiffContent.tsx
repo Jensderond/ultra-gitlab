@@ -3,6 +3,8 @@ import type { LineComment, DiffLineClickInfo } from '../../components/PierreDiff
 import type { SelectedLineRange } from '../../components/PierreDiffViewer';
 import { ImageDiffViewer } from '../../components/ImageDiffViewer';
 import { isImageFile, getImageMimeType } from '../../utils/languageDetection';
+import SuggestEditControls from './SuggestEditControls';
+import { isIOS } from '../../services/transport';
 import type { DiffRefs, DiffFileSummary } from '../../types';
 
 interface MRDiffContentProps {
@@ -26,6 +28,13 @@ interface MRDiffContentProps {
   onReply?: (discussionId: string, parentId: number, body: string) => Promise<void>;
   onResolve?: (discussionId: string, resolved: boolean) => Promise<void>;
   bottomPadding?: number;
+  editMode?: boolean;
+  editReady?: boolean;
+  hasEdits?: boolean;
+  onEnterEditMode?: () => void;
+  onConfirmEdit?: () => void;
+  onCancelEdit?: () => void;
+  onEditContentChange?: (contents: string) => void;
 }
 
 export default function MRDiffContent({
@@ -49,6 +58,13 @@ export default function MRDiffContent({
   onReply,
   onResolve,
   bottomPadding,
+  editMode,
+  editReady,
+  hasEdits,
+  onEnterEditMode,
+  onConfirmEdit,
+  onCancelEdit,
+  onEditContentChange,
 }: MRDiffContentProps) {
   if (!selectedFile) {
     if (files.length > 0 && reviewableFiles.length === 0) {
@@ -72,6 +88,14 @@ export default function MRDiffContent({
   }
 
   const mainStyle = bottomPadding ? { paddingBottom: `${bottomPadding}vh` } : undefined;
+
+  const showSuggestEdit =
+    !isIOS &&
+    !isImageFile(selectedFile) &&
+    !fileContentLoading &&
+    !fileContentError &&
+    !!diffRefs &&
+    !!onEnterEditMode;
 
   return (
     <main className="mr-detail-main" style={mainStyle}>
@@ -123,6 +147,19 @@ export default function MRDiffContent({
           onDeleteComment={onDeleteComment}
           onReply={onReply}
           onResolve={onResolve}
+          editMode={editMode}
+          onEditContentChange={onEditContentChange}
+        />
+      )}
+
+      {showSuggestEdit && (
+        <SuggestEditControls
+          editMode={!!editMode}
+          editReady={!!editReady}
+          hasEdits={!!hasEdits}
+          onEnter={onEnterEditMode!}
+          onConfirm={onConfirmEdit ?? (() => {})}
+          onCancel={onCancelEdit ?? (() => {})}
         />
       )}
     </main>

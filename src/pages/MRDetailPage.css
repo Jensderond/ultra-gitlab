@@ -1098,3 +1098,51 @@
 .mr-state-banner-btn:hover {
   opacity: 1;
 }
+
+/* Floating suggest-edit controls (bottom-right of diff pane) */
+.suggest-edit-controls {
+  position: sticky;
+  bottom: 16px;
+  z-index: 10;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 16px;
+  pointer-events: none;
+}
+
+.suggest-edit-controls button {
+  pointer-events: auto;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.suggest-edit-controls button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.suggest-edit-btn,
+.suggest-edit-confirm {
+  background: var(--bg-secondary);
+  border: 1px solid var(--wave-glow-strong);
+  color: var(--accent-color);
+}
+
+.suggest-edit-btn:hover:not(:disabled),
+.suggest-edit-confirm:hover:not(:disabled) {
+  border-color: var(--accent-color);
+}
+
+.suggest-edit-cancel {
+  background: var(--overlay-glass);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.suggest-edit-cancel:hover {
+  color: var(--text-primary);
+}
