@@ -53,9 +53,13 @@ label and milestone changes, and note editing stay out per the PRD non-goals.
    the same type, the older one is marked `discarded` with reason `superseded`. This is the
    PRD's recommended answer to its open question and avoids close/reopen flapping.
 
-5. **Optimistic rows carry `pending_sync`.** Notes get a negative local id (same scheme
-   as MR comments in `commands/comments.rs`), issues get a flag. Both are cleared by the
-   processor on success. Terminal failures roll the row back to server truth.
+5. **Optimistic rows carry `pending_sync`, and the processor reconciles them itself.**
+   Notes get a negative local id (same scheme as MR comments in `commands/comments.rs`),
+   issues get a flag. The processor replaces the placeholder with the real row from the API
+   response the moment the push succeeds. It must **not** rely on a later cache refresh to
+   remove the placeholder; that is the design flaw behind the duplicate-comment bug in the
+   MR path described in "Prerequisite: duplicate MR comments" below. Terminal failures roll
+   the row back to server truth.
 
 6. **Reuse the existing UI marker.** `SyncBadge` already renders pending/failed/discarded
    for MR comments but is duplicated in `ActivityFeed.tsx:27` and
@@ -123,6 +127,69 @@ Net effect: the online write path drops from 3 calls to 1 per action.
   which costs GitLab nothing.
 - No background refresh after a mutation. The `issue-updated` event only invalidates the
   local TanStack Query cache, which re-reads SQLite.
+
+---
+
+## Prerequisite: duplicate MR comments after sync
+
+Users see a comment twice after it reaches GitLab: the local placeholder with a pending
+badge, and the real one fetched from GitLab. The cause is an ordering bug between two pieces
+of shared queue code, and the issue-note design in this plan must not inherit it.
+
+### Mechanism
+
+1. `add_comment` inserts a local row with a negative id and `is_local = 1`, and enqueues a
+   `comment` action with `local_reference_id` pointing at it
+   (`commands/comments.rs:305-352`). `reply_to_comment` does the same (`:405-471`).
+2. `process_comment` and `process_reply` post to GitLab and return `Ok(())`. The API
+   response is thrown away and the local row is left untouched
+   (`services/sync_processor.rs:288-345`). That response already carries the real id:
+   `add_comment` and `reply_to_discussion` return a `GitLabNote`, `add_inline_comment`
+   returns a `GitLabDiscussion` whose first note is the new comment
+   (`services/gitlab_client.rs:1297-1386`).
+3. The only code that removes the local row is the cleanup at the end of
+   `upsert_discussions`, which runs during the next comment fetch for that MR and requires
+   a `sync_queue` row with status `synced` or `discarded` whose `local_reference_id` matches
+   (`services/sync_engine.rs:2291-2304`).
+4. `run_sync` deletes every `synced` queue row at the end of each run via `cleanup_synced`
+   (`sync_engine.rs:615`, `sync_queue.rs:404-409`).
+
+When the comment is pushed by the immediate flush, the queue row survives until the next
+tick, the fetch finds it, and the placeholder is removed. When the push happens *inside* a
+sync run, the phases are: fetch comments (placeholder still pending, kept), push actions
+(row becomes `synced`), cleanup (row deleted). On the following run GitLab returns the real
+note, but the evidence is gone, so the placeholder lives forever. That "inside a run" case is
+precisely the offline case: the comment was written while offline, or the flush failed once,
+so the action was still pending at tick time.
+
+Two things make it worse: `get_comment_sync_status` returns `"pending"` when no queue row
+exists (`commands/comments.rs:138-151`), so an orphan shows a pending badge; and the
+placeholder has no `discussion_id`, so it also renders as a separate thread.
+
+### Fix (ship before or as the first commit of this plan)
+
+1. **Reconcile in the processor.** `process_comment` and `process_reply` take `pool` and,
+   on success, replace the placeholder in one transaction: delete the row with id
+   `action.local_reference_id`, then insert the returned `GitLabNote` as a normal row
+   (`is_local = 0`, real id, `discussion_id` from the response where available). Emit
+   `mr-updated` with `CommentsUpdated` so the drawer refreshes. This is zero extra requests;
+   the data is already in the response.
+2. **Heal orphans in `upsert_discussions`.** Replace the evidence-based delete with:
+   delete local rows for this MR whose id is not referenced by any queue row with status
+   `pending`, `syncing` or `failed`. A placeholder without a live queue row can only be
+   synced, discarded, or lost; in all three cases the GitLab fetch is the truth. This also
+   cleans up every existing orphan on the next sync, with no migration.
+3. **Make the missing-row case visible.** `get_comment_sync_status` should return
+   `"discarded"` (or a new `"orphaned"`) instead of `"pending"` when no queue row exists,
+   so any future regression shows up as a red badge rather than a permanent pending one.
+4. **Regression test** in `tests/rollback_on_failure.rs` or a new `tests/comment_reconcile.rs`:
+   insert a placeholder plus a `pending` queue row, mark it synced, run `cleanup_synced`,
+   then call `upsert_discussions` with the GitLab note. Assert exactly one row remains and it
+   has the real id. A second test drives `process_comment` against an HTTP stub and asserts
+   the placeholder is replaced before any fetch runs.
+
+Budget check: the fix removes work rather than adding it. No new requests; one fewer
+inconsistent row to render.
 
 ---
 
@@ -230,7 +297,10 @@ that an action marked failed once is not returned by `get_pending_actions` until
 Add arms:
 - `IssueNote` → `process_issue_note(client, pool, action)`: parse payload, call
   `client.add_issue_note`, then `db::issue_notes::replace_local_note` using
-  `action.local_reference_id`. Emit `issue-updated`.
+  `action.local_reference_id` and the returned note, in one transaction. Emit
+  `issue-updated`. This is the same reconcile-in-the-processor shape as the MR prerequisite
+  fix; do not depend on `refresh_issue_detail` or `prune_missing_notes` to remove the
+  placeholder.
 - `IssueAssignees` / `IssueState` / `IssueDescription` → `process_issue_update(client, pool,
   action, IssueUpdate { .. })`: call `client.update_issue`, upsert the returned issue via
   `db::issues`, clear `pending_sync`. Emit `issue-updated`.
@@ -329,10 +399,12 @@ All in `src-tauri/src/commands/issues.rs`; no signature changes.
 - `list_cached_issue_notes` adds `pending_sync` and `sync_status` (via
   `get_issue_action_status` for negative ids, `synced` otherwise) to `IssueNoteDto`.
 - `get_cached_issue_detail` and `list_cached_issues` expose `pending_sync` on the issue DTO.
-- `refresh_issue_detail` must not prune negative-id notes (`prune_missing_notes` currently
-  deletes anything not returned by GitLab) and must not overwrite a `pending_sync = 1`
-  issue row's patched fields. Simplest: skip the upsert of `state`, `assignee_usernames`,
-  `description` when the local row is pending; the processor reconciles them.
+- `refresh_issue_detail` must not prune negative-id notes that still have a live queue row
+  (`prune_missing_notes` currently deletes anything not returned by GitLab), and must not
+  overwrite a `pending_sync = 1` issue row's patched fields. Simplest: skip the upsert of
+  `state`, `assignee_usernames`, `description` when the local row is pending; the processor
+  reconciles them. Negative-id notes with no `pending`, `syncing` or `failed` queue row are
+  orphans and *should* be pruned, mirroring prerequisite fix 2.
 
 ### 3.4 Delete a pending note
 Add `delete_issue_note(instance_id, project_id, issue_iid, note_id)` for negative ids only:
