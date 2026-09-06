@@ -61,16 +61,85 @@ label and milestone changes, and note editing stay out per the PRD non-goals.
    for MR comments but is duplicated in `ActivityFeed.tsx:27` and
    `CommentPanel/InlineComment.tsx:49`. Extract it once and reuse it for issue notes.
 
+7. **Never increase request volume against the GitLab instance.** This is a hard
+   requirement. The queue must make the write path *cheaper* than today, and failure
+   handling must back off rather than retry in a loop. See "Request budget" below; every
+   phase that touches the network has an explicit budget check.
+
+---
+
+## Request budget
+
+### What the app does today
+
+| Situation | Calls per user action | Where |
+|---|---|---|
+| Post a note online | 3 GETs/POSTs: `add_issue_note`, then the frontend calls `refresh_issue_detail` which does `get_issue` + `list_issue_notes` | `commands/issues.rs:511-521`, `useIssueData.ts:137-151`, `issues.rs:464-478` |
+| Change state / assignees / description online | 3: `update_issue`, then the same two-call refresh | `issues.rs:525-583`, `useIssueData.ts:160-235` |
+| Any action offline | 1 failed attempt, then a raw error; nothing retried | |
+
+Existing protections that stay in place and are relied on:
+- `send_with_retry` retries 429 at most 3 times with exponential backoff and honours
+  `Retry-After` capped at 60s (`services/gitlab_client.rs:524, 563-598`).
+- Queue actions are processed sequentially, one request at a time
+  (`sync_engine.rs:2626-2716`), never in parallel.
+- The sync tick is 5 minutes (`DEFAULT_SYNC_INTERVAL_SECS`, `sync_engine.rs:39`); issue
+  list refresh is 30 minutes.
+- Each action is attempted at most `MAX_RETRIES = 5` times before it is parked as
+  `failed` and only a manual retry from Settings revives it (`sync_queue.rs:253-285`,
+  `commands/sync.rs:143`).
+
+### What the plan changes
+
+| Situation | Calls per user action after this plan |
+|---|---|
+| Post a note online | 1 (`add_issue_note` via the processor; the returned note replaces the placeholder, no refresh) |
+| Change a field online | 1 (`update_issue`; the returned issue row is upserted, no refresh) |
+| Rapid repeated changes to the same field | 1 for the last one; earlier pending ones are discarded as `superseded` before they are sent |
+| Any action offline | 0 requests reach GitLab (connection fails locally); retried on the next tick with backoff |
+| Terminal failure needing rollback | at most 1 extra `get_issue`, and 0 when the failure was a 404 (the row is deleted locally instead) |
+
+Net effect: the online write path drops from 3 calls to 1 per action.
+
+### Gaps in the current queue that this plan must close, or the queue would add load
+
+1. **No per-action backoff.** `mark_failed` leaves an action `pending` until the fifth
+   failure (`sync_queue.rs:271-277`), and every pending action is re-sent on every tick
+   *and every flush*. Combined with flush-on-enqueue, each new user action would
+   immediately re-fire every currently-failing action. Fix in Phase 1.4.
+2. **No circuit breaker inside a batch.** `process_actions_resolving_instances` keeps
+   sending the remaining actions after a 429, 5xx or connection error, one request each
+   (`sync_engine.rs:2689-2716`). Fix in Phase 2.5.
+3. **Flushes are not coalesced.** Each enqueue sends its own `FlushActions` command and
+   each is handled immediately (`sync_engine.rs:460-465`). Fix in Phase 2.4.
+
+### Things this plan deliberately does not do
+
+- No HTTP-layer retry on 5xx or connection errors for queue actions. They are POST/PUT
+  and not idempotent; the queue's tick-plus-backoff is the retry. (The backend survey
+  suggested widening `send_with_retry` to 5xx; if that is ever done it must be limited to
+  idempotent GETs, with jitter and a small cap, or it multiplies load during an outage.)
+- No polling for connectivity. Offline detection is "the request failed to connect",
+  which costs GitLab nothing.
+- No background refresh after a mutation. The `issue-updated` event only invalidates the
+  local TanStack Query cache, which re-reads SQLite.
+
 ---
 
 ## Phase 0: Preparation (no behaviour change)
 
-### 0.1 Extract issue persistence into `src-tauri/src/db/issues.rs`
-`commands/issues.rs:384` (`upsert_and_join`) and its helpers hold the SQL that writes an
-issue row and joins the project. The processor lives in `services/` and must not depend on
-`commands/`. Move the upsert, the row-to-DTO join, and a new `set_pending_sync(pool,
-instance_id, id, bool)` into `db/issues.rs`; keep `commands/issues.rs` as a thin caller.
-Register in `db/mod.rs`.
+### 0.1 Make issue persistence reachable from `services/`
+The row upsert already lives in `models/issue.rs:139` (`upsert_issue`) and is usable from
+the processor. What is stuck in `commands/issues.rs:384` is `upsert_and_join`, which maps a
+GitLab issue to `UpsertIssue`, ensures the project is cached, and joins the project for the
+DTO. The processor lives in `services/` and must not depend on `commands/`. Move the
+GitLab-issue-to-`UpsertIssue` mapping and the join into `models/issue.rs` (or a new
+`core/issues.rs`, matching `core/mr_actions.rs`), and add `set_pending_sync(pool,
+instance_id, id, bool)` next to `upsert_issue`. `commands/issues.rs` becomes a thin caller.
+
+Budget note: `ensure_projects_cached` (`issues.rs:94`) may call GitLab for an unknown
+project. The processor must not call it; the project is always cached by the time an
+issue action can be enqueued, so pass the cached project or skip the join when absent.
 
 ### 0.2 Add `replace_local_note` and `delete_local_note` to `db/issue_notes.rs`
 `replace_local_note(pool, instance_id, local_id, real_note)` deletes the negative-id row
@@ -98,6 +167,7 @@ Rebuild `sync_queue` with:
   add `idx_sync_queue_issue ON sync_queue(instance_id, issue_id, status)`.
 
 Also in this migration:
+- `next_attempt_at INTEGER` (nullable) on the rebuilt `sync_queue`, used for backoff (1.4)
 - `ALTER TABLE issues ADD COLUMN pending_sync INTEGER NOT NULL DEFAULT 0;`
 - `ALTER TABLE issue_notes ADD COLUMN pending_sync INTEGER NOT NULL DEFAULT 0;`
 
@@ -113,8 +183,10 @@ table rebuild needs `PRAGMA foreign_keys` handling identical to migration 0002; 
   `instance_id: Option<i64>`. Add `fn target(&self) -> ActionTarget` returning
   `Mr(i64)` or `Issue { instance_id, issue_id }` so callers stop matching on raw fields.
 - Fix every `action.mr_id` use that breaks: `sync_processor.rs` log lines,
-  `sync_queue::get_actions_for_mr`, `commands/comments.rs`, the `SyncAction` literals in
-  the `#[cfg(test)]` blocks, and `tests/*.rs`.
+  `sync_queue::get_actions_for_mr`, `commands/comments.rs`, the `ActionSyncedPayload`
+  emitted at `sync_engine.rs:2692-2702` (its `mr_id` becomes `Option<i64>`, and the
+  matching frontend type), the `SyncAction` literals in the `#[cfg(test)]` blocks, and
+  `tests/*.rs`.
 - Grep `src/` for a frontend type mirroring `SyncAction` (`mrId` on a sync action type)
   and make `mrId` optional there too.
 
@@ -132,10 +204,23 @@ table rebuild needs `PRAGMA foreign_keys` handling identical to migration 0002; 
 - New `get_issue_action_status(pool, local_reference_id)` mirroring
   `commands/comments.rs:138-151` so cached-note reads can report `pending`/`failed`.
 
+### 1.4 Per-action backoff (applies to MR actions too)
+- `mark_failed` sets `next_attempt_at = now + backoff(retry_count)` where
+  `backoff(n) = min(30s * 2^n, 15 min)` plus up to 20% random jitter. With
+  `MAX_RETRIES = 5` an action is attempted at roughly 0s, 30s, 1m, 2m, 4m, then parked.
+- `get_pending_actions`, `get_pending_actions_by_type` and `get_retryable_actions` add
+  `AND (next_attempt_at IS NULL OR next_attempt_at <= ?)`. The tick and any flush
+  therefore skip actions that are cooling down instead of re-sending them.
+- `retry_action` (manual retry from Settings) clears `next_attempt_at`.
+- `mark_synced` and `mark_discarded` leave the column alone; `cleanup_synced` is unaffected.
+- Expose `next_attempt_at` on `SyncAction` so the Settings queue view can show "retrying in 2m".
+
 **Verify:** `cargo test` (unit tests in `sync_action.rs` and `sync_queue.rs` extended for
-the new variants and the CHECK constraint); an integration test that runs all migrations
-on a fresh temp DB and on a DB seeded with pre-0027 `sync_queue` rows, asserting the rows
-survive with `issue_id IS NULL`.
+the new variants, the CHECK constraint, and the backoff formula); an integration test that
+runs all migrations on a fresh temp DB and on a DB seeded with pre-0027 `sync_queue` rows,
+asserting the rows survive with `issue_id IS NULL` and `next_attempt_at IS NULL`; a test
+that an action marked failed once is not returned by `get_pending_actions` until its
+`next_attempt_at` has passed.
 
 ---
 
@@ -163,9 +248,12 @@ conditions. Add `check_terminal_issue_error` for issue actions: HTTP 404, 403, 4
 into the `Err(e)` branch of `process_action` based on `action.target()`.
 
 On discard, roll back the optimistic write:
-- `IssueNote` → `delete_local_note`.
-- field actions → attempt `client.get_issue` and upsert the server row; if that 404s,
-  delete the local `issues` row. Either way clear `pending_sync`.
+- `IssueNote` → `delete_local_note`. No request.
+- field actions after a 404 or 410 → delete the local `issues` row. No request.
+- field actions after a 403 or a no-op 409 → one `client.get_issue` to restore server truth
+  and upsert it. This is the only extra request in the whole design and it happens at most
+  once per discarded action.
+Either way clear `pending_sync`.
 Emit `issue-updated` and a `sync_events` entry of kind `action_discarded` with the reason,
 so the frontend can toast (the MR path already has a discard notification; reuse it).
 
@@ -174,17 +262,44 @@ In `process_actions_resolving_instances`, branch on `action.target()`: for `Issu
 `action.instance_id` directly; for `Mr` keep the existing `merge_requests` lookup. The
 per-instance client cache stays as is.
 
-### 2.4 Flush on enqueue
-`SyncHandle::flush_actions(Vec<ActionType>)` (`sync_engine.rs:219`) already exists. Add
-`flush_issue_actions()` that sends the four issue types, called fire-and-forget from each
-issue command after enqueue, mirroring `flush_approvals` in `approval.rs`. Online users keep
-the immediate behaviour they have today; offline users get a retry on the next sync tick.
+### 2.4 Coalesced flush on enqueue
+`SyncHandle::flush_actions(Vec<ActionType>)` (`sync_engine.rs:219`) already exists and is
+handled immediately at `sync_engine.rs:460-465`. Change the handling so flushes coalesce:
+- On `FlushActions`, merge the requested types into a pending set and arm (or re-arm) a
+  short debounce timer, about 1.5s, inside the engine's `select!` loop. When it fires,
+  run `flush_actions_by_types` once for the merged set. Ten quick enqueues become one drain,
+  and because `supersede_pending_issue_actions` ran on each enqueue, the drain sends only the
+  last state, assignees or description change.
+- If a drain is already running, a new flush request sets a "drain again" flag rather than
+  starting a second drain, so two batches never run concurrently.
+- Add `flush_issue_actions()` on `SyncHandle` for the four issue types, called
+  fire-and-forget from each issue command after enqueue, mirroring `flush_approvals`.
+
+### 2.5 Batch circuit breaker and push cooldown
+In `process_actions_resolving_instances` (`sync_engine.rs:2626-2716`), after each
+`process_action`, inspect the failure:
+- `AppError::Network` (connect, DNS, timeout) or `GitLabApi` with status 429, 502, 503 or
+  504: stop the batch. Remaining actions stay `pending` for the next tick. Record
+  `push_cooldown_until` on the engine: `Retry-After` when present (the client already parses
+  it for its own retry; surface it on the error), otherwise 60s for 429 and 30s for 5xx.
+- Any other error (4xx, discard, parse failure): mark that action per existing rules and
+  continue, since the next action is independent.
+While `push_cooldown_until` is in the future, `FlushActions` is a no-op and the tick skips
+the push phase. The next tick after the cooldown resumes normally.
+
+The breaker is per batch and per instance: a 429 from one GitLab instance must not block
+pushes to another. Key the cooldown by `instance_id`.
 
 **Verify:** `cargo test`. Add processor unit tests for payload parsing of each new struct,
 and an integration test `tests/issue_offline_workflow.rs` modelled on
 `tests/offline_workflow.rs` that seeds an instance, an issue, enqueues each action type
-through the real `enqueue_action`, and asserts the rows and `pending_sync` flags. Manual
-check with real credentials (see Phase 5).
+through the real `enqueue_action`, and asserts the rows and `pending_sync` flags. For the
+breaker, extract the "should this error stop the batch and for how long" decision into a
+pure function and unit test it; then one integration test with a local HTTP stub (see what
+`tests/rollback_on_failure.rs` uses; if there is no stub, add `wiremock` as a dev
+dependency) that queues three actions, returns 429 with `Retry-After: 5` on the first, and
+asserts `api_call_count` is exactly 1 and the other two are still `pending`. Manual check
+with real credentials (see Phase 5).
 
 ---
 
@@ -244,7 +359,9 @@ the Tauri command bodies via their inner functions.
 ### 4.2 Mutations (`src/pages/IssueDetailPage/useIssueData.ts:130-235`)
 - Drop the `await refreshIssueDetail(...)` in every `onSuccess`; the command already wrote
   the optimistic row, so just invalidate `queryKeys.issue`, `queryKeys.issueNotes` and the
-  `['issues', instanceId]` list.
+  `['issues', instanceId]` list. This alone removes two GitLab calls per action. Make sure
+  no other code path re-adds a network refresh after a mutation; `useIssueBackgroundRefresh`
+  must stay mount-scoped and not fire on cache invalidation (guard already noted in the PRD).
 - Add `onError` that surfaces the error through the existing toast pattern instead of
   leaving it to the caller. With the queue in place the only expected errors are local
   (no cached row, DB failure).
@@ -285,6 +402,13 @@ plus the existing `issue-*.spec.ts` files.
    back.
 2. **Regression smoke on MR offline flow** (comment, reply, resolve, approve) since the
    queue schema changed.
+2b. **Request-count check.** `SyncResult.api_calls` is already recorded per sync run
+   (`sync_engine.rs:163, 718`) and shown in diagnostics. Before and after the change, on the
+   same instance: post one note and change state once, then read the counter. Expect 3 calls
+   per action before and 1 after. Then, with the network up but the token revoked (forces
+   4xx), queue five actions in ten seconds and confirm the counter shows one request per
+   distinct action and none for the superseded ones. Finally, point the app at a stub that
+   returns 429 and confirm exactly one request per cooldown window.
 3. Tick the completed boxes in `tasks/prd-issue-offline-support.md` for US-005, US-006,
    US-007, US-010, US-011 and note the deviation on command naming (decision 3).
 4. Delete `src/components/CommentPanel/` if not done in Phase 0 (unused; confirmed by the
@@ -297,8 +421,8 @@ plus the existing `issue-*.spec.ts` files.
 | Phase | Scope | Rough size |
 |---|---|---|
 | 0 | Extractions, no behaviour change | half a day |
-| 1 | Migration, model, queue | half a day |
-| 2 | Processor, engine, events | one day |
+| 1 | Migration, model, queue, backoff | half a day to one day |
+| 2 | Processor, engine, events, coalesced flush, circuit breaker | one to one and a half days |
 | 3 | Commands | half a day |
 | 4 | Frontend | half a day |
 | 5 | Verification and docs | half a day |
@@ -311,6 +435,13 @@ to complete the write.
 
 ## Risks and mitigations
 
+- **Backoff and breaker change MR behaviour too.** Both live in shared queue code, so a
+  failing MR comment now also waits 30s before its second attempt instead of firing on the
+  next flush. This is intended, and it is strictly less traffic than today. Call it out in
+  the PR description so the change is reviewed on purpose rather than discovered.
+- **Debounce delays the online happy path by about 1.5s.** The user already sees the
+  optimistic row, so the delay is invisible; only the pending badge lingers slightly longer.
+  Keep the debounce constant in one place so it can be tuned.
 - **Migration on live databases.** The table rebuild copies every `sync_queue` row. Test on
   a DB with pending, failed and discarded rows. Copy migration 0002's approach exactly.
 - **Downgrade.** `ActionType::from` falls back to `Comment` for unknown strings
@@ -335,7 +466,7 @@ to complete the write.
 
 **Rust**
 - `src-tauri/src/db/migrations/0027_sync_queue_issue_targets.sql` (new)
-- `src-tauri/src/db/issues.rs` (new), `db/issue_notes.rs`, `db/mod.rs`
+- `src-tauri/src/models/issue.rs` (or new `core/issues.rs`), `db/issue_notes.rs`
 - `src-tauri/src/models/sync_action.rs`
 - `src-tauri/src/services/sync_queue.rs`, `sync_processor.rs`, `sync_engine.rs`
 - `src-tauri/src/commands/issues.rs`, `commands/approval.rs`, `commands/comments.rs`,
