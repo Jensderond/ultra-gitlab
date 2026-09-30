@@ -1187,7 +1187,6 @@ fn move_file(app: &mut App, delta: i32) {
     app.diff_hscroll = 0;
     app.diff_cursor = 0;
     app.diff_select_anchor = None;
-    app.force_clear = true;
 }
 
 /// Open the detail screen's MR on GitLab in the default browser.
@@ -1276,5 +1275,56 @@ mod tests {
             assert_eq!(t.prev().next(), t);
         }
         assert_eq!(Tab::Review.prev(), Tab::Pipelines);
+    }
+
+    #[tokio::test]
+    async fn switching_files_does_not_force_full_repaint() {
+        use crate::data::{DetailData, FileDiff, MrRow};
+        use std::sync::Arc;
+
+        let dir = tempfile::tempdir().unwrap();
+        let pool = ultra_gitlab_lib::db::initialize(&dir.path().join("t.db")).await.unwrap();
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut app = super::App::new(Arc::new(pool), 1, None, vec![], tx);
+        let file = |p: &str| FileDiff {
+            new_path: p.into(),
+            change_type: "modified".into(),
+            additions: 1,
+            deletions: 1,
+            diff_content: "@@ -1,1 +1,1 @@\n-old\n+new\n".into(),
+        };
+        app.detail = Some(DetailData {
+            row: MrRow {
+                id: 1,
+                iid: 1,
+                project_name: String::new(),
+                title: String::new(),
+                author: String::new(),
+                source_branch: String::new(),
+                target_branch: String::new(),
+                approvals_count: 0,
+                approvals_required: 0,
+                pipeline: None,
+                is_draft: false,
+                user_has_approved: false,
+                state: "opened".into(),
+                web_url: String::new(),
+                auto_merge: false,
+                snoozed_until: None,
+            },
+            files: vec![file("a.rs"), file("b.rs")],
+            live: false,
+            diff_refs: None,
+            ignored: Default::default(),
+        });
+        app.file_state.select(Some(0));
+
+        super::move_file(&mut app, 1);
+
+        assert_eq!(app.file_state.selected(), Some(1));
+        // A full terminal clear makes tmux/the terminal repaint every cell on
+        // each j/k, which shows up as lag + a visible re-render. ratatui's
+        // frame diff is enough now that tabs are expanded before rendering.
+        assert!(!app.force_clear, "file switch must not force a full repaint");
     }
 }
