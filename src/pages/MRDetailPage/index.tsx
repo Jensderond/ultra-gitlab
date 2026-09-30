@@ -91,13 +91,8 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
   const { fileComments, removeComment, restoreComment } = useFileComments(mrId, view.selectedFile);
 
   const [editedContent, setEditedContent] = useState<string | null>(null);
-  // Bumped when an edit session ends: remounts the diff viewer so pierre's
-  // edited document is discarded and the original contents render again.
-  const [editSession, setEditSession] = useState(0);
   const editModeRef = useRef(view.editMode);
   editModeRef.current = view.editMode;
-  const editedContentRef = useRef(editedContent);
-  editedContentRef.current = editedContent;
 
   // Flag active edit sessions on the document root so App-level hotkeys
   // (keyboard-help `?`) can stay inert — they can't see typing inside the
@@ -125,17 +120,10 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
     dispatch({ type: 'ENTER_EDIT_MODE' });
   }, [dispatch]);
 
-  // Session teardown must land in the same render as the editMode flip:
-  // pierre only discards the edited document when the editing viewer instance
-  // is unmounted while still in edit mode. A true→false transition on a
-  // mounted instance keeps the edited content rendered.
+  // Pierre discards its edited document itself when the session ends (the
+  // viewer rejects every completion); this only clears our side of the draft.
   const endEditSession = useCallback(() => {
-    // No onChange ever fired → pierre's document was never mutated, so skip
-    // the remount (it would only throw away the scroll position).
-    if (editedContentRef.current !== null) {
-      setEditedContent(null);
-      setEditSession((s) => s + 1);
-    }
+    setEditedContent(null);
     lineSelectionRef.current = null;
   }, []);
 
@@ -409,7 +397,6 @@ export default function MRDetailPage({ updateAvailable }: MRDetailPageProps) {
           editMode={view.editMode}
           editReady={editReady}
           hasEdits={hasEdits}
-          editSessionKey={editSession}
           onEnterEditMode={enterEditMode}
           onConfirmEdit={confirmEdit}
           onCancelEdit={cancelEditMode}

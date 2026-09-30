@@ -1,7 +1,7 @@
 import { MultiFileDiff, EditProvider } from '@pierre/diffs/react';
-import type { FileContents, FileDiffMetadata, CreateEditor } from '@pierre/diffs/react';
+import type { FileContents, FileDiffMetadata } from '@pierre/diffs/react';
 import { Editor } from '@pierre/diffs/edit';
-import type { EditorOptions } from '@pierre/diffs/edit';
+import type { EditorChangeEvent, EditorFactory } from '@pierre/diffs/edit';
 import type { DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { TrashIcon, CheckIcon, CopyIcon } from '../icons';
@@ -68,9 +68,6 @@ export interface PierreDiffViewerProps {
   editMode?: boolean;
   /** Fires with the full edited new-side contents on every editor change */
   onEditContentChange?: (contents: string) => void;
-  /** Folded into the file cache keys. Bump when an edit session ends so
-   *  pierre never serves a render cached while the document was edited. */
-  cacheNonce?: number;
 }
 
 /** Map LineComment[] to Pierre DiffLineAnnotation<LineComment>[]. */
@@ -340,7 +337,6 @@ export function PierreDiffViewer({
   onResolve,
   editMode,
   onEditContentChange,
-  cacheNonce = 0,
 }: PierreDiffViewerProps) {
   const [selectedLines, setSelectedLines] = useState<SelectedLineRange | null>(null);
   const [copied, copyToClipboard] = useCopyToast(1200);
@@ -373,18 +369,18 @@ export function PierreDiffViewer({
     () => ({
       name: filePath,
       contents: oldContent ?? '',
-      cacheKey: `${mrIid}:${filePath}:${sha}:old:${cacheNonce}`,
+      cacheKey: `${mrIid}:${filePath}:${sha}:old`,
     }),
-    [filePath, oldContent, mrIid, sha, cacheNonce]
+    [filePath, oldContent, mrIid, sha]
   );
 
   const newFile: FileContents = useMemo(
     () => ({
       name: filePath,
       contents: newContent ?? '',
-      cacheKey: `${mrIid}:${filePath}:${sha}:new:${cacheNonce}`,
+      cacheKey: `${mrIid}:${filePath}:${sha}:new`,
     }),
-    [filePath, newContent, mrIid, sha, cacheNonce]
+    [filePath, newContent, mrIid, sha]
   );
 
   const handleLineNumberClick = useCallback(
@@ -431,17 +427,20 @@ export function PierreDiffViewer({
   const onEditContentChangeRef = useRef(onEditContentChange);
   onEditContentChangeRef.current = onEditContentChange;
 
-  const createEditor = useCallback<CreateEditor<LineComment>>(
-    (surfaceOptions) => new Editor<LineComment>({ persistState: false, ...surfaceOptions }),
+  const createEditor = useCallback<EditorFactory<LineComment, undefined>>(
+    (editorType, editorOptions, editStateKey) => new Editor(editorType, editorOptions, editStateKey),
     [],
   );
 
-  const editorOptions = useMemo<EditorOptions<LineComment>>(
-    () => ({
-      onChange: (file) => onEditContentChangeRef.current?.(file.contents),
-    }),
+  const handleEditChange = useCallback(
+    (event: EditorChangeEvent<'file-diff', LineComment, undefined>) =>
+      onEditContentChangeRef.current?.(event.file.contents),
     [],
   );
+
+  // Edits are only ever turned into a GitLab suggestion, never applied to
+  // the viewer: reject so pierre restores the original external file.
+  const handleEditComplete = useCallback(() => 'reject' as const, []);
 
   const renderAnnotation = useCallback(
     (annotation: DiffLineAnnotation<LineComment>) => (
@@ -464,7 +463,8 @@ export function PierreDiffViewer({
         newFile={newFile}
         options={options}
         edit={editMode}
-        editorOptions={editorOptions}
+        onEditChange={handleEditChange}
+        onEditComplete={handleEditComplete}
         lineAnnotations={lineAnnotations}
         renderAnnotation={lineAnnotations ? renderAnnotation : undefined}
         renderHeaderMetadata={renderHeaderMetadata}
