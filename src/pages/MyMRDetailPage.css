@@ -80,13 +80,6 @@
   gap: 12px;
 }
 
-.my-mr-detail-iid {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 14px;
-  color: var(--text-tertiary);
-  flex-shrink: 0;
-}
-
 .my-mr-detail-project {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 12px;

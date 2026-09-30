@@ -228,7 +228,6 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
               size={18}
               className="mr-condensed-avatar"
             />
-            <span className="mr-iid">!{mr.iid}</span>
             <span className="mr-condensed-title">
               {highlightQuery ? <HighlightText text={mr.title} query={highlightQuery} /> : mr.title}
             </span>
@@ -251,7 +250,6 @@ const MRListItem = forwardRef<HTMLDivElement, MRListItemProps>(
       ) : (
         <>
           <div className="mr-item-header">
-            <span className="mr-iid">!{mr.iid}</span>
             {mr.projectName && (
               <span className="mr-project">{projectText}</span>
             )}

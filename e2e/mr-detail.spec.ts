@@ -7,9 +7,6 @@ test.describe('MR Detail Page', () => {
     // MR title
     await expect(page.locator('h1.mr-title')).toHaveText('feat: Add dark mode toggle to settings');
 
-    // MR IID
-    await expect(page.locator('.mr-iid')).toHaveText('!42');
-
     // Author
     await expect(page.locator('.mr-author')).toContainText('alice');
 

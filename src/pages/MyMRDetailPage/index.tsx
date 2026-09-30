@@ -124,7 +124,6 @@ export default function MyMRDetailPage() {
       <header className="my-mr-detail-header">
         <div className="my-mr-detail-title-row">
           <BackButton onClick={goBack} title="Back" />
-          <span className="my-mr-detail-iid">!{mr.iid}</span>
           {mr.projectName && (
             <span className="my-mr-detail-project">{mr.projectName.replace(/^Customers\s*\/\s*/, '')}</span>
           )}

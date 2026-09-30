@@ -46,7 +46,6 @@ export default function MRHeader({
     <header className="mr-detail-header">
       <div className="mr-header-top">
         <BackButton onClick={onBack} title="Back to MRs" />
-        <span className="mr-iid">!{mr.iid}</span>
         {mr.projectName && (
           <span className="mr-project">{mr.projectName.replace(/^Customers\s*\/\s*/, '')}</span>
         )}
