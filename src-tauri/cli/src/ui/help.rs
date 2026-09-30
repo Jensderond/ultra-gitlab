@@ -14,7 +14,7 @@ type Section = (&'static str, &'static [(&'static str, &'static str)]);
 const LIST_SECTIONS: &[Section] = &[
     ("Global", &[
         ("1 / 2 / 3", "switch tab"),
-        ("tab", "cycle tabs"),
+        ("tab / shift+tab", "cycle tabs"),
         ("esc / ctrl+c", "quit"),
     ]),
     ("Merge requests", &[
@@ -28,7 +28,7 @@ const LIST_SECTIONS: &[Section] = &[
 const PIPELINES_SECTIONS: &[Section] = &[
     ("Global", &[
         ("1 / 2 / 3", "switch tab"),
-        ("tab", "cycle tabs"),
+        ("tab / shift+tab", "cycle tabs"),
         ("esc", "quit (projects) / back (drill-down)"),
         ("ctrl+c", "quit"),
     ]),
@@ -58,7 +58,7 @@ const PIPELINES_SECTIONS: &[Section] = &[
 
 const DETAIL_COMMON: &[Section] = &[
     ("Navigation", &[
-        ("tab", "cycle focus: files → diff → pipelines"),
+        ("tab / shift+tab", "cycle focus: files → diff → pipelines"),
         ("h / l, ← / →", "focus files / diff; pan the diff"),
         ("j / k, ↓ / ↑", "move file / diff cursor"),
         ("PgUp / PgDn", "page the diff"),

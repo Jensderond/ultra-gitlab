@@ -19,6 +19,26 @@ pub enum Tab {
     Pipelines,
 }
 
+impl Tab {
+    /// The tab `tab` switches to.
+    pub fn next(self) -> Self {
+        match self {
+            Tab::Review => Tab::Mine,
+            Tab::Mine => Tab::Pipelines,
+            Tab::Pipelines => Tab::Review,
+        }
+    }
+
+    /// The tab `shift+tab` switches to.
+    pub fn prev(self) -> Self {
+        match self {
+            Tab::Review => Tab::Pipelines,
+            Tab::Mine => Tab::Review,
+            Tab::Pipelines => Tab::Mine,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
     List,
@@ -30,6 +50,26 @@ pub enum Focus {
     Tree,
     Diff,
     Pipeline,
+}
+
+impl Focus {
+    /// The pane `tab` moves focus to: files → diff → pipelines.
+    pub fn next(self) -> Self {
+        match self {
+            Focus::Tree => Focus::Diff,
+            Focus::Diff => Focus::Pipeline,
+            Focus::Pipeline => Focus::Tree,
+        }
+    }
+
+    /// The pane `shift+tab` moves focus to: pipelines → diff → files.
+    pub fn prev(self) -> Self {
+        match self {
+            Focus::Tree => Focus::Pipeline,
+            Focus::Diff => Focus::Tree,
+            Focus::Pipeline => Focus::Diff,
+        }
+    }
 }
 
 pub struct App {
@@ -654,7 +694,11 @@ fn handle_list_key(app: &mut App, code: KeyCode) {
             return;
         }
         KeyCode::Tab => {
-            toggle_tab(app);
+            switch_tab(app, app.tab.next());
+            return;
+        }
+        KeyCode::BackTab => {
+            switch_tab(app, app.tab.prev());
             return;
         }
         _ => {}
@@ -815,13 +859,8 @@ fn handle_detail_key(app: &mut App, code: KeyCode) {
                 app.force_clear = true;
             }
         }
-        KeyCode::Tab => {
-            app.focus = match app.focus {
-                Focus::Tree => Focus::Diff,
-                Focus::Diff => Focus::Pipeline,
-                Focus::Pipeline => Focus::Tree,
-            };
-        }
+        KeyCode::Tab => app.focus = app.focus.next(),
+        KeyCode::BackTab => app.focus = app.focus.prev(),
         // In the diff, Right/Left pan horizontally to reveal content cut off past
         // the borders; from elsewhere they jump focus (l→diff, h→files). Once the
         // diff is panned fully back to column 0, Left returns to the file tree.
@@ -1008,15 +1047,6 @@ fn start_suggestion(app: &mut App) {
         anchor_new: Some(seed.anchor_line),
         refs,
     });
-}
-
-fn toggle_tab(app: &mut App) {
-    let next = match app.tab {
-        Tab::Review => Tab::Mine,
-        Tab::Mine => Tab::Pipelines,
-        Tab::Pipelines => Tab::Review,
-    };
-    switch_tab(app, next);
 }
 
 fn move_selection(app: &mut App, delta: i32) {
@@ -1209,7 +1239,7 @@ fn open_detail(app: &mut App) {
 
 #[cfg(test)]
 mod tests {
-    use super::next_selectable;
+    use super::{next_selectable, Focus, Tab};
     use crate::ui::diff::{RowKind, RowMeta};
 
     fn r(kind: RowKind) -> RowMeta {
@@ -1232,5 +1262,19 @@ mod tests {
         assert_eq!(next_selectable(&rows, 5, -1), 2);
         // at the top, moving up stays put.
         assert_eq!(next_selectable(&rows, 1, -1), 1);
+    }
+
+    #[test]
+    fn shift_tab_reverses_tab() {
+        for f in [Focus::Tree, Focus::Diff, Focus::Pipeline] {
+            assert_eq!(f.next().prev(), f);
+            assert_eq!(f.prev().next(), f);
+        }
+        assert_eq!(Focus::Tree.prev(), Focus::Pipeline);
+        for t in [Tab::Review, Tab::Mine, Tab::Pipelines] {
+            assert_eq!(t.next().prev(), t);
+            assert_eq!(t.prev().next(), t);
+        }
+        assert_eq!(Tab::Review.prev(), Tab::Pipelines);
     }
 }
