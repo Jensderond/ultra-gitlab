@@ -219,7 +219,11 @@
   display: flex;
   min-width: 0;
   cursor: grab;
-  touch-action: none;
+  /* Long-press starts a drag on touch; suppress the iOS callout and text
+     selection that would otherwise compete with it. Scrolling stays native. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .pipelines-grid-item:active {

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import {
   DndContext,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   closestCenter,
@@ -15,6 +16,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ProjectCard from './ProjectCard';
+import { hapticImpact } from '../../services/haptics';
 import type { PipelineProject, PipelineStatus } from '../../types';
 
 interface PinnedGridProps {
@@ -69,8 +71,12 @@ export default function PinnedGrid({
   onOpenDetail,
   onReorder,
 }: PinnedGridProps) {
+  // Mouse drags start after a few pixels of movement. Touch drags need a
+  // long-press first so a normal swipe still scrolls the page; moving past
+  // the tolerance during the delay hands the gesture back to the browser.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 8 } }),
   );
   const [activeId, setActiveId] = useState<number | null>(null);
 
@@ -91,7 +97,10 @@ export default function PinnedGrid({
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
-      onDragStart={(e) => setActiveId(Number(e.active.id))}
+      onDragStart={(e) => {
+        setActiveId(Number(e.active.id));
+        void hapticImpact();
+      }}
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveId(null)}
     >
