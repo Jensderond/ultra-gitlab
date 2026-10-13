@@ -22,6 +22,6 @@ export async function runManualRefresh(): Promise<void> {
   if (current) {
     await current();
   } else {
-    await manualSync(true);
+    await manualSync();
   }
 }

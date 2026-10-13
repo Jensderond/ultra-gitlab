@@ -264,7 +264,7 @@ export default function MRListPage() {
               filterQuery: query,
               onFilteredCountChange: handleFilteredCountChange,
               onCountsChange: setTabCounts,
-              onRefresh: () => manualSyncAndWait(true),
+              onRefresh: () => manualSyncAndWait(),
               searchSlot: (
                 <SearchBar
                   query={query}
@@ -399,7 +399,7 @@ export default function MRListPage() {
               snoozeMenuMrId={snoozeMenuMrId}
               onSnoozeMenuChange={setSnoozeMenuMrId}
               condensed={condensed}
-              onRefresh={() => manualSyncAndWait(true)}
+              onRefresh={() => manualSyncAndWait()}
               onRefreshingChange={(r) => handleRefreshingChange(activeTab, r)}
             />
           )

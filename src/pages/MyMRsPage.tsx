@@ -98,7 +98,7 @@ export default function MyMRsPage() {
   const mrsRef = useRef<MergeRequest[]>([]);
   const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const { containerRef: pullRef, pullDistance, refreshing, triggerRefresh } = usePullToRefresh<HTMLDivElement>({
-    onRefresh: () => manualSyncAndWait(true),
+    onRefresh: () => manualSyncAndWait(),
   });
   useManualRefreshHandler(triggerRefresh);
 
