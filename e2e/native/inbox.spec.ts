@@ -95,7 +95,7 @@ test.describe('behaviour', () => {
   test('approve with ⌘⇧A moves on to the next MR', async ({ page }) => {
     await page.goto('/inbox/review?mr=105');
     await expect(page.locator('#inbox-row-105')).toHaveClass(/is-selected/);
-    await page.keyboard.press('Meta+Shift+A');
+    await page.keyboard.press('ControlOrMeta+Shift+A');
     await expect(page.locator('#inbox-row-105')).toHaveCount(0);
     await expect(page).not.toHaveURL(/mr=105/);
     await expect(page.locator('.inbox-row.is-selected')).toHaveCount(1);

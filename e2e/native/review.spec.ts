@@ -57,12 +57,12 @@ test.describe('flows', () => {
     await box.fill('Agreed — the page view covers the initial theme, so this is fine.');
     await shot(page, 'composer');
 
-    await box.press('Meta+Enter');
+    await box.press('ControlOrMeta+Enter');
     await expect(thread.locator('.rv-note--draft')).toBeVisible();
     await expect(page.getByRole('button', { name: /Finish review · 1 pending/ })).toBeVisible();
 
     // New comment on a line via the line number.
-    await page.keyboard.press('Meta+Shift+Enter');
+    await page.keyboard.press('ControlOrMeta+Shift+Enter');
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.locator('#rv-finish-body').fill('Nice and small. One question about tracking, otherwise good to go.');
     await page.getByRole('radio', { name: /Approve/ }).click();
@@ -115,7 +115,7 @@ test.describe('flows', () => {
     await page.locator('#rv-new-comment textarea').fill('Can we name this `--color-surface` instead?');
     await page.getByRole('button', { name: 'Suggest change' }).click();
     await shot(page, 'new-comment');
-    await page.locator('#rv-new-comment textarea').press('Meta+Enter');
+    await page.locator('#rv-new-comment textarea').press('ControlOrMeta+Enter');
     await expect(page.locator('.rv-thread--draft')).toHaveCount(1);
   });
 
@@ -150,7 +150,7 @@ test.describe('flows', () => {
 
     // Esc closes the palette, not the review underneath; J/K don't move files while it's open.
     const reviewUrl = page.url();
-    await page.keyboard.press('Meta+k');
+    await page.keyboard.press('ControlOrMeta+k');
     await expect(palette).toBeVisible();
     await expect(results.getByRole('option', { name: /Settings/ })).toBeVisible();
     await page.waitForTimeout(250);
@@ -161,7 +161,7 @@ test.describe('flows', () => {
     await expect(palette).toBeHidden();
     await expect(page).toHaveURL(reviewUrl);
 
-    await page.keyboard.press('Meta+k');
+    await page.keyboard.press('ControlOrMeta+k');
     await page.keyboard.type('go to pipe');
     await expect(results.getByRole('option', { selected: true })).toContainText('Go to Pipelines');
     await page.keyboard.press('Enter');
@@ -169,7 +169,7 @@ test.describe('flows', () => {
     await expect(palette).toBeHidden();
 
     // Back home, ⌘K focuses the toolbar field instead.
-    await page.keyboard.press('Meta+k');
+    await page.keyboard.press('ControlOrMeta+k');
     await expect(page.getByRole('combobox', { name: 'Search or jump to' })).toBeFocused();
     await expect(palette).toHaveCount(0);
   });

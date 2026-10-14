@@ -75,7 +75,7 @@ for (const scheme of ['light', 'dark'] as const) {
     test('search popover', async ({ page }) => {
       await page.goto('/inbox/review');
       await page.waitForTimeout(500);
-      await page.keyboard.press('Meta+k');
+      await page.keyboard.press('ControlOrMeta+k');
       await page.keyboard.type('dark');
       const list = page.getByRole('listbox', { name: 'Search results' });
       await expect(list).toBeVisible();
@@ -85,7 +85,7 @@ for (const scheme of ['light', 'dark'] as const) {
 
       // Empty query shows commands.
       await page.keyboard.press('Escape');
-      await page.keyboard.press('Meta+k');
+      await page.keyboard.press('ControlOrMeta+k');
       await expect(list.getByRole('option', { name: /Settings/ })).toBeVisible();
       await page.waitForTimeout(250);
       await page.screenshot({ path: `e2e/native/screenshots/app-search-commands-${scheme}.png` });
@@ -131,7 +131,7 @@ test.describe('narrow', () => {
     // Coming from a screen: ⌘, then Esc returns there.
     await page.goto('/pipelines');
     await page.waitForTimeout(300);
-    await page.keyboard.press('Meta+,');
+    await page.keyboard.press('ControlOrMeta+,');
     await expect(page).toHaveURL(/\/settings/);
     await page.getByRole('tab', { name: 'Review' }).click();
     await page.keyboard.press('Escape');
@@ -159,7 +159,7 @@ test.describe('behaviour', () => {
     await page.goto('/inbox/review');
     await page.waitForTimeout(300);
     const mr = seed.mergeRequests[0];
-    await page.keyboard.press('Meta+k');
+    await page.keyboard.press('ControlOrMeta+k');
     await page.keyboard.insertText(mr.webUrl + '/diffs');
     const results = page.getByRole('listbox', { name: 'Search results' });
     await expect(results.getByRole('option').first()).toContainText(`Open !${mr.iid}`);
