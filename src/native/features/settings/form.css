@@ -1,0 +1,152 @@
+/* Grouped inset forms (System Settings / Settings-window style). */
+
+.st-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.st-group__title {
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text);
+  padding: 0 2px;
+}
+.st-group__box {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.st-group__footer {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  padding: 0 2px;
+  line-height: 1.45;
+}
+
+.st-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 40px;
+  padding: 8px 12px;
+}
+.st-row + .st-row {
+  border-top: 1px solid var(--line-soft);
+}
+.st-row--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.st-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.st-row__label {
+  color: var(--text);
+}
+.st-row__desc {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.st-row__control {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 60%;
+}
+.st-row--stacked .st-row__control {
+  max-width: none;
+}
+
+/* Text field */
+.st-input {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line-control);
+  background: var(--bg-control);
+  color: var(--text);
+  min-width: 0;
+  box-shadow: inset 0 0.5px 1px rgba(0, 0, 0, 0.06);
+}
+.st-input::placeholder {
+  color: var(--text-ghost);
+}
+.st-input:focus {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+.st-input.is-invalid {
+  border-color: var(--fail);
+}
+.st-input:disabled {
+  opacity: 0.55;
+}
+
+/* Pop-up button */
+.st-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-md);
+  background: var(--bg-control);
+  border: 1px solid var(--line-control);
+  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.06);
+  color: var(--text);
+}
+.st-select select {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: transparent;
+  height: 22px;
+  padding: 0 24px 0 8px;
+  color: inherit;
+  outline: none;
+  cursor: default;
+}
+.st-select svg {
+  position: absolute;
+  right: 6px;
+  pointer-events: none;
+  color: var(--text-muted);
+}
+.st-select:focus-within {
+  box-shadow: var(--focus-ring);
+}
+.st-select:has(select:disabled) {
+  opacity: 0.55;
+}
+
+/* Notices */
+.st-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+.st-notice--error {
+  color: var(--fail-text);
+}
+.st-notice--warn {
+  color: var(--warn-text);
+}
+.st-notice--ok {
+  color: var(--ok-text);
+}
+.st-notice--info {
+  color: var(--text-muted);
+}
+.st-notice svg {
+  flex: none;
+  margin-top: 1px;
+}

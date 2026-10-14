@@ -1,0 +1,114 @@
+.ui-window {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ui-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  background: var(--bg-window);
+}
+
+.ui-pane {
+  position: relative;
+  flex: none;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  background: var(--bg-window);
+}
+.ui-pane__divider {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  z-index: 3;
+}
+body.is-resizing,
+body.is-resizing * {
+  cursor: col-resize !important;
+}
+
+.ui-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Source-list sidebar ------------------------------------------------------ */
+
+.ui-sidebar {
+  background: var(--bg-sidebar);
+  padding: 14px 10px;
+  gap: 18px;
+  overflow-y: auto;
+}
+html.vibrant .ui-body {
+  background: transparent;
+}
+html.vibrant .ui-body > :not(.ui-sidebar) {
+  background: var(--bg-window);
+}
+
+.ui-sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ui-sidebar-section__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0 10px 4px;
+}
+
+.ui-sidebar-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  width: 100%;
+}
+.ui-sidebar-item:hover {
+  background: var(--bg-hover);
+}
+.ui-sidebar-item.is-active {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-weight: 500;
+}
+.ui-sidebar-item__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.ui-sidebar-item__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui-sidebar-item__count {
+  font-size: var(--text-sm);
+  opacity: 0.85;
+  flex: none;
+}
+.ui-sidebar-item:not(.is-active) .ui-sidebar-item__count {
+  color: var(--text-muted);
+}

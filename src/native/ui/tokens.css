@@ -1,0 +1,227 @@
+/*
+ * Design tokens. Light values come straight from the design canvas
+ * ("Review — a native Mac app for reviewing merge requests and pipelines");
+ * dark values follow macOS dark appearance. Always use tokens, never hexes.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* Type */
+  --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+  --text-xs: 11px; /* captions, section labels */
+  --text-sm: 12px; /* secondary text, compact controls */
+  --text-md: 13px; /* body (macOS default) */
+  --text-lg: 16px;
+  --text-xl: 22px; /* page title */
+  --code-size: 12.5px;
+
+  /* Space & shape */
+  --toolbar-h: 52px;
+  --traffic-lights-w: 78px;
+  --radius-xs: 3px;
+  --radius-sm: 4px; /* tags */
+  --radius-md: 6px; /* rows, small buttons */
+  --radius-lg: 7px; /* buttons, segmented, fields */
+  --radius-xl: 10px; /* cards */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur-fast: 120ms;
+  --dur: 180ms;
+
+  /* Surfaces */
+  --bg-window: #ffffff;
+  --bg-toolbar: #f5f5f7;
+  --bg-sidebar: #f0f0f3;
+  --bg-subtle: #fafafb; /* group headers, composer footers */
+  --bg-raised: #ffffff; /* cards, popovers */
+  --bg-aside: #fcfcfd;
+  --bg-control: #ffffff;
+  --bg-field: #e9e9ee;
+  --bg-segmented: #e6e6eb;
+  --bg-code: #f0f0f3;
+  --bg-hover: rgba(0, 0, 0, 0.045);
+  --bg-pressed: rgba(0, 0, 0, 0.08);
+  --bg-selected: #e3edfb; /* selected row in a list with focus elsewhere */
+  --bg-selected-strong: #dce7f8; /* selected file row */
+  --overlay: rgba(20, 24, 40, 0.28);
+
+  /* Lines */
+  --line: #e2e2e7;
+  --line-subtle: #f0f0f3;
+  --line-soft: #ececf0;
+  --line-control: #d4d4db;
+  --line-dashed: #cfcfd6;
+
+  /* Text */
+  --text: #1d1d1f;
+  --text-2: #3a3a40;
+  --text-3: #4a4a52;
+  --text-muted: #5e5e66;
+  --text-faint: #6e6e76;
+  --text-ghost: #8a8a92;
+  --text-on-accent: #ffffff;
+
+  /* Accent */
+  --accent: #0a5fc8;
+  --accent-hover: #084a9c;
+  --accent-soft: #e3edfb;
+  --accent-text: #0a4fa8;
+  --focus-ring: 0 0 0 3px rgba(10, 95, 200, 0.35);
+
+  /* Status */
+  --ok: #1e7a34;
+  --ok-text: #17602a;
+  --ok-soft: #e4f2e7;
+  --ok-line: #cde6d3;
+  --fail: #b42318;
+  --fail-text: #8e1b12;
+  --fail-ink: #3a1410;
+  --fail-soft: #f9dcd8;
+  --fail-tint: #fdf4f3;
+  --fail-line: #f0c9c4;
+  --warn: #a35a00;
+  --warn-text: #7a4300;
+  --warn-soft: #fbebd5;
+  --neutral-soft: #eeeef1;
+  --neutral-text: #4a4a52;
+  --running: #0a5fc8;
+  /* Update button: green fill behind white text (--ok is too light in dark mode). */
+  --update-ready: #1e7a34;
+  --update-ready-hover: #17602a;
+
+  /* Diff */
+  --diff-add: #e9f6ec;
+  --diff-del: #fcecea;
+  --diff-hunk: #f3f6fb;
+  --diff-hunk-text: #3d5a80;
+
+  /* Job log (dark in both appearances, like a terminal) */
+  --log-bg: #1b1c20;
+  --log-toolbar: #24262b;
+  --log-line: #34363c;
+  --log-text: #d6d7dc;
+  --log-text-bright: #e6e7eb;
+  --log-muted: #9a9cb4;
+  --log-gutter: #6f717a;
+  --log-field: #31333a;
+  --log-control-line: #45474e;
+  --log-err-bg: #4a2321;
+  --log-err-text: #ffc9c2;
+  --log-err-head: #3a2224;
+  --log-err-head-text: #ffd9d4;
+  --log-cmd: #9cc3ff;
+  --log-ok: #7fd18f;
+  --log-fail: #ff8a80;
+  --log-card: #2a2d35;
+  --log-card-line: #3f4350;
+  /* Job log: ANSI 16-colour palette + search marks (pipelines feature) */
+  --log-ansi-0: #3a3c43;
+  --log-ansi-1: #ff7b72;
+  --log-ansi-2: #7fd18f;
+  --log-ansi-3: #e3b341;
+  --log-ansi-4: #79b8ff;
+  --log-ansi-5: #d2a8ff;
+  --log-ansi-6: #76d4e4;
+  --log-ansi-7: #d6d7dc;
+  --log-ansi-8: #8b8e98;
+  --log-ansi-9: #ffa198;
+  --log-ansi-10: #a5e8b0;
+  --log-ansi-11: #f2cc60;
+  --log-ansi-12: #a5d6ff;
+  --log-ansi-13: #e2c5ff;
+  --log-ansi-14: #a8e9f2;
+  --log-ansi-15: #ffffff;
+  --log-hover: rgba(255, 255, 255, 0.045);
+  --log-match: rgba(242, 204, 96, 0.32);
+  --log-match-current: #f2cc60;
+  --log-match-current-text: #1b1c20;
+  --log-link: #9cc3ff;
+  --log-selection: rgba(120, 160, 255, 0.4);
+  --log-scrollbar: rgba(200, 200, 210, 0.28);
+
+  /* Elevation */
+  --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.12);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-popover: 0 12px 40px rgba(20, 24, 40, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-window: #1e1e20;
+    --bg-toolbar: #2a2a2d;
+    --bg-sidebar: #252528;
+    --bg-subtle: #232326;
+    --bg-raised: #2a2a2e;
+    --bg-aside: #212124;
+    --bg-control: #3a3a3e;
+    --bg-field: #343438;
+    --bg-segmented: #343438;
+    --bg-code: #2f2f33;
+    --bg-hover: rgba(255, 255, 255, 0.06);
+    --bg-pressed: rgba(255, 255, 255, 0.1);
+    --bg-selected: rgba(64, 140, 255, 0.18);
+    --bg-selected-strong: rgba(64, 140, 255, 0.26);
+    --overlay: rgba(0, 0, 0, 0.45);
+
+    --line: #38383c;
+    --line-subtle: #2c2c30;
+    --line-soft: #303034;
+    --line-control: #4a4a50;
+    --line-dashed: #4a4a50;
+
+    --text: #f2f2f5;
+    --text-2: #d8d8de;
+    --text-3: #c2c2ca;
+    --text-muted: #a0a0aa;
+    --text-faint: #8c8c96;
+    --text-ghost: #6f6f78;
+
+    --accent: #3b8cf5;
+    --accent-hover: #5a9ff7;
+    --accent-soft: rgba(59, 140, 245, 0.2);
+    --accent-text: #8cbcff;
+    --focus-ring: 0 0 0 3px rgba(59, 140, 245, 0.45);
+
+    --ok: #4cc26a;
+    --ok-text: #7fd89a;
+    --ok-soft: rgba(76, 194, 106, 0.16);
+    --ok-line: rgba(76, 194, 106, 0.32);
+    --fail: #ff6b5e;
+    --fail-text: #ffa59c;
+    --fail-ink: #ffd4cf;
+    --fail-soft: rgba(255, 107, 94, 0.18);
+    --fail-tint: rgba(255, 107, 94, 0.08);
+    --fail-line: rgba(255, 107, 94, 0.32);
+    --warn: #f0a33c;
+    --warn-text: #f5c27a;
+    --warn-soft: rgba(240, 163, 60, 0.18);
+    --neutral-soft: rgba(255, 255, 255, 0.08);
+    --neutral-text: #c2c2ca;
+    --running: #5a9ff7;
+    --update-ready: #2a8a43;
+    --update-ready-hover: #33a050;
+
+    --diff-add: rgba(76, 194, 106, 0.13);
+    --diff-del: rgba(255, 107, 94, 0.13);
+    --diff-hunk: rgba(59, 140, 245, 0.1);
+    --diff-hunk-text: #8cb4e8;
+
+    --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-popover: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* In the real app the window is transparent with native vibrancy behind it:
+   chrome becomes translucent so the desktop shows through, like Finder/Mail. */
+html.vibrant {
+  --bg-toolbar: rgba(245, 245, 247, 0.72);
+  --bg-sidebar: rgba(236, 236, 240, 0.55);
+}
+@media (prefers-color-scheme: dark) {
+  html.vibrant {
+    --bg-toolbar: rgba(42, 42, 45, 0.7);
+    --bg-sidebar: rgba(37, 37, 40, 0.5);
+  }
+}

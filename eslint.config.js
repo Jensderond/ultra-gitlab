@@ -22,7 +22,7 @@ export default tseslint.config(
   },
   {
     // ANSI/terminal parsers legitimately use control characters in regexes
-    files: ['src/utils/ansiParser.ts', 'src/utils/logLineParser.ts'],
+    files: ['src/utils/ansiParser.ts', 'src/utils/logLineParser.ts', 'src/native/features/pipelines/log/**/*.ts'],
     rules: { 'no-control-regex': 'off' },
   },
 );

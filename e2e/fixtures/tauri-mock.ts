@@ -472,8 +472,15 @@ export async function mockTauriIPC(
       'plugin:updater|check': () => null,
       'plugin:updater|download-and-install': () => undefined,
 
+      // -- UI variant (src/uiVariant.ts) --
+      set_ui_variant: (args) => {
+        (window as Record<string, unknown>).__MOCK_UI_VARIANT__ = args.variant;
+      },
+
       // -- Tauri process plugin --
-      'plugin:process|restart': () => undefined,
+      'plugin:process|restart': () => {
+        (window as Record<string, unknown>).__MOCK_RESTARTED__ = true;
+      },
       'plugin:process|exit': () => undefined,
 
       // -- Misc --

@@ -51,7 +51,9 @@ use commands::{
     update_notification_settings, update_session_cookie, update_settings,
     update_show_draft_mrs, update_show_recently_merged_mrs, update_sync_config,
     update_sync_settings, update_theme, update_ui_font, visit_pipeline_project,
+    set_ui_variant,
 };
+use commands::ui_variant::{load_ui_variant, UiVariant};
 use std::sync::Arc;
 use services::sync_engine::{SyncConfig, SyncEngine};
 use services::sync_events::TauriEmitter;
@@ -209,14 +211,48 @@ pub fn run() {
                 app.manage(NotificationManagerState(notification_manager));
             }
 
-            // Create window with transparent titlebar (desktop); mobile gets a plain window
+            // Both UIs ship in this build; the stored choice decides which one boots
+            // (see commands/ui_variant.rs). The frontend's loader reads it from
+            // `window.__ULTRA_UI__`, injected before any page script runs.
+            let ui_variant = load_ui_variant(app.handle());
+            log::info!("[ui] Booting the {} UI", ui_variant.as_str());
+
             #[cfg(desktop)]
-            let win = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
-                .title("Ultra Gitlab")
-                .inner_size(800.0, 600.0)
-                .hidden_title(true)
-                .title_bar_style(TitleBarStyle::Transparent)
-                .build()?;
+            let win = {
+                let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
+                    .title("Ultra Gitlab")
+                    .hidden_title(true)
+                    .initialization_script(format!("window.__ULTRA_UI__ = {:?};", ui_variant.as_str()));
+                match ui_variant {
+                    // Classic: transparent titlebar over an opaque window.
+                    UiVariant::Classic => builder
+                        .inner_size(800.0, 600.0)
+                        .title_bar_style(TitleBarStyle::Transparent),
+                    UiVariant::Native => {
+                        let builder = builder
+                            .inner_size(1280.0, 820.0)
+                            .min_inner_size(900.0, 560.0)
+                            .title_bar_style(TitleBarStyle::Overlay);
+                        // Unified toolbar: traffic lights sit centred in the 52px web toolbar
+                        // (tao grows the titlebar container by `y`, so y=30 puts their centre
+                        // at 26pt), and the window is transparent so the sidebar can use
+                        // native vibrancy.
+                        #[cfg(target_os = "macos")]
+                        let builder = builder
+                            .traffic_light_position(tauri::LogicalPosition::new(18.0, 30.0))
+                            .transparent(true)
+                            .effects(tauri::utils::config::WindowEffectsConfig {
+                                effects: vec![tauri::window::Effect::Sidebar],
+                                state: Some(tauri::window::EffectState::FollowsWindowActiveState),
+                                radius: None,
+                                color: None,
+                                interactive: false,
+                            });
+                        builder
+                    }
+                }
+                .build()?
+            };
             #[cfg(mobile)]
             let win = WebviewWindowBuilder::new(app, "main", WebviewUrl::default()).build()?;
 
@@ -233,9 +269,10 @@ pub fn run() {
                 }
             })?;
 
-            // Set macOS window background color to match sidebar/titlebar (#1f1f28)
+            // Classic UI: set macOS window background color to match sidebar/titlebar
+            // (#1f1f28). The native UI's window stays transparent for vibrancy.
             #[cfg(target_os = "macos")]
-            {
+            if ui_variant == UiVariant::Classic {
                 #[allow(deprecated)]
                 {
                     use cocoa::appkit::{NSColor, NSWindow};
@@ -347,6 +384,7 @@ pub fn run() {
             update_keyboard_shortcuts,
             get_sync_settings,
             update_sync_settings,
+            set_ui_variant,
             get_collapse_patterns,
             update_collapse_patterns,
             // Gitattributes cache

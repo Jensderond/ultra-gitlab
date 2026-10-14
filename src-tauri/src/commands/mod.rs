@@ -30,6 +30,7 @@ pub mod reviewers;
 pub mod settings;
 pub mod snooze;
 pub mod sync;
+pub mod ui_variant;
 
 // Re-export commands for registration in lib.rs
 pub use cli::{cli_status, download_and_install_cli};
@@ -71,6 +72,7 @@ pub use notifications::{
     check_notification_permission, get_notification_permission_status,
     request_notification_permission, send_native_notification,
 };
+pub use ui_variant::set_ui_variant;
 pub use pipeline::{
     cancel_pipeline, cancel_pipeline_job, get_cached_pipeline_statuses, get_job_trace,
     get_pipeline_jobs, get_pipeline_statuses, get_project_pipelines, list_pipeline_projects,

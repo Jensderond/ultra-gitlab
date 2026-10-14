@@ -31,3 +31,4 @@ dist-ssr
 /playwright/.cache/
 /agents/counselors/
 /.superpowers/
+e2e/native/screenshots/

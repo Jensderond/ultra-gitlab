@@ -1,0 +1,143 @@
+/* Stage graph + job chips (design: Pipeline.dc.html stage row). */
+
+.pl-graph {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: stretch;
+}
+.pl-stage {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 220px;
+  min-width: 0;
+  max-width: 420px;
+}
+.pl-graph--compact .pl-stage {
+  flex-basis: 180px;
+  max-width: 320px;
+}
+.pl-stage__col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-self: flex-start;
+}
+.pl-stage__name {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pl-stage__arrow {
+  color: var(--text-ghost);
+  font-size: 16px;
+  flex: none;
+}
+
+.pl-chip {
+  display: flex;
+  align-items: stretch;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: var(--bg-raised);
+  font-size: var(--text-sm);
+  min-width: 0;
+}
+.pl-chip__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 6px 10px;
+  border-radius: inherit;
+  text-align: left;
+}
+.pl-graph--compact .pl-chip__main {
+  padding: 4px 8px;
+}
+.pl-chip__icon {
+  width: 12px;
+  flex: none;
+  display: inline-flex;
+  justify-content: center;
+  font-weight: 700;
+}
+.pl-chip__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pl-chip__claim {
+  display: inline-flex;
+  color: var(--accent);
+}
+.pl-chip__time {
+  flex: none;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+.pl-chip__action {
+  flex: none;
+  border: 0;
+  border-left: 1px solid currentColor;
+  border-color: inherit;
+  background: transparent;
+  color: inherit;
+  padding: 0 9px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+}
+.pl-chip__action:hover,
+.pl-chip__main:hover {
+  background: var(--bg-hover);
+}
+
+.pl-chip--ok {
+  color: var(--ok-text);
+  border-color: var(--ok-line);
+}
+.pl-chip--fail {
+  background: var(--fail-soft);
+  color: var(--fail-text);
+  border-color: var(--fail-line);
+  font-weight: 600;
+}
+.pl-chip--warn {
+  background: var(--warn-soft);
+  color: var(--warn-text);
+  border-color: transparent;
+}
+.pl-chip--running {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  border-color: transparent;
+}
+.pl-chip--manual {
+  color: var(--text-2);
+  border-color: var(--line-control);
+}
+.pl-chip--skip,
+.pl-chip--pending {
+  background: var(--neutral-soft);
+  color: var(--neutral-text);
+  border: 1px dashed var(--line-dashed);
+}
+.pl-chip--manual .pl-chip__icon {
+  color: var(--warn);
+}
+.pl-chip.is-selected {
+  box-shadow: 0 0 0 2px var(--accent);
+}

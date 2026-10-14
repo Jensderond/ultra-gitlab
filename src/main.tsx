@@ -1,42 +1,16 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { attachConsole } from "@tauri-apps/plugin-log";
-import App from "./App";
-import { queryClient } from "./lib/queryClient";
-import { setupTauriEventListeners } from "./lib/tauriEvents";
+/**
+ * Entry point: boots either the classic UI or the native UI beta (see
+ * `uiVariant.ts`). Each lives in its own chunk, so only the chosen one loads.
+ */
 
-// Self-hosted so the app's monospace font renders correctly offline (no CDN round-trip).
-import "@fontsource/ibm-plex-mono/400.css";
-import "@fontsource/ibm-plex-mono/500.css";
-import "@fontsource/ibm-plex-mono/600.css";
-import "@fontsource/ibm-plex-mono/400-italic.css";
+import { uiVariant } from './uiVariant';
 
-// Self-hosted default display font (headings) — offline-safe replacement for the
-// previous Google Fonts-loaded Inter.
-import "@fontsource/inter/400.css";
-import "@fontsource/inter/500.css";
-import "@fontsource/inter/600.css";
-import "@fontsource/inter/700.css";
-
-// Self-hosted default diffs font — renders code diffs offline.
-import "@fontsource/geist-mono/400.css";
-import "@fontsource/geist-mono/500.css";
-import "@fontsource/geist-mono/600.css";
-import "@fontsource/geist-mono/400-italic.css";
-
-// Forward frontend console.log/warn/error to the Rust log file
-attachConsole().catch(() => {});
-
-setupTauriEventListeners();
-
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-      {/* The floating launcher would cover the mobile bottom tab bar, so desktop-width only */}
-      {import.meta.env.DEV && window.matchMedia("(min-width: 768px)").matches && <ReactQueryDevtools />}
-    </QueryClientProvider>
-  </React.StrictMode>,
-);
+if (uiVariant === 'native') {
+  import('./native/main').catch((error) => {
+    // A broken native bundle must never lock someone out: fall back to classic.
+    console.error('[ui] Native UI failed to load, falling back to classic', error);
+    void import('./main.classic');
+  });
+} else {
+  void import('./main.classic');
+}

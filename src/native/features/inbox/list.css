@@ -1,0 +1,190 @@
+/* Inbox: middle pane (filter bar + grouped MR list). */
+
+.inbox {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+/* Narrow windows: the list gives up width before the preview gets cramped. */
+@media (max-width: 1100px) {
+  .inbox > .inbox-list-pane {
+    width: 320px !important;
+    flex-basis: 320px !important;
+  }
+}
+
+.inbox-list-pane {
+  background: var(--bg-window);
+}
+
+.inbox-filters {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.inbox-popup {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--line-control);
+  background: var(--bg-control);
+  border-radius: var(--radius-md);
+  padding: 3px 10px;
+  font-size: var(--text-sm);
+  line-height: 1.35;
+  white-space: nowrap;
+  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.05);
+}
+.inbox-popup svg {
+  color: var(--text-muted);
+  margin-right: -3px;
+}
+.inbox-popup:active {
+  background: color-mix(in srgb, var(--bg-control) 88%, var(--text) 12%);
+}
+.inbox-popup.is-on {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--accent-text);
+  font-weight: 500;
+}
+.inbox-popup.is-on svg {
+  color: currentColor;
+}
+.inbox-client-chip {
+  max-width: 160px;
+}
+
+.inbox-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  outline: none;
+}
+.inbox-list:focus-visible {
+  box-shadow: none;
+}
+
+.inbox-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 16px;
+  color: var(--text-muted);
+}
+
+/* Group headers stick while their rows scroll past, like Mail's sections. */
+.inbox-group__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 14px 6px;
+  background: var(--bg-subtle);
+}
+.inbox-group__title {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inbox-group__detail {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.inbox-group__head.is-merged .inbox-group__title {
+  color: var(--text-muted);
+}
+
+.inbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line-subtle);
+  color: var(--text);
+}
+.inbox-row.is-selected {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.inbox-row.is-merged:not(.is-selected) {
+  opacity: 0.72;
+}
+
+.inbox-row__status {
+  padding-top: 2px;
+  flex: none;
+}
+.inbox-row__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.inbox-row__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.inbox-row__title {
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.inbox-row__age {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  padding-top: 1px;
+}
+.inbox-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  min-width: 0;
+}
+.inbox-row__project {
+  color: var(--text-3);
+}
+.inbox-row__author {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+.inbox-add {
+  color: var(--ok);
+}
+.inbox-del {
+  color: var(--fail);
+}
+.inbox-row__tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}

@@ -1,0 +1,863 @@
+/**
+ * Seeded mock data for Playwright E2E tests.
+ *
+ * This file provides deterministic test data that mirrors what the SQLite
+ * database would contain. `tauri-mock.ts` injects a fake `__TAURI_INTERNALS__`
+ * so the app runs in desktop-Tauri mode against this seeded data, so tests
+ * don't depend on a live GitLab instance.
+ */
+
+import type {
+  MergeRequest,
+  DiffFile,
+  DiffRefs,
+  DiffHunksResponse,
+  DiffHunk,
+  Comment,
+  MrReviewer,
+  Settings,
+  SyncStatusWire,
+  PipelineProject,
+  PipelineStatus,
+  PipelineJob,
+  NotificationSettings,
+  ProjectSearchResult,
+} from '../../src/api/types';
+
+// ============================================================================
+// GitLab Instances
+// ============================================================================
+
+export interface SeedInstance {
+  id: number;
+  url: string;
+  name: string | null;
+  createdAt: number;
+  sessionCookie: string | null;
+  authenticatedUsername: string | null;
+  isDefault: boolean;
+  /** The backend serializes the stored token too. */
+  token: string | null;
+  hasToken: boolean;
+}
+
+export const instances: SeedInstance[] = [
+  {
+    id: 1,
+    url: 'https://gitlab.example.com',
+    name: 'Example GitLab',
+    createdAt: 1700000000,
+    sessionCookie: null,
+    authenticatedUsername: 'testuser',
+    isDefault: true,
+    token: 'glpat-test',
+    hasToken: true,
+  },
+];
+
+// ============================================================================
+// Merge Requests
+// ============================================================================
+
+const now = Math.floor(Date.now() / 1000);
+
+export const mergeRequests: MergeRequest[] = [
+  {
+    id: 101,
+    instanceId: 1,
+    iid: 42,
+    projectId: 10,
+    projectName: 'frontend/web-app',
+    title: 'feat: Add dark mode toggle to settings',
+    description: 'Implements a theme toggle in the settings panel with system preference detection.',
+    authorUsername: 'alice',
+    sourceBranch: 'feature/dark-mode',
+    targetBranch: 'main',
+    state: 'opened',
+    webUrl: 'https://gitlab.example.com/frontend/web-app/-/merge_requests/42',
+    createdAt: now - 86400 * 3,
+    updatedAt: now - 3600,
+    mergedAt: null,
+    approvalStatus: 'pending',
+    approvalsRequired: 2,
+    approvalsCount: 1,
+    labels: ['feature', 'frontend'],
+    reviewers: ['bob', 'carol'],
+    cachedAt: now,
+    userHasApproved: false,
+    // Head pipeline is #3010 (seed-pipelines.ts), which fails in Jest.
+    headPipelineStatus: 'failed',
+    snoozedUntil: null,
+  },
+  {
+    id: 102,
+    instanceId: 1,
+    iid: 43,
+    projectId: 10,
+    projectName: 'frontend/web-app',
+    title: 'fix: Resolve login redirect loop',
+    description: 'Fixes an infinite redirect when the session token expires during navigation.',
+    authorUsername: 'bob',
+    sourceBranch: 'fix/login-redirect',
+    targetBranch: 'main',
+    state: 'opened',
+    webUrl: 'https://gitlab.example.com/frontend/web-app/-/merge_requests/43',
+    createdAt: now - 86400 * 1,
+    updatedAt: now - 1800,
+    mergedAt: null,
+    approvalStatus: 'pending',
+    approvalsRequired: 1,
+    approvalsCount: 0,
+    labels: ['bug', 'auth'],
+    reviewers: ['alice'],
+    cachedAt: now,
+    userHasApproved: false,
+    headPipelineStatus: 'success',
+    snoozedUntil: null,
+  },
+  {
+    id: 103,
+    instanceId: 1,
+    iid: 44,
+    projectId: 11,
+    projectName: 'backend/api-service',
+    title: 'refactor: Extract user service from controller',
+    description: 'Moves user business logic into a dedicated service layer for better testability.',
+    authorUsername: 'carol',
+    sourceBranch: 'refactor/user-service',
+    targetBranch: 'develop',
+    state: 'opened',
+    webUrl: 'https://gitlab.example.com/backend/api-service/-/merge_requests/44',
+    createdAt: now - 86400 * 5,
+    updatedAt: now - 7200,
+    mergedAt: null,
+    approvalStatus: 'approved',
+    approvalsRequired: 2,
+    approvalsCount: 2,
+    labels: ['refactor', 'backend'],
+    reviewers: ['alice', 'dave'],
+    cachedAt: now,
+    userHasApproved: false,
+    headPipelineStatus: 'success',
+    snoozedUntil: null,
+  },
+  {
+    id: 104,
+    instanceId: 1,
+    iid: 45,
+    projectId: 10,
+    projectName: 'frontend/web-app',
+    title: 'Draft: WIP dashboard redesign',
+    description: 'Work in progress on the new dashboard layout.',
+    authorUsername: 'dave',
+    sourceBranch: 'feature/dashboard-v2',
+    targetBranch: 'main',
+    state: 'opened',
+    webUrl: 'https://gitlab.example.com/frontend/web-app/-/merge_requests/45',
+    createdAt: now - 86400 * 7,
+    updatedAt: now - 86400,
+    mergedAt: null,
+    approvalStatus: null,
+    approvalsRequired: 2,
+    approvalsCount: 0,
+    labels: ['wip', 'frontend'],
+    reviewers: [],
+    cachedAt: now,
+    userHasApproved: false,
+    headPipelineStatus: 'running',
+    snoozedUntil: null,
+  },
+];
+
+// My MRs (authored by the current user "testuser")
+export const myMergeRequests: MergeRequest[] = [
+  {
+    id: 201,
+    instanceId: 1,
+    iid: 50,
+    projectId: 10,
+    projectName: 'frontend/web-app',
+    title: 'feat: Add notification preferences',
+    description: 'Adds a UI for configuring push notification preferences.',
+    authorUsername: 'testuser',
+    sourceBranch: 'feature/notification-prefs',
+    targetBranch: 'main',
+    state: 'opened',
+    webUrl: 'https://gitlab.example.com/frontend/web-app/-/merge_requests/50',
+    createdAt: now - 86400 * 2,
+    updatedAt: now - 600,
+    mergedAt: null,
+    approvalStatus: 'approved',
+    approvalsRequired: 2,
+    approvalsCount: 2,
+    labels: ['feature'],
+    reviewers: ['alice', 'bob'],
+    cachedAt: now,
+    userHasApproved: false,
+    headPipelineStatus: 'success',
+    snoozedUntil: null,
+  },
+  {
+    id: 202,
+    instanceId: 1,
+    iid: 51,
+    projectId: 10,
+    projectName: 'frontend/web-app',
+    title: 'Draft: Experiment with new list virtualization',
+    description: null,
+    authorUsername: 'testuser',
+    sourceBranch: 'experiment/virtual-list',
+    targetBranch: 'main',
+    state: 'opened',
+    webUrl: 'https://gitlab.example.com/frontend/web-app/-/merge_requests/51',
+    createdAt: now - 86400,
+    updatedAt: now - 3600,
+    mergedAt: null,
+    approvalStatus: 'pending',
+    approvalsRequired: 1,
+    approvalsCount: 0,
+    labels: ['experiment'],
+    reviewers: [],
+    cachedAt: now,
+    userHasApproved: false,
+    headPipelineStatus: 'failed',
+    snoozedUntil: null,
+  },
+];
+
+// ============================================================================
+// Diff Files (for MR 101)
+// ============================================================================
+
+export const diffFiles: Record<number, DiffFile[]> = {
+  101: [
+    {
+      id: 1001,
+      mrId: 101,
+      oldPath: null,
+      newPath: 'src/components/ThemeToggle.tsx',
+      changeType: 'added',
+      additions: 45,
+      deletions: 0,
+      filePosition: 0,
+    },
+    {
+      id: 1002,
+      mrId: 101,
+      oldPath: 'src/App.tsx',
+      newPath: 'src/App.tsx',
+      changeType: 'modified',
+      additions: 12,
+      deletions: 3,
+      filePosition: 1,
+    },
+    {
+      id: 1003,
+      mrId: 101,
+      oldPath: 'src/styles/theme.css',
+      newPath: 'src/styles/theme.css',
+      changeType: 'modified',
+      additions: 30,
+      deletions: 5,
+      filePosition: 2,
+    },
+    {
+      id: 1004,
+      mrId: 101,
+      oldPath: 'src/legacy/OldTheme.css',
+      newPath: 'src/legacy/OldTheme.css',
+      changeType: 'deleted',
+      additions: 0,
+      deletions: 20,
+      filePosition: 3,
+    },
+  ],
+};
+
+// ============================================================================
+// Diff Refs
+// ============================================================================
+
+export const diffRefsMap: Record<number, DiffRefs> = {
+  101: {
+    baseSha: 'abc123def456',
+    headSha: 'fed654cba321',
+    startSha: 'abc123def456',
+  },
+};
+
+// ============================================================================
+// Diff Hunks
+// ============================================================================
+
+const sampleHunk: DiffHunk = {
+  oldStart: 1,
+  oldCount: 5,
+  newStart: 1,
+  newCount: 8,
+  lines: [
+    { type: 'context', content: 'import React from "react";', oldLineNumber: 1, newLineNumber: 1 },
+    { type: 'context', content: '', oldLineNumber: 2, newLineNumber: 2 },
+    { type: 'remove', content: 'function App() {', oldLineNumber: 3, newLineNumber: null },
+    { type: 'add', content: 'import { ThemeProvider } from "./ThemeProvider";', oldLineNumber: null, newLineNumber: 3 },
+    { type: 'add', content: '', oldLineNumber: null, newLineNumber: 4 },
+    { type: 'add', content: 'function App() {', oldLineNumber: null, newLineNumber: 5 },
+    { type: 'context', content: '  return (', oldLineNumber: 4, newLineNumber: 6 },
+    { type: 'context', content: '    <div className="app">', oldLineNumber: 5, newLineNumber: 7 },
+  ],
+};
+
+export const diffHunksMap: Record<string, DiffHunksResponse> = {
+  '101:src/App.tsx': {
+    filePath: 'src/App.tsx',
+    hunks: [sampleHunk],
+    startIndex: 0,
+    totalHunks: 1,
+    hasMore: false,
+  },
+};
+
+// ============================================================================
+// Comments
+// ============================================================================
+
+export const comments: Record<number, Comment[]> = {
+  101: [
+    {
+      id: 5001,
+      mrId: 101,
+      discussionId: 'disc-001',
+      parentId: null,
+      authorUsername: 'bob',
+      body: 'Looks good overall! One small suggestion on the theme provider implementation.',
+      filePath: null,
+      oldLine: null,
+      newLine: null,
+      resolved: false,
+      system: false,
+      createdAt: now - 7200,
+      updatedAt: now - 7200,
+      isLocal: false,
+      lineType: null,
+      resolvable: true,
+      syncStatus: 'synced',
+    },
+    {
+      id: 5002,
+      mrId: 101,
+      discussionId: 'disc-002',
+      parentId: null,
+      authorUsername: 'carol',
+      body: 'Could we add a system preference detection here?',
+      filePath: 'src/components/ThemeToggle.tsx',
+      oldLine: null,
+      newLine: 5,
+      resolved: false,
+      system: false,
+      createdAt: now - 3600,
+      updatedAt: now - 3600,
+      isLocal: false,
+      lineType: null,
+      resolvable: true,
+      syncStatus: 'synced',
+    },
+    {
+      id: 5003,
+      mrId: 101,
+      discussionId: 'disc-003',
+      parentId: null,
+      authorUsername: 'testuser',
+      body: 'I think we should also consider accessibility for the theme toggle.',
+      filePath: null,
+      oldLine: null,
+      newLine: null,
+      resolved: false,
+      system: false,
+      createdAt: now - 1800,
+      updatedAt: now - 1800,
+      isLocal: false,
+      lineType: null,
+      resolvable: true,
+      syncStatus: 'synced',
+    },
+    {
+      id: 5004,
+      mrId: 101,
+      discussionId: 'disc-004',
+      parentId: null,
+      authorUsername: 'testuser',
+      body: 'We should memoize this callback to avoid re-renders.',
+      filePath: 'src/components/ThemeToggle.tsx',
+      oldLine: null,
+      newLine: 6,
+      resolved: false,
+      system: false,
+      createdAt: now - 900,
+      updatedAt: now - 900,
+      isLocal: false,
+      lineType: null,
+      resolvable: true,
+      syncStatus: 'synced',
+    },
+    // Reply to disc-001
+    {
+      id: 5005,
+      mrId: 101,
+      discussionId: 'disc-001',
+      parentId: 5001,
+      authorUsername: 'alice',
+      body: 'Thanks for the review! I will update the theme provider.',
+      filePath: null,
+      oldLine: null,
+      newLine: null,
+      resolved: false,
+      system: false,
+      createdAt: now - 600,
+      updatedAt: now - 600,
+      isLocal: false,
+      lineType: null,
+      resolvable: true,
+      syncStatus: 'synced',
+    },
+    // Resolved thread
+    {
+      id: 5006,
+      mrId: 101,
+      discussionId: 'disc-005',
+      parentId: null,
+      authorUsername: 'carol',
+      body: 'Nit: missing semicolon on line 12.',
+      filePath: 'src/utils/theme.ts',
+      oldLine: null,
+      newLine: 12,
+      resolved: true,
+      system: false,
+      createdAt: now - 10800,
+      updatedAt: now - 10800,
+      isLocal: false,
+      lineType: null,
+      resolvable: true,
+      syncStatus: 'synced',
+    },
+    // System events
+    {
+      id: 5007,
+      mrId: 101,
+      discussionId: null,
+      parentId: null,
+      authorUsername: 'bob',
+      body: 'approved this merge request',
+      filePath: null,
+      oldLine: null,
+      newLine: null,
+      resolved: false,
+      system: true,
+      createdAt: now - 5400,
+      updatedAt: now - 5400,
+      isLocal: false,
+      lineType: null,
+      resolvable: true,
+      syncStatus: 'synced',
+    },
+    {
+      id: 5008,
+      mrId: 101,
+      discussionId: null,
+      parentId: null,
+      authorUsername: 'alice',
+      body: 'added 2 commits',
+      filePath: null,
+      oldLine: null,
+      newLine: null,
+      resolved: false,
+      system: true,
+      createdAt: now - 4200,
+      updatedAt: now - 4200,
+      isLocal: false,
+      lineType: null,
+      resolvable: true,
+      syncStatus: 'synced',
+    },
+    // Pending sync comment
+    {
+      id: 5009,
+      mrId: 101,
+      discussionId: null,
+      parentId: null,
+      authorUsername: 'testuser',
+      body: 'LGTM, just the minor nits above.',
+      filePath: null,
+      oldLine: null,
+      newLine: null,
+      resolved: false,
+      system: false,
+      createdAt: now - 300,
+      updatedAt: now - 300,
+      isLocal: true,
+      lineType: null,
+      resolvable: true,
+      syncStatus: 'pending',
+    },
+    // Failed sync comment
+    {
+      id: 5010,
+      mrId: 101,
+      discussionId: null,
+      parentId: null,
+      authorUsername: 'testuser',
+      body: 'This comment failed to sync.',
+      filePath: null,
+      oldLine: null,
+      newLine: null,
+      resolved: false,
+      system: false,
+      createdAt: now - 200,
+      updatedAt: now - 200,
+      isLocal: true,
+      lineType: null,
+      resolvable: true,
+      syncStatus: 'failed',
+    },
+  ],
+  201: [
+    {
+      id: 6001,
+      mrId: 201,
+      discussionId: 'disc-201-001',
+      parentId: null,
+      authorUsername: 'alice',
+      body: 'Great work on the notification preferences!',
+      filePath: null,
+      oldLine: null,
+      newLine: null,
+      resolved: false,
+      system: false,
+      createdAt: now - 5400,
+      updatedAt: now - 5400,
+      isLocal: false,
+      lineType: null,
+      resolvable: true,
+      syncStatus: 'synced',
+    },
+    {
+      id: 6002,
+      mrId: 201,
+      discussionId: 'disc-201-002',
+      parentId: null,
+      authorUsername: 'testuser',
+      body: 'Added a note about the notification API changes.',
+      filePath: null,
+      oldLine: null,
+      newLine: null,
+      resolved: false,
+      system: false,
+      createdAt: now - 3600,
+      updatedAt: now - 3600,
+      isLocal: false,
+      lineType: null,
+      resolvable: true,
+      syncStatus: 'synced',
+    },
+  ],
+};
+
+// ============================================================================
+// Reviewers
+// ============================================================================
+
+export const reviewers: Record<number, MrReviewer[]> = {
+  101: [
+    { mrId: 101, username: 'bob', status: 'approved', cachedAt: now },
+    { mrId: 101, username: 'carol', status: 'pending', cachedAt: now },
+  ],
+  201: [
+    { mrId: 201, username: 'alice', status: 'approved', cachedAt: now },
+    { mrId: 201, username: 'bob', status: 'approved', cachedAt: now },
+  ],
+};
+
+// ============================================================================
+// Sync Status
+// ============================================================================
+
+/** `get_sync_status` wire shape: snake_case, like the Rust struct. */
+export const syncStatus: SyncStatusWire = {
+  is_syncing: false,
+  last_sync_time: now,
+  last_error: null,
+  pending_actions: 0,
+  failed_actions: 0,
+  last_sync_mr_count: 12,
+  recent_logs: [],
+};
+
+// ============================================================================
+// Settings
+// ============================================================================
+
+export const settings: Settings = {
+  sync: { interval_secs: 300, max_mrs_per_sync: 100, issue_interval_secs: 900 },
+  theme: 'kanagawa-wave',
+  uiFont: 'system-ui',
+  displayFont: 'monospace',
+  diffsFont: 'Geist Mono',
+  customThemeColors: null,
+  keyboardShortcuts: {},
+  collapsePatterns: ['*.lock', 'package-lock.json'],
+  fileJumpCount: 2,
+  mrListCondensed: false,
+  showRecentlyMergedMrs: false,
+  showDraftMrs: true,
+  // Seeded as seen so the first-run tour overlay doesn't cover unrelated specs.
+  hasSeenProductTour: true,
+};
+
+// ============================================================================
+// Pipeline Data
+// ============================================================================
+
+export const pipelineProjects: PipelineProject[] = [
+  {
+    projectId: 10,
+    instanceId: 1,
+    pinned: true,
+    lastVisitedAt: new Date().toISOString(),
+    sortOrder: 0,
+    name: 'web-app',
+    nameWithNamespace: 'frontend / web-app',
+    pathWithNamespace: 'frontend/web-app',
+    webUrl: 'https://gitlab.example.com/frontend/web-app',
+    starred: false,
+    customName: null,
+  },
+];
+
+/** Results returned by `search_projects` in tests (filtered by query substring in the mock). */
+export const projectSearchResults: ProjectSearchResult[] = [
+  {
+    id: 20,
+    name: 'design-system',
+    nameWithNamespace: 'frontend / design-system',
+    pathWithNamespace: 'frontend/design-system',
+    webUrl: 'https://gitlab.example.com/frontend/design-system',
+  },
+];
+
+export const pipelineStatuses: PipelineStatus[] = [
+  {
+    id: 3001,
+    projectId: 10,
+    status: 'success',
+    refName: 'main',
+    sha: 'abc123',
+    webUrl: 'https://gitlab.example.com/frontend/web-app/-/pipelines/3001',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    updatedAt: new Date().toISOString(),
+    duration: 245,
+  },
+];
+
+export const pipelineJobs: PipelineJob[] = [
+  {
+    id: 7001,
+    name: 'lint',
+    stage: 'test',
+    status: 'success',
+    webUrl: 'https://gitlab.example.com/frontend/web-app/-/jobs/7001',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    startedAt: new Date(Date.now() - 3500000).toISOString(),
+    finishedAt: new Date(Date.now() - 3400000).toISOString(),
+    duration: 100,
+    queuedDuration: 5,
+    allowFailure: false,
+    runnerDescription: 'shared-runner-01',
+    isBridge: false,
+    manual: false,
+    downstreamPipeline: null,
+  },
+  {
+    id: 7002,
+    name: 'test',
+    stage: 'test',
+    status: 'success',
+    webUrl: 'https://gitlab.example.com/frontend/web-app/-/jobs/7002',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    startedAt: new Date(Date.now() - 3500000).toISOString(),
+    finishedAt: new Date(Date.now() - 3200000).toISOString(),
+    duration: 300,
+    queuedDuration: 5,
+    allowFailure: false,
+    runnerDescription: 'shared-runner-02',
+    isBridge: false,
+    manual: false,
+    downstreamPipeline: null,
+  },
+  {
+    id: 7003,
+    name: 'Docs',
+    stage: 'triggers',
+    status: 'success',
+    webUrl: 'https://gitlab.example.com/frontend/web-app/-/jobs/7003',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    startedAt: new Date(Date.now() - 3500000).toISOString(),
+    finishedAt: new Date(Date.now() - 3100000).toISOString(),
+    duration: 400,
+    queuedDuration: 2,
+    allowFailure: false,
+    runnerDescription: null,
+    isBridge: true,
+    manual: false,
+    downstreamPipeline: {
+      id: 3002,
+      projectId: 11,
+      status: 'success',
+      refName: 'main',
+      webUrl: 'https://gitlab.example.com/pipelines/docs/-/pipelines/3002',
+    },
+  },
+  {
+    id: 7004,
+    name: 'Deploy production',
+    stage: 'deploy',
+    status: 'manual',
+    webUrl: 'https://gitlab.example.com/frontend/web-app/-/jobs/7004',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    startedAt: null,
+    finishedAt: null,
+    duration: null,
+    queuedDuration: null,
+    allowFailure: false,
+    runnerDescription: null,
+    isBridge: false,
+    manual: true,
+    downstreamPipeline: null,
+  },
+  {
+    id: 7005,
+    name: 'Deploy review',
+    stage: 'deploy',
+    status: 'created',
+    webUrl: 'https://gitlab.example.com/frontend/web-app/-/jobs/7005',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    startedAt: null,
+    finishedAt: null,
+    duration: null,
+    queuedDuration: null,
+    allowFailure: false,
+    runnerDescription: null,
+    isBridge: false,
+    manual: true,
+    downstreamPipeline: null,
+  },
+  {
+    id: 7006,
+    name: 'build-extra',
+    stage: 'build',
+    status: 'created',
+    webUrl: 'https://gitlab.example.com/frontend/web-app/-/jobs/7006',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    startedAt: null,
+    finishedAt: null,
+    duration: null,
+    queuedDuration: null,
+    allowFailure: false,
+    runnerDescription: null,
+    isBridge: false,
+    manual: false,
+    downstreamPipeline: null,
+  },
+];
+
+/** Jobs of the downstream pipeline (#3002) triggered by the `Docs` bridge job. */
+export const downstreamPipelineJobs: PipelineJob[] = [
+  {
+    id: 7101,
+    name: 'build-docs',
+    stage: 'docs',
+    status: 'success',
+    webUrl: 'https://gitlab.example.com/pipelines/docs/-/jobs/7101',
+    createdAt: new Date(Date.now() - 3500000).toISOString(),
+    startedAt: new Date(Date.now() - 3450000).toISOString(),
+    finishedAt: new Date(Date.now() - 3150000).toISOString(),
+    duration: 300,
+    queuedDuration: 3,
+    allowFailure: false,
+    runnerDescription: 'docs-runner',
+    isBridge: false,
+    manual: false,
+    downstreamPipeline: null,
+  },
+];
+
+// ============================================================================
+// Notifications
+// ============================================================================
+
+export const notificationSettings: NotificationSettings = {
+  mrReadyToMerge: true,
+  pipelineStatusPinned: true,
+  nativeNotificationsEnabled: false,
+};
+
+// ============================================================================
+// Issues (the rewrite has no issues screen; kept so the mock stays complete)
+// ============================================================================
+
+type IssueWithProject = Record<string, unknown>;
+
+export const issues: IssueWithProject[] = [
+  {
+    id: 9001,
+    instanceId: 1,
+    iid: 42,
+    projectId: 7,
+    title: 'Login button misaligned on mobile',
+    description: 'The login button overlaps the footer on small screens.',
+    state: 'open',
+    webUrl: 'https://gitlab.example.com/example/webapp/-/issues/42',
+    authorUsername: 'alice',
+    assigneeUsernames: '["testuser"]',
+    labels: '["bug"]',
+    createdAt: now - 86400 * 3,
+    updatedAt: now - 3600,
+    closedAt: null,
+    dueDate: null,
+    confidential: false,
+    userNotesCount: 0,
+    starred: false,
+    assignedToMe: true,
+    cachedAt: now,
+    projectName: 'WebApp',
+    projectNameWithNamespace: 'Example / WebApp',
+    projectPathWithNamespace: 'example/webapp',
+    projectCustomName: null,
+    projectStarred: false,
+  },
+  {
+    id: 9002,
+    instanceId: 1,
+    iid: 43,
+    projectId: 7,
+    title: 'Dark mode flashes white on startup',
+    description: 'The window paints white before the theme loads.',
+    state: 'open',
+    webUrl: 'https://gitlab.example.com/example/webapp/-/issues/43',
+    authorUsername: 'bob',
+    assigneeUsernames: '["testuser"]',
+    labels: '[]',
+    createdAt: now - 86400 * 5,
+    updatedAt: now - 7200,
+    closedAt: null,
+    dueDate: null,
+    confidential: false,
+    userNotesCount: 0,
+    starred: true,
+    assignedToMe: true,
+    cachedAt: now,
+    projectName: 'WebApp',
+    projectNameWithNamespace: 'Example / WebApp',
+    projectPathWithNamespace: 'example/webapp',
+    projectCustomName: null,
+    projectStarred: false,
+  },
+];

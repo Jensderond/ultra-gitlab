@@ -7,6 +7,7 @@
 
 import { test as base, expect } from '@playwright/test';
 import { mockTauriIPC } from './tauri-mock';
+import { waitForAppOnNavigate } from './wait-for-app';
 
 /**
  * Extended test fixture that automatically sets up Tauri IPC mocking.
@@ -14,6 +15,7 @@ import { mockTauriIPC } from './tauri-mock';
 export const test = base.extend<{ autoMockTauri: void }>({
   autoMockTauri: [async ({ page }, use) => {
     await mockTauriIPC(page);
+    waitForAppOnNavigate(page);
     await use();
   }, { auto: true }],
 });

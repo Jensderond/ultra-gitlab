@@ -1,0 +1,103 @@
+/* Sidebar update button (UpdateButton.tsx), pinned under the source list. */
+
+.upd {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  color: var(--text-on-accent);
+  text-align: left;
+  overflow: hidden;
+  flex: none;
+  box-shadow: var(--shadow-control);
+}
+
+.upd__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+.upd__title {
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+.upd__sub {
+  font-size: var(--text-xs);
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upd--downloading {
+  background: var(--accent);
+  cursor: default;
+}
+.upd__track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.25);
+}
+.upd__fill {
+  display: block;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  transition: width var(--dur) var(--ease);
+}
+.upd__fill.is-indeterminate {
+  width: 30%;
+  animation: upd-sweep 1.2s var(--ease) infinite;
+}
+@keyframes upd-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+
+.upd--ready {
+  background: var(--update-ready);
+}
+.upd--ready:hover:not(:disabled) {
+  background: var(--update-ready-hover);
+}
+.upd--ready:focus-visible,
+.upd--error:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.upd--ready:disabled {
+  cursor: default;
+}
+
+.upd--error {
+  background: var(--bg-raised);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.upd--error:hover {
+  background: var(--bg-hover);
+}
+.upd--error svg {
+  color: var(--fail);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upd__fill.is-indeterminate {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+}

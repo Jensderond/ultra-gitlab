@@ -17,7 +17,7 @@ import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import BackButton from '../../components/BackButton';
 import { PageHeader } from '../../components/PageHeader';
 import { CaretRightIcon } from '../../components/icons';
-import { isTauri } from '../../services/transport';
+import { isIOS, isTauri } from '../../services/transport';
 import { getNotificationSettings } from '../../services/tauri';
 import type { UpdateCheckerState } from '../../hooks/useUpdateChecker';
 import type { NotificationSettings } from '../../types';
@@ -26,6 +26,7 @@ import { useInstancesQuery } from '../../hooks/queries/useInstancesQuery';
 import useTheme from '../../hooks/useTheme';
 import { useSmallScreen } from '../../hooks/useSmallScreen';
 import UpdatesSection from './UpdatesSection';
+import NativeUiSection from './NativeUiSection';
 import InstancesSection from './InstancesSection';
 import SyncSettingsSection from './SyncSettingsSection';
 import CliSection from './CliSection';
@@ -51,7 +52,8 @@ type SectionId =
   | 'generated-files'
   | 'file-navigation'
   | 'cli'
-  | 'updates';
+  | 'updates'
+  | 'native-ui';
 
 interface SectionDef {
   id: SectionId;
@@ -145,6 +147,13 @@ const SECTION_GROUPS: SectionGroup[] = [
         description: 'App version and new releases',
         tauriOnly: true,
       },
+      {
+        id: 'native-ui',
+        label: 'Native UI (beta)',
+        description: 'Try the new Mac-native interface',
+        tauriOnly: true,
+        desktopOnly: true,
+      },
     ],
   },
 ];
@@ -201,6 +210,7 @@ function SectionContent({
     case 'file-navigation': return <NavigationSection />;
     case 'cli': return <CliSection />;
     case 'updates': return updateChecker ? <UpdatesSection updateChecker={updateChecker} /> : null;
+    case 'native-ui': return <NativeUiSection />;
   }
 }
 
@@ -227,7 +237,8 @@ export default function Settings({ updateChecker }: SettingsProps) {
         (s) =>
           (isTauri || !s.tauriOnly) &&
           (!isSmallScreen || !s.desktopOnly) &&
-          (s.id !== 'updates' || updateChecker),
+          (s.id !== 'updates' || updateChecker) &&
+          (s.id !== 'native-ui' || !isIOS),
       ),
     }))
     .filter((group) => group.sections.length > 0);
@@ -242,6 +253,7 @@ export default function Settings({ updateChecker }: SettingsProps) {
     appearance: theme.name,
     notifications: notifSubtitle,
     updates: updateAvailable ? 'Update available' : appVersion ? `v${appVersion}` : undefined,
+    'native-ui': 'Off',
   };
 
   // Legacy deep link: /settings?highlight=condensed-mr-list opened Appearance.

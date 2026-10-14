@@ -1,0 +1,53 @@
+/* PipelineStrip — the compact stage chain used on inbox cards. */
+
+.pl-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+}
+.pl-strip__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.pl-strip__arrow {
+  color: var(--text-ghost);
+}
+.pl-strip__chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  border: 0;
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  line-height: 1.35;
+}
+button.pl-strip__chip:hover {
+  filter: brightness(0.96);
+}
+.pl-strip__chip--ok {
+  background: var(--ok-soft);
+  color: var(--ok-text);
+}
+.pl-strip__chip--fail {
+  background: var(--fail-soft);
+  color: var(--fail-text);
+  font-weight: 600;
+}
+.pl-strip__chip--running {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.pl-strip__chip--neutral {
+  background: var(--neutral-soft);
+  color: var(--neutral-text);
+}
+.pl-strip__detail {
+  font-weight: 400;
+  opacity: 0.85;
+}

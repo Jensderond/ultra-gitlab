@@ -1,3 +1,4 @@
 bun run lint:fix
 bunx tsc --noEmit
+bun run test
 bun run test:e2e
