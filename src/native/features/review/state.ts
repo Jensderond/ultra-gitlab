@@ -186,6 +186,8 @@ export interface Draft {
   side?: 'old' | 'new';
   line?: number;
   lineKind?: LineKind;
+  /** First line of a multi-line comment (`line` is the last). */
+  from?: { side: 'old' | 'new'; line: number };
   /** Reply to an existing discussion. */
   discussionId?: string;
   parentId?: number;

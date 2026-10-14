@@ -247,6 +247,46 @@ pub struct AddCommentInput {
     /// line number from the stored diff.
     #[serde(default)]
     pub is_context_line: bool,
+    /// First line of a multi-line comment; the comment itself sits on
+    /// `old_line`/`new_line`, the last line of the range.
+    #[serde(default)]
+    pub line_range_start: Option<LineRangeStartInput>,
+}
+
+/// Where a multi-line comment starts.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LineRangeStartInput {
+    /// `"old"` or `"new"`.
+    pub side: String,
+    pub line: i64,
+}
+
+/// Build GitLab's `line_range` from the cached diff. `None` (a single-line
+/// comment on the end line) when the diff or either line can't be found.
+async fn resolve_line_range(
+    pool: &DbPool,
+    mr_id: i64,
+    file_path: &str,
+    start: &LineRangeStartInput,
+    end: (i64, bool),
+) -> Result<Option<serde_json::Value>, AppError> {
+    let diff: Option<String> = sqlx::query_scalar(
+        "SELECT diff_content FROM diff_files WHERE mr_id = ? AND new_path = ?",
+    )
+    .bind(mr_id)
+    .bind(file_path)
+    .fetch_optional(pool)
+    .await?
+    .flatten();
+    Ok(diff.and_then(|diff| {
+        crate::core::comments::build_line_range(
+            &diff,
+            file_path,
+            (start.line, start.side == "old"),
+            end,
+        )
+    }))
 }
 
 /// Add a new comment to a merge request.
@@ -301,6 +341,22 @@ pub async fn add_comment(
         (input.old_line, input.new_line)
     };
 
+    // The end of a range is the line the comment is anchored to.
+    let line_range = match (&input.file_path, &input.line_range_start) {
+        (Some(file_path), Some(start)) => {
+            let end = match (input.new_line, input.old_line) {
+                (Some(new), _) => Some((new, false)),
+                (None, Some(old)) => Some((old, true)),
+                (None, None) => None,
+            };
+            match end {
+                Some(end) => resolve_line_range(pool.inner(), input.mr_id, file_path, start, end).await?,
+                None => None,
+            }
+        }
+        _ => None,
+    };
+
     let timestamp = now();
     let local_id = generate_local_id();
 
@@ -337,6 +393,7 @@ pub async fn add_comment(
         "base_sha": base_sha,
         "head_sha": head_sha,
         "start_sha": start_sha,
+        "line_range": line_range,
     }))?;
 
     // Queue for sync

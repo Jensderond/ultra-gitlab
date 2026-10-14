@@ -228,6 +228,8 @@ export interface AddCommentRequest {
   newLine?: number;
   /** When true, this is an unchanged (context) line — backend resolves both line numbers from the diff. */
   isContextLine?: boolean;
+  /** First line of a multi-line comment; `oldLine`/`newLine` is the last. */
+  lineRangeStart?: { side: 'old' | 'new'; line: number };
 }
 
 export interface ReplyToCommentRequest {

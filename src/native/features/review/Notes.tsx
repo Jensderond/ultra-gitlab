@@ -10,8 +10,11 @@ import type { Comment } from '../../api/types';
 import { Avatar, Button, Tag, cx } from '../../ui/components';
 import { Markdown } from '../../ui/Markdown';
 import { age } from '../../lib/format';
+import { blockLines, caretFor, linesLabel, onSeed, unsent } from './compose';
 import { composerKey, useReview, type ComposerTarget } from './context';
+import type { SuggestionSource } from './diff';
 import type { Draft } from './state';
+import { suggestionBlock } from './suggest';
 import { snippet, type Thread } from './threads';
 
 const when = (ts: number) => {
@@ -22,9 +25,6 @@ const when = (ts: number) => {
 /* ------------------------------------------------------------------------ */
 /* Composer                                                                 */
 /* ------------------------------------------------------------------------ */
-
-/** Unsent composer text survives closing the composer or switching files. */
-const unsent = new Map<string, string>();
 
 export function Composer({
   target,
@@ -40,8 +40,8 @@ export function Composer({
   label: ReactNode;
   initial?: string;
   submitLabel?: string;
-  /** The line's current text; enables "Suggest change". */
-  suggestion?: string | null;
+  /** The lines a suggestion replaces; enables "Suggest change" (null: shown disabled). */
+  suggestion?: SuggestionSource | null;
   onSubmit: (body: string) => void;
   onCancel: () => void;
   extra?: (body: string, clear: () => void) => ReactNode;
@@ -64,9 +64,30 @@ export function Composer({
     if (!el) return;
     grow();
     el.focus({ preventScroll: true });
-    el.setSelectionRange(el.value.length, el.value.length);
+    const caret = caretFor(key, el.value);
+    if (caret) el.setSelectionRange(caret[0], caret[1]);
+    else el.setSelectionRange(el.value.length, el.value.length);
     el.scrollIntoView({ block: 'nearest' });
-  }, []);
+  }, [key]);
+
+  // A suggestion seeded while this composer is already open.
+  useEffect(
+    () =>
+      onSeed((seeded) => {
+        if (seeded !== key) return;
+        const next = unsent.get(key) ?? '';
+        setText(next);
+        requestAnimationFrame(() => {
+          const el = ref.current;
+          const caret = caretFor(key, next);
+          if (!el) return;
+          grow();
+          el.focus();
+          if (caret) el.setSelectionRange(caret[0], caret[1]);
+        });
+      }),
+    [key],
+  );
 
   const change = (value: string) => {
     setText(value);
@@ -85,9 +106,9 @@ export function Composer({
   };
 
   const insertSuggestion = () => {
-    if (suggestion === null || suggestion === undefined) return;
+    if (!suggestion) return;
     const el = ref.current;
-    const block = `\`\`\`suggestion:-0+0\n${suggestion}\n\`\`\``;
+    const block = suggestionBlock(suggestion.text, suggestion.above);
     const start = el?.selectionStart ?? text.length;
     const end = el?.selectionEnd ?? text.length;
     const before = text.slice(0, start);
@@ -97,9 +118,9 @@ export function Composer({
     requestAnimationFrame(() => {
       if (!el) return;
       el.focus();
-      // Put the caret on the suggested line so it can be edited right away.
-      const lineStart = before.length + pad.length + '```suggestion:-0+0\n'.length;
-      el.setSelectionRange(lineStart, lineStart + suggestion.length);
+      // Select the suggested lines so they can be edited right away.
+      const [from, to] = blockLines(block, before.length + pad.length);
+      el.setSelectionRange(from, to);
     });
   };
 
@@ -141,7 +162,13 @@ export function Composer({
             size="sm"
             onClick={insertSuggestion}
             disabled={suggestion === null}
-            title={suggestion === null ? 'Suggestions work on lines of the new version' : 'Insert a suggestion block with this line'}
+            title={
+              suggestion === null
+                ? 'Suggestions work on lines of the new version'
+                : suggestion.above > 0
+                  ? `Insert a suggestion block with these ${suggestion.above + 1} lines`
+                  : 'Insert a suggestion block with this line'
+            }
           >
             Suggest change
           </Button>
@@ -209,6 +236,11 @@ function DraftNote({ draft, reply }: { draft: Draft; reply?: boolean }) {
         <div className="rv-note__meta">
           <strong>You</strong>
           <Tag tone="warn">Pending</Tag>
+          {draft.from && draft.side && draft.line && (
+            <span className="rv-note__range">
+              {linesLabel({ side: draft.side, line: draft.line }, draft.from)}
+            </span>
+          )}
           <span className="rv-spacer" />
           <button type="button" className="rv-link" onClick={() => openComposer({ kind: 'edit', draftId: draft.id })}>
             Edit
@@ -228,7 +260,7 @@ function DraftNote({ draft, reply }: { draft: Draft; reply?: boolean }) {
 /* ------------------------------------------------------------------------ */
 
 export function ThreadCard({ thread, compact }: { thread: Thread; compact?: boolean }) {
-  const { drafts, composer, openComposer, addDraft, resolve, lineText } = useReview();
+  const { drafts, composer, openComposer, addDraft, resolve, suggestion: suggestionFor } = useReview();
   const [expanded, setExpanded] = useState(!thread.resolved);
   const [busy, setBusy] = useState(false);
   const pending = drafts.filter((d) => d.discussionId && d.discussionId === thread.discussionId);
@@ -268,7 +300,9 @@ export function ThreadCard({ thread, compact }: { thread: Thread; compact?: bool
   }
 
   const suggestion =
-    thread.filePath && thread.line && thread.side === 'new' ? lineText(thread.filePath, 'new', thread.line) : null;
+    thread.filePath && thread.line && thread.side === 'new'
+      ? suggestionFor(thread.filePath, undefined, { side: 'new', line: thread.line })
+      : null;
 
   return (
     <div id={`rv-thread-${thread.id}`} className={cx('rv-thread', compact && 'rv-thread--compact', thread.resolved && 'is-resolved')}>
@@ -361,14 +395,14 @@ export function ThreadCard({ thread, compact }: { thread: Thread; compact?: bool
 /* ------------------------------------------------------------------------ */
 
 export function NewCommentCard({ target }: { target: Extract<ComposerTarget, { kind: 'new' }> }) {
-  const { openComposer, addDraft, lineText } = useReview();
-  const where = target.side === 'old' ? `old line ${target.line}` : `line ${target.line}`;
+  const { openComposer, addDraft, suggestion } = useReview();
+  const to = { side: target.side, line: target.line };
   return (
     <div className="rv-thread rv-thread--new" id="rv-new-comment">
       <Composer
         target={target}
-        label={`Comment on ${where} · saved as draft until you finish the review`}
-        suggestion={target.side === 'new' ? lineText(target.filePath, 'new', target.line) : null}
+        label={`Comment on ${linesLabel(to, target.from)} · saved as draft until you finish the review`}
+        suggestion={suggestion(target.filePath, target.from, to)}
         onSubmit={(body) => {
           addDraft({
             body,
@@ -376,6 +410,7 @@ export function NewCommentCard({ target }: { target: Extract<ComposerTarget, { k
             side: target.side,
             line: target.line,
             lineKind: target.lineKind,
+            ...(target.from ? { from: target.from } : {}),
           });
           openComposer(null);
         }}

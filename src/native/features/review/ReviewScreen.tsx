@@ -5,8 +5,9 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { getFiletypeFromFileName, preloadHighlighter } from '@pierre/diffs';
 import type { SelectedLineRange } from '@pierre/diffs/react';
-import { api, openExternal } from '../../api/client';
+import { api, isMac, openExternal } from '../../api/client';
 import type { Comment, DiffFile, PipelineJob } from '../../api/types';
 import { useKeys } from '../../app/keys';
 import { back, cameFrom, navigate, paths, setSearchParams } from '../../app/router';
@@ -29,6 +30,7 @@ import {
   Kbd,
   Progress,
   Segmented,
+  Sheet,
   showContextMenu,
   Spinner,
   StatusIcon,
@@ -45,10 +47,11 @@ import { useDiffViewMode } from '../settings/prefs';
 import { Aside } from './Aside';
 import { prefetchPair, useContentAt, useFilePair, useImagePair } from './content';
 import { ReviewContext, type ComposerTarget, type ReviewContextValue } from './context';
-import { buildDiff, isVisible, lineKind, lineText, type DiffModel } from './diff';
-import { DiffView, type AnnotationGroup, type LineRef, type Side } from './DiffView';
+import { buildDiff, isVisible, lineKind, suggestionSource, type DiffModel } from './diff';
+import { DiffView, type AnnotationGroup, type DiffEditor, type LineRef, type Side } from './DiffView';
 import { FileList, type FileRowInfo } from './FileList';
 import { FinishSheet, type Verdict } from './FinishSheet';
+import { seedSuggestion } from './compose';
 import { CiCallout, DraftCard, NewCommentCard, ThreadCard } from './Notes';
 import { changeLabel, imageMime, isBinaryPath, isImagePath, looksBinary, orderFiles } from './order';
 import {
@@ -61,6 +64,7 @@ import {
   useViewedFiles,
   type Draft,
 } from './state';
+import { editedRegion, suggestionBlock } from './suggest';
 import { buildThreads, type Thread } from './threads';
 import './review.css';
 
@@ -188,6 +192,39 @@ function ImageDiff({ file, base, head }: { file: DiffFile; base: string | null; 
       {side('After', head, file.changeType === 'deleted' ? 'Deleted' : 'Not available')}
     </div>
   );
+}
+
+/** A LineRef as Pierre's selection, so the selected lines stay highlighted. */
+const toSelection = (ref: LineRef): SelectedLineRange => {
+  const pierre = (side: Side) => (side === 'new' ? 'additions' : 'deletions');
+  const from = ref.from ?? ref;
+  return {
+    start: from.line,
+    side: pierre(from.side),
+    end: ref.line,
+    ...(from.side !== ref.side ? { endSide: pierre(ref.side) } : {}),
+  };
+};
+
+/**
+ * Pierre's editor tokenizes on the main thread and drops keystrokes typed
+ * before the file's grammar loads, so editing waits for it.
+ */
+function useGrammarReady(path: string | undefined, enabled: boolean): boolean {
+  const [ready, setReady] = useState<string | null>(null);
+  useEffect(() => {
+    if (!enabled || !path) return;
+    let cancelled = false;
+    preloadHighlighter({ themes: ['pierre-dark', 'pierre-light'], langs: [getFiletypeFromFileName(path)] })
+      .then(() => !cancelled && setReady(path))
+      .catch(() => {
+        /* Stay read-only. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [path, enabled]);
+  return enabled && !!path && ready === path;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -344,6 +381,47 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
   const hoverRef = useRef<LineRef | null>(null);
   const selectRef = useRef<LineRef | null>(null);
 
+  // Suggest edit: the new version becomes editable; the edit turns into a
+  // suggestion comment. Keyed by file, so switching files ends it.
+  const [editingPath, setEditingPath] = useState<string | null>(null);
+  const [edited, setEdited] = useState<string | null>(null);
+  const canEdit = !!model && !!pair && !!current && current.changeType !== 'deleted' && !model.fileDiff.isPartial;
+  const editing = canEdit && editingPath === path;
+  const grammarReady = useGrammarReady(path, canEdit);
+  const isChange = useCallback(
+    (text: string | null) =>
+      text !== null && !!pair && text.replace(/\r\n/g, '\n') !== pair.head.replace(/\r\n/g, '\n'),
+    [pair],
+  );
+  // For rendering (Create suggestion enabled). Pierre reports changes a beat
+  // late, so decisions read the editor itself through currentEdit().
+  const hasEdits = editing && isChange(edited);
+  const editorRef = useRef<DiffEditor | null>(null);
+  const currentEdit = useCallback(
+    (): string | null => (editing ? (editorRef.current?.getText() ?? edited) : null),
+    [editing, edited],
+  );
+  // Leaving edit mode with changes asks first; this is what happens on "Discard".
+  const [discardThen, setDiscardThen] = useState<(() => void) | null>(null);
+  // The caret when the discard sheet opened, to put back on "Keep editing".
+  const editView = useRef<ReturnType<DiffEditor['getViewState']> | null>(null);
+  const askDiscard = useCallback((then: () => void) => {
+    editView.current = editorRef.current?.getViewState() ?? null;
+    setDiscardThen(() => then);
+  }, []);
+  const keepEditing = useCallback(() => {
+    setDiscardThen(null);
+    const editor = editorRef.current;
+    const view = editView.current;
+    editView.current = null;
+    // After the sheet has returned focus to where it was (the diff's host).
+    requestAnimationFrame(() => {
+      if (!editor) return;
+      if (view) editor.setViewState(view);
+      editor.focus({ preventScroll: true });
+    });
+  }, []);
+
   const resolve = useCallback(
     async (thread: Thread, resolved: boolean) => {
       if (!thread.discussionId) return;
@@ -377,7 +455,7 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
       updateDraft,
       removeDraft,
       resolve,
-      lineText: (fp, side, line) => (fp === path ? lineText(baseModel, side, line) : null),
+      suggestion: (fp, from, to) => (fp === path ? suggestionSource(baseModel, from, to) : null),
     }),
     [mrId, mr?.webUrl, me, avatars, composer, drafts, addDraft, updateDraft, removeDraft, resolve, path, baseModel],
   );
@@ -405,7 +483,7 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
   );
 
   const groups: AnnotationGroup[] = useMemo(() => {
-    if (!model || !current) return [];
+    if (!model || !current || editing) return [];
     type Item = { order: number; key: string; node: ReactNode };
     const map = new Map<string, { side: Side; line: number; items: Item[] }>();
     const put = (side: Side, line: number, order: number, key: string, node: ReactNode) => {
@@ -483,7 +561,7 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
             </div>
           )),
       }));
-  }, [model, current, path, failedJob, failure, ciLocations, fileThreads, fileDrafts, composer, effectiveMode, openPipeline]);
+  }, [model, current, editing, path, failedJob, failure, ciLocations, fileThreads, fileDrafts, composer, effectiveMode, openPipeline]);
 
   /* Navigation ------------------------------------------------------------ */
 
@@ -499,12 +577,20 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
     (next: string) => {
       rememberScroll();
       if (next === path) return;
+      if (isChange(currentEdit())) {
+        askDiscard(() => {
+          setEditingPath(null);
+          setEdited(null);
+          setSearchParams({ file: next });
+        });
+        return;
+      }
       setSelected(null);
       selectRef.current = null;
       hoverRef.current = null;
       setSearchParams({ file: next });
     },
-    [path, rememberScroll],
+    [path, rememberScroll, isChange, currentEdit, askDiscard],
   );
 
   // Restore the scroll position (or perform a pending jump) once the diff is there.
@@ -606,41 +692,148 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
     [threads, ordered, current, jumpTo],
   );
 
-  const openComposerAt = useCallback(
-    (ref: LineRef) => {
-      if (!current) return;
-      setComposer({
-        kind: 'new',
-        filePath: current.newPath,
-        side: ref.side,
-        line: ref.line,
-        lineKind: lineKind(baseModel, ref.side, ref.line),
-      });
-    },
+  const newTarget = useCallback(
+    (ref: LineRef): Extract<ComposerTarget, { kind: 'new' }> | null =>
+      current
+        ? {
+            kind: 'new',
+            filePath: current.newPath,
+            side: ref.side,
+            line: ref.line,
+            lineKind: lineKind(baseModel, ref.side, ref.line),
+            ...(ref.from ? { from: ref.from } : {}),
+          }
+        : null,
     [current, baseModel],
   );
 
+  const openComposerAt = useCallback(
+    (ref: LineRef) => {
+      const target = newTarget(ref);
+      if (!target) return;
+      // Keep the lines highlighted while you write about them.
+      selectRef.current = ref;
+      setSelected(toSelection(ref));
+      setComposer(target);
+    },
+    [newTarget],
+  );
+
+  /** The selected lines, else the hovered one. */
+  const lineForKey = useCallback(
+    (key: string): LineRef | null => {
+      if (!current || !model || editing) return null;
+      const ref = selectRef.current ?? hoverRef.current;
+      if (!ref) {
+        toast(`Hover or select lines first, then press ${key}`);
+        return null;
+      }
+      if (!commentSides.includes(ref.side) || (ref.from && !commentSides.includes(ref.from.side))) {
+        toast('While comparing since your last review, comment on the new version');
+        return null;
+      }
+      return ref;
+    },
+    [current, model, editing, commentSides],
+  );
+
   const commentOnLine = useCallback(() => {
-    if (!current || !model) return;
-    const ref = selectRef.current ?? hoverRef.current;
-    if (!ref) {
-      toast('Hover or select a line first, then press C');
+    const ref = lineForKey('C');
+    if (ref) openComposerAt(ref);
+  }, [lineForKey, openComposerAt]);
+
+  const suggestOnLine = useCallback(() => {
+    const ref = lineForKey('S');
+    const target = ref && newTarget(ref);
+    if (!ref || !target) return;
+    const source = suggestionSource(baseModel, ref.from, ref);
+    if (!source) {
+      toast('Suggestions work on lines of the new version');
       return;
     }
-    if (!commentSides.includes(ref.side)) {
-      toast('While comparing since your last review, comment on the new version');
-      return;
-    }
+    seedSuggestion(mrId, target, suggestionBlock(source.text, source.above));
     openComposerAt(ref);
-  }, [current, model, commentSides, openComposerAt]);
+  }, [lineForKey, newTarget, baseModel, mrId, openComposerAt]);
 
   const onHover = useCallback((ref: LineRef | null) => {
     hoverRef.current = ref;
   }, []);
   const onSelect = useCallback((ref: LineRef | null) => {
     selectRef.current = ref;
-    setSelected(ref ? { start: ref.line, end: ref.line, side: ref.side === 'new' ? 'additions' : 'deletions' } : null);
+    setSelected(ref ? toSelection(ref) : null);
   }, []);
+
+  /* Suggest edit ---------------------------------------------------------- */
+
+  const startEdit = useCallback(() => {
+    if (!canEdit || !path) return;
+    if (!grammarReady) {
+      toast('Preparing the editor…');
+      return;
+    }
+    setEdited(null);
+    setComposer(null);
+    setSelected(null);
+    selectRef.current = null;
+    setEditingPath(path);
+  }, [canEdit, grammarReady, path]);
+
+  const cancelEdit = useCallback(() => {
+    setEditingPath(null);
+    setEdited(null);
+  }, []);
+
+  /** Cancel, asking first when there's an edit to lose. */
+  const requestCancelEdit = useCallback(() => {
+    if (isChange(currentEdit())) askDiscard(cancelEdit);
+    else cancelEdit();
+  }, [isChange, currentEdit, cancelEdit, askDiscard]);
+
+  const confirmEdit = useCallback(() => {
+    const text = currentEdit();
+    if (!editing || !pair || text === null) return;
+    const region = editedRegion(pair.head, text);
+    cancelEdit();
+    if (!region) {
+      toast('Nothing changed');
+      return;
+    }
+    const ref: LineRef = {
+      side: 'new',
+      line: region.endLine,
+      context: false,
+      ...(region.startLine < region.endLine ? { from: { side: 'new' as const, line: region.startLine } } : {}),
+    };
+    const target = newTarget(ref);
+    if (!target) return;
+    seedSuggestion(mrId, target, suggestionBlock(region.replacement, region.endLine - region.startLine));
+    openComposerAt(ref);
+  }, [editing, pair, currentEdit, cancelEdit, newTarget, mrId, openComposerAt]);
+
+  // ⌘↩ creates the suggestion, Esc cancels. Pierre's editor binds both
+  // (insert a blank line, simplify the selection), so take them in the
+  // capture phase, before the editor sees them. Not while the discard sheet
+  // is open: Esc there means "keep editing".
+  const confirming = discardThen !== null;
+  useEffect(() => {
+    if (!editing || confirming) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.isComposing || e.shiftKey || e.altKey) return;
+      const mod = isMac ? e.metaKey : e.ctrlKey;
+      if (e.key === 'Escape' && !mod) {
+        e.preventDefault();
+        e.stopPropagation();
+        requestCancelEdit();
+      } else if (e.key === 'Enter' && mod) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isChange(currentEdit())) confirmEdit();
+        else toast('Make an edit first');
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [editing, confirming, isChange, currentEdit, confirmEdit, requestCancelEdit]);
 
   /* Layout preferences ---------------------------------------------------- */
 
@@ -708,7 +901,13 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
             : d.side === 'old'
               ? { oldLine: d.line, isContextLine: true }
               : { newLine: d.line, isContextLine: true };
-      await api.addComment({ mrId, body: d.body, filePath: d.filePath, ...position });
+      await api.addComment({
+        mrId,
+        body: d.body,
+        filePath: d.filePath,
+        ...position,
+        ...(d.from ? { lineRangeStart: d.from } : {}),
+      });
       return;
     }
     await api.addComment({ mrId, body: d.body });
@@ -766,9 +965,11 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
       n: () => nextUnresolved(1),
       'shift+n': () => nextUnresolved(-1),
       c: () => commentOnLine(),
+      s: () => suggestOnLine(),
+      e: () => (editing ? false : startEdit()),
       p: () => (pipeline ? openPipeline() : toast('There is no pipeline for this merge request')),
       'mod+shift+enter': () => setFinishOpen(true),
-      escape: () => (composer ? setComposer(null) : leaveReview()),
+      escape: () => (editing ? requestCancelEdit() : composer ? setComposer(null) : leaveReview()),
       arrowdown: (e) => (onChrome(e) ? false : scrollBy(48)),
       arrowup: (e) => (onChrome(e) ? false : scrollBy(-48)),
       space: (e) => (onChrome(e) ? false : scrollBy(page())),
@@ -907,6 +1108,9 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
         onComment={openComposerAt}
         onHover={onHover}
         onSelect={onSelect}
+        edit={editing}
+        onEditChange={setEdited}
+        editorRef={editorRef}
       />
     );
   }
@@ -1029,7 +1233,37 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
                   {(pairQ.fetching || sinceQ.fetching) && model && <Spinner size={12} />}
                 </div>
                 <div className="rv-filehead__controls">
-                  {textDiff && (
+                  {editing ? (
+                    <div className="rv-editbar" role="group" aria-label="Suggest edit">
+                      <span className="rv-editbar__hint">Editing the new version</span>
+                      <Button size="sm" variant="plain" onClick={requestCancelEdit} title="Stop editing (esc)">
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        shortcut="mod+enter"
+                        onClick={confirmEdit}
+                        disabled={!hasEdits}
+                        title={hasEdits ? 'Turn your edit into a suggestion comment' : 'Make an edit first'}
+                      >
+                        Create suggestion
+                      </Button>
+                    </div>
+                  ) : (
+                    canEdit && (
+                      <Button
+                        size="sm"
+                        shortcut="e"
+                        onClick={startEdit}
+                        disabled={!grammarReady}
+                        title={grammarReady ? 'Edit the new version to suggest a change' : 'Preparing the editor…'}
+                      >
+                        Suggest edit
+                      </Button>
+                    )
+                  )}
+                  {textDiff && !editing && (
                     <>
                       <Segmented<'unified' | 'split'>
                         label="Diff layout"
@@ -1055,7 +1289,7 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
                       </div>
                     </>
                   )}
-                  {!currentIsGenerated && (
+                  {!currentIsGenerated && !editing && (
                     <button
                       type="button"
                       className={cx('rv-viewed-btn', isViewed && 'is-on')}
@@ -1116,7 +1350,13 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
             <Kbd>N</Kbd> next unresolved
           </span>
           <span>
-            <Kbd>C</Kbd> comment on line
+            <Kbd>C</Kbd> comment on lines
+          </span>
+          <span>
+            <Kbd>S</Kbd> suggest change
+          </span>
+          <span>
+            <Kbd>E</Kbd> edit file
           </span>
           <span>
             <Kbd>P</Kbd> pipeline
@@ -1128,6 +1368,34 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
             <Kbd combo="mod+alt+0" /> inspector
           </span>
         </footer>
+
+        <Sheet
+          open={confirming}
+          onClose={keepEditing}
+          width={400}
+          title="Discard your edit?"
+          footer={
+            <>
+              <Button onClick={keepEditing} autoFocus>
+                Keep editing
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  const then = discardThen;
+                  setDiscardThen(null);
+                  then?.();
+                }}
+              >
+                Discard
+              </Button>
+            </>
+          }
+        >
+          <p className="rv-sheet-text">
+            Your changes to <span className="mono">{path}</span> haven't been turned into a suggestion yet.
+          </p>
+        </Sheet>
 
         <FinishSheet
           open={finishOpen}

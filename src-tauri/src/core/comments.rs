@@ -86,6 +86,122 @@ pub fn resolve_context_lines(
     None
 }
 
+/// What a diff line is, from the merge request's point of view.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiffLineKind {
+    Added,
+    Removed,
+    Context,
+}
+
+/// A line located in a unified diff, with GitLab's position counters.
+///
+/// `old_pos`/`new_pos` follow GitLab's diff parser: an added line still
+/// carries the old-side counter it sits at (and a removed line the new-side
+/// one). Both go into the line code that anchors a multi-line comment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DiffLinePosition {
+    pub kind: DiffLineKind,
+    pub old_pos: i64,
+    pub new_pos: i64,
+}
+
+/// Find `line` (on the old or new side) in a unified diff.
+pub fn diff_line_position(diff_content: &str, line: i64, is_old_side: bool) -> Option<DiffLinePosition> {
+    let mut old_pos: i64 = 0;
+    let mut new_pos: i64 = 0;
+    let mut in_hunk = false;
+
+    for raw in diff_content.lines() {
+        if raw.starts_with("@@") {
+            let parts: Vec<&str> = raw.splitn(4, ' ').collect();
+            let start = |s: Option<&&str>, prefix: char| {
+                s.and_then(|p| p.strip_prefix(prefix))
+                    .and_then(|p| p.split(',').next())
+                    .and_then(|n| n.parse::<i64>().ok())
+            };
+            old_pos = start(parts.get(1), '-').unwrap_or(0);
+            new_pos = start(parts.get(2), '+').unwrap_or(0);
+            in_hunk = true;
+            continue;
+        }
+        if !in_hunk {
+            // File headers (diff/index/---/+++) before the first hunk.
+            continue;
+        }
+        let (kind, hit) = match raw.as_bytes().first() {
+            Some(b'+') => (DiffLineKind::Added, !is_old_side && new_pos == line),
+            Some(b'-') => (DiffLineKind::Removed, is_old_side && old_pos == line),
+            // "\ No newline at end of file" isn't a line of either version.
+            Some(b'\\') => continue,
+            _ => (
+                DiffLineKind::Context,
+                if is_old_side { old_pos == line } else { new_pos == line },
+            ),
+        };
+        if hit {
+            return Some(DiffLinePosition { kind, old_pos, new_pos });
+        }
+        match kind {
+            DiffLineKind::Added => new_pos += 1,
+            DiffLineKind::Removed => old_pos += 1,
+            DiffLineKind::Context => {
+                old_pos += 1;
+                new_pos += 1;
+            }
+        }
+    }
+    None
+}
+
+/// GitLab's line code: `<sha1 of the file path>_<old_pos>_<new_pos>`.
+pub fn line_code(file_path: &str, old_pos: i64, new_pos: i64) -> String {
+    use sha1::{Digest, Sha1};
+    let digest = Sha1::digest(file_path.as_bytes());
+    let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
+    format!("{hex}_{old_pos}_{new_pos}")
+}
+
+/// One end of a `position[line_range]`, as GitLab's API expects it.
+fn line_range_point(file_path: &str, pos: DiffLinePosition) -> serde_json::Value {
+    let mut point = serde_json::json!({ "line_code": line_code(file_path, pos.old_pos, pos.new_pos) });
+    match pos.kind {
+        DiffLineKind::Added => {
+            point["type"] = "new".into();
+            point["new_line"] = pos.new_pos.into();
+        }
+        DiffLineKind::Removed => {
+            point["type"] = "old".into();
+            point["old_line"] = pos.old_pos.into();
+        }
+        DiffLineKind::Context => {
+            point["old_line"] = pos.old_pos.into();
+            point["new_line"] = pos.new_pos.into();
+        }
+    }
+    point
+}
+
+/// Build GitLab's `line_range` for a comment spanning `start` to `end`, each
+/// given as `(line, is_old_side)`. `None` when either end isn't in the diff,
+/// in which case the comment is posted on the end line alone.
+pub fn build_line_range(
+    diff_content: &str,
+    file_path: &str,
+    start: (i64, bool),
+    end: (i64, bool),
+) -> Option<serde_json::Value> {
+    let s = diff_line_position(diff_content, start.0, start.1)?;
+    let e = diff_line_position(diff_content, end.0, end.1)?;
+    if s == e {
+        return None;
+    }
+    Some(serde_json::json!({
+        "start": line_range_point(file_path, s),
+        "end": line_range_point(file_path, e),
+    }))
+}
+
 use crate::core::create_client;
 use crate::core::mr_actions::mr_api_ids;
 use crate::db::pool::DbPool;
@@ -204,6 +320,7 @@ pub async fn post_inline_comment(
             &refs.base_sha,
             &refs.head_sha,
             &refs.start_sha,
+            None,
         )
         .await?;
     Ok(())
@@ -284,6 +401,47 @@ mod tests {
     fn resolve_context_returns_none_for_changed_line() {
         let diff = "@@ -1,2 +1,2 @@\n-old\n+new\n";
         assert_eq!(resolve_context_lines(diff, 1, false), None);
+    }
+
+    const RANGE_DIFF: &str = "diff --git a/f.ts b/f.ts\n--- a/f.ts\n+++ b/f.ts\n@@ -10,4 +10,5 @@ fn\n a\n-b\n+B\n+B2\n c\n d\n\\ No newline at end of file\n";
+
+    #[test]
+    fn position_of_added_line_keeps_old_counter() {
+        // Like GitLab's parser: "+B2" sits at old 12 (where "c" is), new 12.
+        let p = diff_line_position(RANGE_DIFF, 12, false).unwrap();
+        assert_eq!((p.kind, p.old_pos, p.new_pos), (DiffLineKind::Added, 12, 12));
+    }
+
+    #[test]
+    fn position_of_removed_and_context_lines() {
+        let removed = diff_line_position(RANGE_DIFF, 11, true).unwrap();
+        assert_eq!((removed.kind, removed.old_pos, removed.new_pos), (DiffLineKind::Removed, 11, 11));
+        let context = diff_line_position(RANGE_DIFF, 14, false).unwrap();
+        assert_eq!((context.kind, context.old_pos, context.new_pos), (DiffLineKind::Context, 13, 14));
+        assert_eq!(diff_line_position(RANGE_DIFF, 15, false), None);
+    }
+
+    #[test]
+    fn line_code_is_sha1_of_path() {
+        // Known vector: sha1("abc").
+        assert_eq!(line_code("abc", 0, 1), "a9993e364706816aba3e25717850c26c9cd0d89d_0_1");
+    }
+
+    #[test]
+    fn line_range_from_removed_to_context() {
+        let r = build_line_range(RANGE_DIFF, "f.ts", (11, true), (13, false)).unwrap();
+        assert_eq!(r["start"]["type"], "old");
+        assert_eq!(r["start"]["old_line"], 11);
+        assert!(r["start"].get("new_line").is_none());
+        assert!(r["start"]["line_code"].as_str().unwrap().ends_with("_11_11"));
+        assert!(r["end"].get("type").is_none());
+        assert_eq!((r["end"]["old_line"].clone(), r["end"]["new_line"].clone()), (12.into(), 13.into()));
+    }
+
+    #[test]
+    fn line_range_none_for_single_line_or_outside_diff() {
+        assert_eq!(build_line_range(RANGE_DIFF, "f.ts", (11, false), (11, false)), None);
+        assert_eq!(build_line_range(RANGE_DIFF, "f.ts", (2, false), (11, false)), None);
     }
 
     #[tokio::test]

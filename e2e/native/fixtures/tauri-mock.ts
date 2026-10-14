@@ -339,6 +339,9 @@ export async function mockTauriIPC(
           syncStatus: 'pending',
         };
         (data.comments[input.mrId] ??= []).push(comment);
+        // Tests read what was sent: `window.__ADDED_COMMENTS__`.
+        const w = window as unknown as { __ADDED_COMMENTS__?: unknown[] };
+        (w.__ADDED_COMMENTS__ ??= []).push(input);
         return comment;
       },
       reply_to_comment: (args) => {

@@ -7016,6 +7016,7 @@ dependencies = [
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "sha1",
  "sha2",
  "sqlx",
  "sysinfo",

@@ -1328,6 +1328,7 @@ impl GitLabClient {
         base_sha: &str,
         head_sha: &str,
         start_sha: &str,
+        line_range: Option<&serde_json::Value>,
     ) -> Result<GitLabDiscussion, AppError> {
         let endpoint = format!(
             "/projects/{}/merge_requests/{}/discussions",
@@ -1347,6 +1348,9 @@ impl GitLabClient {
             old_line: Option<i64>,
             #[serde(skip_serializing_if = "Option::is_none")]
             new_line: Option<i64>,
+            /// Multi-line comments: where the range starts and ends.
+            #[serde(skip_serializing_if = "Option::is_none")]
+            line_range: Option<&'a serde_json::Value>,
         }
 
         #[derive(Serialize)]
@@ -1366,6 +1370,7 @@ impl GitLabClient {
                 new_path: file_path,
                 old_line,
                 new_line,
+                line_range,
             },
         };
 

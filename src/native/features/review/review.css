@@ -356,6 +356,25 @@ html.vibrant .ui-body > .rv-nav {
   margin-left: 2px;
 }
 
+/* Suggest edit: the new version is editable; the bar replaces the file controls. */
+.rv-editbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rv-sheet-text {
+  margin: 0;
+  color: var(--text-2);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.rv-editbar__hint {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  margin-right: 4px;
+}
+
 .rv-scroll {
   flex: 1;
   min-height: 0;
@@ -535,7 +554,8 @@ html.vibrant .ui-body > .rv-nav {
   gap: 6px;
   min-width: 0;
 }
-.rv-note__age {
+.rv-note__age,
+.rv-note__range {
   color: var(--text-muted);
   font-size: var(--text-sm);
   white-space: nowrap;

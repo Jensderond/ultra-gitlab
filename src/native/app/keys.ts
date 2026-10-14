@@ -57,7 +57,8 @@ function isTyping(target: EventTarget | null) {
 function onKeyDown(e: KeyboardEvent) {
   if (e.defaultPrevented || e.isComposing) return;
   const combo = comboOf(e);
-  const typing = isTyping(e.target);
+  // composedPath: inside a shadow root (the diff editor) e.target is the host.
+  const typing = isTyping(e.composedPath()[0] ?? e.target);
   for (let i = layers.length - 1; i >= 0; i--) {
     const layer = layers[i];
     if (!layer.enabled.current) continue;

@@ -22,7 +22,8 @@ interface Props {
 function where(d: Draft) {
   if (!d.filePath) return d.discussionId ? 'Reply · General' : 'General';
   const name = splitPath(d.filePath).name;
-  const line = d.line ? `:${d.line}` : '';
+  const from = d.from && d.from.side === d.side && d.from.line !== d.line ? `${d.from.line}–` : '';
+  const line = d.line ? `:${from}${d.line}` : '';
   return `${d.discussionId ? 'Reply · ' : ''}${name}${line}`;
 }
 

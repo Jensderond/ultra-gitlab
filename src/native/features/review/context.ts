@@ -1,16 +1,28 @@
 /** Shared state for the inline notes (threads, drafts, composer) in the diff and aside. */
 
 import { createContext, useContext } from 'react';
+import type { LinePoint, SuggestionSource } from './diff';
 import type { Draft, LineKind } from './state';
 import type { Thread } from './threads';
 
 export type ComposerTarget =
-  | { kind: 'new'; filePath: string; side: 'new' | 'old'; line: number; lineKind: LineKind }
+  | {
+      kind: 'new';
+      filePath: string;
+      /** The line the comment sits on: the last line of a range. */
+      side: 'new' | 'old';
+      line: number;
+      lineKind: LineKind;
+      /** First line of a multi-line comment. */
+      from?: LinePoint;
+    }
   | { kind: 'reply'; threadId: string }
   | { kind: 'edit'; draftId: string };
 
 export const composerKey = (t: ComposerTarget) =>
-  t.kind === 'new' ? `new:${t.filePath}:${t.side}:${t.line}` : t.kind === 'reply' ? `reply:${t.threadId}` : `edit:${t.draftId}`;
+  t.kind === 'new'
+    ? `new:${t.filePath}:${t.from ? `${t.from.side}:${t.from.line}-` : ''}${t.side}:${t.line}`
+    : t.kind === 'reply' ? `reply:${t.threadId}` : `edit:${t.draftId}`;
 
 export interface ReviewContextValue {
   mrId: number;
@@ -25,8 +37,8 @@ export interface ReviewContextValue {
   updateDraft: (id: string, body: string) => void;
   removeDraft: (id: string) => void;
   resolve: (thread: Thread, resolved: boolean) => Promise<void>;
-  /** Current text of a line, for "Suggest change". */
-  lineText: (filePath: string, side: 'new' | 'old', line: number) => string | null;
+  /** The lines "Suggest change" replaces, from `from` (or just `to`) through `to`. */
+  suggestion: (filePath: string, from: LinePoint | undefined, to: LinePoint) => SuggestionSource | null;
 }
 
 export const ReviewContext = createContext<ReviewContextValue | null>(null);

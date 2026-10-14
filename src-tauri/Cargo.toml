@@ -68,8 +68,9 @@ urlencoding = "2"
 # Base64 Encoding
 base64 = "0.22"
 
-# Hashing (SHA-256 for file content dedup)
+# Hashing (SHA-256 for file content dedup; SHA-1 for GitLab line codes)
 sha2 = "0.10"
+sha1 = "0.10"
 
 # System font enumeration
 fontdb = "0.22"

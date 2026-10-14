@@ -38,6 +38,9 @@ pub struct CommentPayloadWithSha {
     /// Start SHA for inline comments
     #[serde(default)]
     pub start_sha: Option<String>,
+    /// GitLab `position[line_range]` for multi-line comments.
+    #[serde(default)]
+    pub line_range: Option<serde_json::Value>,
 }
 
 /// Result of processing a single action.
@@ -315,6 +318,7 @@ async fn process_comment(client: &GitLabClient, action: &SyncAction) -> Result<(
                 base_sha,
                 head_sha,
                 start_sha,
+                payload.line_range.as_ref(),
             )
             .await?;
     } else {
