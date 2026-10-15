@@ -147,6 +147,7 @@ export function Segmented<T extends string>({
           key={o.value}
           type="button"
           title={o.title}
+          data-label={typeof o.label === 'string' ? o.label : undefined}
           aria-pressed={o.value === value}
           className={cx('ui-segmented__item', o.value === value && 'is-on')}
           onClick={() => onChange(o.value)}

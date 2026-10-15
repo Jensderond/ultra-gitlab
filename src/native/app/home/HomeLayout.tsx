@@ -5,7 +5,7 @@
  * sidebar and toolbar still — only the content changes.
  */
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { api } from '../../api/client';
 import { onSyncProgress } from '../../api/events';
 import { invalidate } from '../../data/query';
@@ -16,7 +16,6 @@ import {
   IconButton,
   Segmented,
   showContextMenu,
-  Spacer,
   Toolbar,
   ToolbarTitle,
   toast,
@@ -39,6 +38,11 @@ export async function refreshAll() {
   }
   await invalidate();
 }
+
+// Each home screen mounts its own HomeLayout, so switching views replaces the
+// toolbar. Set when the switch came from a focused segment, so the new
+// toolbar can put keyboard focus back on it instead of dropping it to <body>.
+let refocusSwitcher = false;
 
 export function useSyncing() {
   const [syncing, setSyncing] = useState(false);
@@ -69,6 +73,13 @@ export function HomeLayout({
   const avatars = useAvatars(instance?.id, me ? [me] : []);
   const syncing = useSyncing();
   const [manual, setManual] = useState(false);
+  const switcherRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!refocusSwitcher) return;
+    refocusSwitcher = false;
+    switcherRef.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.focus();
+  }, []);
 
   const onRefresh = async () => {
     setManual(true);
@@ -91,32 +102,41 @@ export function HomeLayout({
 
   return (
     <Window>
-      <Toolbar>
+      {/* Title | view switcher | actions on a 1fr/auto/1fr grid: the switcher
+          stays put while the title changes width between views. */}
+      <Toolbar className="home-toolbar">
         <ToolbarTitle title={title} subtitle={subtitle} />
-        <Segmented<HomeSection>
-          label="View"
-          value={section}
-          onChange={(v) => navigate(homePath(v === 'mrs' ? 'inbox' : 'pipelines'))}
-          options={[
-            { value: 'mrs', label: 'Merge requests', title: '⌘1' },
-            { value: 'pipelines', label: 'Pipelines', title: '⌘2' },
-          ]}
-        />
-        <Spacer />
-        <SearchJump />
-        <IconButton label="Refresh (⌘R)" onClick={onRefresh} className={syncing || manual ? 'is-spinning' : ''}>
-          <RefreshIcon size={16} />
-        </IconButton>
-        <button
-          type="button"
-          className="home-account"
-          aria-label={me ? `Signed in as ${me}` : 'Account'}
-          title={instance ? `${me} · ${new URL(instance.url).host}` : 'Account'}
-          onClick={accountMenu}
-          onContextMenu={accountMenu}
-        >
-          <Avatar username={me || '?'} src={avatars?.[me]} size={28} />
-        </button>
+        <div ref={switcherRef} className="home-toolbar__switcher">
+          <Segmented<HomeSection>
+            label="View"
+            value={section}
+            onChange={(v) => {
+              if (v === section) return;
+              refocusSwitcher = !!switcherRef.current?.contains(document.activeElement);
+              navigate(homePath(v === 'mrs' ? 'inbox' : 'pipelines'));
+            }}
+            options={[
+              { value: 'mrs', label: 'Merge requests', title: '⌘1' },
+              { value: 'pipelines', label: 'Pipelines', title: '⌘2' },
+            ]}
+          />
+        </div>
+        <div className="home-toolbar__end">
+          <SearchJump />
+          <IconButton label="Refresh (⌘R)" onClick={onRefresh} className={syncing || manual ? 'is-spinning' : ''}>
+            <RefreshIcon size={16} />
+          </IconButton>
+          <button
+            type="button"
+            className="home-account"
+            aria-label={me ? `Signed in as ${me}` : 'Account'}
+            title={instance ? `${me} · ${new URL(instance.url).host}` : 'Account'}
+            onClick={accountMenu}
+            onContextMenu={accountMenu}
+          >
+            <Avatar username={me || '?'} src={avatars?.[me]} size={28} />
+          </button>
+        </div>
       </Toolbar>
       <Body>
         <HomeSidebar section={section} />

@@ -1,3 +1,18 @@
+.home-toolbar {
+  display: grid;
+  /* The end column never shrinks below its controls; the title truncates. */
+  grid-template-columns: minmax(0, 1fr) auto minmax(max-content, 1fr);
+}
+.home-toolbar__switcher {
+  display: flex;
+}
+.home-toolbar__end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
 .home-content {
   flex: 1;
   min-width: 0;

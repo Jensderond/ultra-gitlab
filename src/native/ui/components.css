@@ -165,6 +165,17 @@
   color: var(--text-2);
   white-space: nowrap;
 }
+/* Reserve the selected (500) weight's width so switching segments doesn't
+   nudge the labels. Hidden and given empty alt text so it isn't announced. */
+.ui-segmented__item[data-label]::after {
+  content: attr(data-label);
+  content: attr(data-label) / '';
+  display: block;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  font-weight: 500;
+}
 .ui-segmented--md .ui-segmented__item {
   padding: 4px 14px;
 }
