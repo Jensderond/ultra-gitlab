@@ -86,9 +86,6 @@
   --neutral-soft: #eeeef1;
   --neutral-text: #4a4a52;
   --running: #0a5fc8;
-  /* Update button: green fill behind white text (--ok is too light in dark mode). */
-  --update-ready: #1e7a34;
-  --update-ready-hover: #17602a;
 
   /* Diff */
   --diff-add: #e9f6ec;
@@ -199,8 +196,6 @@
     --neutral-soft: rgba(255, 255, 255, 0.08);
     --neutral-text: #c2c2ca;
     --running: #5a9ff7;
-    --update-ready: #2a8a43;
-    --update-ready-hover: #33a050;
 
     --diff-add: rgba(76, 194, 106, 0.13);
     --diff-del: rgba(255, 107, 94, 0.13);

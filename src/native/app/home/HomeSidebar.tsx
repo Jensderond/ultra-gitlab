@@ -110,7 +110,7 @@ export function HomeSidebar({ section }: { section: HomeSection }) {
   };
 
   return (
-    <Sidebar>
+    <Sidebar footer={<UpdateButton />}>
       <div className="ui-sidebar-section">
         <div className="ui-sidebar-section__head">
           <span>Review</span>
@@ -200,7 +200,6 @@ export function HomeSidebar({ section }: { section: HomeSection }) {
         </Section>
       )}
 
-      <UpdateButton />
     </Sidebar>
   );
 }

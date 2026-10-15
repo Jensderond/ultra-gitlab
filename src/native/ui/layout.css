@@ -46,6 +46,12 @@ body.is-resizing * {
 
 .ui-sidebar {
   background: var(--bg-sidebar);
+}
+.ui-sidebar__list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   padding: 14px 10px;
   gap: 18px;
   overflow-y: auto;

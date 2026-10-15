@@ -1,57 +1,56 @@
-/* Sidebar update button (UpdateButton.tsx), pinned under the source list. */
+/* Sidebar update footer (UpdateButton.tsx), pinned under the source list. */
 
 .upd {
-  position: sticky;
-  bottom: 0;
-  margin-top: auto;
   display: flex;
   align-items: center;
   gap: 9px;
-  width: 100%;
-  padding: 8px 10px;
-  border: 0;
-  border-radius: var(--radius-lg);
-  color: var(--text-on-accent);
-  text-align: left;
-  overflow: hidden;
+  padding: 10px 12px 12px 20px;
+  border-top: 1px solid var(--line);
   flex: none;
-  box-shadow: var(--shadow-control);
+}
+
+.upd__icon {
+  display: flex;
+  flex: none;
+  color: var(--accent);
+}
+.upd__icon--error {
+  color: var(--fail);
 }
 
 .upd__text {
   display: flex;
   flex-direction: column;
+  flex: 1;
   min-width: 0;
   line-height: 1.3;
 }
 .upd__title {
   font-size: var(--text-md);
-  font-weight: 600;
+  font-weight: 500;
+  color: var(--text);
 }
 .upd__sub {
   font-size: var(--text-xs);
-  opacity: 0.85;
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.upd--downloading {
-  background: var(--accent);
-  cursor: default;
-}
 .upd__track {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.25);
+  display: block;
+  height: 4px;
+  margin: 5px 0 3px;
+  border-radius: 2px;
+  background: var(--bg-pressed);
+  overflow: hidden;
 }
 .upd__fill {
   display: block;
   height: 100%;
-  background: rgba(255, 255, 255, 0.9);
+  border-radius: 2px;
+  background: var(--accent);
   transition: width var(--dur) var(--ease);
 }
 .upd__fill.is-indeterminate {
@@ -67,31 +66,11 @@
   }
 }
 
-.upd--ready {
-  background: var(--update-ready);
+.upd__action {
+  transition: scale var(--dur-fast) var(--ease);
 }
-.upd--ready:hover:not(:disabled) {
-  background: var(--update-ready-hover);
-}
-.upd--ready:focus-visible,
-.upd--error:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-.upd--ready:disabled {
-  cursor: default;
-}
-
-.upd--error {
-  background: var(--bg-raised);
-  color: var(--text);
-  box-shadow: inset 0 0 0 1px var(--line);
-}
-.upd--error:hover {
-  background: var(--bg-hover);
-}
-.upd--error svg {
-  color: var(--fail);
+.upd__action:active:not(:disabled) {
+  scale: 0.96;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,6 +1,7 @@
 /**
- * Native UI: the update button at the bottom of the home sidebar — blue while
- * an update downloads, green once it's ready, one click to install + relaunch.
+ * Native UI: the update footer under the home sidebar — a progress bar while
+ * an update downloads, then "Update ready" with a Restart button that
+ * installs + relaunches.
  * Run: bunx playwright test e2e/native/updates.spec.ts --retries=0 --reporter=line
  *
  * The dev server skips automatic checks, so the flow starts from Settings →
@@ -10,7 +11,7 @@ import { test, expect } from './fixtures/test-base';
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
-test('downloads in blue, installs from green', async ({ page }) => {
+test('shows download progress, then restarts to install', async ({ page }) => {
   await page.addInitScript(() => {
     (window as Record<string, unknown>).__MOCK_UPDATE__ = { version: '0.26.0' };
   });
@@ -25,13 +26,13 @@ test('downloads in blue, installs from green', async ({ page }) => {
   const downloading = sidebar.getByRole('status');
   await expect(downloading).toContainText('Downloading update…');
   await expect(downloading).toContainText('Version 0.26.0 · 40%');
-  await expect(downloading).toHaveCSS('background-color', 'rgb(10, 95, 200)');
+  await expect(downloading.getByRole('progressbar', { name: 'Download progress' })).toHaveAttribute('aria-valuenow', '40');
   await page.screenshot({ path: 'e2e/native/screenshots/update-downloading.png' });
 
   await page.evaluate(() => (window as unknown as { __MOCK_UPDATE_FINISH__: () => void }).__MOCK_UPDATE_FINISH__());
-  const restart = sidebar.getByRole('button', { name: /Restart to update/ });
-  await expect(restart).toContainText('Version 0.26.0');
-  await expect(restart).toHaveCSS('background-color', 'rgb(30, 122, 52)');
+  await expect(sidebar.getByText('Update ready')).toBeVisible();
+  const restart = sidebar.getByRole('button', { name: 'Restart' });
+  await expect(restart).toHaveAccessibleDescription(/Update ready\s*Version 0\.26\.0/);
   await page.screenshot({ path: 'e2e/native/screenshots/update-ready.png' });
 
   await restart.click();
@@ -47,7 +48,7 @@ test('no button when up to date', async ({ page }) => {
   const sidebar = page.getByRole('navigation', { name: 'Sidebar' });
   await expect(sidebar).toBeVisible();
   await expect(sidebar.getByRole('status')).toHaveCount(0);
-  await expect(sidebar.getByRole('button', { name: /Restart to update/ })).toHaveCount(0);
+  await expect(sidebar.getByRole('button', { name: 'Restart' })).toHaveCount(0);
 });
 
 test('switch back to the classic UI', async ({ page }) => {

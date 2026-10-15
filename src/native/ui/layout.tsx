@@ -17,20 +17,24 @@ export function Body({ children, className }: { children: ReactNode; className?:
   return <div className={cx('ui-body', className)}>{children}</div>;
 }
 
+/** `footer` stays pinned under the scrolling source list (Mail/Xcode style). */
 export function Sidebar({
   children,
+  footer,
   label = 'Sidebar',
   id = 'sidebar',
   defaultWidth = 228,
 }: {
   children: ReactNode;
+  footer?: ReactNode;
   label?: string;
   id?: string;
   defaultWidth?: number;
 }) {
   return (
     <Pane id={id} defaultWidth={defaultWidth} min={180} max={340} className="ui-sidebar" as="nav" label={label}>
-      {children}
+      <div className="ui-sidebar__list">{children}</div>
+      {footer}
     </Pane>
   );
 }
