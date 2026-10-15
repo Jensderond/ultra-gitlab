@@ -28,7 +28,8 @@
     ],
     "createUpdaterArtifacts": true,
     "iOS": {
-      "developmentTeam": "7ZBFS4P4K2"
+      "developmentTeam": "7ZBFS4P4K2",
+      "minimumSystemVersion": "15.0"
     }
   },
   "plugins": {

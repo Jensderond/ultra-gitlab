@@ -2,7 +2,7 @@ name: ultra-gitlab
 options:
   bundleIdPrefix: com.jens.ultra-gitlab
   deploymentTarget:
-    iOS: 14.0
+    iOS: 15.0
 fileGroups: [../../src]
 configs:
   debug: debug
