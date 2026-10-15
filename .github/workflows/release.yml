@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
@@ -49,7 +49,7 @@ jobs:
       matrix:
         shard: [1/4, 2/4, 3/4, 4/4]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
@@ -69,7 +69,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -116,7 +116,7 @@ jobs:
     outputs:
       content: ${{ steps.release_notes.outputs.content }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: v${{ inputs.version }}
           fetch-depth: 0
@@ -137,12 +137,12 @@ jobs:
       contents: write
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: v${{ inputs.version }}
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: lts/*
 
@@ -186,6 +186,24 @@ jobs:
           # Always a pre-release for -rc.N versions; otherwise honor the input.
           prerelease: ${{ inputs.prerelease || contains(inputs.version, '-') }}
           args: --target aarch64-apple-darwin
+
+      # tauri-action notarizes the .app but only signs the DMG around it, and
+      # a signed-but-unnotarized DMG still trips Gatekeeper when a downloaded
+      # copy is opened. Notarize and staple the DMG, then replace the asset.
+      - name: Notarize & staple the DMG
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          dmg=$(ls src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg)
+          xcrun notarytool submit "$dmg" --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+          xcrun stapler staple "$dmg"
+          # Release assets have spaces replaced by dots; match that name.
+          asset="$(basename "$dmg" | tr ' ' '.')"
+          cp "$dmg" "$asset"
+          gh release upload "v${{ inputs.version }}" "$asset" --clobber
 
       - name: Build ultra CLI binary
         working-directory: src-tauri

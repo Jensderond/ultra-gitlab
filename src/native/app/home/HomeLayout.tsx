@@ -1,11 +1,11 @@
 /**
  * The home window: unified toolbar + source-list sidebar + content. Both the
  * merge request inbox and the pipelines dashboard render inside it, so
- * switching between them (⌘1 / ⌘2 or the segmented control) keeps the
- * sidebar and toolbar still — only the content changes.
+ * switching between them (⌘1 / ⌘2 or the sidebar) keeps the sidebar and
+ * toolbar still — only the content changes.
  */
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../../api/client';
 import { onSyncProgress } from '../../api/events';
 import { invalidate } from '../../data/query';
@@ -14,7 +14,6 @@ import { SearchJump } from '../../features/palette/SearchJump';
 import {
   Avatar,
   IconButton,
-  Segmented,
   showContextMenu,
   Toolbar,
   ToolbarTitle,
@@ -23,7 +22,7 @@ import {
 } from '../../ui/components';
 import { RefreshIcon } from '../../ui/icons';
 import { Body, Window } from '../../ui/layout';
-import { homePath, navigate, paths } from '../router';
+import { navigate, paths } from '../router';
 import { HomeSidebar } from './HomeSidebar';
 import './home.css';
 
@@ -38,11 +37,6 @@ export async function refreshAll() {
   }
   await invalidate();
 }
-
-// Each home screen mounts its own HomeLayout, so switching views replaces the
-// toolbar. Set when the switch came from a focused segment, so the new
-// toolbar can put keyboard focus back on it instead of dropping it to <body>.
-let refocusSwitcher = false;
 
 export function useSyncing() {
   const [syncing, setSyncing] = useState(false);
@@ -73,13 +67,6 @@ export function HomeLayout({
   const avatars = useAvatars(instance?.id, me ? [me] : []);
   const syncing = useSyncing();
   const [manual, setManual] = useState(false);
-  const switcherRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!refocusSwitcher) return;
-    refocusSwitcher = false;
-    switcherRef.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.focus();
-  }, []);
 
   const onRefresh = async () => {
     setManual(true);
@@ -102,25 +89,8 @@ export function HomeLayout({
 
   return (
     <Window>
-      {/* Title | view switcher | actions on a 1fr/auto/1fr grid: the switcher
-          stays put while the title changes width between views. */}
       <Toolbar className="home-toolbar">
         <ToolbarTitle title={title} subtitle={subtitle} />
-        <div ref={switcherRef} className="home-toolbar__switcher">
-          <Segmented<HomeSection>
-            label="View"
-            value={section}
-            onChange={(v) => {
-              if (v === section) return;
-              refocusSwitcher = !!switcherRef.current?.contains(document.activeElement);
-              navigate(homePath(v === 'mrs' ? 'inbox' : 'pipelines'));
-            }}
-            options={[
-              { value: 'mrs', label: 'Merge requests', title: '⌘1' },
-              { value: 'pipelines', label: 'Pipelines', title: '⌘2' },
-            ]}
-          />
-        </div>
         <div className="home-toolbar__end">
           <SearchJump />
           <IconButton label="Refresh (⌘R)" onClick={onRefresh} className={syncing || manual ? 'is-spinning' : ''}>
