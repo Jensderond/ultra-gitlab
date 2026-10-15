@@ -394,7 +394,12 @@ pub async fn recover_stale_syncing_actions(pool: &DbPool) -> Result<u64, AppErro
     Ok(count)
 }
 
-/// Delete all synced actions (cleanup).
+/// Delete synced actions (cleanup).
+///
+/// A synced action whose local comment still exists is kept: the sync engine
+/// removes that local comment in `upsert_discussions` once the GitLab version
+/// has been fetched, and it finds it through this row. Deleting the row first
+/// would orphan the local comment next to its GitLab copy.
 ///
 /// # Arguments
 /// * `pool` - Database connection pool
@@ -402,9 +407,18 @@ pub async fn recover_stale_syncing_actions(pool: &DbPool) -> Result<u64, AppErro
 /// # Returns
 /// Number of deleted actions
 pub async fn cleanup_synced(pool: &DbPool) -> Result<u64, AppError> {
-    let result = sqlx::query("DELETE FROM sync_queue WHERE status = 'synced'")
-        .execute(pool)
-        .await?;
+    let result = sqlx::query(
+        r#"
+        DELETE FROM sync_queue
+        WHERE status = 'synced'
+          AND NOT EXISTS (
+            SELECT 1 FROM comments
+            WHERE comments.id = sync_queue.local_reference_id AND comments.is_local = 1
+          )
+        "#,
+    )
+    .execute(pool)
+    .await?;
 
     Ok(result.rows_affected())
 }
@@ -899,5 +913,63 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(row.get::<String, _>("status"), "failed");
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_synced_keeps_rows_until_local_comment_is_replaced() {
+        let pool = setup_test_db().await;
+
+        // A local (optimistic) comment and its synced comment action, plus an
+        // unrelated synced approval.
+        sqlx::query(
+            r#"INSERT INTO comments (id, mr_id, author_username, body, resolved, resolvable,
+                                     system, created_at, updated_at, cached_at, is_local)
+            VALUES (-42, 1, 'user', 'hello', 0, 1, 0, 0, 0, 0, 1)"#,
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let comment_action = enqueue_action(
+            &pool,
+            EnqueueInput {
+                mr_id: 1,
+                action_type: ActionType::Comment,
+                payload: "{}".to_string(),
+                local_reference_id: Some(-42),
+            },
+        )
+        .await
+        .unwrap();
+        let approve_action = enqueue_action(
+            &pool,
+            EnqueueInput {
+                mr_id: 1,
+                action_type: ActionType::Approve,
+                payload: "{}".to_string(),
+                local_reference_id: None,
+            },
+        )
+        .await
+        .unwrap();
+        mark_synced(&pool, comment_action.id).await.unwrap();
+        mark_synced(&pool, approve_action.id).await.unwrap();
+
+        // The local comment still exists, so its synced row must survive:
+        // upsert_discussions needs it to recognise the local duplicate once
+        // the GitLab version is fetched.
+        assert_eq!(cleanup_synced(&pool).await.unwrap(), 1);
+        let remaining: Vec<i64> = sqlx::query_scalar("SELECT id FROM sync_queue")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+        assert_eq!(remaining, vec![comment_action.id]);
+
+        // Once the local comment is replaced, the row can go.
+        sqlx::query("DELETE FROM comments WHERE id = -42")
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert_eq!(cleanup_synced(&pool).await.unwrap(), 1);
     }
 }

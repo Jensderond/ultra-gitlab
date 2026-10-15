@@ -169,6 +169,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0026_custom_mr_filters",
         include_str!("migrations/0026_custom_mr_filters.sql"),
     ),
+    (
+        "0027_drop_orphaned_local_comments",
+        include_str!("migrations/0027_drop_orphaned_local_comments.sql"),
+    ),
 ];
 
 /// Run all pending database migrations.
