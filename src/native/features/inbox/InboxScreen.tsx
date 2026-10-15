@@ -161,7 +161,7 @@ export function InboxScreen({ view, selectedMrId }: { view: string; selectedMrId
   return (
     <HomeLayout
       section="mrs"
-      title={client ? `${def.label} · ${clientLabel(client)}` : def.label}
+      title={client ? `${def.label} · ${clientLabel(client, data.open)}` : def.label}
       subtitle={data.loading && !total ? host(data.instanceUrl) : subtitle}
     >
       <div className="inbox">
@@ -187,7 +187,7 @@ export function InboxScreen({ view, selectedMrId }: { view: string; selectedMrId
               setSearchParams({ client: null });
             }}
             client={client}
-            clientLabel={client ? clientLabel(client) : null}
+            clientLabel={client ? clientLabel(client, data.open) : null}
             onClearClient={() => setSearchParams({ client: null })}
             canApprove={canApprove}
           />

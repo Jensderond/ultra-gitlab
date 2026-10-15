@@ -42,7 +42,7 @@ import {
   startReview,
   unsnooze,
 } from './actions';
-import { clientKey, clientLabel, formatSnooze, isDraft, isSnoozed, projectPath } from './model';
+import { clientName, formatSnooze, isDraft, isSnoozed, projectPath } from './model';
 import './preview.css';
 
 const errMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -529,7 +529,7 @@ function PreviewBody({ mr, mineMode, me }: { mr: MergeRequest; mineMode: boolean
     'mod+enter': mine && open && (() => (mergeable ? setConfirmMerge(true) : toast(mergeStatusText(mergeStatus.data).title))),
   });
 
-  const client = clientLabel(clientKey(mr));
+  const client = clientName(mr);
   const discussions = discussionStats(comments);
   const approvals = approvalsCard(mr, reviewers, comments, me);
   const reviewerOthers = mr.reviewers.filter((r) => r !== me);

@@ -87,7 +87,7 @@ export function HomeSidebar({ section }: { section: HomeSection }) {
     const keys = [...new Set(data.open.map(clientKey))];
     const inView = data.views[view];
     return keys
-      .map((key) => ({ key, label: clientLabel(key), count: inView.filter((m) => clientKey(m) === key).length }))
+      .map((key) => ({ key, label: clientLabel(key, data.open), count: inView.filter((m) => clientKey(m) === key).length }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [data.open, data.views, view]);
 

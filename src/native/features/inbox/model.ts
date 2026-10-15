@@ -107,13 +107,50 @@ export function projectPath(mr: MergeRequest): string {
   return splitProject(mr.projectName).path;
 }
 
-/** The "client" is the top-level group: `Noordkaap / Website` → Noordkaap. */
+/** Top-level groups that only bucket clients: the client is the group below. */
+const CLIENT_CONTAINERS = new Set(['customers']);
+
+/**
+ * The "client" is the top-level group (`noordkaap/website` → `noordkaap`),
+ * except under a client container, where it's the next level down
+ * (`customers/eshuis/webshop` → `customers/eshuis`). Keys keep the container
+ * so `customers/redkiwi` can't collide with a top-level `redkiwi` group.
+ */
 export function clientKey(mr: MergeRequest): string {
-  return splitProject(mr.projectName).group;
+  const parts = projectPath(mr).split('/');
+  return parts.length > 2 && CLIENT_CONTAINERS.has(parts[0].toLowerCase()) ? `${parts[0]}/${parts[1]}` : parts[0];
 }
 
-export function clientLabel(key: string): string {
-  return /[A-Z\s.]/.test(key) ? key : humanize(key);
+/**
+ * GitLab's display name for each path level, once the backend has cached the
+ * project and `projectName` is its `name_with_namespace`
+ * (`Customers / Gemeente Utrecht / Website Utrecht.nl`). Null while
+ * `projectName` is still the bare path.
+ */
+function namespaceNames(mr: MergeRequest): string[] | null {
+  if (!mr.projectName.includes(' / ')) return null;
+  const names = mr.projectName.split(' / ').map((n) => n.trim());
+  return names.length === projectPath(mr).split('/').length ? names : null;
+}
+
+const slugLabel = (slug: string) => (/[A-Z\s.]/.test(slug) ? slug : humanize(slug));
+
+/** `Gemeente Utrecht`, falling back to the humanized slug (`Gemeente utrecht`). */
+export function clientName(mr: MergeRequest): string {
+  const key = clientKey(mr);
+  const depth = key.split('/').length;
+  return namespaceNames(mr)?.[depth - 1] ?? slugLabel(key.slice(key.lastIndexOf('/') + 1));
+}
+
+/** The display name for a client key, taken from any MR under it. */
+export function clientLabel(key: string, mrs: readonly MergeRequest[]): string {
+  const mr = mrs.find((m) => clientKey(m) === key);
+  return mr ? clientName(mr) : slugLabel(key.slice(key.lastIndexOf('/') + 1));
+}
+
+/** `Website Utrecht.nl`, falling back to the path slug (`website`). */
+export function projectTitle(mr: MergeRequest): string {
+  return namespaceNames(mr)?.pop() ?? projectPath(mr).split('/').pop()!;
 }
 
 export const host = (url: string | undefined) => {
@@ -233,7 +270,7 @@ export interface ListPrefs {
 }
 
 const PREFS_KEY = 'ug.inbox.prefs';
-const DEFAULT_PREFS: ListPrefs = { group: 'client', sort: 'oldest', hideDrafts: false };
+const DEFAULT_PREFS: ListPrefs = { group: 'project', sort: 'oldest', hideDrafts: false };
 let prefs: ListPrefs = (() => {
   try {
     return { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') };
@@ -317,13 +354,12 @@ export function buildGroups(
       const key = group === 'client' ? clientKey(mr) : projectPath(mr);
       let g = byKey.get(key);
       if (!g) {
-        g = {
-          key,
-          title: clientLabel(clientKey(mr)),
-          detail: projectPath(mr),
-          showProject: false,
-          items: [],
-        };
+        // By project, the project leads and the client is context; by client,
+        // the client leads and the path tells a single project apart.
+        g =
+          group === 'project'
+            ? { key, title: projectTitle(mr), detail: clientName(mr), showProject: false, items: [] }
+            : { key, title: clientName(mr), detail: projectPath(mr), showProject: false, items: [] };
         byKey.set(key, g);
         groups.push(g);
       }
