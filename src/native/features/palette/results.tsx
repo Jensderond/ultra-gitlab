@@ -12,7 +12,8 @@ import { setActiveInstanceId, useActiveInstance, useMyMRs, usePipelineProjects, 
 import { invalidate } from '../../data/query';
 import type { MergeRequest, PipelineProject } from '../../api/types';
 import { cx, Spinner, StatusIcon, toast } from '../../ui/components';
-import { GearIcon, InboxIcon, PersonIcon, PlusIcon, RefreshIcon } from '../../ui/icons';
+import { GearIcon, InboxIcon, KeyboardIcon, PersonIcon, PlusIcon, RefreshIcon } from '../../ui/icons';
+import { openShortcuts } from '../shortcuts/ShortcutsSheet';
 import { openGitLabLink } from './jump';
 import { parseGitLabUrl, rank, tokenize, type Field, type GitLabLink } from './rank';
 import './palette.css';
@@ -128,6 +129,7 @@ export function useJumpItems(text: string, live: boolean) {
       { id: 'pipelines', label: 'Go to Pipelines', keywords: 'ci jobs', icon: <PipelineGlyph />, shortcut: 'mod+2', run: () => navigate(paths.pipelines()) },
       { id: 'refresh', label: 'Refresh', keywords: 'sync reload', icon: <RefreshIcon size={14} />, shortcut: 'mod+r', run: refresh },
       { id: 'settings', label: 'Settings…', keywords: 'preferences options', icon: <GearIcon size={14} />, shortcut: 'mod+,', run: () => navigate(paths.settings()) },
+      { id: 'shortcuts', label: 'Keyboard Shortcuts', keywords: 'keys hotkeys help cheat sheet', icon: <KeyboardIcon size={14} />, shortcut: 'mod+?', run: openShortcuts },
       { id: 'add', label: 'Add GitLab instance…', keywords: 'account connect login token', icon: <PlusIcon size={14} />, run: () => navigate(paths.setup()) },
     ];
     for (const i of instances) {

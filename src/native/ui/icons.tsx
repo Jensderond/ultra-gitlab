@@ -157,3 +157,9 @@ export const WarningIcon = make(
     <path d="M12 10v4M12 17v.5" />
   </>,
 );
+export const KeyboardIcon = make(
+  <>
+    <rect x="3" y="6" width="18" height="12" rx="2" />
+    <path d="M7 10h.01M11 10h.01M15 10h.01M17 10h.01M8 14h8" />
+  </>,
+);

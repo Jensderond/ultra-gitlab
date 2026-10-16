@@ -71,6 +71,9 @@ const UNSAFE_CSS = `
 [data-line-annotation], [data-gutter-buffer=annotation] { --diffs-line-bg: var(--diffs-bg); }
 [data-column-number] { cursor: pointer; }
 [data-utility-button] { border-radius: 5px; }
+/* ⇧J / ⇧K mark the block they land on. */
+[data-ug-flash] { animation: ug-flash 900ms ease-out; }
+@keyframes ug-flash { from { box-shadow: inset 0 0 0 100vmax color-mix(in srgb, var(--accent) 22%, transparent); } }
 `;
 
 interface Props {

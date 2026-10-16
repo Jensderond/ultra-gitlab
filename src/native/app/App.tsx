@@ -14,6 +14,7 @@ import { PipelinesScreen } from '../features/pipelines/PipelinesScreen';
 import { ReviewScreen } from '../features/review/ReviewScreen';
 import { SettingsScreen } from '../features/settings/SettingsScreen';
 import { SetupScreen } from '../features/setup/SetupScreen';
+import { ShortcutsSheet } from '../features/shortcuts/ShortcutsSheet';
 import { AppServicesHost, useAppServices } from '../features/settings/services';
 import { startUpdater } from '../features/updates/updater';
 import { Toaster } from '../ui/components';
@@ -103,6 +104,7 @@ export function App() {
     >
       <Routes />
       <CommandPalette />
+      <ShortcutsSheet />
       <Toaster />
       <AppServicesHost />
     </WorkerPoolContextProvider>

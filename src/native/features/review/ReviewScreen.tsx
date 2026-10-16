@@ -651,6 +651,81 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
     [current, currentIsGenerated, ordered, reviewable, selectFile],
   );
 
+  /**
+   * ⇧J / ⇧K: step through the blocks of changed lines in this file. Blocks
+   * come from the rendered diff (inside Pierre's shadow root): a changed row
+   * starts a block when the row above it in the unified order isn't a change.
+   * Gutter and content cells, in both columns of split view, share that order.
+   */
+  const lastChange = useRef<{ path: string; stop: number; top: number } | null>(null);
+  const stepChange = useCallback(
+    (dir: 1 | -1) => {
+      const el = scrollRef.current;
+      const host = el?.querySelector('.rv-diff');
+      if (!el || !host || !path) return;
+      const root = host.shadowRoot ?? host;
+      const cells = new Map<number, Element[]>();
+      for (const cell of root.querySelectorAll('[data-line-index][data-line-type^="change-"]')) {
+        const i = parseInt(cell.getAttribute('data-line-index') ?? '', 10);
+        if (Number.isNaN(i)) continue;
+        const row = cells.get(i);
+        if (row) row.push(cell);
+        else cells.set(i, [cell]);
+      }
+      const starts = [...cells.keys()].filter((i) => !cells.has(i - 1)).sort((a, b) => a - b);
+      if (starts.length === 0) {
+        toast('This file has no changed lines');
+        return;
+      }
+
+      // A stop per block, its start a little below the top with some context
+      // above it. A block taller than the window gets a stop per page as well,
+      // so you read through it rather than skip to the next one.
+      const margin = Math.min(120, el.clientHeight / 4);
+      const page = Math.max(48, el.clientHeight - margin - 48);
+      const box = el.getBoundingClientRect();
+      const y = (viewportY: number) => el.scrollTop + viewportY - box.top;
+      const stops: { top: number; block: number | null }[] = [];
+      for (const start of starts) {
+        let end = start;
+        while (cells.has(end + 1)) end++;
+        const bottom = y(cells.get(end)![0].getBoundingClientRect().bottom);
+        let top = y(cells.get(start)![0].getBoundingClientRect().top) - margin;
+        stops.push({ top, block: start });
+        while (top + el.clientHeight < bottom) {
+          top += page;
+          stops.push({ top, block: null });
+        }
+      }
+
+      // Carry on from the stop you stepped to, unless you've scrolled since;
+      // then start from what's on screen.
+      const last = lastChange.current;
+      let next: number;
+      if (last && last.path === path && Math.abs(el.scrollTop - last.top) < 2) next = last.stop + dir;
+      else if (dir === 1) {
+        // At the top, the first block is already in view; if it runs on below
+        // the window, page into it straight away.
+        next = el.scrollTop >= 1 ? stops.findIndex((s) => s.top > el.scrollTop + 1) : stops[1]?.block === null ? 1 : 0;
+      }
+      else next = stops.map((s) => s.top < el.scrollTop - 1).lastIndexOf(true);
+      if (next < 0 || next >= stops.length) {
+        toast(dir === 1 ? 'Last change in this file — press J for the next file' : 'First change in this file');
+        return;
+      }
+
+      const stop = stops[next];
+      el.scrollTop = Math.max(0, stop.top);
+      lastChange.current = { path, stop: next, top: el.scrollTop };
+      if (stop.block === null) return;
+      // Flash the block, so the step shows even when there's nothing to scroll.
+      root.querySelectorAll('[data-ug-flash]').forEach((c) => c.removeAttribute('data-ug-flash'));
+      void (host as HTMLElement).offsetWidth; // restart the animation
+      for (let i = stop.block; cells.has(i); i++) cells.get(i)!.forEach((c) => c.setAttribute('data-ug-flash', ''));
+    },
+    [path],
+  );
+
   const markViewed = useCallback(() => {
     if (!current) return;
     const was = viewed.has(current.newPath);
@@ -979,6 +1054,8 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
     {
       j: () => step(1),
       k: () => step(-1),
+      'shift+j': () => stepChange(1),
+      'shift+k': () => stepChange(-1),
       v: () => markViewed(),
       n: () => nextUnresolved(1),
       'shift+n': () => nextUnresolved(-1),
@@ -1362,6 +1439,9 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
             <Kbd>J</Kbd> <Kbd>K</Kbd> next / previous file
           </span>
           <span>
+            <Kbd combo="shift+j" /> <Kbd combo="shift+k" /> next / previous change
+          </span>
+          <span>
             <Kbd>V</Kbd> mark viewed
           </span>
           <span>
@@ -1383,7 +1463,7 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
             <Kbd combo="mod+shift+enter" /> finish review
           </span>
           <span className="rv-footer__end">
-            <Kbd combo="mod+alt+0" /> inspector
+            <Kbd combo="mod+?" /> all shortcuts
           </span>
         </footer>
 

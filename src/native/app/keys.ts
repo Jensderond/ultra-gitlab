@@ -123,6 +123,8 @@ export function formatKeys(combo: string): string {
     backspace: '⌫',
     space: 'Space',
     tab: '⇥',
+    home: 'Home',
+    end: 'End',
   };
   return combo
     .split('+')

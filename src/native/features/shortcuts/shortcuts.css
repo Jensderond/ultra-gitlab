@@ -1,0 +1,41 @@
+/* Keyboard shortcuts sheet (⌘?) */
+
+.ks-sections {
+  columns: 2 300px;
+  column-gap: 32px;
+}
+.ks-section {
+  break-inside: avoid;
+  padding-bottom: 18px;
+}
+.ks-section__title {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line-soft);
+  margin-bottom: 4px;
+}
+.ks-section.is-here .ks-section__title {
+  color: var(--text);
+}
+.ks-rows {
+  margin: 0;
+}
+.ks-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: var(--text-sm);
+}
+.ks-row__label {
+  color: var(--text-2);
+}
+.ks-row__keys {
+  margin: 0;
+  display: flex;
+  gap: 4px;
+  flex: none;
+}

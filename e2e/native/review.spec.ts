@@ -152,6 +152,94 @@ test.describe('flows', () => {
     await expect(page).toHaveURL(/file=/);
   });
 
+  test('⇧J / ⇧K step through the changes in a file', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 480 });
+    await installReviewMocks(page, { settings: { diffViewMode: 'unified' } });
+    await open(page, `/review/101?file=${encodeURIComponent('src/styles/theme.css')}`);
+    const scroll = page.locator('.rv-scroll');
+    // The first row of the flashed block, by its unified line index.
+    const flashed = () =>
+      page.locator('.rv-diff').evaluate((host) => {
+        const cell = host.shadowRoot!.querySelector('[data-ug-flash]');
+        return cell ? parseInt(cell.getAttribute('data-line-index')!, 10) : null;
+      });
+
+    await page.keyboard.press('Shift+J');
+    await expect.poll(flashed).toBe(1);
+    await page.keyboard.press('Shift+J');
+    await expect.poll(flashed).toBe(6);
+    await page.keyboard.press('Shift+J');
+    await expect.poll(flashed).toBe(10);
+    const down = await scroll.evaluate((el) => el.scrollTop);
+    expect(down).toBeGreaterThan(0);
+    await page.keyboard.press('Shift+J');
+    await expect.poll(flashed).toBe(19);
+    await page.keyboard.press('Shift+J');
+    await expect(page.getByText('Last change in this file')).toBeVisible();
+    await expect(page).toHaveURL(/theme\.css/);
+
+    await page.keyboard.press('Shift+K');
+    await expect.poll(flashed).toBe(10);
+    await page.keyboard.press('Shift+K');
+    await expect.poll(flashed).toBe(6);
+    expect(await scroll.evaluate((el) => el.scrollTop)).toBeLessThan(down);
+
+    // After scrolling by hand, ⇧J starts from what's on screen.
+    await scroll.evaluate((el) => (el.scrollTop = el.scrollHeight));
+    await page.keyboard.press('Shift+K');
+    await expect.poll(flashed).not.toBe(6);
+  });
+
+  test('⇧J pages through a change taller than the window', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 480 });
+    await installReviewMocks(page, { settings: { diffViewMode: 'unified' } });
+    // A new file: the whole file is one block of changes.
+    await open(page, `/review/101?file=${encodeURIComponent('src/components/ThemeToggle.tsx')}`);
+    const scroll = page.locator('.rv-scroll');
+    const top = () => scroll.evaluate((el) => el.scrollTop);
+
+    await page.keyboard.press('Shift+J');
+    await expect.poll(top).toBeGreaterThan(0);
+    const first = await top();
+    await page.keyboard.press('Shift+J');
+    await expect.poll(top).toBeGreaterThan(first);
+    await expect(page.getByText('Last change in this file')).toHaveCount(0);
+
+    await page.keyboard.press('Shift+K');
+    await expect.poll(top).toBe(first);
+  });
+
+  test('⌘? shows the keyboard shortcuts', async ({ page }) => {
+    await installReviewMocks(page, { settings: { diffViewMode: 'unified' } });
+    await open(page);
+    const sheet = page.locator('.ui-sheet', { hasText: 'Keyboard Shortcuts' });
+    const reviewUrl = page.url();
+
+    await page.keyboard.press('ControlOrMeta+Shift+Slash');
+    await expect(sheet).toBeVisible();
+    // The screen you're on comes first.
+    await expect(sheet.locator('.ks-section__title').first()).toHaveText('Reviewing changes');
+    await expect(sheet).toContainText('Next / previous change in the file');
+    await page.waitForTimeout(250);
+    await shot(page, 'shortcuts');
+    // Keys underneath are blocked while it's open.
+    await page.keyboard.press('j');
+    await expect(page).toHaveURL(reviewUrl);
+    await page.keyboard.press('Escape');
+    await expect(sheet).toBeHidden();
+    await expect(page).toHaveURL(reviewUrl);
+
+    // ⌘? toggles it, and the palette opens it too.
+    await page.keyboard.press('ControlOrMeta+Shift+Slash');
+    await expect(sheet).toBeVisible();
+    await page.keyboard.press('ControlOrMeta+Shift+Slash');
+    await expect(sheet).toBeHidden();
+    await page.keyboard.press('ControlOrMeta+k');
+    await page.keyboard.type('shortcuts');
+    await page.keyboard.press('Enter');
+    await expect(sheet).toBeVisible();
+  });
+
   test('new comment via line number', async ({ page }) => {
     await installReviewMocks(page, { settings: { diffViewMode: 'unified' } });
     await open(page, `/review/101?file=${encodeURIComponent('src/styles/theme.css')}`);
