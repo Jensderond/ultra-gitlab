@@ -9,11 +9,12 @@ interface CommentsTabProps {
   threads: Comment[][];
   currentUser?: string | null;
   onDelete?: (commentId: number) => Promise<void>;
+  onEdit?: (commentId: number, body: string) => Promise<void>;
   onReply?: (discussionId: string, parentId: number, body: string) => Promise<void>;
   onResolve?: (discussionId: string, resolved: boolean) => Promise<void>;
 }
 
-export function CommentsTab({ threads, currentUser, onDelete, onReply, onResolve }: CommentsTabProps) {
+export function CommentsTab({ threads, currentUser, onDelete, onEdit, onReply, onResolve }: CommentsTabProps) {
   return (
     <div className="my-mr-comments">
       <ActivityFeed
@@ -25,6 +26,7 @@ export function CommentsTab({ threads, currentUser, onDelete, onReply, onResolve
         onReply={onReply}
         onResolve={onResolve}
         onDelete={onDelete}
+        onEdit={onEdit}
       />
     </div>
   );

@@ -24,6 +24,7 @@ import type {
   ReplyToCommentRequest,
   ResolveDiscussionRequest,
   DeleteCommentRequest,
+  EditCommentRequest,
   SyncStatusResponse,
   Settings,
   SettingsUpdate,
@@ -499,6 +500,13 @@ export async function resolveDiscussion(request: ResolveDiscussionRequest): Prom
  */
 export async function deleteComment(request: DeleteCommentRequest): Promise<void> {
   return invoke<void>('delete_comment', { input: request });
+}
+
+/**
+ * Edit the body of one of your own comments on a merge request.
+ */
+export async function editComment(request: EditCommentRequest): Promise<void> {
+  return invoke<void>('edit_comment', { input: request });
 }
 
 // ============================================================================

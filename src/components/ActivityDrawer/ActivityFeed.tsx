@@ -8,7 +8,8 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import type { Comment, SyncStatus } from '../../types';
 import Markdown from '../Markdown';
-import { TrashIcon, PendingIcon, WarningIcon } from '../icons';
+import CommentEditForm from '../CommentEditForm';
+import { TrashIcon, PencilIcon, PendingIcon, WarningIcon } from '../icons';
 import { formatRelativeTime } from '../../utils/formatRelativeTime';
 import './ActivityFeed.css';
 
@@ -22,6 +23,7 @@ interface ActivityFeedProps {
   onReply?: (discussionId: string, parentId: number, body: string) => Promise<void>;
   onResolve?: (discussionId: string, resolved: boolean) => Promise<void>;
   onDelete?: (commentId: number) => Promise<void>;
+  onEdit?: (commentId: number, body: string) => Promise<void>;
 }
 
 function SyncBadge({ status }: { status: SyncStatus | null }) {
@@ -42,12 +44,14 @@ interface CommentEntryProps {
   comment: Comment;
   currentUser?: string | null;
   onDelete?: (commentId: number) => Promise<void>;
+  onEdit?: (commentId: number, body: string) => Promise<void>;
 }
 
-function CommentEntry({ comment, currentUser, onDelete }: CommentEntryProps) {
+function CommentEntry({ comment, currentUser, onDelete, onEdit }: CommentEntryProps) {
   const isOwn = currentUser && comment.authorUsername === currentUser;
 
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const handleDelete = useCallback(() => {
     if (!onDelete) return;
@@ -65,7 +69,18 @@ function CommentEntry({ comment, currentUser, onDelete }: CommentEntryProps) {
         <span className="activity-comment__author">{comment.authorUsername}</span>
         <span className="activity-comment__time">{formatRelativeTime(comment.createdAt)}</span>
         <SyncBadge status={comment.syncStatus} />
-        {isOwn && onDelete && (
+        {isOwn && onEdit && !editing && (
+          <button
+            className="activity-comment__edit"
+            onClick={() => setEditing(true)}
+            title="Edit comment"
+            aria-label="Edit comment"
+            data-testid="activity-edit-btn"
+          >
+            <PencilIcon />
+          </button>
+        )}
+        {isOwn && onDelete && !editing && (
           <button
             className={`activity-comment__delete ${confirmingDelete ? 'activity-comment__delete--confirming' : ''}`}
             onClick={handleDelete}
@@ -77,7 +92,15 @@ function CommentEntry({ comment, currentUser, onDelete }: CommentEntryProps) {
           </button>
         )}
       </div>
-      <Markdown className="activity-comment__body" content={comment.body} />
+      {editing && onEdit ? (
+        <CommentEditForm
+          initialBody={comment.body}
+          onSave={(body) => onEdit(comment.id, body)}
+          onCancel={() => setEditing(false)}
+        />
+      ) : (
+        <Markdown className="activity-comment__body" content={comment.body} />
+      )}
     </div>
   );
 }
@@ -161,9 +184,10 @@ interface ThreadCardProps {
   onSubmitReply?: (discussionId: string, parentId: number, body: string) => Promise<void>;
   onResolve?: (discussionId: string, resolved: boolean) => Promise<void>;
   onDelete?: (commentId: number) => Promise<void>;
+  onEdit?: (commentId: number, body: string) => Promise<void>;
 }
 
-function ThreadCard({ thread, isReplying, currentUser, onStartReply, onCancelReply, onSubmitReply, onResolve, onDelete }: ThreadCardProps) {
+function ThreadCard({ thread, isReplying, currentUser, onStartReply, onCancelReply, onSubmitReply, onResolve, onDelete, onEdit }: ThreadCardProps) {
   const root = thread[0];
   const replies = thread.slice(1);
   const isResolved = root.resolved;
@@ -200,11 +224,11 @@ function ThreadCard({ thread, isReplying, currentUser, onStartReply, onCancelRep
           )}
         </div>
       )}
-      <CommentEntry comment={root} currentUser={currentUser} onDelete={onDelete} />
+      <CommentEntry comment={root} currentUser={currentUser} onDelete={onDelete} onEdit={onEdit} />
       {replies.length > 0 && (
         <div className="activity-thread__replies" data-testid="activity-thread-replies">
           {replies.map((reply) => (
-            <CommentEntry key={reply.id} comment={reply} currentUser={currentUser} onDelete={onDelete} />
+            <CommentEntry key={reply.id} comment={reply} currentUser={currentUser} onDelete={onDelete} onEdit={onEdit} />
           ))}
         </div>
       )}
@@ -259,7 +283,7 @@ function SystemEventEntry({ event }: { event: Comment }) {
   );
 }
 
-export default function ActivityFeed({ threads, systemEvents, showSystemEvents, loading, error, currentUser, onReply, onResolve, onDelete }: ActivityFeedProps) {
+export default function ActivityFeed({ threads, systemEvents, showSystemEvents, loading, error, currentUser, onReply, onResolve, onDelete, onEdit }: ActivityFeedProps) {
   const [replyingToThreadRootId, setReplyingToThreadRootId] = useState<number | null>(null);
 
   const feedItems = useMemo((): FeedItem[] => {
@@ -324,6 +348,7 @@ export default function ActivityFeed({ threads, systemEvents, showSystemEvents, 
             onSubmitReply={onReply}
             onResolve={onResolve}
             onDelete={onDelete}
+            onEdit={onEdit}
           />
         ) : (
           <SystemEventEntry key={`event-${item.event.id}`} event={item.event} />

@@ -25,6 +25,7 @@ interface MRDiffContentProps {
   onRetry: () => void;
   currentUser?: string;
   onDeleteComment?: (commentId: number) => void;
+  onEditComment?: (commentId: number, body: string) => Promise<void>;
   onReply?: (discussionId: string, parentId: number, body: string) => Promise<void>;
   onResolve?: (discussionId: string, resolved: boolean) => Promise<void>;
   bottomPadding?: number;
@@ -55,6 +56,7 @@ export default function MRDiffContent({
   onRetry,
   currentUser,
   onDeleteComment,
+  onEditComment,
   onReply,
   onResolve,
   bottomPadding,
@@ -145,6 +147,7 @@ export default function MRDiffContent({
           onLineSelected={onLineSelected}
           currentUser={currentUser}
           onDeleteComment={onDeleteComment}
+          onEditComment={onEditComment}
           onReply={onReply}
           onResolve={onResolve}
           editMode={editMode}

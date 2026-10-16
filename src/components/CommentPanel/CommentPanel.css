@@ -72,6 +72,7 @@
   margin-bottom: 8px;
 }
 
+.standalone-comment .comment-edit,
 .standalone-comment .comment-delete {
   margin-left: auto;
   padding: 0;
@@ -84,8 +85,17 @@
   transition: opacity 0.15s;
 }
 
+.standalone-comment .comment-edit + .comment-delete {
+  margin-left: 8px;
+}
+
+.standalone-comment:hover .comment-edit,
 .standalone-comment:hover .comment-delete {
   opacity: 1;
+}
+
+.standalone-comment .comment-edit:hover {
+  color: var(--text-primary);
 }
 
 .standalone-comment .comment-delete:hover {

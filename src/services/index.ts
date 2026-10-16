@@ -32,6 +32,7 @@ export {
   replyToComment,
   resolveDiscussion,
   deleteComment,
+  editComment,
   approveMR,
   unapproveMR,
   snoozeMR,

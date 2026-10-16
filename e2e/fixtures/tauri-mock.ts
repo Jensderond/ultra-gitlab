@@ -322,6 +322,22 @@ export async function mockTauriIPC(
         }
         return undefined;
       },
+      edit_comment: (args) => {
+        // Tests set window.__MOCK_EDIT_COMMENT_FAIL__ to simulate a failed save
+        const w = window as Record<string, unknown>;
+        if (w.__MOCK_EDIT_COMMENT_FAIL__) {
+          throw new Error('Failed to edit comment');
+        }
+        const input = args.input as { mrId: number; commentId: number; body: string };
+        const comment = (data.comments[input.mrId] || []).find(
+          (c: { id: number }) => c.id === input.commentId
+        );
+        if (comment) {
+          comment.body = input.body.trim();
+          comment.updatedAt = Math.floor(Date.now() / 1000);
+        }
+        return undefined;
+      },
 
       // -- Approvals --
       approve_mr: () => undefined,

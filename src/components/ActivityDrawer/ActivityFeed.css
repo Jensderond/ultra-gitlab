@@ -221,6 +221,7 @@
 }
 
 /* Delete button */
+.activity-comment__edit,
 .activity-comment__delete {
   background: none;
   border: none;
@@ -233,24 +234,38 @@
   line-height: 1;
 }
 
+/* Edit sits right before delete; only the first of the two pushes right. */
+.activity-comment__edit + .activity-comment__delete {
+  margin-left: 4px;
+}
+
 /* Only reveal-on-hover for real pointers — on touch there's no hover state,
    so it would otherwise be permanently unreachable. */
 @media (hover: hover) and (pointer: fine) {
+  .activity-comment:hover .activity-comment__edit,
   .activity-comment:hover .activity-comment__delete {
     opacity: 0.5;
   }
 
-  .activity-comment__delete:hover {
+  .activity-comment__edit:hover,
+  .activity-comment__delete:hover,
+  .activity-comment__edit:focus-visible,
+  .activity-comment__delete:focus-visible {
     opacity: 1 !important;
   }
 }
 
 @media (hover: none), (pointer: coarse) {
+  .activity-comment__edit,
   .activity-comment__delete {
     opacity: 0.4;
     /* Invisible hit-slop — the glyph stays small, but the tap target doesn't. */
     padding: 10px 8px;
     margin: -10px -8px -10px auto;
+  }
+
+  .activity-comment__edit + .activity-comment__delete {
+    margin-left: 0;
   }
 }
 
@@ -259,6 +274,13 @@
   color: #f7768e;
   font-size: 11px;
   font-weight: 600;
+}
+
+/* Inline comment editor reuses the reply input, minus the reply indent. */
+.activity-reply-input.activity-edit-input {
+  margin-top: 4px;
+  padding-left: 0;
+  border-left: none;
 }
 
 /* Inline reply input */

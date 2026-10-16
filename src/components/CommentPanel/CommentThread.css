@@ -94,6 +94,7 @@
   text-decoration: underline;
 }
 
+.comment-edit,
 .comment-delete {
   margin-left: auto;
   color: var(--text-tertiary);
@@ -102,8 +103,19 @@
   transition: opacity 0.15s;
 }
 
+/* Edit sits right before delete; only the first of the two pushes right. */
+.comment-edit + .comment-delete {
+  margin-left: 8px;
+}
+
+.comment-item:hover .comment-edit,
 .comment-item:hover .comment-delete {
   opacity: 1;
+}
+
+.comment-edit:hover {
+  color: var(--text-primary);
+  text-decoration: none;
 }
 
 .comment-delete:hover {

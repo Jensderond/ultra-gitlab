@@ -6,8 +6,9 @@
 
 import { useReducer, useEffect, useCallback, useState } from 'react';
 import type { Comment } from '../../types';
-import { invoke, getGitLabInstances } from '../../services/tauri';
+import { invoke, getGitLabInstances, editComment } from '../../services/tauri';
 import Markdown from '../Markdown';
+import CommentEditForm from '../CommentEditForm';
 import CommentThread from './CommentThread';
 import CommentInput from './CommentInput';
 import './CommentPanel.css';
@@ -37,6 +38,7 @@ type CommentPanelAction =
   | { type: 'SUBMIT_END' }
   | { type: 'REPLY_START'; discussionId: string }
   | { type: 'REPLY_END' }
+  | { type: 'SET_BODY'; commentId: number; body: string }
   | { type: 'SET_ERROR'; error: string };
 
 function commentPanelReducer(state: CommentPanelState, action: CommentPanelAction): CommentPanelState {
@@ -55,6 +57,11 @@ function commentPanelReducer(state: CommentPanelState, action: CommentPanelActio
       return { ...state, replyingTo: action.discussionId };
     case 'REPLY_END':
       return { ...state, replyingTo: null };
+    case 'SET_BODY':
+      return {
+        ...state,
+        comments: state.comments.map((c) => (c.id === action.commentId ? { ...c, body: action.body } : c)),
+      };
     case 'SET_ERROR':
       return { ...state, error: action.error };
   }
@@ -92,6 +99,7 @@ export default function CommentPanel({
     replyingTo: null,
   });
   const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const { comments, loading, error, submitting, replyingTo } = state;
 
@@ -165,6 +173,17 @@ export default function CommentPanel({
     }
   };
 
+  // Edit a comment: show the new body right away, refetch if saving fails
+  const handleEdit = async (commentId: number, body: string) => {
+    dispatch({ type: 'SET_BODY', commentId, body });
+    try {
+      await editComment({ mrId, commentId, body });
+    } catch (e) {
+      await fetchComments();
+      throw e;
+    }
+  };
+
   // Resolve/unresolve a discussion
   const handleResolve = async (discussionId: string, resolved: boolean) => {
     try {
@@ -220,17 +239,34 @@ export default function CommentPanel({
               <div key={comment.id} className="standalone-comment">
                 <div className="comment-header">
                   <span className="comment-author">{comment.authorUsername}</span>
-                  {currentUser && comment.authorUsername === currentUser && (
-                    <button
-                      type="button"
-                      className="btn-link comment-delete"
-                      onClick={() => handleDelete(comment.id)}
-                    >
-                      Delete
-                    </button>
+                  {currentUser && comment.authorUsername === currentUser && editingId !== comment.id && (
+                    <>
+                      <button
+                        type="button"
+                        className="btn-link comment-edit"
+                        onClick={() => setEditingId(comment.id)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-link comment-delete"
+                        onClick={() => handleDelete(comment.id)}
+                      >
+                        Delete
+                      </button>
+                    </>
                   )}
                 </div>
-                <Markdown className="comment-body" content={comment.body} />
+                {editingId === comment.id ? (
+                  <CommentEditForm
+                    initialBody={comment.body}
+                    onSave={(body) => handleEdit(comment.id, body)}
+                    onCancel={() => setEditingId(null)}
+                  />
+                ) : (
+                  <Markdown className="comment-body" content={comment.body} />
+                )}
               </div>
             ))}
           </div>
@@ -251,6 +287,7 @@ export default function CommentPanel({
               resolved={isResolved}
               currentUser={currentUser ?? undefined}
               onDelete={handleDelete}
+              onEdit={handleEdit}
               onReply={(body) => {
                 if (rootComment) {
                   handleReply(discussionId, rootComment.id, body);

@@ -10,6 +10,7 @@ import { tauriListen } from '../services/transport';
 import { useCommentsQuery } from './queries/useCommentsQuery';
 import { useCurrentUserQuery } from './queries/useCurrentUserQuery';
 import { useMRDetailQuery } from './queries/useMRDetailQuery';
+import { useEditComment } from './useEditComment';
 import { queryKeys } from '../lib/queryKeys';
 import type { Comment } from '../types';
 
@@ -38,6 +39,7 @@ export interface ActivityData {
   replyToComment: (discussionId: string, parentId: number, body: string) => Promise<void>;
   resolveDiscussion: (discussionId: string, resolved: boolean) => Promise<void>;
   deleteComment: (commentId: number) => Promise<void>;
+  editComment: (commentId: number, body: string) => Promise<void>;
 }
 
 export function useActivityData(mrId: number): ActivityData {
@@ -45,6 +47,7 @@ export function useActivityData(mrId: number): ActivityData {
   const commentsQuery = useCommentsQuery(mrId);
   const mrQuery = useMRDetailQuery(mrId);
   const currentUserQuery = useCurrentUserQuery(mrQuery.data?.instanceId ?? 0);
+  const editComment = useEditComment(mrId);
 
   const comments = commentsQuery.data ?? [];
 
@@ -229,5 +232,6 @@ export function useActivityData(mrId: number): ActivityData {
     replyToComment,
     resolveDiscussion,
     deleteComment,
+    editComment,
   };
 }

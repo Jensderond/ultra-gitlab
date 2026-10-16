@@ -27,6 +27,7 @@ import {
   replyToComment,
   resolveDiscussion,
   deleteComment as tauriDeleteComment,
+  editComment as tauriEditComment,
   approveMR,
   unapproveMR,
   mergeMR,
@@ -48,6 +49,7 @@ import type {
   ReplyToCommentRequest,
   ResolveDiscussionRequest,
   DeleteCommentRequest,
+  EditCommentRequest,
 } from '../types';
 
 // Re-export types used by consumers
@@ -386,6 +388,22 @@ export async function deleteComment(
 ): Promise<void> {
   const request: DeleteCommentRequest = { mrId, commentId };
   return tauriDeleteComment(request);
+}
+
+/**
+ * Edit the body of a comment on a merge request.
+ *
+ * @param mrId - The merge request ID
+ * @param commentId - The comment ID to edit
+ * @param body - The new comment body
+ */
+export async function editComment(
+  mrId: number,
+  commentId: number,
+  body: string
+): Promise<void> {
+  const request: EditCommentRequest = { mrId, commentId, body };
+  return tauriEditComment(request);
 }
 
 // ============================================================================

@@ -10,6 +10,7 @@ import { useMRDetailQuery } from '../../hooks/queries/useMRDetailQuery';
 import { useMRReviewersQuery } from '../../hooks/queries/useMRReviewersQuery';
 import { useCurrentUserQuery } from '../../hooks/queries/useCurrentUserQuery';
 import { useCommentsQuery } from '../../hooks/queries/useCommentsQuery';
+import { useEditComment } from '../../hooks/useEditComment';
 import { queryKeys } from '../../lib/queryKeys';
 import type { MergeRequest, MrReviewer, Comment, DeleteCommentRequest } from '../../types';
 
@@ -27,6 +28,7 @@ export interface MyMRData {
   unresolvedCount: number;
   approvedCount: number;
   handleDeleteComment: (commentId: number) => Promise<void>;
+  handleEditComment: (commentId: number, body: string) => Promise<void>;
   handleReply: (discussionId: string, parentId: number, body: string) => Promise<void>;
   handleResolve: (discussionId: string, resolved: boolean) => Promise<void>;
 }
@@ -36,6 +38,7 @@ export function useMyMRData(mrId: number): MyMRData {
   const mrQuery = useMRDetailQuery(mrId);
   const reviewersQuery = useMRReviewersQuery(mrId);
   const commentsQuery = useCommentsQuery(mrId);
+  const handleEditComment = useEditComment(mrId);
 
   const mr = mrQuery.data ?? null;
   const currentUserQuery = useCurrentUserQuery(mr?.instanceId ?? 0);
@@ -120,6 +123,7 @@ export function useMyMRData(mrId: number): MyMRData {
     unresolvedCount,
     approvedCount,
     handleDeleteComment,
+    handleEditComment,
     handleReply,
     handleResolve,
   };

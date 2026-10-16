@@ -46,7 +46,7 @@ export default function MyMRDetailPage() {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [mergeState, mergeDispatch] = useReducer(mergeReducer, initialMergeState);
 
-  const { mr, setMr, reviewers, loading, error, stale, threads, unresolvedCount, approvedCount, currentUser, handleDeleteComment, handleReply, handleResolve } =
+  const { mr, setMr, reviewers, loading, error, stale, threads, unresolvedCount, approvedCount, currentUser, handleDeleteComment, handleEditComment, handleReply, handleResolve } =
     useMyMRData(mrId);
 
   const isMergedOrClosed = mr?.state === 'merged' || mr?.state === 'closed';
@@ -156,7 +156,7 @@ export default function MyMRDetailPage() {
         )}
 
         {activeTab === 'comments' && (
-          <CommentsTab threads={threads} currentUser={currentUser} onDelete={handleDeleteComment} onReply={handleReply} onResolve={handleResolve} />
+          <CommentsTab threads={threads} currentUser={currentUser} onDelete={handleDeleteComment} onEdit={handleEditComment} onReply={handleReply} onResolve={handleResolve} />
         )}
 
         {activeTab === 'code' && (

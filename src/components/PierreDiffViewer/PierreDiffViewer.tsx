@@ -4,8 +4,9 @@ import { Editor } from '@pierre/diffs/edit';
 import type { EditorChangeEvent, EditorFactory } from '@pierre/diffs/edit';
 import type { DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
-import { TrashIcon, CheckIcon, CopyIcon } from '../icons';
+import { TrashIcon, PencilIcon, CheckIcon, CopyIcon } from '../icons';
 import Markdown from '../Markdown';
+import CommentEditForm from '../CommentEditForm';
 import UserAvatar from '../UserAvatar/UserAvatar';
 import { useCopyToast } from '../../hooks/useCopyToast';
 import '../ActivityDrawer/ActivityFeed.css';
@@ -56,10 +57,12 @@ export interface PierreDiffViewerProps {
   onLineSelected?: (range: SelectedLineRange | null) => void;
   /** GitLab instance ID (for avatar resolution) */
   instanceId?: number;
-  /** Current user's username (for showing delete button on own comments) */
+  /** Current user's username (for showing edit/delete buttons on own comments) */
   currentUser?: string;
   /** Called when a comment delete button is clicked */
   onDeleteComment?: (commentId: number) => void;
+  /** Called when the user saves an edited comment body */
+  onEditComment?: (commentId: number, body: string) => Promise<void>;
   /** Called when the user submits a reply to a discussion thread */
   onReply?: (discussionId: string, parentId: number, body: string) => Promise<void>;
   /** Called when the user resolves/unresolves a discussion thread */
@@ -100,14 +103,17 @@ function AnnotationComment({
   instanceId,
   currentUser,
   onDeleteComment,
+  onEditComment,
 }: {
   comment: LineComment;
   instanceId?: number;
   currentUser?: string;
   onDeleteComment?: (commentId: number) => void;
+  onEditComment?: (commentId: number, body: string) => Promise<void>;
 }) {
   const isOwn = currentUser && comment.authorUsername === currentUser;
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const handleDelete = useCallback(() => {
     if (!onDeleteComment) return;
@@ -127,7 +133,18 @@ function AnnotationComment({
         )}
         <span className="activity-comment__author">{comment.authorUsername}</span>
         <span className="activity-comment__time">{formatDate(comment.createdAt)}</span>
-        {isOwn && onDeleteComment && (
+        {isOwn && onEditComment && !editing && (
+          <button
+            className="activity-comment__edit"
+            onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+            title="Edit comment"
+            aria-label="Edit comment"
+            data-testid="annotation-edit-btn"
+          >
+            <PencilIcon />
+          </button>
+        )}
+        {isOwn && onDeleteComment && !editing && (
           <button
             className={`activity-comment__delete ${confirmingDelete ? 'activity-comment__delete--confirming' : ''}`}
             onClick={(e) => { e.stopPropagation(); handleDelete(); }}
@@ -138,7 +155,15 @@ function AnnotationComment({
           </button>
         )}
       </div>
-      <Markdown className="activity-comment__body" content={comment.body} />
+      {editing && onEditComment ? (
+        <CommentEditForm
+          initialBody={comment.body}
+          onSave={(body) => onEditComment(comment.id, body)}
+          onCancel={() => setEditing(false)}
+        />
+      ) : (
+        <Markdown className="activity-comment__body" content={comment.body} />
+      )}
     </div>
   );
 }
@@ -214,6 +239,7 @@ function AnnotationThread({
   instanceId,
   currentUser,
   onDeleteComment,
+  onEditComment,
   onReply,
   onResolve,
 }: {
@@ -221,6 +247,7 @@ function AnnotationThread({
   instanceId?: number;
   currentUser?: string;
   onDeleteComment?: (commentId: number) => void;
+  onEditComment?: (commentId: number, body: string) => Promise<void>;
   onReply?: (discussionId: string, parentId: number, body: string) => Promise<void>;
   onResolve?: (discussionId: string, resolved: boolean) => Promise<void>;
 }) {
@@ -272,11 +299,11 @@ function AnnotationThread({
         {!collapsed && (
           /* Expanded state — full thread */
           <>
-            <AnnotationComment comment={root} instanceId={instanceId} currentUser={currentUser} onDeleteComment={onDeleteComment} />
+            <AnnotationComment comment={root} instanceId={instanceId} currentUser={currentUser} onDeleteComment={onDeleteComment} onEditComment={onEditComment} />
             {replies.length > 0 && (
               <div className="activity-thread__replies">
                 {replies.map((reply) => (
-                  <AnnotationComment key={reply.id} comment={reply} instanceId={instanceId} currentUser={currentUser} onDeleteComment={onDeleteComment} />
+                  <AnnotationComment key={reply.id} comment={reply} instanceId={instanceId} currentUser={currentUser} onDeleteComment={onDeleteComment} onEditComment={onEditComment} />
                 ))}
               </div>
             )}
@@ -333,6 +360,7 @@ export function PierreDiffViewer({
   instanceId,
   currentUser,
   onDeleteComment,
+  onEditComment,
   onReply,
   onResolve,
   editMode,
@@ -420,6 +448,8 @@ export function PierreDiffViewer({
   currentUserRef.current = currentUser;
   const onDeleteRef = useRef(onDeleteComment);
   onDeleteRef.current = onDeleteComment;
+  const onEditCommentRef = useRef(onEditComment);
+  onEditCommentRef.current = onEditComment;
   const onReplyRef = useRef(onReply);
   onReplyRef.current = onReply;
   const onResolveRef = useRef(onResolve);
@@ -449,6 +479,7 @@ export function PierreDiffViewer({
         instanceId={instanceIdRef.current}
         currentUser={currentUserRef.current}
         onDeleteComment={onDeleteRef.current}
+        onEditComment={onEditCommentRef.current}
         onReply={onReplyRef.current}
         onResolve={onResolveRef.current}
       />

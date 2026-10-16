@@ -4,8 +4,10 @@
  * Shows comments in chronological order with sync status indicators.
  */
 
+import { useState } from 'react';
 import type { Comment, SyncStatus } from '../../types';
 import Markdown from '../Markdown';
+import CommentEditForm from '../CommentEditForm';
 import CommentInput from './CommentInput';
 import './CommentThread.css';
 
@@ -28,6 +30,8 @@ interface CommentThreadProps {
   onResolve?: (resolved: boolean) => void;
   /** Called when deleting a comment */
   onDelete?: (commentId: number) => void;
+  /** Called when saving an edited comment */
+  onEdit?: (commentId: number, body: string) => Promise<void>;
   /** Whether a reply is being submitted */
   isReplying?: boolean;
 }
@@ -68,12 +72,15 @@ function CommentItem({
   comment,
   currentUser,
   onDelete,
+  onEdit,
 }: {
   comment: Comment;
   currentUser?: string;
   onDelete?: (commentId: number) => void;
+  onEdit?: (commentId: number, body: string) => Promise<void>;
 }) {
   const canDelete = currentUser && comment.authorUsername === currentUser;
+  const [editing, setEditing] = useState(false);
 
   return (
     <div className={`comment-item ${comment.isLocal ? 'comment-local' : ''}`}>
@@ -81,7 +88,16 @@ function CommentItem({
         <span className="comment-author">{comment.authorUsername}</span>
         <span className="comment-time">{formatRelativeTime(comment.createdAt)}</span>
         <SyncStatusBadge status={comment.syncStatus} />
-        {canDelete && onDelete && (
+        {canDelete && onEdit && !editing && (
+          <button
+            type="button"
+            className="btn-link comment-edit"
+            onClick={() => setEditing(true)}
+          >
+            Edit
+          </button>
+        )}
+        {canDelete && onDelete && !editing && (
           <button
             type="button"
             className="btn-link comment-delete"
@@ -91,7 +107,15 @@ function CommentItem({
           </button>
         )}
       </div>
-      <Markdown className="comment-body" content={comment.body} />
+      {editing && onEdit ? (
+        <CommentEditForm
+          initialBody={comment.body}
+          onSave={(body) => onEdit(comment.id, body)}
+          onCancel={() => setEditing(false)}
+        />
+      ) : (
+        <Markdown className="comment-body" content={comment.body} />
+      )}
     </div>
   );
 }
@@ -109,6 +133,7 @@ export default function CommentThread({
   onReply,
   onResolve,
   onDelete,
+  onEdit,
   isReplying = false,
 }: CommentThreadProps) {
   // Sort by creation time
@@ -123,12 +148,12 @@ export default function CommentThread({
   return (
     <div className={`comment-thread ${resolved ? 'thread-resolved' : ''}`}>
       <div className="thread-content">
-        <CommentItem comment={rootComment} currentUser={currentUser} onDelete={onDelete} />
+        <CommentItem comment={rootComment} currentUser={currentUser} onDelete={onDelete} onEdit={onEdit} />
 
         {replies.length > 0 && (
           <div className="thread-replies">
             {replies.map((reply) => (
-              <CommentItem key={reply.id} comment={reply} currentUser={currentUser} onDelete={onDelete} />
+              <CommentItem key={reply.id} comment={reply} currentUser={currentUser} onDelete={onDelete} onEdit={onEdit} />
             ))}
           </div>
         )}
