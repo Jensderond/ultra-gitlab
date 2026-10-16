@@ -45,7 +45,7 @@ pub use auth::{
 };
 pub use avatar::{get_avatar, get_avatars, refresh_avatars, update_session_cookie};
 pub use comments::{
-    add_comment, delete_comment, get_comments, get_file_comments, reply_to_comment,
+    add_comment, delete_comment, edit_comment, get_comments, get_file_comments, reply_to_comment,
     resolve_discussion,
 };
 pub use custom_filter::{get_custom_mr_filter, set_custom_mr_filter, test_custom_mr_filter};

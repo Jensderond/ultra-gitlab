@@ -13,7 +13,9 @@ use crate::db::pool::DbPool;
 use crate::error::AppError;
 use crate::models::sync_action::{ActionType, SyncAction};
 use crate::services::gitlab_client::GitLabClient;
-use crate::services::sync_queue::{self, DeleteCommentPayload, ReplyPayload, ResolvePayload};
+use crate::services::sync_queue::{
+    self, DeleteCommentPayload, EditCommentPayload, ReplyPayload, ResolvePayload,
+};
 use serde::Deserialize;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -175,6 +177,7 @@ pub async fn process_action(
         ActionType::Resolve => process_resolve(client, action, true).await,
         ActionType::Unresolve => process_resolve(client, action, false).await,
         ActionType::DeleteComment => process_delete_comment(client, action).await,
+        ActionType::EditComment => process_edit_comment(client, action).await,
     };
 
     let duration_ms = now() - start;
@@ -374,6 +377,18 @@ async fn process_delete_comment(
 
     client
         .delete_note(payload.project_id, payload.mr_iid, payload.note_id)
+        .await
+}
+
+/// Process an edit comment action.
+async fn process_edit_comment(
+    client: &GitLabClient,
+    action: &SyncAction,
+) -> Result<(), AppError> {
+    let payload: EditCommentPayload = serde_json::from_str(&action.payload)?;
+
+    client
+        .update_note(payload.project_id, payload.mr_iid, payload.note_id, &payload.body)
         .await
 }
 

@@ -13,6 +13,7 @@ pub enum ActionType {
     Resolve,
     Unresolve,
     DeleteComment,
+    EditComment,
 }
 
 impl From<&str> for ActionType {
@@ -24,6 +25,7 @@ impl From<&str> for ActionType {
             "resolve" => Self::Resolve,
             "unresolve" => Self::Unresolve,
             "deletecomment" => Self::DeleteComment,
+            "editcomment" => Self::EditComment,
             _ => Self::Comment, // Default fallback
         }
     }
@@ -38,6 +40,7 @@ impl std::fmt::Display for ActionType {
             Self::Resolve => write!(f, "resolve"),
             Self::Unresolve => write!(f, "unresolve"),
             Self::DeleteComment => write!(f, "deletecomment"),
+            Self::EditComment => write!(f, "editcomment"),
         }
     }
 }

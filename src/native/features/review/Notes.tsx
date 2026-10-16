@@ -187,7 +187,25 @@ export function Composer({
 /* ------------------------------------------------------------------------ */
 
 function NoteView({ comment, reply }: { comment: Comment; reply?: boolean }) {
-  const { avatars, me, baseUrl } = useReview();
+  const { avatars, me, baseUrl, composer, openComposer, editComment } = useReview();
+  // Only your own comments that GitLab already has; one still sending can't be edited yet.
+  const canEdit = !!me && comment.authorUsername === me && !comment.system && !comment.isLocal;
+  const editing = canEdit && composer?.kind === 'note' && composer.commentId === comment.id;
+  if (editing) {
+    return (
+      <Composer
+        target={{ kind: 'note', commentId: comment.id }}
+        label="Edit your comment"
+        initial={comment.body}
+        submitLabel="Save"
+        onSubmit={(body) => {
+          openComposer(null);
+          void editComment(comment, body);
+        }}
+        onCancel={() => openComposer(null)}
+      />
+    );
+  }
   const status =
     comment.isLocal && comment.syncStatus === 'failed'
       ? <Tag tone="fail">Not sent</Tag>
@@ -204,6 +222,18 @@ function NoteView({ comment, reply }: { comment: Comment; reply?: boolean }) {
             · {when(comment.createdAt)}
           </span>
           {status}
+          {canEdit && (
+            <>
+              <span className="rv-spacer" />
+              <button
+                type="button"
+                className="rv-link"
+                onClick={() => openComposer({ kind: 'note', commentId: comment.id })}
+              >
+                Edit
+              </button>
+            </>
+          )}
         </div>
         <Markdown source={comment.body} baseUrl={baseUrl} className="rv-note__body selectable" />
       </div>

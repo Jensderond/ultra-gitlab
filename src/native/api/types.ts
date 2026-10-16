@@ -250,6 +250,12 @@ export interface DeleteCommentRequest {
   commentId: number;
 }
 
+export interface EditCommentRequest {
+  mrId: number;
+  commentId: number;
+  body: string;
+}
+
 // ============================================================================
 // Sync Action
 // ============================================================================

@@ -8,7 +8,9 @@ use crate::error::AppError;
 use crate::models::sync_action::ActionType;
 use crate::models::Comment;
 use crate::services::sync_engine::SyncHandle;
-use crate::services::sync_queue::{self, DeleteCommentPayload, EnqueueInput, ReplyPayload, ResolvePayload};
+use crate::services::sync_queue::{
+    self, DeleteCommentPayload, EditCommentPayload, EnqueueInput, ReplyPayload, ResolvePayload,
+};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -729,6 +731,85 @@ pub async fn delete_comment(
         if let Err(e) = sync_handle.flush_comments().await {
             eprintln!("[comment] Failed to send flush signal: {}", e);
         }
+    }
+
+    Ok(())
+}
+
+/// Input for edit_comment command.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EditCommentInput {
+    /// Merge request ID (local database ID).
+    pub mr_id: i64,
+    /// Comment ID to edit.
+    pub comment_id: i64,
+    /// The new comment body.
+    pub body: String,
+}
+
+/// Edit the body of a comment on a merge request.
+///
+/// For local-only comments (negative ID): updates the DB and the body of the pending sync action.
+/// For synced comments (positive ID): updates the local DB optimistically and enqueues an EditComment action.
+///
+/// # Arguments
+/// * `input` - Edit details (mr_id, comment_id, body)
+#[tauri::command]
+pub async fn edit_comment(
+    pool: State<'_, DbPool>,
+    sync_handle: State<'_, SyncHandle>,
+    input: EditCommentInput,
+) -> Result<(), AppError> {
+    let body = input.body.trim();
+    if body.is_empty() {
+        return Err(AppError::invalid_input("Comment body cannot be empty"));
+    }
+
+    sqlx::query("UPDATE comments SET body = ?, updated_at = ? WHERE id = ? AND mr_id = ?")
+        .bind(body)
+        .bind(now())
+        .bind(input.comment_id)
+        .bind(input.mr_id)
+        .execute(pool.inner())
+        .await?;
+
+    if input.comment_id < 0 {
+        // Local-only comment: the create action hasn't been sent yet, so send the new body instead
+        sqlx::query(
+            "UPDATE sync_queue SET payload = json_set(payload, '$.body', ?) \
+             WHERE local_reference_id = ? AND status = 'pending'",
+        )
+        .bind(body)
+        .bind(input.comment_id)
+        .execute(pool.inner())
+        .await?;
+        return Ok(());
+    }
+
+    let mr_info = get_mr_info(pool.inner(), input.mr_id).await?;
+
+    let payload = serde_json::to_string(&EditCommentPayload {
+        project_id: mr_info.project_id,
+        mr_iid: mr_info.iid,
+        note_id: input.comment_id,
+        body: body.to_string(),
+    })?;
+
+    sync_queue::enqueue_action(
+        pool.inner(),
+        EnqueueInput {
+            mr_id: input.mr_id,
+            action_type: ActionType::EditComment,
+            payload,
+            local_reference_id: None,
+        },
+    )
+    .await?;
+
+    // Fire-and-forget: flush comment actions immediately
+    if let Err(e) = sync_handle.flush_comments().await {
+        eprintln!("[comment] Failed to send flush signal: {}", e);
     }
 
     Ok(())

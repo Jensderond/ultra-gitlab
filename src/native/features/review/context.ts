@@ -1,6 +1,7 @@
 /** Shared state for the inline notes (threads, drafts, composer) in the diff and aside. */
 
 import { createContext, useContext } from 'react';
+import type { Comment } from '../../api/types';
 import type { LinePoint, SuggestionSource } from './diff';
 import type { Draft, LineKind } from './state';
 import type { Thread } from './threads';
@@ -17,12 +18,18 @@ export type ComposerTarget =
       from?: LinePoint;
     }
   | { kind: 'reply'; threadId: string }
-  | { kind: 'edit'; draftId: string };
+  | { kind: 'edit'; draftId: string }
+  /** One of your own comments already on GitLab. */
+  | { kind: 'note'; commentId: number };
 
 export const composerKey = (t: ComposerTarget) =>
   t.kind === 'new'
     ? `new:${t.filePath}:${t.from ? `${t.from.side}:${t.from.line}-` : ''}${t.side}:${t.line}`
-    : t.kind === 'reply' ? `reply:${t.threadId}` : `edit:${t.draftId}`;
+    : t.kind === 'reply'
+      ? `reply:${t.threadId}`
+      : t.kind === 'edit'
+        ? `edit:${t.draftId}`
+        : `note:${t.commentId}`;
 
 export interface ReviewContextValue {
   mrId: number;
@@ -37,6 +44,8 @@ export interface ReviewContextValue {
   updateDraft: (id: string, body: string) => void;
   removeDraft: (id: string) => void;
   resolve: (thread: Thread, resolved: boolean) => Promise<void>;
+  /** Change the body of one of your own posted comments. */
+  editComment: (comment: Comment, body: string) => Promise<void>;
   /** The lines "Suggest change" replaces, from `from` (or just `to`) through `to`. */
   suggestion: (filePath: string, from: LinePoint | undefined, to: LinePoint) => SuggestionSource | null;
 }

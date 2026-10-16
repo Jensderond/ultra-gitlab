@@ -370,6 +370,15 @@ export async function mockTauriIPC(
         return comment;
       },
       resolve_discussion: () => undefined,
+      edit_comment: (args) => {
+        const input = args.input as { mrId: number; commentId: number; body: string };
+        const c = (data.comments[input.mrId] ?? []).find((c: { id: number }) => c.id === input.commentId);
+        if (c) c.body = input.body;
+        // Tests read what was sent: `window.__EDITED_COMMENTS__`.
+        const w = window as unknown as { __EDITED_COMMENTS__?: unknown[] };
+        (w.__EDITED_COMMENTS__ ??= []).push(input);
+        return undefined;
+      },
       delete_comment: (args) => {
         // Remove the comment from the in-memory data
         const input = args.input as { mrId: number; commentId: number };

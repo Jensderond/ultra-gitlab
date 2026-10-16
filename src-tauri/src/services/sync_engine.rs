@@ -246,7 +246,7 @@ impl SyncHandle {
             .map_err(|_| AppError::internal("Sync engine not running"))
     }
 
-    /// Flush pending comment-related actions (comment, reply, resolve, unresolve) immediately.
+    /// Flush pending comment-related actions (comment, reply, resolve, unresolve, delete, edit) immediately.
     pub async fn flush_comments(&self) -> Result<(), AppError> {
         self.flush_actions(vec![
             ActionType::Comment,
@@ -254,6 +254,7 @@ impl SyncHandle {
             ActionType::Resolve,
             ActionType::Unresolve,
             ActionType::DeleteComment,
+            ActionType::EditComment,
         ])
         .await
     }

@@ -14,6 +14,7 @@ import type {
   Comment,
   CustomMrFilter,
   DeleteCommentRequest,
+  EditCommentRequest,
   DiffFile,
   DiffHunksResponse,
   DiffRefs,
@@ -183,6 +184,7 @@ export const api = {
   reply: (input: ReplyToCommentRequest) => invoke<Comment>('reply_to_comment', { input }),
   resolve: (input: ResolveDiscussionRequest) => invoke<void>('resolve_discussion', { input }),
   deleteComment: (input: DeleteCommentRequest) => invoke<void>('delete_comment', { input }),
+  editComment: (input: EditCommentRequest) => invoke<void>('edit_comment', { input }),
 
   // Pipelines
   mrPipelines: (mrId: number) => invoke<PipelineStatus[]>('get_mr_pipelines', { mrId }),

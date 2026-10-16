@@ -49,6 +49,15 @@ pub struct DeleteCommentPayload {
     pub note_id: i64,
 }
 
+/// Payload for an edit comment action.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EditCommentPayload {
+    pub project_id: i64,
+    pub mr_iid: i64,
+    pub note_id: i64,
+    pub body: String,
+}
+
 /// Payload for resolve/unresolve actions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResolvePayload {

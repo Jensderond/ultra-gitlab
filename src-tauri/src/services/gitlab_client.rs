@@ -1633,6 +1633,37 @@ impl GitLabClient {
         }
     }
 
+    /// Update the body of a note (comment) on a merge request.
+    ///
+    /// GitLab API: PUT /projects/:id/merge_requests/:iid/notes/:note_id
+    pub async fn update_note(
+        &self,
+        project_id: i64,
+        mr_iid: i64,
+        note_id: i64,
+        body: &str,
+    ) -> Result<(), AppError> {
+        let endpoint = format!(
+            "/projects/{}/merge_requests/{}/notes/{}",
+            project_id, mr_iid, note_id
+        );
+        let url = self.api_url(&endpoint);
+
+        let response = self
+            .send_with_retry(
+                self.client
+                    .put(&url)
+                    .json(&serde_json::json!({ "body": body })),
+            )
+            .await?;
+
+        if response.status().is_success() {
+            Ok(())
+        } else {
+            Err(self.error_from_response(response, &endpoint).await)
+        }
+    }
+
     /// Resolve or unresolve a discussion.
     pub async fn resolve_discussion(
         &self,

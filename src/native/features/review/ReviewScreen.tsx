@@ -439,6 +439,23 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
     [mrId],
   );
 
+  const editComment = useCallback(
+    async (comment: Comment, body: string) => {
+      if (body === comment.body) return;
+      setData<Comment[]>(['mr', mrId, 'comments'], (prev) =>
+        (prev ?? []).map((c) => (c.id === comment.id ? { ...c, body } : c)),
+      );
+      try {
+        await api.editComment({ mrId, commentId: comment.id, body });
+        toast('Comment updated');
+      } catch (e) {
+        toast(`Couldn't update the comment: ${(e as Error).message}`, { tone: 'error' });
+        void invalidate(['mr', mrId, 'comments']);
+      }
+    },
+    [mrId],
+  );
+
   const ctx: ReviewContextValue = useMemo(
     () => ({
       mrId,
@@ -455,9 +472,10 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
       updateDraft,
       removeDraft,
       resolve,
+      editComment,
       suggestion: (fp, from, to) => (fp === path ? suggestionSource(baseModel, from, to) : null),
     }),
-    [mrId, mr?.webUrl, me, avatars, composer, drafts, addDraft, updateDraft, removeDraft, resolve, path, baseModel],
+    [mrId, mr?.webUrl, me, avatars, composer, drafts, addDraft, updateDraft, removeDraft, resolve, editComment, path, baseModel],
   );
 
   /* Annotations for the current file ------------------------------------- */

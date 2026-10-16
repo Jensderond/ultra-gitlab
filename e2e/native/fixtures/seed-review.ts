@@ -286,7 +286,7 @@ export const reviewFiles: DiffFile[] = [
   file(1009, 'dist/theme.min.css', 'added', 1, 0, 8),
 ];
 
-const note = (over: Partial<Comment> & Pick<Comment, 'id' | 'body' | 'authorUsername'>): Comment => ({
+export const note = (over: Partial<Comment> & Pick<Comment, 'id' | 'body' | 'authorUsername'>): Comment => ({
   mrId: 101,
   discussionId: null,
   parentId: null,
@@ -341,7 +341,10 @@ export const reviewComments: Comment[] = [
  * Layer the review fixtures over the base Tauri mock (call after
  * `mockTauriIPC`, which the shared test fixture does automatically).
  */
-export async function installReviewMocks(page: Page, options: { settings?: Record<string, unknown> } = {}) {
+export async function installReviewMocks(
+  page: Page,
+  options: { settings?: Record<string, unknown>; comments?: Comment[] } = {},
+) {
   await page.addInitScript(
     (payload) => {
       const w = window as unknown as {
@@ -385,6 +388,12 @@ export async function installReviewMocks(page: Page, options: { settings?: Recor
           case 'get_comments':
             if (mr === 101) return [...((await base(cmd, args)) as unknown[]), ...structuredClone(extraComments)];
             break;
+          case 'edit_comment': {
+            const input = args.input as { commentId: number; body: string };
+            const c = extraComments.find((c) => c.id === input.commentId);
+            if (c) c.body = input.body;
+            break;
+          }
           case 'get_mr_reviewers':
             if (mr === 101) {
               const list = (await base(cmd, args)) as { username: string }[];
@@ -402,7 +411,7 @@ export async function installReviewMocks(page: Page, options: { settings?: Recor
       contents: reviewContents,
       images: reviewImages,
       files: reviewFiles,
-      comments: reviewComments,
+      comments: [...reviewComments, ...(options.comments ?? [])],
       settings: options.settings ?? null,
       baseSha: BASE_SHA,
       headSha: HEAD_SHA,

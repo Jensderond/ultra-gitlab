@@ -5,7 +5,7 @@
  */
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures/test-base';
-import { installReviewMocks, REVIEWED_SHA } from './fixtures/seed-review';
+import { installReviewMocks, note, REVIEWED_SHA } from './fixtures/seed-review';
 
 const shot = (page: Page, name: string) => page.screenshot({ path: `e2e/native/screenshots/review-${name}.png` });
 
@@ -83,6 +83,38 @@ test.describe('flows', () => {
     await shot(page, 'finish');
     await page.getByRole('dialog').getByRole('button', { name: /Approve & post 1/ }).click();
     await expect(page).toHaveURL(/\/inbox\//);
+    expect(errors).toEqual([]);
+  });
+
+  test('edit your own posted comment', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    const mine = note({
+      id: 5104,
+      discussionId: 'disc-app-1',
+      parentId: 5101,
+      authorUsername: 'testuser',
+      body: 'Good point, I will add it.',
+      filePath: 'src/App.tsx',
+      newLine: 16,
+    });
+    await installReviewMocks(page, { settings: { diffViewMode: 'unified' }, comments: [mine] });
+    await open(page, `/review/101?file=${encodeURIComponent('src/App.tsx')}`);
+
+    const thread = page.locator('#rv-thread-disc-app-1');
+    // Only your own comment offers Edit.
+    await expect(thread.getByRole('button', { name: 'Edit' })).toHaveCount(1);
+    await thread.getByRole('button', { name: 'Edit' }).click();
+    const box = thread.locator('textarea');
+    await expect(box).toBeFocused();
+    await expect(box).toHaveValue('Good point, I will add it.');
+    await box.fill('Good point, added it in the next commit.');
+    await box.press('ControlOrMeta+Enter');
+
+    await expect(thread.locator('textarea')).toHaveCount(0);
+    await expect(thread).toContainText('Good point, added it in the next commit.');
+    const sent = await page.evaluate(() => (window as unknown as { __EDITED_COMMENTS__?: unknown[] }).__EDITED_COMMENTS__);
+    expect(sent).toEqual([{ mrId: 101, commentId: 5104, body: 'Good point, added it in the next commit.' }]);
     expect(errors).toEqual([]);
   });
 
