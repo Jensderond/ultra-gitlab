@@ -24,11 +24,13 @@ import {
 import {
   buildGroups,
   clientKey,
+  collapseId,
   clientLabel,
   host,
   isDraft,
   matchesSearch,
   setListPrefs,
+  useCollapsed,
   useInboxData,
   useListPrefs,
   viewDef,
@@ -61,8 +63,16 @@ export function InboxScreen({ view, selectedMrId }: { view: string; selectedMrId
     [base, keep, prefs.hideDrafts],
   );
   const merged = useMemo(() => (def.id === 'mine' ? data.merged.filter(keep) : []), [def.id, data.merged, keep]);
-  const groups = useMemo(() => buildGroups(items, merged, prefs), [items, merged, prefs]);
-  const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
+  const collapsed = useCollapsed();
+  const groups = useMemo(
+    () =>
+      buildGroups(items, merged, prefs).map((g) =>
+        g.title && collapsed.has(collapseId(prefs.group, g)) ? { ...g, collapsed: true } : g,
+      ),
+    [items, merged, prefs, collapsed],
+  );
+  // Rows the user can see and step through; collapsed groups are skipped.
+  const flat = useMemo(() => groups.flatMap((g) => (g.collapsed ? [] : g.items)), [groups]);
 
   /* Selection ------------------------------------------------------------ */
 
@@ -149,7 +159,7 @@ export function InboxScreen({ view, selectedMrId }: { view: string; selectedMrId
   /* Toolbar -------------------------------------------------------------- */
 
   const total = base.length + (def.id === 'mine' ? data.merged.length : 0);
-  const shown = flat.length;
+  const shown = groups.reduce((n, g) => n + g.items.length, 0);
   const filtered = !!client || !!search.trim() || prefs.hideDrafts;
   const subtitle = [
     shown === total ? plural(total, 'merge request') : `${shown} of ${plural(total, 'merge request')}`,

@@ -8,17 +8,19 @@ import type { MergeRequest } from '../../api/types';
 import { useDiffFiles } from '../../data/hooks';
 import { age, compact, plural, stripDraft, toDate } from '../../lib/format';
 import { Button, cx, EmptyState, Spinner, StatusIcon, Tag, type Tone } from '../../ui/components';
-import { ChevronDown, InboxIcon, WarningIcon, XIcon } from '../../ui/icons';
+import { ChevronDown, ChevronRight, InboxIcon, WarningIcon, XIcon } from '../../ui/icons';
 import { isTauri } from '../../api/client';
 import { popupMenu, rowMenu } from './actions';
 import {
   approvalsLeft,
+  collapseId,
   formatSnooze,
   GROUP_LABELS,
   isApproved,
   isDraft,
   pipelineFailed,
   projectPath,
+  setCollapsed,
   setListPrefs,
   SORT_LABELS,
   useListPrefs,
@@ -270,6 +272,15 @@ export function MRList({
 
   const count = groups.reduce((n, g) => n + g.items.length, 0);
 
+  const { group: groupBy } = useListPrefs();
+  const toggleGroup = (g: MRGroup, all: boolean) => {
+    const targets = all ? groups.filter((x) => x.title) : [g];
+    setCollapsed(
+      targets.map((x) => collapseId(groupBy, x)),
+      !g.collapsed,
+    );
+  };
+
   let content;
   if (count > 0) {
     content = groups.map((g) => (
@@ -278,12 +289,23 @@ export function MRList({
           // Keyed on its text: WKWebView doesn't always repaint a stuck sticky
           // header whose text changes in place, so a search that narrows the
           // group kept showing the previous project path. Remounting repaints.
-          <div key={`${g.title}|${g.detail ?? ''}`} className={cx('inbox-group__head', g.merged && 'is-merged')}>
-            <span className="inbox-group__title">{g.title}</span>
+          <button
+            type="button"
+            key={`${g.title}|${g.detail ?? ''}`}
+            className={cx('inbox-group__head', g.merged && 'is-merged', g.collapsed && 'is-collapsed')}
+            aria-expanded={!g.collapsed}
+            title={g.collapsed ? 'Show merge requests (⌥-click for all groups)' : 'Hide merge requests (⌥-click for all groups)'}
+            onClick={(e) => toggleGroup(g, e.altKey)}
+          >
+            <span className="inbox-group__lead">
+              <ChevronRight size={10} className="inbox-group__chevron" />
+              <span className="inbox-group__title">{g.title}</span>
+              {g.collapsed && <span className="inbox-group__count tabular">{g.items.length}</span>}
+            </span>
             {g.detail && <span className="inbox-group__detail mono">{g.detail}</span>}
-          </div>
+          </button>
         )}
-        {g.items.map((mr) => (
+        {!g.collapsed && g.items.map((mr) => (
           <Row
             key={mr.id}
             mr={mr}

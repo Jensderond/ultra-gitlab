@@ -90,8 +90,50 @@
   justify-content: space-between;
   align-items: baseline;
   gap: 12px;
+  width: 100%;
   padding: 12px 14px 6px;
+  border: 0;
+  border-radius: 0;
   background: var(--bg-subtle);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+.inbox-group__head:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.inbox-group__lead {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+/* Disclosure triangle: points right when shut, down when open. */
+.inbox-group__chevron {
+  flex: none;
+  color: var(--text-muted);
+  transform: rotate(90deg);
+  transition: transform 150ms ease-out;
+}
+.inbox-group__head.is-collapsed .inbox-group__chevron {
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .inbox-group__chevron {
+    transition: none;
+  }
+}
+.inbox-group__count {
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+/* A shut group still needs a divider before the next header. */
+.inbox-group__head.is-collapsed {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line-subtle);
 }
 .inbox-group__title {
   font-weight: 600;

@@ -84,6 +84,40 @@ test.describe('behaviour', () => {
     await expect(page.locator('#inbox-row-105')).toHaveCount(1);
   });
 
+  test('clicking a group header collapses it, and it stays shut', async ({ page }) => {
+    await page.goto('/inbox/review');
+    const head = page.locator('.inbox-group__head').first();
+    const group = page.locator('.inbox-group').first();
+    await expect(group.locator('.inbox-row').first()).toBeVisible();
+    const rows = await group.locator('.inbox-row').count();
+    expect(rows).toBeGreaterThan(0);
+
+    await head.click();
+    await expect(head).toHaveAttribute('aria-expanded', 'false');
+    await expect(group.locator('.inbox-row')).toHaveCount(0);
+    await expect(head.locator('.inbox-group__count')).toHaveText(String(rows));
+    await page.screenshot({ path: 'e2e/native/screenshots/inbox-collapsed-group.png' });
+
+    // J/K step over the hidden rows, and the shut group survives a reload.
+    await page.reload();
+    await expect(page.locator('.inbox-group__head').first()).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('.inbox-group').first().locator('.inbox-row')).toHaveCount(0);
+    await expect(page.locator('.inbox-row.is-selected')).toHaveCount(1);
+
+    await page.locator('.inbox-group__head').first().click();
+    await expect(page.locator('.inbox-group').first().locator('.inbox-row')).toHaveCount(rows);
+  });
+
+  test('⌥-clicking a group header collapses every group', async ({ page }) => {
+    await page.goto('/inbox/review');
+    await expect(page.locator('.inbox-row').first()).toBeVisible();
+    await page.locator('.inbox-group__head').first().click({ modifiers: ['Alt'] });
+    await expect(page.locator('.inbox-row')).toHaveCount(0);
+    await expect(page.locator('.inbox-group__head[aria-expanded="true"]')).toHaveCount(0);
+    await page.locator('.inbox-group__head').last().click({ modifiers: ['Alt'] });
+    await expect(page.locator('.inbox-group__head[aria-expanded="false"]')).toHaveCount(0);
+  });
+
   test('my merged MRs sit in their own group', async ({ page }) => {
     // Recently merged MRs only show when Settings › General has them switched on.
     await mockTauriIPC(page, { settings: { showRecentlyMergedMrs: true } });

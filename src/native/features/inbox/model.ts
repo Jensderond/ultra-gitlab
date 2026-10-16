@@ -301,6 +301,55 @@ export function useListPrefs(): ListPrefs {
 }
 
 /* ------------------------------------------------------------------------ */
+/* Collapsed groups                                                         */
+/* ------------------------------------------------------------------------ */
+
+const COLLAPSED_KEY = 'ug.inbox.collapsed';
+let collapsed: ReadonlySet<string> = (() => {
+  try {
+    const ids: unknown = JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? '[]');
+    return new Set(Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : []);
+  } catch {
+    return new Set<string>();
+  }
+})();
+const collapsedListeners = new Set<() => void>();
+
+/**
+ * Collapse state survives switching Group, but a project and a client are
+ * different groups even when their keys match, so the mode is part of the id.
+ * "Merged recently" is the same group in every mode.
+ */
+export function collapseId(groupBy: GroupBy, g: MRGroup): string {
+  return g.merged ? 'merged' : `${groupBy}:${g.key}`;
+}
+
+export function setCollapsed(ids: string[], value: boolean) {
+  const next = new Set(collapsed);
+  for (const id of ids) {
+    if (value) next.add(id);
+    else next.delete(id);
+  }
+  collapsed = next;
+  try {
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]));
+  } catch {
+    /* storage unavailable */
+  }
+  collapsedListeners.forEach((l) => l());
+}
+
+export function useCollapsed(): ReadonlySet<string> {
+  return useSyncExternalStore(
+    (l) => {
+      collapsedListeners.add(l);
+      return () => collapsedListeners.delete(l);
+    },
+    () => collapsed,
+  );
+}
+
+/* ------------------------------------------------------------------------ */
 /* Filtering, sorting, grouping                                             */
 /* ------------------------------------------------------------------------ */
 
@@ -337,6 +386,8 @@ export interface MRGroup {
   showProject: boolean;
   items: MergeRequest[];
   merged?: boolean;
+  /** Header clicked shut: rows are hidden and skipped by J/K. */
+  collapsed?: boolean;
 }
 
 export function buildGroups(
