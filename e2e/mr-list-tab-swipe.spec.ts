@@ -18,23 +18,38 @@ const ACTIVE_PANE = '.tab-pager-pane:not([inert])';
  * Positive deltaX drags rightward (previous tab), negative leftward (next).
  * All events land in one JS task, so React state is only observable after
  * the evaluate round-trip (see e2e-touch-gesture-testing notes).
+ *
+ * Each event's `timeStamp` is pinned to `msPerStep` apart (default: 60Hz
+ * touch sampling). Left alone it would be the dispatch time, which makes the
+ * pager's flick velocity depend on machine speed: unthrottled the events land
+ * <1ms apart and are ignored, but on a slow CI runner they drift 1–5ms apart
+ * and a short drag reads as a flick and commits.
  */
-async function touchSwipeX(el: Locator, deltaX: number) {
-  await el.evaluate((node, delta) => {
-    const startX = delta < 0 ? 320 : 40;
-    const y = node.getBoundingClientRect().top + 20;
-    const touch = (x: number) =>
-      new Touch({ identifier: 1, target: node, clientX: x, clientY: y });
-    const opts = { bubbles: true, cancelable: true };
-    node.dispatchEvent(new TouchEvent('touchstart', { ...opts, touches: [touch(startX)] }));
-    const steps = 8;
-    for (let i = 1; i <= steps; i++) {
-      node.dispatchEvent(
-        new TouchEvent('touchmove', { ...opts, touches: [touch(startX + (delta * i) / steps)] }),
-      );
-    }
-    node.dispatchEvent(new TouchEvent('touchend', { ...opts, touches: [] }));
-  }, deltaX);
+async function touchSwipeX(el: Locator, deltaX: number, msPerStep = 16) {
+  await el.evaluate(
+    (node, { delta, msPerStep }) => {
+      const startX = delta < 0 ? 320 : 40;
+      const y = node.getBoundingClientRect().top + 20;
+      const touch = (x: number) =>
+        new Touch({ identifier: 1, target: node, clientX: x, clientY: y });
+      const opts = { bubbles: true, cancelable: true };
+      const t0 = performance.now();
+      const fire = (event: TouchEvent, step: number) => {
+        Object.defineProperty(event, 'timeStamp', { value: t0 + step * msPerStep });
+        node.dispatchEvent(event);
+      };
+      fire(new TouchEvent('touchstart', { ...opts, touches: [touch(startX)] }), 0);
+      const steps = 8;
+      for (let i = 1; i <= steps; i++) {
+        fire(
+          new TouchEvent('touchmove', { ...opts, touches: [touch(startX + (delta * i) / steps)] }),
+          i,
+        );
+      }
+      fire(new TouchEvent('touchend', { ...opts, touches: [] }), steps);
+    },
+    { delta: deltaX, msPerStep },
+  );
 }
 
 /**
@@ -158,12 +173,23 @@ test.describe('Touch MR list tab swipe', () => {
 
   test('a short swipe springs back without changing tabs', async ({ page }) => {
     const content = page.locator(`${ACTIVE_PANE} .mr-list-content`);
-    await touchSwipeX(content, -60); // below the 156px commit distance
+    // Below the 156px commit distance, and slow (7.5px per 50ms ≈ 0.15px/ms)
+    // so it stays under the 0.3px/ms flick velocity too.
+    await touchSwipeX(content, -60, 50);
 
     // Settle window first — an immediate check passes even on a wrong commit.
     await page.waitForTimeout(400);
     await expect(page.locator('.mr-tab--active')).toHaveText(/Needs review/);
     await expect(page).not.toHaveURL(/tab=/);
+  });
+
+  test('a short fast flick commits to the next tab', async ({ page }) => {
+    const content = page.locator(`${ACTIVE_PANE} .mr-list-content`);
+    // Same 60px as the spring-back case, but 7.5px per 8ms ≈ 0.94px/ms.
+    await touchSwipeX(content, -60, 8);
+
+    await expect(page.locator('.mr-tab--active')).toHaveText(/Approved/);
+    await expect(page).toHaveURL(/tab=approved/);
   });
 
   test('swipe right at the first tab rubber-bands and stays', async ({ page }) => {
