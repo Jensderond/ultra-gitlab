@@ -32,8 +32,13 @@ export function FinishSheet({ open, onClose, drafts, onRemoveDraft, canApprove, 
   const [body, setBody] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // Default to Approve when there's nothing to say, so ⌘⇧↩ then ⌘↩ approves.
+  // Chosen once per opening; discarding drafts in the sheet doesn't flip it.
   useEffect(() => {
-    if (open) setBusy(false);
+    if (!open) return;
+    setBusy(false);
+    setVerdict(drafts.length > 0 ? 'comment' : 'approve');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const n = drafts.length;
@@ -55,7 +60,6 @@ export function FinishSheet({ open, onClose, drafts, onRemoveDraft, canApprove, 
     try {
       await onSubmit({ verdict: approving ? 'approve' : 'comment', body: body.trim() });
       setBody('');
-      setVerdict('comment');
     } catch (e) {
       // The screen reported it; keep what was typed unless it was already posted.
       if ((e as { bodyPosted?: boolean } | null)?.bodyPosted) setBody('');

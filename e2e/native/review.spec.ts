@@ -78,12 +78,26 @@ test.describe('flows', () => {
     // New comment on a line via the line number.
     await page.keyboard.press('ControlOrMeta+Shift+Enter');
     await expect(page.getByRole('dialog')).toBeVisible();
+    // With a pending comment the sheet defaults to Comment.
+    await expect(page.getByRole('radio', { name: /Comment/ })).toHaveAttribute('aria-checked', 'true');
     await page.locator('#rv-finish-body').fill('Nice and small. One question about tracking, otherwise good to go.');
     await page.getByRole('radio', { name: /Approve/ }).click();
     await shot(page, 'finish');
     await page.getByRole('dialog').getByRole('button', { name: /Approve & post 1/ }).click();
     await expect(page).toHaveURL(/\/inbox\//);
     expect(errors).toEqual([]);
+  });
+
+  test('finish sheet defaults to Approve without pending comments', async ({ page }) => {
+    await installReviewMocks(page, { settings: { diffViewMode: 'unified' } });
+    await open(page, `/review/101?file=${encodeURIComponent('src/App.tsx')}`);
+
+    await page.keyboard.press('ControlOrMeta+Shift+Enter');
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('radio', { name: /Approve/ })).toHaveAttribute('aria-checked', 'true');
+    await expect(dialog.getByRole('button', { name: /^Approve/ })).toBeVisible();
+    await page.keyboard.press('ControlOrMeta+Enter');
+    await expect(page).toHaveURL(/\/inbox\//);
   });
 
   test('edit your own posted comment', async ({ page }) => {
