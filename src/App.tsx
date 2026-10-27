@@ -36,6 +36,7 @@ import { queryKeys } from './lib/queryKeys';
 import { listPipelineProjects, visitPipelineProject } from './services/tauri';
 import { WorkerPoolContextProvider } from '@pierre/diffs/react';
 import WorkerUrl from '@pierre/diffs/worker/worker.js?worker&url';
+import { preferredHighlighter } from './lib/diffsHighlighter';
 import { ThemeProvider } from './components/ThemeProvider';
 import { ShortcutsProvider, useShortcuts } from './components/ShortcutsProvider';
 import { HotkeysProvider, useHotkey, parseHotkey } from '@tanstack/react-hotkeys';
@@ -369,6 +370,7 @@ function App() {
         poolOptions={{ workerFactory }}
         highlighterOptions={{
           theme: { dark: 'pierre-dark', light: 'pierre-light' },
+          preferredHighlighter,
         }}
       >
         <ToastProvider>

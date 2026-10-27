@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { preloadHighlighter, getFiletypeFromFileName } from '@pierre/diffs';
+import { preferredHighlighter } from '../lib/diffsHighlighter';
 
 /**
  * Preload the main-thread highlighter grammar for a file.
@@ -21,6 +22,7 @@ export function useHighlighterPreload(filePath: string | null, enabled: boolean)
     preloadHighlighter({
       themes: ['pierre-dark', 'pierre-light'],
       langs: [getFiletypeFromFileName(filePath)],
+      preferredHighlighter,
     })
       .then(() => {
         if (!cancelled) setReady(true);

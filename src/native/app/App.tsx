@@ -7,6 +7,7 @@ import { WorkerPoolContextProvider } from '@pierre/diffs/react';
 import WorkerUrl from '@pierre/diffs/worker/worker.js?worker&url';
 import { isTauri } from '../api/client';
 import { useInstances } from '../data/hooks';
+import { preferredHighlighter } from '../lib/diffsHighlighter';
 import { InboxScreen } from '../features/inbox/InboxScreen';
 import { CommandPalette } from '../features/palette/CommandPalette';
 import { PipelineScreen } from '../features/pipelines/PipelineScreen';
@@ -100,7 +101,7 @@ export function App() {
   return (
     <WorkerPoolContextProvider
       poolOptions={{ workerFactory }}
-      highlighterOptions={{ theme: { dark: 'pierre-dark', light: 'pierre-light' } }}
+      highlighterOptions={{ theme: { dark: 'pierre-dark', light: 'pierre-light' }, preferredHighlighter }}
     >
       <Routes />
       <CommandPalette />

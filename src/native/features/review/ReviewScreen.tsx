@@ -22,6 +22,7 @@ import {
   useReviewers,
 } from '../../data/hooks';
 import { getData, invalidate, setData } from '../../data/query';
+import { preferredHighlighter } from '../../lib/diffsHighlighter';
 import { humanize, plural, splitProject, stripDraft } from '../../lib/format';
 import {
   Button,
@@ -215,7 +216,11 @@ function useGrammarReady(path: string | undefined, enabled: boolean): boolean {
   useEffect(() => {
     if (!enabled || !path) return;
     let cancelled = false;
-    preloadHighlighter({ themes: ['pierre-dark', 'pierre-light'], langs: [getFiletypeFromFileName(path)] })
+    preloadHighlighter({
+      themes: ['pierre-dark', 'pierre-light'],
+      langs: [getFiletypeFromFileName(path)],
+      preferredHighlighter,
+    })
       .then(() => !cancelled && setReady(path))
       .catch(() => {
         /* Stay read-only. */
