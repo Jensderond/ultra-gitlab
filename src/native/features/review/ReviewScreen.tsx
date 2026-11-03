@@ -244,7 +244,7 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
   const { data: refs } = useDiffRefs(mrId);
   const { data: comments } = useComments(mrId);
   const { data: reviewers } = useReviewers(mrId);
-  const { data: pipelines } = useMRPipelines(mrId);
+  const { data: pipelines } = useMRPipelines(mrId, { syncedStatus: mr?.headPipelineStatus });
   const isGenerated = useGeneratedMatcher(mr?.instanceId, mr?.projectId);
   const { viewed, setViewed } = useViewedFiles(mrId);
   const { drafts, add: addDraft, update: updateDraft, remove: removeDraft } = useDrafts(mrId);

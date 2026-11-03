@@ -164,7 +164,9 @@ pub(crate) async fn load_settings(app: &AppHandle) -> Result<AppSettings, AppErr
 
     // Try to load sync config
     let sync = match store.get(SYNC_CONFIG_KEY) {
-        Some(value) => serde_json::from_value(value.clone()).unwrap_or_default(),
+        Some(value) => serde_json::from_value::<SyncConfig>(value.clone())
+            .unwrap_or_default()
+            .normalized(),
         None => SyncConfig::default(),
     };
 
@@ -388,7 +390,8 @@ pub async fn update_sync_settings(
     // Get current settings
     let mut settings = load_settings(&app).await?;
 
-    // Update sync config
+    // Update sync config (clamped to the allowed range)
+    let sync_config = sync_config.normalized();
     settings.sync = sync_config.clone();
 
     // Save

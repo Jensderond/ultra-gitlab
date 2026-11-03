@@ -55,7 +55,7 @@ use commands::{
 };
 use commands::ui_variant::{load_ui_variant, UiVariant};
 use std::sync::Arc;
-use services::sync_engine::{SyncConfig, SyncEngine};
+use services::sync_engine::{SyncConfig, SyncEngine, SyncHandle};
 use services::sync_events::TauriEmitter;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 #[cfg(desktop)]
@@ -484,6 +484,12 @@ pub fn run() {
             download_and_install_cli,
         ])
         .on_window_event(|window, event| {
+            // Periodic sync slows down while no app window has focus.
+            if let tauri::WindowEvent::Focused(focused) = event {
+                if let Some(sync_handle) = window.try_state::<SyncHandle>() {
+                    sync_handle.set_app_focused(*focused);
+                }
+            }
             #[cfg(target_os = "macos")]
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {
@@ -492,8 +498,6 @@ pub fn run() {
                     api.prevent_close();
                 }
             }
-            #[cfg(not(target_os = "macos"))]
-            let _ = (window, event);
         })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

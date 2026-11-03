@@ -30,6 +30,7 @@ use crate::services::sync_processor;
 use crate::services::sync_queue;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::{mpsc, RwLock};
@@ -37,6 +38,15 @@ use tokio::time;
 
 /// Default sync interval in seconds (5 minutes per spec).
 pub const DEFAULT_SYNC_INTERVAL_SECS: u64 = 300;
+
+/// Shortest allowed sync interval. Every running app polls the shared GitLab
+/// server, so shorter intervals multiply load for little benefit.
+pub const MIN_SYNC_INTERVAL_SECS: u64 = 120;
+
+/// While no app window has focus, periodic syncs run at most this often (or
+/// at the configured interval if that is longer). Focusing the app catches up
+/// immediately when the last sync is older than the configured interval.
+pub const BACKGROUND_SYNC_INTERVAL_SECS: u64 = 600;
 
 /// Default interval for refreshing the issue cache (30 minutes).
 /// Issues change less often than MRs, so we don't need to hit the API
@@ -90,6 +100,24 @@ impl Default for SyncConfig {
             issue_interval_secs: DEFAULT_ISSUE_SYNC_INTERVAL_SECS,
         }
     }
+}
+
+impl SyncConfig {
+    /// Clamp values to their allowed range. Older builds allowed a 1-minute
+    /// interval, so persisted configs can be below the current minimum.
+    pub fn normalized(mut self) -> Self {
+        self.interval_secs = self.interval_secs.max(MIN_SYNC_INTERVAL_SECS);
+        self
+    }
+}
+
+/// Periodic ticker whose first tick is one `period` from now. Missed ticks
+/// (a sync that ran longer than the interval) are delayed rather than fired
+/// back-to-back, so a slow GitLab server never causes continuous syncing.
+fn sync_ticker(period: Duration) -> time::Interval {
+    let mut ticker = time::interval_at(time::Instant::now() + period, period);
+    ticker.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+    ticker
 }
 
 /// Status of the sync engine.
@@ -182,6 +210,10 @@ pub enum SyncCommand {
     /// Update the sync configuration.
     UpdateConfig(SyncConfig),
 
+    /// An app window gained focus: sync now if the last sync is older than
+    /// the configured interval (periodic syncs are throttled in the background).
+    AppFocused,
+
     /// Stop the sync engine.
     Stop,
 }
@@ -197,9 +229,24 @@ pub struct SyncHandle {
 
     /// Shared configuration (readable without locking the engine).
     config: Arc<RwLock<SyncConfig>>,
+
+    /// Whether any app window has focus. Periodic syncs slow down to
+    /// `BACKGROUND_SYNC_INTERVAL_SECS` while this is false.
+    app_focused: Arc<AtomicBool>,
 }
 
 impl SyncHandle {
+    /// Record an app window focus change (called from the Tauri window-event
+    /// callback, so it must not block). Regaining focus asks the engine to
+    /// catch up if the background throttle left the data stale.
+    pub fn set_app_focused(&self, focused: bool) {
+        let was_focused = self.app_focused.swap(focused, Ordering::Relaxed);
+        if focused && !was_focused {
+            // Best effort: if the channel is full a sync is already queued.
+            let _ = self.command_tx.try_send(SyncCommand::AppFocused);
+        }
+    }
+
     /// Trigger an immediate sync.
     /// When `force` is true the "MR unchanged" optimisation is bypassed
     /// so diffs and files are always re-fetched.
@@ -386,8 +433,12 @@ impl SyncEngine {
         emitter: Arc<dyn EventEmitter>,
     ) -> SyncHandle {
         let (tx, mut rx) = mpsc::channel::<SyncCommand>(16);
-        let config_shared = Arc::new(RwLock::new(config.clone()));
+        let config_shared = Arc::new(RwLock::new(config.normalized()));
         let config_for_task = config_shared.clone();
+        // Assume focused until the window system says otherwise (iOS never
+        // reports focus changes, so it keeps the configured interval).
+        let app_focused = Arc::new(AtomicBool::new(true));
+        let focused_for_task = app_focused.clone();
 
         tokio::spawn(async move {
             // Brief delay so the app window appears before we start network I/O
@@ -426,24 +477,33 @@ impl SyncEngine {
                 Err(e) => eprintln!("[sync] Initial sync error: {}", e),
             }
 
+            let mut last_sync = Instant::now();
             let interval_secs = { engine.config.read().await.interval_secs };
-            let mut interval = time::interval(Duration::from_secs(interval_secs));
-            // Consume the first (immediate) tick since we just ran sync
-            interval.tick().await;
+            let mut interval = sync_ticker(Duration::from_secs(interval_secs));
 
             // Fast ticker for auto-run claims: a deploy shouldn't wait up to
             // 5 minutes after the build finishes. Each tick is a cheap local
             // COUNT(*) and only hits the network while a claim exists.
-            let mut auto_run_interval = time::interval(Duration::from_secs(30));
-            auto_run_interval.tick().await;
+            let mut auto_run_interval = sync_ticker(Duration::from_secs(30));
 
             loop {
                 tokio::select! {
                     _ = interval.tick() => {
+                        // Throttle while the app is in the background: nobody
+                        // is looking, so a slower cadence is enough to keep
+                        // notifications flowing without polling GitLab 24/7.
+                        let interval_secs = { engine.config.read().await.interval_secs };
+                        let background_secs = interval_secs.max(BACKGROUND_SYNC_INTERVAL_SECS);
+                        if !focused_for_task.load(Ordering::Relaxed)
+                            && last_sync.elapsed() < Duration::from_secs(background_secs)
+                        {
+                            continue;
+                        }
                         eprintln!("[sync] Running periodic background sync...");
                         if let Err(e) = engine.run_sync().await {
                             eprintln!("[sync] Periodic sync error: {}", e);
                         }
+                        last_sync = Instant::now();
                     }
                     _ = auto_run_interval.tick() => {
                         if let Ok(true) = crate::db::auto_run::has_active_claims(&engine.pool).await {
@@ -456,6 +516,19 @@ impl SyncEngine {
                                 eprintln!("[sync] Manual sync triggered (force={})", force);
                                 if let Err(e) = engine.run_sync_with_force(force).await {
                                     eprintln!("[sync] Manual sync error: {}", e);
+                                }
+                                last_sync = Instant::now();
+                                interval.reset();
+                            }
+                            SyncCommand::AppFocused => {
+                                let interval_secs = { engine.config.read().await.interval_secs };
+                                if last_sync.elapsed() >= Duration::from_secs(interval_secs) {
+                                    eprintln!("[sync] App focused with stale data, syncing now");
+                                    if let Err(e) = engine.run_sync().await {
+                                        eprintln!("[sync] Focus sync error: {}", e);
+                                    }
+                                    last_sync = Instant::now();
+                                    interval.reset();
                                 }
                             }
                             SyncCommand::FlushActions(action_types) => {
@@ -473,8 +546,9 @@ impl SyncEngine {
                                 engine.process_auto_run_claims().await;
                             }
                         SyncCommand::UpdateConfig(new_config) => {
+                                let new_config = new_config.normalized();
                                 eprintln!("[sync] Config updated, interval={}s", new_config.interval_secs);
-                                interval = time::interval(Duration::from_secs(new_config.interval_secs));
+                                interval = sync_ticker(Duration::from_secs(new_config.interval_secs));
                                 *engine.config.write().await = new_config;
                             }
                             SyncCommand::Stop => {
@@ -491,6 +565,7 @@ impl SyncEngine {
         SyncHandle {
             command_tx: tx,
             config: config_shared,
+            app_focused,
         }
     }
 
@@ -3886,6 +3961,27 @@ mod tests {
         let config = SyncConfig::default();
         assert_eq!(config.interval_secs, DEFAULT_SYNC_INTERVAL_SECS);
         assert_eq!(config.max_mrs_per_sync, 100);
+    }
+
+    #[test]
+    fn test_normalized_clamps_short_interval() {
+        let legacy = SyncConfig { interval_secs: 60, ..SyncConfig::default() };
+        assert_eq!(legacy.normalized().interval_secs, MIN_SYNC_INTERVAL_SECS);
+
+        let fine = SyncConfig { interval_secs: 900, ..SyncConfig::default() };
+        assert_eq!(fine.normalized().interval_secs, 900);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_sync_ticker_does_not_burst_after_slow_sync() {
+        let mut ticker = sync_ticker(Duration::from_secs(120));
+        ticker.tick().await; // first tick at +120s, not immediately
+        // Simulate a sync that took longer than two intervals.
+        time::advance(Duration::from_secs(300)).await;
+        ticker.tick().await; // the delayed tick fires now…
+        let after = time::Instant::now();
+        ticker.tick().await; // …and the next one waits a full period
+        assert!(time::Instant::now() - after >= Duration::from_secs(120));
     }
 
     #[test]

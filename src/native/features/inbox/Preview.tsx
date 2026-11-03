@@ -5,7 +5,7 @@
  * changes summary.
  */
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { api } from '../../api/client';
 import type { Comment, DiffFile, MergeRequest, MrReviewer, PipelineJob } from '../../api/types';
 import { useKeys } from '../../app/keys';
@@ -46,6 +46,24 @@ import { clientName, formatSnooze, isDraft, isSnoozed, projectPath } from './mod
 import './preview.css';
 
 const errMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/**
+ * How long an MR must stay selected before the preview reads live data from
+ * GitLab (pipelines, failed-job log, merge status). Everything else in the
+ * preview comes from the local cache, so arrowing through the list with J/K
+ * stays offline instead of firing several GitLab requests per row.
+ */
+const LIVE_DWELL_MS = 600;
+
+/** False until the component has been mounted for `ms`. */
+function useDwell(ms: number): boolean {
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSettled(true), ms);
+    return () => clearTimeout(t);
+  }, [ms]);
+  return settled;
+}
 
 /** "bob", "bob and carol", "bob, carol and 2 others". */
 function names(list: string[]): string {
@@ -126,18 +144,29 @@ function matchChanged(path: string, files: DiffFile[] | undefined): DiffFile | u
   return files?.find((f) => f.newPath === p || p.endsWith(`/${f.newPath}`) || f.newPath.endsWith(`/${p}`));
 }
 
-function PipelineCard({ mr, files }: { mr: MergeRequest; files: DiffFile[] | undefined }) {
-  const { data: pipelines, loading } = useMRPipelines(mr.state === 'opened' ? mr.id : undefined);
+function PipelineCard({ mr, files, live }: { mr: MergeRequest; files: DiffFile[] | undefined; live: boolean }) {
+  // Until `live`, only the synced status shows (plus any live data already cached).
+  const { data: pipelines, loading } = useMRPipelines(mr.state === 'opened' ? mr.id : undefined, {
+    enabled: live,
+    syncedStatus: mr.headPipelineStatus,
+  });
   const head = pipelines?.[0];
   const status = head?.status ?? mr.headPipelineStatus;
   const failed = status === 'failed';
-  const { data: failure } = usePipelineFailure(mr.instanceId, head?.projectId ?? mr.projectId, head?.id);
+  const running = status === 'running' || status === 'pending';
+  // Jobs (and, for a failure, the job log) are only shown for failed or
+  // running pipelines, so don't ask GitLab for them otherwise.
+  const { data: failure } = usePipelineFailure(
+    mr.instanceId,
+    head?.projectId ?? mr.projectId,
+    live && (failed || running) ? head?.id : undefined,
+  );
 
   const openPipeline = (job?: PipelineJob) =>
     head && navigate(paths.pipeline(mr.instanceId, head.projectId ?? mr.projectId, head.id, job?.id));
 
   if (!status) {
-    if (loading) return null;
+    if (loading || !live) return null;
     return <div className="inbox-pipeline-none">No pipeline has run for this merge request.</div>;
   }
 
@@ -183,7 +212,6 @@ function PipelineCard({ mr, files }: { mr: MergeRequest; files: DiffFile[] | und
     );
   }
 
-  const running = status === 'running' || status === 'pending';
   const when = head ? (running ? `started ${ago(head.createdAt)}` : ago(head.updatedAt ?? head.createdAt)) : '';
   return (
     <div className={cx('inbox-pipeline is-compact', running && 'is-running')}>
@@ -421,12 +449,26 @@ function autoMergeText(status: string | null): string {
   }
 }
 
-function useMergeStatus(mr: MergeRequest, enabled: boolean) {
-  return useQuery(
-    enabled && mr.state === 'opened' ? ['mr', mr.id, 'merge-status'] : null,
+/**
+ * Live mergeability from GitLab. Under ['live', ...] so sync events don't
+ * refetch it; instead it refetches when the synced MR changes in a way that
+ * can affect mergeability (new commits/updates, pipeline, approvals).
+ */
+function useMergeStatus(mr: MergeRequest, enabled: boolean, live: boolean) {
+  const q = useQuery(
+    enabled && mr.state === 'opened' ? ['live', 'mr', mr.id, 'merge-status'] : null,
     () => api.mergeStatus(mr.id),
-    { staleTime: 30_000 },
+    { staleTime: 30_000, enabled: live },
   );
+  const signature = `${mr.updatedAt}|${mr.headPipelineStatus}|${mr.approvalsCount}`;
+  const seen = useRef(signature);
+  useEffect(() => {
+    if (seen.current === signature) return;
+    seen.current = signature;
+    if (enabled && live) void q.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signature]);
+  return q;
 }
 
 function useAutoMerge(mr: MergeRequest, enabled: boolean) {
@@ -484,7 +526,8 @@ function PreviewBody({ mr, mineMode, me }: { mr: MergeRequest; mineMode: boolean
   const canApprove = open && mr.authorUsername !== me;
   const draft = isDraft(mr);
 
-  const mergeStatus = useMergeStatus(mr, mine);
+  const live = useDwell(LIVE_DWELL_MS);
+  const mergeStatus = useMergeStatus(mr, mine, live);
   const autoMerge = useAutoMerge(mr, mine);
   const [confirmMerge, setConfirmMerge] = useState(false);
   const [busy, setBusy] = useState<null | 'merge' | 'rebase' | 'ready' | 'auto'>(null);
@@ -501,6 +544,7 @@ function PreviewBody({ mr, mineMode, me }: { mr: MergeRequest; mineMode: boolean
     } finally {
       setBusy(null);
       refreshMR(mr.id);
+      void invalidate(['live', 'mr', mr.id]);
     }
   };
 
@@ -510,7 +554,7 @@ function PreviewBody({ mr, mineMode, me }: { mr: MergeRequest; mineMode: boolean
   };
   const doRebase = () =>
     void run('rebase', () => api.rebase(mr.id), `Rebasing !${mr.iid} onto ${mr.targetBranch}…`, 'Rebase failed').then(() =>
-      setTimeout(() => void invalidate(['mr', mr.id, 'merge-status']), 3000),
+      setTimeout(() => void invalidate(['live', 'mr', mr.id, 'merge-status']), 3000),
     );
   const doReady = () =>
     void run('ready', () => api.markReady(mr.id), `!${mr.iid} is ready for review`, 'Couldn’t mark as ready');
@@ -708,7 +752,7 @@ function PreviewBody({ mr, mineMode, me }: { mr: MergeRequest; mineMode: boolean
           />
         </div>
 
-        <PipelineCard mr={mr} files={files.data} />
+        <PipelineCard mr={mr} files={files.data} live={live} />
 
         <Changes mr={mr} files={files.data} loading={files.loading} />
 

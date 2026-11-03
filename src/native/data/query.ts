@@ -145,6 +145,12 @@ export interface QueryOptions {
   refetchInterval?: number;
   /** Data younger than this is not refetched on mount. Default 15s. */
   staleTime?: number;
+  /**
+   * When false, cached data is still shown but nothing is fetched (no mount
+   * fetch, no polling). Default true. Use it to delay network reads, e.g.
+   * until the user settles on an item instead of arrowing past it.
+   */
+  enabled?: boolean;
 }
 
 const EMPTY: QueryState<never> = {
@@ -185,21 +191,22 @@ export function useQuery<T>(
   const state = useSyncExternalStore(subscribe, getSnapshot);
 
   const staleTime = options.staleTime ?? 15_000;
+  const enabled = options.enabled ?? true;
   useEffect(() => {
-    if (!key) return;
+    if (!key || !enabled) return;
     const e = entryFor<T>(key);
     e.fetcher = () => fetcherRef.current();
     e.staleTime = Math.max(e.staleTime, staleTime);
     if (e.stale || Date.now() - e.updatedAt > staleTime || e.error) void run(e);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [h]);
+  }, [h, enabled]);
 
   useEffect(() => {
-    if (!key || !options.refetchInterval) return;
+    if (!key || !enabled || !options.refetchInterval) return;
     const id = setInterval(() => void run(entryFor<T>(key)), options.refetchInterval);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [h, options.refetchInterval]);
+  }, [h, enabled, options.refetchInterval]);
 
   // Keep showing the previous key's data while the new key loads.
   const previous = useRef<T | undefined>(undefined);

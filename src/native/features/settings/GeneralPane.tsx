@@ -12,7 +12,6 @@ import { UpdatesGroup } from '../updates/UpdatesGroup';
 import { Group, Row, Select } from './form';
 
 const INTERVALS = [
-  { value: 60, label: 'Every minute' },
   { value: 120, label: 'Every 2 minutes' },
   { value: 300, label: 'Every 5 minutes' },
   { value: 600, label: 'Every 10 minutes' },

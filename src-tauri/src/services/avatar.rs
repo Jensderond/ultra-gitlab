@@ -26,6 +26,7 @@ pub async fn download_avatar(
     instance_url: &str,
 ) -> Result<(Vec<u8>, String), AppError> {
     let client = reqwest::Client::builder()
+        .user_agent(crate::services::gitlab_client::USER_AGENT)
         .redirect(reqwest::redirect::Policy::limited(5))
         .timeout(std::time::Duration::from_secs(15))
         .build()

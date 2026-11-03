@@ -16,6 +16,9 @@ use tauri::State;
 /// Cache entries older than this are considered stale and trigger a background refresh.
 const STALE_THRESHOLD_SECS: i64 = 24 * 60 * 60; // 24 hours
 
+/// After a failed fetch (403, 5xx, timeout), wait this long before retrying.
+const FAILURE_RETRY_SECS: i64 = 60 * 60; // 1 hour
+
 /// Get cached gitattributes patterns for a project.
 ///
 /// Uses stale-while-revalidate strategy:
@@ -127,9 +130,33 @@ pub async fn refresh_gitattributes_inner(
     let client = create_gitlab_client_from_pool(pool, instance_id).await?;
 
     // Fetch .gitattributes from the default branch (HEAD)
-    let content = client
+    let content = match client
         .get_file_content(project_id, ".gitattributes", "HEAD")
-        .await?;
+        .await
+    {
+        Ok(content) => content,
+        Err(e) => {
+            // Without a cache row every MR preview and every sync would retry
+            // this request. Record the failure (keeping any patterns we had)
+            // so the next attempt waits FAILURE_RETRY_SECS.
+            if !e.is_authentication_expired() {
+                let retry_at = chrono::Utc::now().timestamp() - STALE_THRESHOLD_SECS + FAILURE_RETRY_SECS;
+                let _ = sqlx::query(
+                    r#"
+                    INSERT INTO gitattributes_cache (instance_id, project_id, patterns, fetched_at)
+                    VALUES (?, ?, '[]', ?)
+                    ON CONFLICT(instance_id, project_id) DO UPDATE SET fetched_at = excluded.fetched_at
+                    "#,
+                )
+                .bind(instance_id)
+                .bind(project_id)
+                .bind(retry_at)
+                .execute(pool)
+                .await;
+            }
+            return Err(e);
+        }
+    };
 
     // Parse the content — empty string (404) gives empty patterns
     let patterns = parse_gitattributes(&content);

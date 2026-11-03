@@ -112,6 +112,8 @@ path = "src/bin/bench_sync.rs"
 
 [dev-dependencies]
 tempfile = "3"
+# Paused-clock tests for the sync ticker
+tokio = { version = "1", features = ["test-util", "macros"] }
 
 [profile.release]
 panic = "abort"

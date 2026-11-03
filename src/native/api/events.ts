@@ -84,7 +84,12 @@ export function startEventBridge() {
     // `failed` still means a (partial) sync ran — e.g. one instance errored.
     if (p.type === 'completed' || p.type === 'error') {
       void invalidate(['mrs']);
-      void invalidate(['pipelines']);
+      // Pipeline overviews may have moved on. Jobs and traces are left alone:
+      // each is a live GitLab read, finished ones never change, and screens
+      // showing a running pipeline poll them on their own.
+      void invalidate(['pipelines', 'statuses']);
+      void invalidate(['pipelines', 'history']);
+      void invalidate(['pipelines', 'projects']);
     }
   });
 }

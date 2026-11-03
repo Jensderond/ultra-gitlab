@@ -523,6 +523,10 @@ fn resolve_error_message(
 /// Maximum number of retries for 429 (rate limit) responses.
 const MAX_429_RETRIES: u32 = 3;
 
+/// User-Agent sent with every request to a GitLab instance, so server admins
+/// can tell this app's traffic apart in GitLab's logs (e.g. production_json.log).
+pub const USER_AGENT: &str = concat!("ultra-gitlab/", env!("CARGO_PKG_VERSION"));
+
 impl GitLabClient {
     /// Create a new GitLab client.
     pub fn new(config: GitLabClientConfig) -> Result<Self, AppError> {
@@ -536,6 +540,7 @@ impl GitLabClient {
         // Build the HTTP client
         let client = Client::builder()
             .default_headers(headers)
+            .user_agent(USER_AGENT)
             .timeout(std::time::Duration::from_secs(config.timeout_secs))
             .build()
             .map_err(|e| AppError::internal(format!("Failed to build HTTP client: {}", e)))?;

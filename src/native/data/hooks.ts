@@ -5,11 +5,13 @@
  *   ['mrs', 'review', instanceId]     ['mrs', 'mine', instanceId]
  *   ['mr', mrId, ...rest]             e.g. ['mr', 42, 'files']
  *   ['pipelines', ...rest]            e.g. ['pipelines', 'jobs', instanceId, projectId, pipelineId]
+ *   ['live', ...rest]                 live GitLab reads that sync events must NOT
+ *                                     invalidate, e.g. ['live', 'mr', 42, 'pipelines']
  */
 
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import { useQuery } from './query';
+import { invalidate, useQuery } from './query';
 
 export function useInstances() {
   return useQuery(['instances'], api.instances, { staleTime: 60_000 });
@@ -94,10 +96,35 @@ export function useReviewers(mrId: number | undefined) {
   return useQuery(mrId ? ['mr', mrId, 'reviewers'] : null, () => api.reviewers(mrId!));
 }
 
-export function useMRPipelines(mrId: number | undefined) {
-  return useQuery(mrId ? ['mr', mrId, 'pipelines'] : null, () => api.mrPipelines(mrId!), {
-    staleTime: 10_000,
+/**
+ * Live pipelines of an MR, read straight from GitLab (newest first).
+ *
+ * Keyed under ['live', ...] rather than ['mr', mrId] on purpose: the ['mr']
+ * prefix is invalidated after every sync (each synced MR emits mr-updated),
+ * which would re-hit GitLab for whatever MR is on screen every few minutes.
+ * Instead this refetches only when the synced `headPipelineStatus` stops
+ * matching what GitLab told us, so a status change still shows up.
+ */
+export function useMRPipelines(
+  mrId: number | undefined,
+  options: { enabled?: boolean; staleTime?: number; syncedStatus?: string | null } = {},
+) {
+  const { enabled = true, staleTime = 60_000, syncedStatus } = options;
+  const q = useQuery(mrId ? ['live', 'mr', mrId, 'pipelines'] : null, () => api.mrPipelines(mrId!), {
+    staleTime,
+    enabled,
   });
+  const head = q.data?.reduce<(typeof q.data)[number] | undefined>((a, p) => (!a || p.id > a.id ? p : a), undefined);
+  useEffect(() => {
+    if (!enabled || !head || !syncedStatus || head.status === syncedStatus) return;
+    void q.refetch();
+    // The head pipeline's jobs changed too (same key while the id is unchanged).
+    // Only mounted job queries refetch, so this stays limited to what's on screen.
+    void invalidate(['pipelines', 'jobs']);
+    // Only a change in the synced status should trigger this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncedStatus]);
+  return q;
 }
 
 export function usePipelineJobs(
