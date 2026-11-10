@@ -22,5 +22,6 @@ export function useMRPipelinesQuery(mrId: number, enabled: boolean) {
       );
       return hasInflight ? 10_000 : false;
     },
+    refetchIntervalInBackground: false,
   });
 }
