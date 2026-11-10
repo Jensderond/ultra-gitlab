@@ -3,8 +3,8 @@
  * these when cached data changes; we translate them into cache invalidations.
  */
 
-import { invalidate } from '../data/query';
-import { isTauri } from './client';
+import { invalidate, matches, refetchStale, setSyncGate, type QueryKey } from '../data/query';
+import { api, isTauri } from './client';
 import type { AutoRunUpdatedPayload } from './types';
 
 type Unlisten = () => void;
@@ -29,11 +29,78 @@ export function onSyncProgress(listener: (p: SyncProgress) => void): Unlisten {
   return () => void syncListeners.delete(listener);
 }
 
+/**
+ * What a finished sync refreshes through the listeners below (`mr-updated`
+ * covers each synced MR's ['mr', id, ...]). Everything else — ['live', ...],
+ * pipeline jobs and traces, settings — is left to its own staleTime/polling.
+ */
+const SYNC_FED: QueryKey[] = [
+  ['mrs'],
+  ['mr'],
+  ['pipelines', 'statuses'],
+  ['pipelines', 'history'],
+  ['pipelines', 'projects'],
+];
+const syncFed = (key: QueryKey) => SYNC_FED.some((p) => matches(key, p));
+
+let syncing = false;
+
+/** Resolves true on the next sync start/end, false after `ms` without one. */
+function nextSync(edge: 'start' | 'end', ms: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => done(false), ms);
+    const off = onSyncProgress((p) => {
+      const ended = p.type === 'completed' || p.type === 'error';
+      if (edge === 'end' ? ended : !ended) done(true);
+    });
+    function done(seen: boolean) {
+      clearTimeout(timer);
+      off();
+      resolve(seen);
+    }
+  });
+}
+
+/** Long enough for a slow sync; past it we stop waiting and read the cache directly. */
+const SYNC_TIMEOUT = 60_000;
+
+/**
+ * Manual refresh (⌘R, Sync now): trigger a sync and resolve once it finished.
+ * Cached data refreshes through the sync's own events rather than right away
+ * and again afterwards; other reads (live GitLab ones included) only refetch
+ * if past their own staleTime. The backend may skip a sync that just ran but
+ * still reports completion, so this never waits on a sync actually running.
+ */
+export async function syncAndRefresh(): Promise<void> {
+  refetchStale((key) => !syncFed(key));
+  const ended = isTauri ? nextSync('end', SYNC_TIMEOUT) : Promise.resolve(false);
+  const refreshCached = () => SYNC_FED.forEach((p) => void invalidate(p));
+  try {
+    await api.triggerSync(false);
+  } catch (e) {
+    refreshCached();
+    throw e;
+  }
+  // No completion event seen (plain browser, or it never came): read the cache ourselves.
+  if (!(await ended)) refreshCached();
+}
+
 let started = false;
 
 export function startEventBridge() {
   if (started) return;
   started = true;
+
+  setSyncGate({
+    covers: syncFed,
+    // The backend starts a catch-up sync right after focus if its data is old.
+    settled: async () => {
+      if (!syncing && !(await nextSync('start', 1500))) return;
+      if (syncing) await nextSync('end', SYNC_TIMEOUT);
+      // Let the coalesced mr-updated invalidations (400ms) land first.
+      await new Promise((r) => setTimeout(r, 500));
+    },
+  });
 
   const timers = new Map<number, ReturnType<typeof setTimeout>>();
   void listen<{ mr_id: number; update_type: string }>('mr-updated', ({ mr_id }) => {
@@ -80,6 +147,7 @@ export function startEventBridge() {
       operation: raw.phase,
       message: raw.message,
     };
+    syncing = p.type === 'started' || p.type === 'progress';
     syncListeners.forEach((l) => l(p));
     // `failed` still means a (partial) sync ran — e.g. one instance errored.
     if (p.type === 'completed' || p.type === 'error') {

@@ -5,11 +5,10 @@
  */
 
 import { useMemo, useState, type ReactNode, type RefObject } from 'react';
-import { api } from '../../api/client';
+import { syncAndRefresh } from '../../api/events';
 import { formatKeys } from '../../app/keys';
 import { navigate, paths } from '../../app/router';
 import { setActiveInstanceId, useActiveInstance, useMyMRs, usePipelineProjects, useReviewMRs } from '../../data/hooks';
-import { invalidate } from '../../data/query';
 import type { MergeRequest, PipelineProject } from '../../api/types';
 import { cx, Spinner, StatusIcon, toast } from '../../ui/components';
 import { GearIcon, InboxIcon, KeyboardIcon, PersonIcon, PlusIcon, RefreshIcon } from '../../ui/icons';
@@ -101,11 +100,10 @@ const projectFields = (p: PipelineProject): Field[] => [
 
 async function refresh() {
   try {
-    await api.triggerSync(false);
+    await syncAndRefresh();
   } catch (e) {
     toast(`Sync failed: ${(e as Error).message}`, { tone: 'error' });
   }
-  await invalidate();
 }
 
 /**
