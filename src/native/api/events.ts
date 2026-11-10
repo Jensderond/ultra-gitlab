@@ -147,10 +147,17 @@ export function startEventBridge() {
       operation: raw.phase,
       message: raw.message,
     };
+    // A completion with no start before it is a manual sync the backend
+    // skipped (one just ran): nothing changed, so only stale reads refetch.
+    const ran = syncing;
     syncing = p.type === 'started' || p.type === 'progress';
     syncListeners.forEach((l) => l(p));
     // `failed` still means a (partial) sync ran — e.g. one instance errored.
     if (p.type === 'completed' || p.type === 'error') {
+      if (!ran) {
+        refetchStale(syncFed);
+        return;
+      }
       void invalidate(['mrs']);
       // Pipeline overviews may have moved on. Jobs and traces are left alone:
       // each is a live GitLab read, finished ones never change, and screens
