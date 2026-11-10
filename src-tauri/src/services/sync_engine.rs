@@ -30,7 +30,7 @@ use crate::services::sync_processor;
 use crate::services::sync_queue;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::{mpsc, RwLock};
@@ -47,6 +47,12 @@ pub const MIN_SYNC_INTERVAL_SECS: u64 = 120;
 /// at the configured interval if that is longer). Focusing the app catches up
 /// immediately when the last sync is older than the configured interval.
 pub const BACKGROUND_SYNC_INTERVAL_SECS: u64 = 600;
+
+/// A manual (non-force) sync is skipped when the last sync of any kind
+/// completed cleanly less than this long ago: mashing refresh, or several UI
+/// entry points firing at once, would otherwise re-fetch everything each time.
+/// Force syncs (used after config changes) bypass this.
+pub const MANUAL_SYNC_COOLDOWN_SECS: u64 = 30;
 
 /// Default interval for refreshing the issue cache (30 minutes).
 /// Issues change less often than MRs, so we don't need to hit the API
@@ -218,6 +224,64 @@ pub enum SyncCommand {
     Stop,
 }
 
+/// Manual sync requests waiting for the sync loop, coalesced into one.
+///
+/// At most one `TriggerSync` command sits in the channel at a time: the first
+/// request enqueues it, later ones only merge into this state (a force
+/// request upgrades a pending non-force one). The loop takes the state when
+/// it handles the command, so a request arriving while that sync runs
+/// enqueues exactly one follow-up.
+#[derive(Default)]
+struct PendingManualSync(AtomicU8);
+
+impl PendingManualSync {
+    const NONE: u8 = 0;
+    const NORMAL: u8 = 1;
+    const FORCE: u8 = 2;
+
+    /// Record a request. Returns true if the caller must enqueue the
+    /// `TriggerSync` command (nothing was pending yet).
+    fn request(&self, force: bool) -> bool {
+        let level = if force { Self::FORCE } else { Self::NORMAL };
+        self.0.fetch_max(level, Ordering::AcqRel) == Self::NONE
+    }
+
+    /// Take the pending request: `Some(force)`, or `None` if nothing was pending.
+    fn take(&self) -> Option<bool> {
+        match self.0.swap(Self::NONE, Ordering::AcqRel) {
+            Self::NONE => None,
+            level => Some(level == Self::FORCE),
+        }
+    }
+}
+
+/// What the sync loop does with a (coalesced) manual sync request.
+#[derive(Debug, PartialEq, Eq)]
+enum ManualSyncDecision {
+    /// Run a full sync.
+    Run { force: bool },
+    /// Skip: the last clean sync is younger than `MANUAL_SYNC_COOLDOWN_SECS`.
+    /// Carries how long ago it completed.
+    Cooldown(Duration),
+}
+
+/// Decide whether a manual sync runs. `since_clean_sync` is the time since
+/// the last sync that completed without errors (`None` if the last sync
+/// failed or none ran yet), so a retry after a failure is never throttled.
+fn manual_sync_decision(force: bool, since_clean_sync: Option<Duration>) -> ManualSyncDecision {
+    match since_clean_sync {
+        Some(elapsed) if !force && elapsed < Duration::from_secs(MANUAL_SYNC_COOLDOWN_SECS) => {
+            ManualSyncDecision::Cooldown(elapsed)
+        }
+        _ => ManualSyncDecision::Run { force },
+    }
+}
+
+/// Whether a sync run completed without errors (feeds the manual cooldown).
+fn sync_was_clean(result: &Result<SyncResult, AppError>) -> bool {
+    matches!(result, Ok(r) if r.errors.is_empty())
+}
+
 /// Lightweight handle for controlling the background sync engine.
 ///
 /// Managed as Tauri state. Communicates with the background sync loop
@@ -233,6 +297,9 @@ pub struct SyncHandle {
     /// Whether any app window has focus. Periodic syncs slow down to
     /// `BACKGROUND_SYNC_INTERVAL_SECS` while this is false.
     app_focused: Arc<AtomicBool>,
+
+    /// Coalesced manual sync requests (see `PendingManualSync`).
+    pending_manual: Arc<PendingManualSync>,
 }
 
 impl SyncHandle {
@@ -250,11 +317,24 @@ impl SyncHandle {
     /// Trigger an immediate sync.
     /// When `force` is true the "MR unchanged" optimisation is bypassed
     /// so diffs and files are always re-fetched.
+    ///
+    /// Requests are coalesced: while one is queued, further requests merge
+    /// into it. A non-force request is answered without network I/O when the
+    /// last clean sync is younger than `MANUAL_SYNC_COOLDOWN_SECS`. Either
+    /// way exactly one `sync-progress` complete/failed event follows.
     pub async fn trigger_sync_force(&self, force: bool) -> Result<(), AppError> {
-        self.command_tx
+        if !self.pending_manual.request(force) {
+            return Ok(());
+        }
+        let sent = self
+            .command_tx
             .send(SyncCommand::TriggerSync { force })
-            .await
-            .map_err(|_| AppError::internal("Sync engine not running"))
+            .await;
+        if sent.is_err() {
+            self.pending_manual.take();
+            return Err(AppError::internal("Sync engine not running"));
+        }
+        Ok(())
     }
 
     /// Trigger an immediate (non-force) sync.
@@ -409,6 +489,25 @@ impl SyncEngine {
         );
     }
 
+    /// Answer a manual sync skipped by the cooldown. Frontends wait for a
+    /// complete/failed `sync-progress` event, so emit the completion a real
+    /// sync would, without counts: nothing was fetched.
+    fn emit_sync_skipped(&self, since: Duration) {
+        self.emit_event(
+            SYNC_PROGRESS_EVENT,
+            &SyncProgressPayload {
+                phase: SyncPhase::Complete,
+                message: format!(
+                    "Sync skipped: last sync completed {}s ago",
+                    since.as_secs()
+                ),
+                processed: None,
+                total: None,
+                is_error: false,
+            },
+        );
+    }
+
     /// Emit an mr-updated event to the frontend.
     fn emit_mr_updated(&self, mr_id: i64, instance_id: i64, iid: i64, update_type: MrUpdateType) {
         self.emit_event(
@@ -439,6 +538,8 @@ impl SyncEngine {
         // reports focus changes, so it keeps the configured interval).
         let app_focused = Arc::new(AtomicBool::new(true));
         let focused_for_task = app_focused.clone();
+        let pending_manual = Arc::new(PendingManualSync::default());
+        let pending_for_task = pending_manual.clone();
 
         tokio::spawn(async move {
             // Brief delay so the app window appears before we start network I/O
@@ -462,7 +563,10 @@ impl SyncEngine {
 
             // Run initial sync immediately
             eprintln!("[sync] Running initial background sync...");
-            match engine.run_sync().await {
+            let initial = engine.run_sync().await;
+            // Completion time of the last sync that ran without errors.
+            let mut last_clean_sync = sync_was_clean(&initial).then(Instant::now);
+            match initial {
                 Ok(r) => {
                     eprintln!(
                         "[sync] Initial sync complete: {} MRs, {} purged, {} errors",
@@ -500,10 +604,12 @@ impl SyncEngine {
                             continue;
                         }
                         eprintln!("[sync] Running periodic background sync...");
-                        if let Err(e) = engine.run_sync().await {
+                        let result = engine.run_sync().await;
+                        if let Err(e) = &result {
                             eprintln!("[sync] Periodic sync error: {}", e);
                         }
                         last_sync = Instant::now();
+                        last_clean_sync = sync_was_clean(&result).then_some(last_sync);
                     }
                     _ = auto_run_interval.tick() => {
                         if let Ok(true) = crate::db::auto_run::has_active_claims(&engine.pool).await {
@@ -513,21 +619,39 @@ impl SyncEngine {
                     Some(cmd) = rx.recv() => {
                         match cmd {
                             SyncCommand::TriggerSync { force } => {
-                                eprintln!("[sync] Manual sync triggered (force={})", force);
-                                if let Err(e) = engine.run_sync_with_force(force).await {
-                                    eprintln!("[sync] Manual sync error: {}", e);
+                                // Requests that arrived while this one was
+                                // queued are merged into the pending state.
+                                let force = pending_for_task.take().unwrap_or(false) || force;
+                                match manual_sync_decision(force, last_clean_sync.map(|t| t.elapsed())) {
+                                    ManualSyncDecision::Cooldown(since) => {
+                                        eprintln!(
+                                            "[sync] Manual sync skipped: last sync {}s ago",
+                                            since.as_secs()
+                                        );
+                                        engine.emit_sync_skipped(since);
+                                    }
+                                    ManualSyncDecision::Run { force } => {
+                                        eprintln!("[sync] Manual sync triggered (force={})", force);
+                                        let result = engine.run_sync_with_force(force).await;
+                                        if let Err(e) = &result {
+                                            eprintln!("[sync] Manual sync error: {}", e);
+                                        }
+                                        last_sync = Instant::now();
+                                        last_clean_sync = sync_was_clean(&result).then_some(last_sync);
+                                        interval.reset();
+                                    }
                                 }
-                                last_sync = Instant::now();
-                                interval.reset();
                             }
                             SyncCommand::AppFocused => {
                                 let interval_secs = { engine.config.read().await.interval_secs };
                                 if last_sync.elapsed() >= Duration::from_secs(interval_secs) {
                                     eprintln!("[sync] App focused with stale data, syncing now");
-                                    if let Err(e) = engine.run_sync().await {
+                                    let result = engine.run_sync().await;
+                                    if let Err(e) = &result {
                                         eprintln!("[sync] Focus sync error: {}", e);
                                     }
                                     last_sync = Instant::now();
+                                    last_clean_sync = sync_was_clean(&result).then_some(last_sync);
                                     interval.reset();
                                 }
                             }
@@ -566,6 +690,7 @@ impl SyncEngine {
             command_tx: tx,
             config: config_shared,
             app_focused,
+            pending_manual,
         }
     }
 
@@ -3982,6 +4107,117 @@ mod tests {
         let after = time::Instant::now();
         ticker.tick().await; // …and the next one waits a full period
         assert!(time::Instant::now() - after >= Duration::from_secs(120));
+    }
+
+    #[test]
+    fn test_pending_manual_sync_coalesces() {
+        let pending = PendingManualSync::default();
+        assert_eq!(pending.take(), None);
+
+        // Only the first request enqueues a command; the rest merge into it.
+        assert!(pending.request(false));
+        assert!(!pending.request(false));
+        assert_eq!(pending.take(), Some(false));
+
+        // A force request upgrades a pending non-force one…
+        assert!(pending.request(false));
+        assert!(!pending.request(true));
+        // …and a later non-force request does not downgrade it.
+        assert!(!pending.request(false));
+        assert_eq!(pending.take(), Some(true));
+
+        // Taken: the next request enqueues again (follow-up run).
+        assert_eq!(pending.take(), None);
+        assert!(pending.request(true));
+    }
+
+    #[test]
+    fn test_manual_sync_decision_cooldown() {
+        let recent = Some(Duration::from_secs(5));
+        let old = Some(Duration::from_secs(MANUAL_SYNC_COOLDOWN_SECS));
+
+        assert_eq!(
+            manual_sync_decision(false, recent),
+            ManualSyncDecision::Cooldown(Duration::from_secs(5))
+        );
+        assert_eq!(manual_sync_decision(false, old), ManualSyncDecision::Run { force: false });
+        // Force bypasses the cooldown.
+        assert_eq!(manual_sync_decision(true, recent), ManualSyncDecision::Run { force: true });
+        // No clean sync yet (or the last one failed): never throttle a retry.
+        assert_eq!(manual_sync_decision(false, None), ManualSyncDecision::Run { force: false });
+    }
+
+    /// Records emitted events for assertions.
+    #[derive(Default)]
+    struct RecordingEmitter(std::sync::Mutex<Vec<(String, serde_json::Value)>>);
+
+    impl EventEmitter for RecordingEmitter {
+        fn emit_json(&self, event: &str, payload: serde_json::Value) {
+            self.0.lock().unwrap().push((event.to_string(), payload));
+        }
+    }
+
+    impl RecordingEmitter {
+        /// sync-progress payloads with the given phase.
+        fn phases(&self, phase: &str) -> Vec<serde_json::Value> {
+            self.0
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|(e, p)| e == SYNC_PROGRESS_EVENT && p["phase"] == phase)
+                .map(|(_, p)| p.clone())
+                .collect()
+        }
+
+        async fn wait_for_completions(&self, n: usize) {
+            let wait = async {
+                while self.phases("complete").len() + self.phases("failed").len() < n {
+                    time::sleep(Duration::from_millis(20)).await;
+                }
+            };
+            time::timeout(Duration::from_secs(30), wait).await.expect("sync completion");
+            // Give the loop a moment to (wrongly) start anything extra.
+            time::sleep(Duration::from_millis(300)).await;
+        }
+    }
+
+    // Repeated manual triggers coalesce, are answered from the cooldown with a
+    // synthetic completion, and a force request is never lost. No instances
+    // are configured, so the real syncs do no network I/O.
+    #[tokio::test]
+    async fn test_manual_triggers_coalesce_and_cool_down() {
+        let dir = tempfile::tempdir().unwrap();
+        let pool = crate::db::initialize(&dir.path().join("test.db")).await.unwrap();
+        let emitter = Arc::new(RecordingEmitter::default());
+        let handle = SyncEngine::start_background(pool, SyncConfig::default(), emitter.clone());
+
+        // Initial sync.
+        emitter.wait_for_completions(1).await;
+        assert_eq!(emitter.phases("starting").len(), 1);
+        assert_eq!(emitter.phases("complete").len(), 1);
+
+        // Mashing refresh right after a clean sync: one skipped completion,
+        // no new sync.
+        for _ in 0..5 {
+            handle.trigger_sync().await.unwrap();
+        }
+        emitter.wait_for_completions(2).await;
+        assert_eq!(emitter.phases("starting").len(), 1);
+        let completes = emitter.phases("complete");
+        assert_eq!(completes.len(), 2);
+        let skipped = &completes[1];
+        assert!(skipped["message"].as_str().unwrap().starts_with("Sync skipped"));
+        assert!(skipped["processed"].is_null());
+        assert_eq!(skipped["is_error"], false);
+
+        // Non-force then force while queued: the pending run becomes force,
+        // bypasses the cooldown, and runs once.
+        handle.trigger_sync_force(false).await.unwrap();
+        handle.trigger_sync_force(true).await.unwrap();
+        handle.trigger_sync_force(true).await.unwrap();
+        emitter.wait_for_completions(3).await;
+        assert_eq!(emitter.phases("starting").len(), 2);
+        assert_eq!(emitter.phases("complete").len(), 3);
     }
 
     #[test]
