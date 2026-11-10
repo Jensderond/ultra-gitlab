@@ -5,6 +5,7 @@
 
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { api, openExternal } from '../../api/client';
+import { syncAndRefresh } from '../../api/events';
 import { useKeys } from '../../app/keys';
 import { invalidate } from '../../data/query';
 import { Button, Sheet, toast } from '../../ui/components';
@@ -51,8 +52,10 @@ export function TokenSheet({
       const username = await api.updateToken(instanceId, token.trim());
       toast(`Signed in to ${host} as @${username}`, { tone: 'success' });
       close(true);
-      await invalidate();
-      api.triggerSync(false).catch(() => {});
+      // Token status lives under ['instances']; reads that failed with the old
+      // token count as stale, so the refresh retries them.
+      await invalidate(['instances']);
+      syncAndRefresh().catch(() => {});
     } catch (err) {
       setError(describeError(err, instanceUrl));
     } finally {

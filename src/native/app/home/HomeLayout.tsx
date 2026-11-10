@@ -6,9 +6,7 @@
  */
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { api } from '../../api/client';
-import { onSyncProgress } from '../../api/events';
-import { invalidate } from '../../data/query';
+import { onSyncProgress, syncAndRefresh } from '../../api/events';
 import { setActiveInstanceId, useActiveInstance, useAvatars } from '../../data/hooks';
 import { SearchJump } from '../../features/palette/SearchJump';
 import {
@@ -31,11 +29,10 @@ export type HomeSection = 'mrs' | 'pipelines';
 /** Kick a background sync and refresh what's on screen. Shared with ⌘R. */
 export async function refreshAll() {
   try {
-    await api.triggerSync(false);
+    await syncAndRefresh();
   } catch (e) {
     toast(`Sync failed: ${(e as Error).message}`, { tone: 'error' });
   }
-  await invalidate();
 }
 
 export function useSyncing() {

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { api } from '../../api/client';
+import { syncAndRefresh } from '../../api/events';
 import { useSettings } from '../../data/hooks';
 import { invalidate, setData, useQuery } from '../../data/query';
 import type { Settings } from '../../api/types';
@@ -67,8 +68,8 @@ export function GeneralPane() {
   const syncNow = async () => {
     setSyncing(true);
     try {
-      await api.triggerSync(false);
-      await invalidate();
+      await syncAndRefresh();
+      void invalidate(['sync-status']);
     } catch (e) {
       toast(`Sync failed: ${(e as Error).message}`, { tone: 'error' });
     } finally {

@@ -23,6 +23,8 @@ interface Entry<T = unknown> {
   again: boolean;
   /** Longest staleTime any subscriber asked for (focus refetches respect it). */
   staleTime: number;
+  /** refetchInterval of each mounted poller, so focus can catch up on a missed poll. */
+  polls: Map<object, number>;
   snapshot: QueryState<T>;
 }
 
@@ -37,6 +39,14 @@ export interface QueryState<T> {
 
 const cache = new Map<string, Entry>();
 const hash = (key: QueryKey) => JSON.stringify(key);
+
+/**
+ * Whether this window is in front. Each window is its own webview with its
+ * own cache, so this is per window: one left in the background stops polling
+ * even while another app window has focus. Starts true unless hidden (not
+ * every webview reports hasFocus() reliably at startup); blur flips it.
+ */
+let focused = typeof document === 'undefined' || !document.hidden;
 
 function entryFor<T>(key: QueryKey): Entry<T> {
   const h = hash(key);
@@ -53,6 +63,7 @@ function entryFor<T>(key: QueryKey): Entry<T> {
       stale: true,
       again: false,
       staleTime: 0,
+      polls: new Map(),
       snapshot: { data: undefined, error: undefined, loading: true, fetching: false },
     };
     cache.set(h, e as Entry);
@@ -101,7 +112,7 @@ function run<T>(e: Entry<T>): Promise<void> {
   return e.inflight;
 }
 
-function matches(key: QueryKey, prefix: QueryKey) {
+export function matches(key: QueryKey, prefix: QueryKey) {
   return prefix.every((part, i) => hash([part]) === hash([key[i]]));
 }
 
@@ -117,6 +128,19 @@ export function invalidate(prefix: QueryKey = []): Promise<void> {
     } else if (e.listeners.size > 0) jobs.push(run(e));
   }
   return Promise.all(jobs).then(() => undefined);
+}
+
+/**
+ * Refetch matching on-screen entries that are past their own staleTime (or
+ * invalidated, or failed); fresh ones are left alone. For refreshes that
+ * shouldn't re-hit GitLab for data that was just read.
+ */
+export function refetchStale(filter: (key: QueryKey) => boolean): void {
+  const now = Date.now();
+  for (const e of cache.values()) {
+    if (e.listeners.size === 0 || !filter(e.key)) continue;
+    if (e.stale || e.error || now - e.updatedAt > e.staleTime) void run(e);
+  }
 }
 
 /** Read cached data without subscribing. */
@@ -202,9 +226,20 @@ export function useQuery<T>(
   }, [h, enabled]);
 
   useEffect(() => {
-    if (!key || !enabled || !options.refetchInterval) return;
-    const id = setInterval(() => void run(entryFor<T>(key)), options.refetchInterval);
-    return () => clearInterval(id);
+    const interval = options.refetchInterval;
+    if (!key || !enabled || !interval) return;
+    const e = entryFor<T>(key);
+    const token = {};
+    e.polls.set(token, interval);
+    const id = setInterval(() => {
+      // Paused while the window is in the background (focus catches up), and
+      // skipped when something else (focus, an invalidation) just refreshed it.
+      if (focused && Date.now() - e.updatedAt >= interval / 2) void run(e);
+    }, interval);
+    return () => {
+      clearInterval(id);
+      e.polls.delete(token);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [h, enabled, options.refetchInterval]);
 
@@ -222,12 +257,55 @@ export function useQuery<T>(
   return { ...state, data, loading: state.loading && data === undefined, refetch };
 }
 
-// Native apps refresh what you're looking at when you come back to them.
+/**
+ * Lets the event bridge hold back focus refetches of data a background sync
+ * is about to refresh anyway (the backend syncs on focus when its data is old).
+ */
+export interface SyncGate {
+  /** Whether sync events refresh this key. */
+  covers: (key: QueryKey) => boolean;
+  /** Resolves once a sync that is running, or starts shortly, has finished. */
+  settled: () => Promise<void>;
+}
+
+let syncGate: SyncGate | null = null;
+export function setSyncGate(gate: SyncGate) {
+  syncGate = gate;
+}
+
+/** Focus refetches skip anything younger than this, so alt-tabbing doesn't re-hit GitLab. */
+const FOCUS_MIN_AGE = 60_000;
+
+// Native apps refresh what you're looking at when you come back to them:
+// at most one fetch per on-screen entry, for entries that are old enough or
+// whose poll came due while we were in the background.
+function onFocus() {
+  if (focused) return;
+  focused = true;
+  const now = Date.now();
+  const later: Entry[] = [];
+  for (const e of cache.values()) {
+    if (e.listeners.size === 0) continue;
+    const age = now - e.updatedAt;
+    const pollDue = e.polls.size > 0 && age >= Math.min(...e.polls.values());
+    if (!pollDue && age <= Math.max(FOCUS_MIN_AGE, e.staleTime)) continue;
+    if (syncGate?.covers(e.key)) later.push(e);
+    else void run(e);
+  }
+  if (!later.length || !syncGate) return;
+  // A catch-up sync's events refresh these; only fetch what it didn't reach.
+  void syncGate.settled().then(() => {
+    for (const e of later) if (e.listeners.size > 0 && e.updatedAt < now) void run(e);
+  });
+}
+
 if (typeof window !== 'undefined') {
-  window.addEventListener('focus', () => {
-    const now = Date.now();
-    for (const e of cache.values()) {
-      if (e.listeners.size > 0 && now - e.updatedAt > Math.max(30_000, e.staleTime)) void run(e);
-    }
+  window.addEventListener('focus', onFocus);
+  window.addEventListener('blur', () => {
+    focused = false;
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) focused = false;
+    else if (document.hasFocus()) onFocus();
   });
 }
