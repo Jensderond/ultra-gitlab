@@ -35,6 +35,20 @@ test.describe('Pierre Diff Viewer', () => {
     expect(errors).toHaveLength(0);
   });
 
+  test('Page Down / Page Up scroll a long diff', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 480 });
+    await page.goto('/mrs/101');
+    await expect(page.locator('diffs-container')).toBeVisible({ timeout: 15_000 });
+
+    const main = page.locator('.mr-detail-main');
+    await expect.poll(() => main.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+    await page.keyboard.press('PageDown');
+    const paged = await main.evaluate((el) => el.scrollTop);
+    expect(paged).toBeGreaterThan(100);
+    await page.keyboard.press('PageUp');
+    expect(await main.evaluate((el) => el.scrollTop)).toBeLessThan(paged);
+  });
+
   test('displays diff content inside shadow DOM', async ({ page }) => {
     await page.goto('/mrs/101');
 

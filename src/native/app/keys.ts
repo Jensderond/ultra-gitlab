@@ -125,6 +125,8 @@ export function formatKeys(combo: string): string {
     tab: '⇥',
     home: 'Home',
     end: 'End',
+    pageup: 'PgUp',
+    pagedown: 'PgDn',
   };
   return combo
     .split('+')

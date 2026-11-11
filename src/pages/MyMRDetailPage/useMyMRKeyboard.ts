@@ -8,6 +8,7 @@ import { openExternalUrl } from '../../services/transport';
 import { DEFAULT_FILE_JUMP_COUNT } from '../../utils/fileNavigation';
 import { trackShortcut } from '../../services/analytics';
 import { useShortcuts } from '../../components/ShortcutsProvider';
+import { usePageScrollKeys } from '../../hooks/usePageScrollKeys';
 import type { MergeActions } from './MergeSection';
 
 type TabId = 'overview' | 'comments' | 'code';
@@ -92,6 +93,9 @@ export function useMyMRKeyboard(options: KeyboardOptions) {
     trackShortcut('prev-file', 'navigate_file_prev', 'my_mr_detail');
     navigateFile(-1);
   }, [navigateFile]);
+
+  // Page Up / Page Down move through a long diff (not customizable).
+  usePageScrollKeys('.my-mr-code-main', isCodeTab);
 
   const nextAliases = splitAliases(getKey('next-file') ?? 'n / j / ArrowDown');
   useHotkey(parseHotkey(nextAliases[0] ?? 'n'), handleNextFile, { enabled: isCodeTab });
