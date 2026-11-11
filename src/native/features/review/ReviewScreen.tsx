@@ -469,12 +469,17 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
     const editor = editorRef.current;
     const view = editView.current;
     editView.current = null;
-    // After the sheet has returned focus to where it was (the diff's host).
-    requestAnimationFrame(() => {
-      if (!editor) return;
+    if (!editor) return;
+    const restore = () => {
       if (view) editor.setViewState(view);
       editor.focus({ preventScroll: true });
-    });
+    };
+    // Right away, so the next keystroke lands in the editor while the sheet
+    // is still animating out (its panel is inert and would drop focus to
+    // <body>)…
+    restore();
+    // …and again once the sheet has handed focus back to the diff's host.
+    requestAnimationFrame(restore);
   }, []);
 
   const resolve = useCallback(
