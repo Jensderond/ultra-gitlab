@@ -17,6 +17,7 @@ import { SettingsScreen } from '../features/settings/SettingsScreen';
 import { SetupScreen } from '../features/setup/SetupScreen';
 import { ShortcutsSheet } from '../features/shortcuts/ShortcutsSheet';
 import { AppServicesHost, useAppServices } from '../features/settings/services';
+import { UpdatePrompt } from '../features/updates/UpdatePrompt';
 import { startUpdater } from '../features/updates/updater';
 import { Toaster } from '../ui/components';
 import { refreshAll } from './home/HomeLayout';
@@ -106,6 +107,7 @@ export function App() {
       <Routes />
       <CommandPalette />
       <ShortcutsSheet />
+      <UpdatePrompt />
       <Toaster />
       <AppServicesHost />
     </WorkerPoolContextProvider>

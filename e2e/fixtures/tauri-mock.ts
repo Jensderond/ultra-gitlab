@@ -485,8 +485,21 @@ export async function mockTauriIPC(
       'plugin:store|load': () => undefined,
 
       // -- Tauri updater plugin --
-      'plugin:updater|check': () => null,
-      'plugin:updater|download-and-install': () => undefined,
+      // Tests opt in with `window.__MOCK_UPDATE__ = { version }` (see update-prompt.spec.ts).
+      'plugin:updater|check': () => {
+        const u = (window as Record<string, unknown>).__MOCK_UPDATE__ as { version: string } | undefined;
+        return u
+          ? { rid: 1, currentVersion: '0.25.3', version: u.version, date: null, body: 'Faster sync.', rawJson: {} }
+          : null;
+      },
+      'plugin:updater|download_and_install': (args) => {
+        const channel = args.onEvent as { onmessage: (e: unknown) => void };
+        channel.onmessage({ event: 'Started', data: { contentLength: 1000 } });
+        channel.onmessage({ event: 'Progress', data: { chunkLength: 1000 } });
+        channel.onmessage({ event: 'Finished' });
+        (window as Record<string, unknown>).__MOCK_UPDATE_INSTALLED__ = true;
+      },
+      'plugin:resources|close': () => undefined,
 
       // -- UI variant (src/uiVariant.ts) --
       set_ui_variant: (args) => {

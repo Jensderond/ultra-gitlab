@@ -63,7 +63,7 @@ export function UpdatesGroup() {
   })();
 
   return (
-    <Group title="Updates" footer="New versions download in the background; restart from the sidebar when it turns green.">
+    <Group title="Updates" footer="New versions download in the background, then ask to restart.">
       <Row label={current ? `Ultra GitLab ${current}` : 'Ultra GitLab'} description={status}>
         {action}
       </Row>

@@ -7,8 +7,9 @@
  *    15+ minutes away.
  *  - A found update downloads in the background straight away (the sidebar
  *    button shows it in blue with progress).
- *  - Once downloaded, the button turns green; one click installs and
- *    relaunches.
+ *  - Once downloaded, a sheet asks to restart (UpdatePrompt). "Later" hides it
+ *    for an hour, then it asks again; the sidebar button stays green meanwhile.
+ *    It never opens over someone typing: it waits until focus leaves the field.
  *
  * Failures stay quiet and retry on the next check. iOS can't self-update
  * (App Store / TestFlight only), and the classic UI keeps its own checker.
@@ -21,6 +22,8 @@ import { isTauri } from '../../api/client';
 
 const CHECK_EVERY_MS = 60 * 60 * 1000;
 const FOCUS_RECHECK_MS = 15 * 60 * 1000;
+/** How long "Later" keeps the restart prompt away. */
+export const SNOOZE_MS = 60 * 60 * 1000;
 
 export type UpdatePhase = 'idle' | 'checking' | 'downloading' | 'ready' | 'installing' | 'error';
 
@@ -34,6 +37,8 @@ export interface UpdateState {
   progress: number | null;
   error: string | null;
   lastChecked: number | null;
+  /** The restart prompt is up (an update is downloaded and not snoozed). */
+  prompt: boolean;
 }
 
 // Narrow view of the updater plugin's `Update`, so this file doesn't need its types at load.
@@ -48,7 +53,7 @@ type DownloadEvent =
   | { event: 'Progress'; data: { chunkLength: number } }
   | { event: 'Finished' };
 
-let state: UpdateState = { phase: 'idle', version: null, notes: null, progress: null, error: null, lastChecked: null };
+let state: UpdateState = { phase: 'idle', version: null, notes: null, progress: null, error: null, lastChecked: null, prompt: false };
 let pending: PendingUpdate | null = null;
 const listeners = new Set<() => void>();
 
@@ -113,6 +118,7 @@ export async function checkForUpdate({ manual = false } = {}): Promise<string | 
       }
     });
     set({ phase: 'ready', progress: 1 });
+    raisePrompt();
   } catch (e) {
     pending = null;
     set({ phase: 'error', error: `Couldn't download ${update.version}: ${message(e)}`, progress: null });
@@ -131,8 +137,33 @@ export async function installUpdate(): Promise<void> {
   } catch (e) {
     // The downloaded bytes are consumed by a failed install; start over on retry.
     pending = null;
-    set({ phase: 'error', error: `Couldn't install ${state.version}: ${message(e)}` });
+    set({ phase: 'error', error: `Couldn't install ${state.version}: ${message(e)}`, prompt: false });
   }
+}
+
+const isTyping = () => {
+  const el = document.activeElement;
+  return el instanceof HTMLElement && (el.isContentEditable || el.matches('input, textarea, select'));
+};
+
+/** Open the restart prompt, or wait for the field in use to lose focus first. */
+function raisePrompt() {
+  if (state.phase !== 'ready' || state.prompt) return;
+  if (isTyping()) {
+    // focusout fires before focus lands on the next element; look again after it has.
+    document.addEventListener('focusout', () => setTimeout(raisePrompt), { once: true });
+    return;
+  }
+  set({ prompt: true });
+}
+
+let snoozeTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** "Later": hide the restart prompt and ask again in an hour. */
+export function snoozeUpdate() {
+  set({ prompt: false });
+  clearTimeout(snoozeTimer);
+  snoozeTimer = setTimeout(raisePrompt, SNOOZE_MS);
 }
 
 /** Retry after an error: re-check and re-download. */

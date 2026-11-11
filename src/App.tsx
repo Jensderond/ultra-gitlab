@@ -23,6 +23,7 @@ import { AppSidebar } from './components/AppSidebar';
 import { CommandPalette, type Command } from './components/CommandPalette';
 import { KeyboardHelp } from './components/KeyboardHelp';
 import { ReAuthPrompt } from './components/ReAuthPrompt';
+import { UpdatePrompt } from './components/UpdatePrompt';
 import useUpdateChecker from './hooks/useUpdateChecker';
 import { useHasApprovedMRsQuery } from './hooks/queries/useHasApprovedMRsQuery';
 import useNotifications from './hooks/useNotifications';
@@ -343,6 +344,8 @@ function AppContent() {
           onDismiss={dismissAuthExpired}
         />
       )}
+
+      {updateChecker.promptOpen && <UpdatePrompt updateChecker={updateChecker} />}
 
       <ToastContainer />
     </div>

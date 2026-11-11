@@ -39,7 +39,7 @@ Three files contain the version and **must stay in sync**:
 
 5. **Review the draft release** on GitHub → Releases. Edit the release notes if needed, then click **Publish release**.
 
-6. **Users get notified** — the app checks for updates on launch and every 4 hours. When published, the updater endpoint (`/releases/latest/download/latest.json`) resolves to the new release automatically.
+6. **Users get notified** — the app checks for updates on launch and every hour, and shows a popup asking to update. When published, the updater endpoint (`/releases/latest/download/latest.json`) resolves to the new release automatically.
 
 ## First-Time Setup
 
@@ -54,7 +54,8 @@ Before the first release, ensure these are configured:
 
 ## How the Updater Works
 
-- On app start + every 4 hours, the app fetches `latest.json` from the GitHub Release
-- If a newer version exists, a gold dot appears on the Settings gear icon
-- The Settings page shows the new version, release notes, and a "Download & Install" button
-- After install, the app relaunches on the new version
+- On app start + every hour, the app fetches `latest.json` from the GitHub Release
+- **Classic UI**: a popup offers the new version with its release notes; "Update now" downloads, installs and relaunches. A gold dot on the Settings gear and the Settings page offer the same.
+- **Native UI**: the update downloads in the background (progress under the sidebar), then a sheet asks to restart.
+- "Later" hides the popup for an hour, then it asks again. It never opens while someone is typing in a field.
+- iOS updates through the App Store / TestFlight and never prompts.

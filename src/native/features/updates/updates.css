@@ -80,3 +80,23 @@
     opacity: 0.5;
   }
 }
+
+/* Restart prompt (UpdatePrompt.tsx). */
+
+.upd-prompt__lead {
+  color: var(--text);
+  line-height: 1.45;
+}
+.upd-prompt__notes {
+  margin-top: 12px;
+  padding: 10px 12px;
+  max-height: 180px;
+  overflow: auto;
+  border-radius: 8px;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

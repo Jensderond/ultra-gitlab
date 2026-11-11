@@ -1,15 +1,26 @@
 /**
  * Hook for checking and installing app updates.
  *
- * Checks for updates on mount and every 4 hours using the
+ * Checks for updates on mount and every hour using the
  * Tauri updater plugin. Provides state for UI indicators
- * (sidebar badge, settings section) and actions to install.
+ * (update popup, sidebar badge, settings section) and actions to install.
+ *
+ * A found update opens the popup (UpdatePrompt). "Later" hides it for an
+ * hour, then it comes back. It never opens over someone typing: it waits
+ * until focus leaves the field.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { isTauri } from '../services/transport';
+import { isTauri, isIOS } from '../services/transport';
 
-const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
+const CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+/** How long "Later" keeps the update popup away. */
+const SNOOZE_MS = 60 * 60 * 1000;
+
+const isTyping = () => {
+  const el = document.activeElement;
+  return el instanceof HTMLElement && (el.isContentEditable || el.matches('input, textarea, select'));
+};
 
 export interface UpdateCheckerState {
   /** Whether an update is available */
@@ -32,6 +43,10 @@ export interface UpdateCheckerState {
   installUpdate: () => Promise<void>;
   /** Dismiss the update notification */
   dismissUpdate: () => void;
+  /** Whether the update popup is showing */
+  promptOpen: boolean;
+  /** Hide the update popup and bring it back in an hour */
+  snoozeUpdate: () => void;
 }
 
 export default function useUpdateChecker(): UpdateCheckerState {
@@ -46,6 +61,32 @@ export default function useUpdateChecker(): UpdateCheckerState {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateRef = useRef<any>(null);
 
+  const [promptOpen, setPromptOpen] = useState(false);
+  const snoozeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  /** Set while the popup is snoozed or waiting for a field to lose focus. */
+  const promptHeld = useRef(false);
+
+  // Open the popup, or wait for the field in use to lose focus first.
+  // iOS updates through the App Store / TestFlight, so it never prompts.
+  const raisePrompt = useCallback(() => {
+    if (isIOS || !updateRef.current) return;
+    if (isTyping()) {
+      promptHeld.current = true;
+      // focusout fires before focus lands on the next element; look again after it has.
+      document.addEventListener('focusout', () => setTimeout(raisePrompt), { once: true });
+      return;
+    }
+    promptHeld.current = false;
+    setPromptOpen(true);
+  }, []);
+
+  const snoozeUpdate = useCallback(() => {
+    setPromptOpen(false);
+    promptHeld.current = true;
+    clearTimeout(snoozeTimer.current);
+    snoozeTimer.current = setTimeout(raisePrompt, SNOOZE_MS);
+  }, [raisePrompt]);
+
   const checkForUpdate = useCallback(async () => {
     if (!isTauri) return;
     try {
@@ -58,13 +99,15 @@ export default function useUpdateChecker(): UpdateCheckerState {
         setAvailable(true);
         setVersion(update.version);
         setBody(update.body ?? null);
+        // A re-check while snoozed (or waiting on a field) leaves the popup alone.
+        if (!promptHeld.current) raisePrompt();
       }
     } catch {
       // Silently swallow check errors (network issues, endpoint not yet live, etc.)
     } finally {
       setChecking(false);
     }
-  }, []);
+  }, [raisePrompt]);
 
   const installUpdate = useCallback(async () => {
     if (!isTauri) return;
@@ -105,13 +148,19 @@ export default function useUpdateChecker(): UpdateCheckerState {
     setVersion(null);
     setBody(null);
     updateRef.current = null;
+    setPromptOpen(false);
+    clearTimeout(snoozeTimer.current);
+    promptHeld.current = false;
   }, []);
 
-  // Check on mount + every 4 hours
+  // Check on mount + every hour
   useEffect(() => {
     checkForUpdate();
     const interval = setInterval(checkForUpdate, CHECK_INTERVAL_MS);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(snoozeTimer.current);
+    };
   }, [checkForUpdate]);
 
   return {
@@ -125,5 +174,7 @@ export default function useUpdateChecker(): UpdateCheckerState {
     checkForUpdate,
     installUpdate,
     dismissUpdate,
+    promptOpen,
+    snoozeUpdate,
   };
 }
