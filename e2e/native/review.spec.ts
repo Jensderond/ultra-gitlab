@@ -166,6 +166,24 @@ test.describe('flows', () => {
     await expect(page).toHaveURL(/file=/);
   });
 
+  test('O opens the MR in GitLab, Y copies its link, the inspector shows the author', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await installReviewMocks(page, { settings: { diffViewMode: 'unified' } });
+    await open(page);
+    const url = 'https://gitlab.example.com/frontend/web-app/-/merge_requests/42';
+
+    await expect(page.getByRole('region', { name: 'Author' })).toContainText('alice');
+
+    await page.keyboard.press('o');
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { __MOCK_OPENED_URLS__?: string[] }).__MOCK_OPENED_URLS__))
+      .toEqual([url]);
+
+    await page.keyboard.press('y');
+    await expect(page.getByText('Link copied')).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(url);
+  });
+
   test('⇧J / ⇧K step through the changes in a file', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 480 });
     await installReviewMocks(page, { settings: { diffViewMode: 'unified' } });

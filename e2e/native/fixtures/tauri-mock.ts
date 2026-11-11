@@ -639,6 +639,13 @@ export async function mockTauriIPC(
       },
       'plugin:process|exit': () => undefined,
 
+      // -- Tauri opener plugin (openExternal) --
+      'plugin:opener|open_url': (args) => {
+        const opened = (w.__MOCK_OPENED_URLS__ as string[] | undefined) ?? [];
+        opened.push(args.url as string);
+        w.__MOCK_OPENED_URLS__ = opened;
+      },
+
       // -- Misc --
       greet: (args) => `Hello, ${args.name}!`,
     };

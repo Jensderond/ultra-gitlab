@@ -1068,6 +1068,8 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
       s: () => suggestOnLine(),
       e: () => (editing ? false : startEdit()),
       p: () => (pipeline ? openPipeline() : toast('There is no pipeline for this merge request')),
+      o: () => void (mr && openExternal(mr.webUrl)),
+      y: () => void (mr && copyText(mr.webUrl, 'Link copied')),
       'mod+shift+enter': () => setFinishOpen(true),
       escape: () => (editing ? requestCancelEdit() : composer ? setComposer(null) : leaveReview()),
       arrowdown: (e) => (onChrome(e) ? false : scrollBy(48)),

@@ -138,6 +138,7 @@ export function InboxScreen({ view, selectedMrId }: { view: string; selectedMrId
       if (selected) startReview(selected);
     },
     o: () => void (selected && openInGitLab(selected)),
+    y: () => void (selected && copyLink(selected)),
     'mod+c': (e) => {
       // Let ⌘C copy selected text normally; only copy the link otherwise.
       // (A text field's selection isn't in window.getSelection(), so check focus too.)

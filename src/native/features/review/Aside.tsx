@@ -1,4 +1,4 @@
-/** The inspector on the right: reviewers, discussions, pipeline, description. */
+/** The inspector on the right: author, reviewers, discussions, pipeline, description. */
 
 import { useState } from 'react';
 import type { MergeRequest, MrReviewer, PipelineJob, PipelineStatus } from '../../api/types';
@@ -54,6 +54,14 @@ export function Aside({ mr, me, reviewers, avatars, threads, commenters, onJump,
 
   return (
     <div className="rv-aside__inner">
+      <section className="rv-aside__section" aria-label="Author">
+        <Label>Author</Label>
+        <div className="rv-reviewer">
+          <Avatar username={mr.authorUsername} src={avatars?.[mr.authorUsername]} size={22} />
+          <span className="rv-reviewer__name">{mr.authorUsername === me ? 'You' : mr.authorUsername}</span>
+        </div>
+      </section>
+
       <section className="rv-aside__section" aria-label="Reviewers">
         <Label>Reviewers</Label>
         {sortedReviewers.length === 0 && <span className="rv-aside__muted">No reviewers assigned</span>}
