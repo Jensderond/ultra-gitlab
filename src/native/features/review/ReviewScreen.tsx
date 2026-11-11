@@ -1222,6 +1222,10 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
       'shift+arrowup': (e) => (onChrome(e) ? false : arrow(-1, true)),
       space: (e) => (onChrome(e) ? false : scrollBy(page())),
       'shift+space': (e) => (onChrome(e) ? false : scrollBy(-page())),
+      // ↑ / ↓ go line by line, so these are how you cross a long diff. The
+      // line cursor stays behind; the next ↑ / ↓ starts over on screen.
+      pagedown: () => scrollBy(page()),
+      pageup: () => scrollBy(-page()),
     },
     { enabled: !finishOpen },
   );

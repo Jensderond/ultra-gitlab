@@ -5,6 +5,7 @@ import { DEFAULT_FILE_JUMP_COUNT } from '../../utils/fileNavigation';
 import { buildGitLabSuggestionBlock, extractSuggestionSelectionText } from '../../utils/gitlabSuggestions';
 import { trackShortcut } from '../../services/analytics';
 import { useShortcuts } from '../../components/ShortcutsProvider';
+import { usePageScrollKeys } from '../../hooks/usePageScrollKeys';
 import type { ApprovalButtonRef } from '../../components/Approval';
 import type { SnoozeButtonRef } from '../../components/Snooze/SnoozeButton';
 import type { CommentOverlayRef } from '../../components/CommentOverlay';
@@ -99,6 +100,9 @@ export function useMRKeyboard({
     trackShortcut('ArrowLeft', 'navigate_file_jump_prev', 'mr_detail');
     onNavigateFile(-fileJumpCount);
   }, active);
+
+  // Page Up / Page Down move through a long diff (not customizable).
+  usePageScrollKeys('.mr-detail-main');
 
   // --- Diff controls ---
   useHotkey(parseHotkey(getKey('toggle-view-mode') ?? 'x'), () => {

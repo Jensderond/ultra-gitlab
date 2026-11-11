@@ -44,6 +44,7 @@ const SECTIONS: Section[] = [
       [['shift+j', 'shift+k'], 'Next / previous change in the file'],
       [['arrowdown', 'arrowup'], 'Move the line cursor'],
       [['shift+arrowdown', 'shift+arrowup'], 'Extend the cursor to a range of lines'],
+      [['pagedown', 'pageup'], 'Page down / up'],
       [['space', 'shift+space'], 'Page down / up'],
       [['v'], 'Mark viewed, go to the next file'],
       [['n', 'shift+n'], 'Next / previous unresolved discussion'],

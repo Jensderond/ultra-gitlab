@@ -259,6 +259,18 @@ test.describe('flows', () => {
     await expect.poll(cursorLine).toBe(1);
     expect(await inView()).toBe(true);
 
+    // Page Down / Page Up cross the diff a screen at a time, and ↓ then
+    // starts over from what's on screen.
+    await page.mouse.move(0, 0);
+    await page.keyboard.press('PageDown');
+    const paged = await scroll.evaluate((el) => el.scrollTop);
+    expect(paged).toBeGreaterThan(100);
+    await page.keyboard.press('ArrowDown');
+    await expect.poll(cursorLine).toBeGreaterThan(1);
+    expect(await inView()).toBe(true);
+    await page.keyboard.press('PageUp');
+    expect(await scroll.evaluate((el) => el.scrollTop)).toBeLessThan(paged);
+
     // Moving the mouse takes the cursor with it.
     await page.locator('.rv-diff [data-line="6"]:not([data-column-number])').hover();
     await expect.poll(cursorLine).toBe(6);
