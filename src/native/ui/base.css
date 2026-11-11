@@ -123,11 +123,18 @@ code,
   background: transparent;
 }
 
+/*
+ * Reduce motion: nothing slides, scales or scrolls smoothly. Movement is cut
+ * here for everything; components opt back in with an opacity-only fade or a
+ * progress indicator by setting their own duration with !important (see the
+ * reduced-motion block at the end of components.css).
+ */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

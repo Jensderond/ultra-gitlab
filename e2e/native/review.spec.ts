@@ -166,13 +166,192 @@ test.describe('flows', () => {
     await expect(page).toHaveURL(/file=/);
   });
 
+  test('line cursor: ↑/↓ move it, ⇧ extends, C comments, Esc clears before leaving', async ({ page }) => {
+    await installReviewMocks(page, { settings: { diffViewMode: 'unified' } });
+    await open(page, `/review/101?file=${encodeURIComponent('src/styles/theme.css')}`);
+    await page.mouse.move(5, 5); // nothing hovered
+    // The lines the cursor covers, as "<line-type>:<line>".
+    const cursor = () =>
+      page.locator('.rv-diff').evaluate((host) =>
+        [...host.shadowRoot!.querySelectorAll('[data-content] > [data-line][data-selected-line]')].map(
+          (el) => `${el.getAttribute('data-line-type')}:${el.getAttribute('data-line')}`,
+        ),
+      );
+
+    // The first ↓ shows the cursor on the first line on screen; then it walks
+    // the diff in the order it reads, removed lines before their replacement.
+    await page.keyboard.press('ArrowDown');
+    await expect.poll(cursor).toEqual(['context:1']);
+    await page.keyboard.press('ArrowDown');
+    await expect.poll(cursor).toEqual(['change-deletion:2']);
+    for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowDown');
+    await expect.poll(cursor).toEqual(['change-addition:5']);
+    await page.keyboard.press('ArrowUp');
+    await expect.poll(cursor).toEqual(['context:4']);
+    await page.keyboard.press('ArrowDown');
+
+    // C comments on the cursor's line, no mouse involved.
+    await page.keyboard.press('c');
+    const composer = page.locator('#rv-new-comment');
+    await expect(composer.locator('textarea')).toBeFocused();
+    await expect(composer).toContainText('Comment on line 5');
+    // Esc backs out a step at a time: the composer, the cursor, then the review.
+    await page.keyboard.press('Escape');
+    await expect(composer).toHaveCount(0);
+    await expect.poll(cursor).toEqual(['change-addition:5']);
+    await page.keyboard.press('Escape');
+    await expect.poll(cursor).toEqual([]);
+    await expect(page).toHaveURL(/\/review\/101/);
+
+    // ⇧J lands the cursor on the first line of a change; ⇧↓ extends a range.
+    await page.keyboard.press('Shift+J');
+    await page.keyboard.press('Shift+J');
+    await page.keyboard.press('Shift+J');
+    await expect.poll(cursor).toEqual(['change-addition:9']);
+    for (let i = 0; i < 3; i++) await page.keyboard.press('Shift+ArrowDown');
+    await expect.poll(cursor).toHaveLength(4);
+    await page.keyboard.press('Shift+ArrowUp');
+    await expect.poll(cursor).toHaveLength(3);
+    await page.keyboard.press('s');
+    await expect(composer).toContainText('Comment on lines 9–11');
+    await expect(composer.locator('textarea')).toHaveValue(/^```suggestion:-2\+0\n/);
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    await expect.poll(cursor).toEqual([]);
+
+    // With nothing left to clear, Esc goes back to the inbox.
+    await page.keyboard.press('Escape');
+    await expect(page).toHaveURL(/\/inbox\//);
+  });
+
+  test('the line cursor stays in view, and follows the mouse only when it moves', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 480 });
+    await installReviewMocks(page, { settings: { diffViewMode: 'unified' } });
+    await open(page, `/review/101?file=${encodeURIComponent('src/components/ThemeToggle.tsx')}`);
+    const scroll = page.locator('.rv-scroll');
+    const cursorLine = () =>
+      page.locator('.rv-diff').evaluate((host) => {
+        const el = host.shadowRoot!.querySelector('[data-content] > [data-line][data-selected-line]');
+        return el ? Number(el.getAttribute('data-line')) : null;
+      });
+    // Whether the cursor's row is fully visible below the floating file header.
+    const inView = () =>
+      page.evaluate(() => {
+        const el = document.querySelector('.rv-diff')!.shadowRoot!.querySelector('[data-content] > [data-line][data-selected-line]')!;
+        const row = el.getBoundingClientRect();
+        const head = document.querySelector('.rv-filehead')!.getBoundingClientRect();
+        const box = document.querySelector('.rv-scroll')!.getBoundingClientRect();
+        return row.top >= head.bottom && row.bottom <= box.bottom;
+      });
+
+    // Rest the mouse on a line: ↓ carries on from it.
+    await page.locator('.rv-diff [data-line="3"]:not([data-column-number])').hover();
+    await page.keyboard.press('ArrowDown');
+    await expect.poll(cursorLine).toBe(4);
+
+    // Walking off the bottom scrolls the diff along; the pointer hasn't
+    // moved, so the lines passing under it don't steal the cursor.
+    for (let i = 0; i < 24; i++) await page.keyboard.press('ArrowDown');
+    await expect.poll(cursorLine).toBe(28);
+    expect(await scroll.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    expect(await inView()).toBe(true);
+    for (let i = 0; i < 27; i++) await page.keyboard.press('ArrowUp');
+    await expect.poll(cursorLine).toBe(1);
+    expect(await inView()).toBe(true);
+
+    // Moving the mouse takes the cursor with it.
+    await page.locator('.rv-diff [data-line="6"]:not([data-column-number])').hover();
+    await expect.poll(cursorLine).toBe(6);
+    await page.keyboard.press('ArrowDown');
+    await expect.poll(cursorLine).toBe(7);
+  });
+
+  test('a sheet animates out before it goes', async ({ page }) => {
+    await installReviewMocks(page, { settings: { diffViewMode: 'unified' } });
+    await open(page);
+    const backdrop = page.locator('.ui-sheet-backdrop');
+    const reviewUrl = page.url();
+
+    await page.keyboard.press('ControlOrMeta+Shift+Enter');
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(backdrop).toHaveAttribute('data-state', 'open');
+    // The dim starts below the toolbar: the sheet hangs from it.
+    const dimTop = await backdrop.evaluate((el) => parseFloat(getComputedStyle(el, '::before').top));
+    expect(dimTop).toBeGreaterThan(40);
+
+    // Esc: it stays in the page while it leaves, but is no longer a dialog
+    // and no longer in the way of the keys or the pointer.
+    await page.keyboard.press('Escape');
+    await expect(backdrop).toHaveAttribute('data-state', 'closed');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(await backdrop.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe('none');
+    await expect(backdrop).toHaveCount(0);
+    await expect(page).toHaveURL(reviewUrl);
+
+    // Reopening while it leaves turns it around instead of starting over.
+    await page.keyboard.press('ControlOrMeta+Shift+Enter');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('ControlOrMeta+Shift+Enter');
+    await expect(backdrop).toHaveAttribute('data-state', 'open');
+    await page.waitForTimeout(300);
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(backdrop).toHaveCount(1);
+  });
+
+  test('file header: one row, nothing clipped, no jump when the inspector toggles', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 700 });
+    await installReviewMocks(page, { settings: { diffViewMode: 'unified' } });
+    await open(page, `/review/101?file=${encodeURIComponent('src/components/ThemeToggle.tsx')}`);
+    const head = page.locator('.rv-filehead');
+    const diffTop = () => page.locator('.rv-diff').evaluate((el) => el.getBoundingClientRect().top);
+    // Every control sits fully inside the header, on one line.
+    const fits = () =>
+      head.evaluate((el) => {
+        const box = el.getBoundingClientRect();
+        return [...el.querySelectorAll('.rv-filehead__controls > *')].every((c) => {
+          const r = c.getBoundingClientRect();
+          return r.width > 0 && r.left >= box.left && r.right <= box.right && r.top >= box.top && r.bottom <= box.bottom;
+        });
+      });
+
+    for (const open of [false, true, false]) {
+      const shown = (await page.locator('.rv-aside').count()) > 0;
+      if (shown !== open) {
+        await page.keyboard.press('ControlOrMeta+Alt+Digit0');
+        await page.waitForTimeout(400);
+      }
+      await expect(page.locator('.rv-aside')).toHaveCount(open ? 1 : 0);
+      expect((await head.boundingBox())!.height).toBe(40);
+      expect(await fits()).toBe(true);
+      expect(await diffTop()).toBe(52 + 40);
+      await expect(page.getByRole('button', { name: /Mark viewed/ })).toBeVisible();
+    }
+
+    // The footer's way to every shortcut is never clipped.
+    const all = page.locator('.rv-footer__end');
+    const box = (await all.boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(1024);
+    await all.click();
+    await expect(page.locator('.ui-sheet', { hasText: 'Keyboard Shortcuts' })).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    // The header stays put while the diff scrolls under it, and only then draws its hairline.
+    const line = () => head.evaluate((el) => getComputedStyle(el).borderBottomColor);
+    expect(await line()).toBe('rgba(0, 0, 0, 0)');
+    await page.locator('.rv-scroll').evaluate((el) => (el.scrollTop = 300));
+    await expect.poll(line).not.toBe('rgba(0, 0, 0, 0)');
+    expect((await head.boundingBox())!.y).toBe(52);
+  });
+
   test('O opens the MR in GitLab, Y copies its link, the inspector shows the author', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await installReviewMocks(page, { settings: { diffViewMode: 'unified' } });
     await open(page);
     const url = 'https://gitlab.example.com/frontend/web-app/-/merge_requests/42';
 
-    await expect(page.getByRole('region', { name: 'Author' })).toContainText('alice');
+    // The author leads the people block, below the discussions.
+    const people = page.getByRole('region', { name: 'Author and reviewers' });
+    await expect(people.locator('.rv-reviewer').first()).toHaveText(/alice\s*Author/);
 
     await page.keyboard.press('o');
     await expect
@@ -419,9 +598,27 @@ test.describe('flows', () => {
     }, REVIEWED_SHA);
     await installReviewMocks(page, { settings: { diffViewMode: 'unified' } });
     await open(page);
-    await page.getByRole('button', { name: 'Since my last review' }).click();
+    // The view options sit behind one pop-up button in the file header.
+    const view = page.getByRole('button', { name: 'View options' });
+    await view.click();
+    const menu = page.getByRole('menu', { name: 'View options' });
+    await expect(menu.getByRole('menuitemradio', { name: 'Unified' })).toBeFocused();
+    await expect(menu.getByRole('menuitemradio', { name: 'All commits' })).toHaveAttribute('aria-checked', 'true');
+    await page.keyboard.press('End');
+    await expect(menu.getByRole('menuitemradio', { name: 'Since my last review' })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(menu).toBeHidden();
+    // The button says the diff is narrowed, so it can't hide behind the menu.
+    await expect(page.getByRole('button', { name: 'View options: since my last review' })).toHaveText(/Since last review/);
     await page.waitForTimeout(600);
     await shot(page, 'since');
+
+    // Esc closes the menu, not the review.
+    await page.getByRole('button', { name: /View options/ }).click();
+    await expect(menu).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+    await expect(page).toHaveURL(/\/review\/101/);
   });
 
   test('split, image, generated', async ({ page }) => {

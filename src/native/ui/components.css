@@ -86,6 +86,14 @@
 .ui-btn--primary:hover:not(:disabled) {
   background: var(--accent-hover);
 }
+/*
+ * Pressed: instant, on mouse-down, no transition. Each variant mixes towards
+ * the text colour, so it darkens in light mode and lifts in dark mode instead
+ * of sinking into the background.
+ */
+.ui-btn--primary:active:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 80%, var(--text) 20%);
+}
 .ui-btn--secondary {
   background: var(--bg-control);
   border-color: var(--line-control);
@@ -94,10 +102,16 @@
 .ui-btn--secondary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--bg-control) 92%, var(--text) 8%);
 }
+.ui-btn--secondary:active:not(:disabled) {
+  background: color-mix(in srgb, var(--bg-control) 82%, var(--text) 18%);
+}
 .ui-btn--danger {
   background: var(--fail);
   color: #fff;
   font-weight: 600;
+}
+.ui-btn--danger:active:not(:disabled) {
+  background: color-mix(in srgb, var(--fail) 80%, var(--text) 20%);
 }
 .ui-btn--plain {
   background: transparent;
@@ -105,6 +119,9 @@
 }
 .ui-btn--plain:hover:not(:disabled) {
   background: var(--bg-hover);
+}
+.ui-btn--plain:active:not(:disabled) {
+  background: var(--bg-pressed);
 }
 .ui-btn--ghost {
   background: transparent;
@@ -115,6 +132,9 @@
 }
 .ui-btn--ghost:hover:not(:disabled) {
   color: var(--accent-hover);
+}
+.ui-btn--ghost:active:not(:disabled) {
+  opacity: 0.6;
 }
 .ui-btn__kbd {
   font-family: inherit;
@@ -183,11 +203,17 @@
   padding: 3px 10px;
   font-size: var(--text-sm);
 }
+.ui-segmented__item:active:not(.is-on, :disabled) {
+  background: var(--bg-pressed);
+}
 .ui-segmented__item.is-on {
   background: var(--bg-control);
   color: var(--text);
   font-weight: 500;
   box-shadow: var(--shadow-control);
+}
+.ui-segmented__item.is-on:active {
+  background: color-mix(in srgb, var(--bg-control) 88%, var(--text) 12%);
 }
 
 /* Search ------------------------------------------------------------------- */
@@ -413,18 +439,41 @@
 
 /* Sheet ------------------------------------------------------------------- */
 
+/*
+ * The backdrop covers the whole window, so a click anywhere outside the sheet
+ * closes it, but only dims below the toolbar: the sheet hangs from the
+ * toolbar, which stays lit. Opening and closing run along the same path
+ * (down from the toolbar, back up into it); closing is quicker. Both are
+ * transitions on data-state, so reopening mid-close turns around from where
+ * it is.
+ */
 .ui-sheet-backdrop {
   position: fixed;
   inset: 0;
-  background: var(--overlay);
   display: flex;
   justify-content: center;
   align-items: flex-start;
   padding-top: calc(var(--toolbar-h) - 1px);
   z-index: 100;
-  animation: ui-fade var(--dur) var(--ease);
+}
+.ui-sheet-backdrop::before {
+  content: '';
+  position: absolute;
+  inset: calc(var(--toolbar-h) - 1px) 0 0 0;
+  background: var(--overlay);
+  opacity: 0;
+  transition: opacity var(--dur-exit) var(--ease-exit);
+}
+/* Leaving: never in the way of what's underneath. */
+.ui-sheet-backdrop[data-state='closed'] {
+  pointer-events: none;
+}
+.ui-sheet-backdrop[data-state='open']::before {
+  opacity: 1;
+  transition: opacity var(--dur) var(--ease);
 }
 .ui-sheet {
+  position: relative;
   max-width: calc(100vw - 48px);
   max-height: calc(100vh - var(--toolbar-h) - 40px);
   display: flex;
@@ -432,8 +481,19 @@
   background: var(--bg-raised);
   border-radius: 0 0 12px 12px;
   box-shadow: var(--shadow-popover);
-  animation: ui-sheet-in 220ms var(--ease);
   overflow: hidden;
+  opacity: 0;
+  transform: translateY(-16px);
+  transition:
+    opacity var(--dur-exit) var(--ease-exit),
+    transform var(--dur-exit) var(--ease-exit);
+}
+.ui-sheet-backdrop[data-state='open'] .ui-sheet {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--dur-pane) var(--ease),
+    transform var(--dur-pane) var(--ease);
 }
 .ui-sheet__title {
   font-size: var(--text-md);
@@ -454,12 +514,6 @@
 }
 @keyframes ui-fade {
   from {
-    opacity: 0;
-  }
-}
-@keyframes ui-sheet-in {
-  from {
-    transform: translateY(-16px);
     opacity: 0;
   }
 }
@@ -508,5 +562,61 @@
   from {
     transform: translateY(8px);
     opacity: 0;
+  }
+}
+
+/* Accessibility ------------------------------------------------------------ */
+
+/*
+ * Reduce motion (base.css cuts all movement): keep what tells you something.
+ * Spinners keep turning (a frozen spinner reads as a hang), the "running"
+ * status pulses instead of rotating, sheets and toasts cross-fade in place.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .ui-spinner {
+    animation-duration: 0.8s !important;
+  }
+  .ui-status--running {
+    animation-name: ui-pulse;
+    animation-timing-function: ease-in-out;
+    animation-duration: 1.6s !important;
+  }
+  .ui-sheet {
+    transform: none !important;
+  }
+  .ui-sheet,
+  .ui-sheet-backdrop::before {
+    transition-duration: var(--dur-exit) !important;
+  }
+  .ui-toast {
+    animation-name: ui-fade;
+    animation-duration: var(--dur) !important;
+  }
+}
+@keyframes ui-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* Reduce transparency / increase contrast: solid chrome, no blur. */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .ui-toolbar {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .ui-toast {
+    background: rgb(30, 30, 34);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .ui-toast--error {
+    background: rgb(142, 27, 18);
+  }
+}
+@media (prefers-contrast: more) {
+  .ui-sheet,
+  .ui-toast {
+    outline: 1px solid var(--line-control);
   }
 }

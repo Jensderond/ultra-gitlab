@@ -1,4 +1,8 @@
-/** The inspector on the right: author, reviewers, discussions, pipeline, description. */
+/**
+ * The inspector on the right, most pressing first: a failed pipeline,
+ * discussions, the author and reviewers, a pipeline that isn't failing, the
+ * description.
+ */
 
 import { useState } from 'react';
 import type { MergeRequest, MrReviewer, PipelineJob, PipelineStatus } from '../../api/types';
@@ -50,33 +54,57 @@ export function Aside({ mr, me, reviewers, avatars, threads, commenters, onJump,
   // GitLab lists jobs newest first; show them in pipeline order.
   const inOrder = jobs ? [...jobs].sort((a, b) => a.id - b.id) : [];
   const orderedJobs = inOrder.length <= JOB_LIMIT ? inOrder : inOrder.sort((a, b) => rank(a) - rank(b));
-  const visibleJobs = orderedJobs.slice(0, JOB_LIMIT);
+  // In the top slot (a failed pipeline) only what failed: the rest is a click away.
+  const failures = inOrder.filter((j) => j.status === 'failed' && !j.allowFailure);
+  const visibleJobs =
+    pipeline?.status === 'failed' && failures.length > 0 ? failures.slice(0, JOB_LIMIT) : orderedJobs.slice(0, JOB_LIMIT);
+  const hiddenJobs = orderedJobs.length - visibleJobs.length;
+
+  // A failed pipeline is the first thing to know; otherwise it waits below the people.
+  const failed = pipeline?.status === 'failed';
+  const pipelineSection = pipeline && (
+    <section className="rv-aside__section" aria-label="Pipeline">
+      <button type="button" className="rv-aside__head rv-aside__headlink" onClick={() => onOpenJob()} title="Open the pipeline (P)">
+        <Label>
+          Pipeline #{pipeline.id}
+          {failed ? ' · failed' : ''}
+        </Label>
+        <StatusIcon status={pipeline.status} size={14} />
+      </button>
+      {!jobs && <span className="rv-aside__muted">Loading jobs…</span>}
+      {jobs && jobs.length === 0 && <span className="rv-aside__muted">No jobs</span>}
+      <div className="rv-jobs">
+        {visibleJobs.map((j) => (
+          <button
+            key={j.id}
+            type="button"
+            className={cx('rv-job', j.status === 'failed' && (j.allowFailure ? 'is-allowed' : 'is-failed'))}
+            onClick={() => onOpenJob(j)}
+            title={`${j.stage} · ${j.status}${j.allowFailure ? ' (allowed to fail)' : ''}`}
+          >
+            <StatusIcon status={j.status} size={12} />
+            <span className="rv-job__name">{j.name}</span>
+            <span className="rv-job__time tabular">
+              {j.status === 'skipped' || j.status === 'manual' || j.status === 'created'
+                ? j.status === 'created'
+                  ? 'waiting'
+                  : j.status
+                : duration(j.duration)}
+            </span>
+          </button>
+        ))}
+        {hiddenJobs > 0 && (
+          <button type="button" className="rv-link rv-aside__toggle" onClick={() => onOpenJob()}>
+            {failed ? `${hiddenJobs} other ${hiddenJobs === 1 ? 'job' : 'jobs'} →` : `${hiddenJobs} more jobs →`}
+          </button>
+        )}
+      </div>
+    </section>
+  );
 
   return (
     <div className="rv-aside__inner">
-      <section className="rv-aside__section" aria-label="Author">
-        <Label>Author</Label>
-        <div className="rv-reviewer">
-          <Avatar username={mr.authorUsername} src={avatars?.[mr.authorUsername]} size={22} />
-          <span className="rv-reviewer__name">{mr.authorUsername === me ? 'You' : mr.authorUsername}</span>
-        </div>
-      </section>
-
-      <section className="rv-aside__section" aria-label="Reviewers">
-        <Label>Reviewers</Label>
-        {sortedReviewers.length === 0 && <span className="rv-aside__muted">No reviewers assigned</span>}
-        {sortedReviewers.map((r) => {
-          const isMe = r.username === me;
-          const status = reviewerStatus(r, isMe, commenters.has(r.username));
-          return (
-            <div key={r.username} className="rv-reviewer">
-              <Avatar username={r.username} src={avatars?.[r.username]} size={22} />
-              <span className="rv-reviewer__name">{isMe ? 'You' : r.username}</span>
-              <span className={cx('rv-reviewer__status', `is-${status.tone}`)}>{status.text}</span>
-            </div>
-          );
-        })}
-      </section>
+      {failed && pipelineSection}
 
       <section className="rv-aside__section" aria-label="Discussions">
         <div className="rv-aside__head">
@@ -93,11 +121,13 @@ export function Aside({ mr, me, reviewers, avatars, threads, commenters, onJump,
         )}
         {shown.map((t) => {
           const where = t.filePath ? `${splitPath(t.filePath).name}${t.line ? `:${t.line}` : ''}` : 'General';
+          // The header already says how many are open: only say what differs.
+          const status = t.resolved ? 'Resolved' : t.resolvable ? null : 'Comment';
           if (!t.filePath && openGeneral === t.id) {
             return (
               <div key={t.id} className="rv-aside__thread">
                 <button type="button" className="rv-link rv-aside__collapse" onClick={() => setOpenGeneral(null)}>
-                  ‹ {t.resolved ? 'Resolved' : t.resolvable ? 'Unresolved' : 'Comment'} · General
+                  ‹ General{status ? ` · ${status.toLowerCase()}` : ''}
                 </button>
                 <ThreadCard thread={t} compact />
               </div>
@@ -111,8 +141,9 @@ export function Aside({ mr, me, reviewers, avatars, threads, commenters, onJump,
               onClick={() => (t.filePath ? onJump(t) : setOpenGeneral(t.id))}
               title={t.filePath ? `${t.filePath}${t.line ? `:${t.line}` : ''}` : 'Open this discussion'}
             >
-              <span className="rv-dcard__where">
-                {t.resolved ? 'Resolved' : t.resolvable ? 'Unresolved' : 'Comment'} · {where}
+              <span className="rv-dcard__head">
+                <span className="rv-dcard__where">{where}</span>
+                {status && <span className={cx('rv-dcard__status', t.resolved && 'is-resolved')}>{status}</span>}
               </span>
               <span className="rv-dcard__text">
                 <strong>{t.root.authorUsername === me ? 'You' : t.root.authorUsername}:</strong> {snippet(t.root.body, 80)}
@@ -139,42 +170,29 @@ export function Aside({ mr, me, reviewers, avatars, threads, commenters, onJump,
         )}
       </section>
 
-      {pipeline && (
-        <section className="rv-aside__section" aria-label="Pipeline">
-          <button type="button" className="rv-aside__head rv-aside__headlink" onClick={() => onOpenJob()} title="Open the pipeline (P)">
-            <Label>Pipeline #{pipeline.id}</Label>
-            <StatusIcon status={pipeline.status} size={14} />
-          </button>
-          {!jobs && <span className="rv-aside__muted">Loading jobs…</span>}
-          {jobs && jobs.length === 0 && <span className="rv-aside__muted">No jobs</span>}
-          <div className="rv-jobs">
-            {visibleJobs.map((j) => (
-              <button
-                key={j.id}
-                type="button"
-                className={cx('rv-job', j.status === 'failed' && (j.allowFailure ? 'is-allowed' : 'is-failed'))}
-                onClick={() => onOpenJob(j)}
-                title={`${j.stage} · ${j.status}${j.allowFailure ? ' (allowed to fail)' : ''}`}
-              >
-                <StatusIcon status={j.status} size={12} />
-                <span className="rv-job__name">{j.name}</span>
-                <span className="rv-job__time tabular">
-                  {j.status === 'skipped' || j.status === 'manual' || j.status === 'created'
-                    ? j.status === 'created'
-                      ? 'waiting'
-                      : j.status
-                    : duration(j.duration)}
-                </span>
-              </button>
-            ))}
-            {orderedJobs.length > JOB_LIMIT && (
-              <button type="button" className="rv-link rv-aside__toggle" onClick={() => onOpenJob()}>
-                {orderedJobs.length - JOB_LIMIT} more jobs →
-              </button>
-            )}
-          </div>
-        </section>
-      )}
+      {/* The author leads the people on this merge request, in the status column's place. */}
+      <section className="rv-aside__section" aria-label="Author and reviewers">
+        <Label>Author & reviewers</Label>
+        <div className="rv-reviewer rv-reviewer--author">
+          <Avatar username={mr.authorUsername} src={avatars?.[mr.authorUsername]} size={22} />
+          <span className="rv-reviewer__name">{mr.authorUsername === me ? 'You' : mr.authorUsername}</span>
+          <span className="rv-reviewer__status">Author</span>
+        </div>
+        {sortedReviewers.length === 0 && <span className="rv-aside__muted">No reviewers assigned</span>}
+        {sortedReviewers.map((r) => {
+          const isMe = r.username === me;
+          const status = reviewerStatus(r, isMe, commenters.has(r.username));
+          return (
+            <div key={r.username} className="rv-reviewer">
+              <Avatar username={r.username} src={avatars?.[r.username]} size={22} />
+              <span className="rv-reviewer__name">{isMe ? 'You' : r.username}</span>
+              <span className={cx('rv-reviewer__status', `is-${status.tone}`)}>{status.text}</span>
+            </div>
+          );
+        })}
+      </section>
+
+      {!failed && pipelineSection}
 
       <section className="rv-aside__section" aria-label="Description">
         <Label>Description</Label>

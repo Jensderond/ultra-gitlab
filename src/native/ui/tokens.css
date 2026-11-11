@@ -25,9 +25,16 @@
   --radius-md: 6px; /* rows, small buttons */
   --radius-lg: 7px; /* buttons, segmented, fields */
   --radius-xl: 10px; /* cards */
-  --ease: cubic-bezier(0.2, 0, 0, 1);
-  --dur-fast: 120ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1); /* entering, moving: fast start, soft landing */
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1); /* leaving: accelerates away */
+  --dur-fast: 120ms; /* state changes: selected, viewed, hover release */
+  --dur-exit: 140ms; /* sheets, popovers and panes going away */
+  --dur-appear: 160ms; /* content arriving in place: composer, thread, draft */
   --dur: 180ms;
+  --dur-pane: 220ms; /* sheets dropping in, panes opening */
+  /* Translucent chrome over scrolling content (the diff's file header). */
+  --bg-bar: color-mix(in srgb, var(--bg-window) 78%, transparent);
+  --blur-bar: saturate(180%) blur(20px);
 
   /* Surfaces */
   --bg-window: #ffffff;
@@ -218,5 +225,71 @@ html.vibrant {
   html.vibrant {
     --bg-toolbar: rgba(42, 42, 45, 0.7);
     --bg-sidebar: rgba(37, 37, 40, 0.5);
+  }
+}
+
+/* Accessibility: System Settings → Display → Reduce transparency. Chrome
+   turns solid and loses its blur (see also .ui-toolbar in components.css). */
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  html.vibrant {
+    --bg-toolbar: #f5f5f7;
+    --bg-sidebar: #f0f0f3;
+    --bg-bar: var(--bg-window);
+    --blur-bar: none;
+    --overlay: rgba(20, 24, 40, 0.5);
+  }
+}
+@media (prefers-reduced-transparency: reduce) and (prefers-color-scheme: dark) {
+  :root,
+  html.vibrant {
+    --bg-toolbar: #2a2a2d;
+    --bg-sidebar: #252528;
+    --overlay: rgba(0, 0, 0, 0.65);
+  }
+}
+
+/* Accessibility: Increase contrast. Solid chrome, lines you can't miss,
+   and no text lighter than secondary. */
+@media (prefers-contrast: more) {
+  :root,
+  html.vibrant {
+    --bg-toolbar: #f5f5f7;
+    --bg-sidebar: #f0f0f3;
+    --bg-bar: var(--bg-window);
+    --blur-bar: none;
+    --line: #8e8e96;
+    --line-subtle: #b4b4bc;
+    --line-soft: #a4a4ac;
+    --line-control: #6e6e76;
+    --line-dashed: #6e6e76;
+    --text-2: #1d1d1f;
+    --text-3: #2a2a2e;
+    --text-muted: #3a3a40;
+    --text-faint: #4a4a52;
+    --text-ghost: #5e5e66;
+    --bg-hover: rgba(0, 0, 0, 0.08);
+    --bg-pressed: rgba(0, 0, 0, 0.16);
+    --focus-ring: 0 0 0 3px rgba(10, 95, 200, 0.7);
+  }
+}
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+  :root,
+  html.vibrant {
+    --bg-toolbar: #2a2a2d;
+    --bg-sidebar: #252528;
+    --line: #8c8c96;
+    --line-subtle: #5c5c64;
+    --line-soft: #6c6c74;
+    --line-control: #a0a0aa;
+    --line-dashed: #a0a0aa;
+    --text-2: #f2f2f5;
+    --text-3: #e4e4ea;
+    --text-muted: #d0d0d8;
+    --text-faint: #c2c2ca;
+    --text-ghost: #a0a0aa;
+    --bg-hover: rgba(255, 255, 255, 0.12);
+    --bg-pressed: rgba(255, 255, 255, 0.22);
+    --focus-ring: 0 0 0 3px rgba(90, 159, 247, 0.85);
   }
 }

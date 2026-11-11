@@ -137,7 +137,7 @@ export function Composer({
 
   const id = `rv-composer-${key.replace(/[^a-z0-9]+/gi, '-')}`;
   return (
-    <div className="rv-composer">
+    <div className="rv-composer rv-appear">
       <label htmlFor={id} className="rv-composer__label">
         {label}
       </label>
@@ -244,6 +244,7 @@ function NoteView({ comment, reply }: { comment: Comment; reply?: boolean }) {
 function DraftNote({ draft, reply }: { draft: Draft; reply?: boolean }) {
   const { avatars, me, baseUrl, composer, openComposer, updateDraft, removeDraft } = useReview();
   const editing = composer?.kind === 'edit' && composer.draftId === draft.id;
+  const [fresh] = useState(() => !!reply && isFresh(draft));
   if (editing) {
     return (
       <Composer
@@ -260,7 +261,7 @@ function DraftNote({ draft, reply }: { draft: Draft; reply?: boolean }) {
     );
   }
   return (
-    <div className={cx('rv-note rv-note--draft', reply && 'rv-note--reply')}>
+    <div className={cx('rv-note rv-note--draft', reply && 'rv-note--reply', fresh && 'rv-appear')}>
       <Avatar username={me ?? 'you'} src={me ? avatars?.[me] : undefined} size={reply ? 20 : 24} />
       <div className="rv-note__main">
         <div className="rv-note__meta">
@@ -291,7 +292,13 @@ function DraftNote({ draft, reply }: { draft: Draft; reply?: boolean }) {
 
 export function ThreadCard({ thread, compact }: { thread: Thread; compact?: boolean }) {
   const { drafts, composer, openComposer, addDraft, resolve, suggestion: suggestionFor } = useReview();
-  const [expanded, setExpanded] = useState(!thread.resolved);
+  const [expanded, setExpandedState] = useState(!thread.resolved);
+  // Expanding or collapsing by hand eases in; threads that come with the file don't.
+  const [toggled, setToggled] = useState(false);
+  const setExpanded = (value: boolean) => {
+    setToggled(true);
+    setExpandedState(value);
+  };
   const [busy, setBusy] = useState(false);
   const pending = drafts.filter((d) => d.discussionId && d.discussionId === thread.discussionId);
   const replying = composer?.kind === 'reply' && composer.threadId === thread.id;
@@ -313,7 +320,7 @@ export function ThreadCard({ thread, compact }: { thread: Thread; compact?: bool
       <button
         type="button"
         id={`rv-thread-${thread.id}`}
-        className={cx('rv-thread rv-thread--collapsed', compact && 'rv-thread--compact')}
+        className={cx('rv-thread rv-thread--collapsed', compact && 'rv-thread--compact', toggled && 'rv-appear')}
         onClick={() => setExpanded(true)}
         title="Show the resolved thread"
       >
@@ -335,7 +342,7 @@ export function ThreadCard({ thread, compact }: { thread: Thread; compact?: bool
       : null;
 
   return (
-    <div id={`rv-thread-${thread.id}`} className={cx('rv-thread', compact && 'rv-thread--compact', thread.resolved && 'is-resolved')}>
+    <div id={`rv-thread-${thread.id}`} className={cx('rv-thread', compact && 'rv-thread--compact', thread.resolved && 'is-resolved', toggled && 'rv-appear')}>
       <div className="rv-thread__notes">
         <NoteView comment={thread.root} />
         {thread.replies.map((c) => (
@@ -346,7 +353,7 @@ export function ThreadCard({ thread, compact }: { thread: Thread; compact?: bool
         ))}
       </div>
       {replying ? (
-        <div className="rv-thread__footer">
+        <div className="rv-thread__footer rv-appear">
           <Composer
             target={{ kind: 'reply', threadId: thread.id }}
             label="Your reply · saved as draft until you finish the review"
@@ -428,7 +435,7 @@ export function NewCommentCard({ target }: { target: Extract<ComposerTarget, { k
   const { openComposer, addDraft, suggestion } = useReview();
   const to = { side: target.side, line: target.line };
   return (
-    <div className="rv-thread rv-thread--new" id="rv-new-comment">
+    <div className="rv-thread rv-thread--new rv-appear" id="rv-new-comment">
       <Composer
         target={target}
         label={`Comment on ${linesLabel(to, target.from)} · saved as draft until you finish the review`}
@@ -450,9 +457,13 @@ export function NewCommentCard({ target }: { target: Extract<ComposerTarget, { k
   );
 }
 
+/** A draft you just added eases in; the ones that come with the file don't. */
+const isFresh = (draft: Draft) => Date.now() / 1000 - draft.createdAt <= 2;
+
 export function DraftCard({ draft }: { draft: Draft }) {
+  const [fresh] = useState(() => isFresh(draft));
   return (
-    <div className="rv-thread rv-thread--draft" id={`rv-draft-${draft.id}`}>
+    <div className={cx('rv-thread rv-thread--draft', fresh && 'rv-appear')} id={`rv-draft-${draft.id}`}>
       <div className="rv-thread__notes">
         <DraftNote draft={draft} />
       </div>

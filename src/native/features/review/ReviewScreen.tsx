@@ -1,7 +1,7 @@
 /**
  * 2 · Reviewing a merge request: files in review order on the left, the diff
  * with inline discussions in the middle, the inspector on the right and a
- * shortcut bar at the bottom. Comments are drafts until "Finish review".
+ * one-line hint bar at the bottom. Comments are drafts until "Finish review".
  */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
@@ -30,7 +30,6 @@ import {
   EmptyState,
   Kbd,
   Progress,
-  Segmented,
   Sheet,
   showContextMenu,
   Spinner,
@@ -38,16 +37,19 @@ import {
   toast,
   Toolbar,
   ToolbarTitle,
+  usePresence,
   cx,
   type MenuEntry,
 } from '../../ui/components';
 import { ChevronLeft } from '../../ui/icons';
 import { Body, Pane, Window } from '../../ui/layout';
 import { usePipelineFailure } from '../pipelines/shared';
+import { openShortcuts } from '../shortcuts/ShortcutsSheet';
 import { useDiffViewMode } from '../settings/prefs';
 import { Aside } from './Aside';
 import { prefetchPair, useContentAt, useFilePair, useImagePair } from './content';
 import { ReviewContext, type ComposerTarget, type ReviewContextValue } from './context';
+import { cursorOf, cursorRef, diffRoot, firstVisibleRow, flash, keepInView, readRows, rowAt, type Cursor, type Row } from './cursor';
 import { buildDiff, isVisible, lineKind, suggestionSource, type DiffModel } from './diff';
 import { DiffView, type AnnotationGroup, type DiffEditor, type LineRef, type Side } from './DiffView';
 import { FileList, type FileRowInfo } from './FileList';
@@ -67,12 +69,20 @@ import {
 } from './state';
 import { editedRegion, suggestionBlock } from './suggest';
 import { buildThreads, type Thread } from './threads';
+import { ViewMenu } from './ViewMenu';
 import './review.css';
 
 /** Diffs with more changed lines than this start collapsed. */
 const LARGE_DIFF = 1500;
 
 type Mode = 'all' | 'since';
+
+/** How long the inspector takes to close; matches --dur-exit. */
+const ASIDE_EXIT_MS = 140;
+
+/** Height of the file header that floats over the top of the diff scroller. */
+const headHeight = (scroller: HTMLElement | null) =>
+  scroller?.querySelector<HTMLElement>('.rv-filehead')?.offsetHeight ?? 0;
 
 /** CI file references are repo-relative, but be lenient about prefixes. */
 const sameFile = (location: string, path: string) =>
@@ -118,8 +128,20 @@ function InspectorIcon({ open }: { open: boolean }) {
   );
 }
 
-/** The inspector: a pane with its divider on the leading edge. */
-function AsidePane({ children }: { children: ReactNode }) {
+/**
+ * The inspector: a pane with its divider on the leading edge. The slot around
+ * it animates its width when the inspector is shown or hidden (⌘⌥0); the pane
+ * inside keeps its width, so its content doesn't reflow while it slides.
+ */
+function AsidePane({
+  children,
+  slotRef,
+  state,
+}: {
+  children: ReactNode;
+  slotRef: React.RefObject<HTMLDivElement | null>;
+  state: 'open' | 'closed';
+}) {
   const [width, setWidth] = useState(() => {
     try {
       return Number(localStorage.getItem('ug.pane.review-aside')) || 280;
@@ -153,7 +175,13 @@ function AsidePane({ children }: { children: ReactNode }) {
     target.addEventListener('pointerup', up);
   };
   return (
-    <aside className="rv-aside" aria-label="Merge request details" style={{ width, flexBasis: width }}>
+    <div
+      ref={slotRef}
+      className="rv-aside-slot"
+      data-state={state}
+      style={{ '--rv-aside-w': `${width}px` } as React.CSSProperties}
+    >
+    <aside className="rv-aside" aria-label="Merge request details" inert={state === 'closed'}>
       <div
         className="rv-aside__divider"
         role="separator"
@@ -170,6 +198,7 @@ function AsidePane({ children }: { children: ReactNode }) {
       />
       {children}
     </aside>
+    </div>
   );
 }
 
@@ -385,6 +414,27 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
   const [selected, setSelected] = useState<SelectedLineRange | null>(null);
   const hoverRef = useRef<LineRef | null>(null);
   const selectRef = useRef<LineRef | null>(null);
+  const composerRef = useRef(composer);
+  composerRef.current = composer;
+
+  // The line cursor is the selection, plus which end moves and who put it
+  // there: one placed with the keyboard follows the mouse, a mouse selection
+  // stays where you made it.
+  const cursor = useRef<Cursor | null>(null);
+  const cursorBy = useRef<'keys' | 'mouse' | null>(null);
+  const select = useCallback((ref: LineRef | null, by: 'keys' | 'mouse' = 'mouse') => {
+    selectRef.current = ref;
+    cursor.current = ref ? cursorOf(ref) : null;
+    cursorBy.current = ref ? by : null;
+    setSelected(ref ? toSelection(ref) : null);
+  }, []);
+  // Scrolling moves lines under a resting pointer, which the browser reports
+  // as pointer moves too. Only a pointer that changed position counts.
+  const pointer = useRef<{ x: number; y: number; moved: boolean }>({ x: -1, y: -1, moved: false });
+  const trackPointer = useCallback((e: React.PointerEvent) => {
+    const p = pointer.current;
+    pointer.current = { x: e.screenX, y: e.screenY, moved: p.x !== e.screenX || p.y !== e.screenY };
+  }, []);
 
   // Suggest edit: the new version becomes editable; the edit turns into a
   // suggestion comment. Keyed by file, so switching files ends it.
@@ -608,12 +658,11 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
         });
         return;
       }
-      setSelected(null);
-      selectRef.current = null;
+      select(null);
       hoverRef.current = null;
       setSearchParams({ file: next });
     },
-    [path, rememberScroll, isChange, currentEdit, askDiscard],
+    [path, rememberScroll, isChange, currentEdit, askDiscard, select],
   );
 
   // Restore the scroll position (or perform a pending jump) once the diff is there.
@@ -631,6 +680,7 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
         if (target) {
           pendingJump.current = null;
           target.scrollIntoView({ block: 'center' });
+          flash(target);
           return;
         }
         if (frames < 40) raf = requestAnimationFrame(attempt);
@@ -666,9 +716,8 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
   const stepChange = useCallback(
     (dir: 1 | -1) => {
       const el = scrollRef.current;
-      const host = el?.querySelector('.rv-diff');
-      if (!el || !host || !path) return;
-      const root = host.shadowRoot ?? host;
+      const root = diffRoot(el);
+      if (!el || !root || !path) return;
       const cells = new Map<number, Element[]>();
       for (const cell of root.querySelectorAll('[data-line-index][data-line-type^="change-"]')) {
         const i = parseInt(cell.getAttribute('data-line-index') ?? '', 10);
@@ -686,10 +735,14 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
       // A stop per block, its start a little below the top with some context
       // above it. A block taller than the window gets a stop per page as well,
       // so you read through it rather than skip to the next one.
-      const margin = Math.min(120, el.clientHeight / 4);
-      const page = Math.max(48, el.clientHeight - margin - 48);
+      // The file header floats over the top of the scroller: what you see
+      // starts below it.
+      const head = headHeight(el);
+      const view = el.clientHeight - head;
+      const margin = Math.min(120, view / 4);
+      const page = Math.max(48, view - margin - 48);
       const box = el.getBoundingClientRect();
-      const y = (viewportY: number) => el.scrollTop + viewportY - box.top;
+      const y = (viewportY: number) => el.scrollTop + viewportY - box.top - head;
       const stops: { top: number; block: number | null }[] = [];
       for (const start of starts) {
         let end = start;
@@ -697,7 +750,7 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
         const bottom = y(cells.get(end)![0].getBoundingClientRect().bottom);
         let top = y(cells.get(start)![0].getBoundingClientRect().top) - margin;
         stops.push({ top, block: start });
-        while (top + el.clientHeight < bottom) {
+        while (top + view < bottom) {
           top += page;
           stops.push({ top, block: null });
         }
@@ -725,10 +778,64 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
       if (stop.block === null) return;
       // Flash the block, so the step shows even when there's nothing to scroll.
       root.querySelectorAll('[data-ug-flash]').forEach((c) => c.removeAttribute('data-ug-flash'));
-      void (host as HTMLElement).offsetWidth; // restart the animation
+      void el.offsetWidth; // restart the animation
       for (let i = stop.block; cells.has(i); i++) cells.get(i)!.forEach((c) => c.setAttribute('data-ug-flash', ''));
+      // …and put the line cursor on its first line, ready for C or ↓.
+      const rows = readRows(el);
+      const first = rows.find((r) => r.index === stop.block);
+      if (first && !editing) select({ side: first.side, line: first.line, context: first.context }, 'keys');
     },
-    [path],
+    [path, editing, select],
+  );
+
+  /**
+   * ↑ / ↓: move the line cursor; with ⇧, extend the range from where it
+   * started. Without a cursor it starts from the hovered line, else at the
+   * top of what's on screen; one you've scrolled away from starts over there
+   * too. False at either end of the file (the caller scrolls instead).
+   */
+  const moveCursor = useCallback(
+    (dir: 1 | -1, extend: boolean): boolean => {
+      const el = scrollRef.current;
+      if (!el || !model || editing) return false;
+      const rows = readRows(el);
+      if (rows.length === 0) return false;
+      const box = el.getBoundingClientRect();
+      const top = box.top + headHeight(el);
+      const onScreen = (r: Row | undefined) => {
+        if (!r) return false;
+        const b = r.el.getBoundingClientRect();
+        return b.bottom > top && b.top < box.bottom;
+      };
+      const point = (r: Row) => ({ side: r.side, line: r.line });
+
+      let at = rowAt(rows, cursor.current?.head);
+      let anchor = extend ? cursor.current?.anchor : undefined;
+      let next: number;
+      if (at >= 0 && (extend || onScreen(rows[at]))) next = at + dir;
+      else {
+        at = rowAt(rows, hoverRef.current);
+        if (onScreen(rows[at])) {
+          next = at + dir;
+          anchor = extend ? point(rows[at]) : undefined;
+        } else {
+          next = firstVisibleRow(rows, top, box.bottom);
+          if (next < 0) next = dir === 1 ? 0 : rows.length - 1;
+          anchor = undefined;
+        }
+      }
+      if (next < 0 || next >= rows.length) return false;
+
+      const head = point(rows[next]);
+      const moved: Cursor = { anchor: anchor ?? head, head };
+      const ref = cursorRef(rows, moved);
+      if (!ref) return false;
+      select(ref, 'keys');
+      cursor.current = moved; // keep the anchor: select() reads a range top to bottom
+      keepInView(el, rows[next].el, headHeight(el));
+      return true;
+    },
+    [model, editing, select],
   );
 
   const markViewed = useCallback(() => {
@@ -751,17 +858,21 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
         toast('That file is no longer part of this merge request');
         return;
       }
-      if (t.line) setSelected({ start: t.line, end: t.line, side: t.side === 'new' ? 'additions' : 'deletions' });
+      // The cursor lands on the thread's line, so ↑/↓ and C carry on from it.
+      if (t.line) select({ side: t.side, line: t.line, context: false }, 'keys');
       if (t.side === 'old' && effectiveMode === 'since') setMode('all');
       if (target.newPath === path) {
-        document.getElementById(`rv-thread-${t.id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        // Every jump is instant and marks where it landed (as ⇧J / ⇧K do).
+        const card = document.getElementById(`rv-thread-${t.id}`);
+        card?.scrollIntoView({ block: 'center' });
+        flash(card);
       } else {
         rememberScroll();
         pendingJump.current = { path: target.newPath, threadId: t.id };
         setSearchParams({ file: target.newPath });
       }
     },
-    [ordered, path, effectiveMode, rememberScroll],
+    [ordered, path, effectiveMode, rememberScroll, select],
   );
 
   const lastJumped = useRef<string | null>(null);
@@ -806,24 +917,23 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
   );
 
   const openComposerAt = useCallback(
-    (ref: LineRef) => {
+    (ref: LineRef, by: 'keys' | 'mouse' = 'mouse') => {
       const target = newTarget(ref);
       if (!target) return;
       // Keep the lines highlighted while you write about them.
-      selectRef.current = ref;
-      setSelected(toSelection(ref));
+      select(ref, by);
       setComposer(target);
     },
-    [newTarget],
+    [newTarget, select],
   );
 
-  /** The selected lines, else the hovered one. */
+  /** The line cursor or selection, else the hovered line. */
   const lineForKey = useCallback(
     (key: string): LineRef | null => {
       if (!current || !model || editing) return null;
       const ref = selectRef.current ?? hoverRef.current;
       if (!ref) {
-        toast(`Hover or select lines first, then press ${key}`);
+        toast(`Move to a line with ↑ ↓ (or hover one) first, then press ${key}`);
         return null;
       }
       if (!commentSides.includes(ref.side) || (ref.from && !commentSides.includes(ref.from.side))) {
@@ -837,7 +947,7 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
 
   const commentOnLine = useCallback(() => {
     const ref = lineForKey('C');
-    if (ref) openComposerAt(ref);
+    if (ref) openComposerAt(ref, cursorBy.current ?? 'keys');
   }, [lineForKey, openComposerAt]);
 
   const suggestOnLine = useCallback(() => {
@@ -850,16 +960,37 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
       return;
     }
     seedSuggestion(mrId, target, suggestionBlock(source.text, source.above));
-    openComposerAt(ref);
+    openComposerAt(ref, cursorBy.current ?? 'keys');
   }, [lineForKey, newTarget, baseModel, mrId, openComposerAt]);
 
-  const onHover = useCallback((ref: LineRef | null) => {
-    hoverRef.current = ref;
-  }, []);
-  const onSelect = useCallback((ref: LineRef | null) => {
-    selectRef.current = ref;
-    setSelected(ref ? toSelection(ref) : null);
-  }, []);
+  const onHover = useCallback(
+    (ref: LineRef | null) => {
+      hoverRef.current = ref;
+      // A keyboard cursor follows the mouse, but only when the mouse itself
+      // moved. Ranges and the lines of an open composer stay put.
+      if (!ref || !pointer.current.moved || cursorBy.current !== 'keys') return;
+      if (selectRef.current?.from || composerRef.current) return;
+      if (selectRef.current?.side === ref.side && selectRef.current.line === ref.line) return;
+      select(ref, 'keys');
+    },
+    [select],
+  );
+  const onSelect = useCallback(
+    (ref: LineRef | null) => {
+      // Pierre also reports the selection we just gave it: that isn't the mouse.
+      const cur = selectRef.current;
+      const same =
+        !!ref &&
+        !!cur &&
+        ref.side === cur.side &&
+        ref.line === cur.line &&
+        ref.from?.side === cur.from?.side &&
+        ref.from?.line === cur.from?.line;
+      if (!same && (ref || cur)) select(ref, 'mouse');
+    },
+    [select],
+  );
+  const onComment = useCallback((ref: LineRef) => openComposerAt(ref, 'mouse'), [openComposerAt]);
 
   /* Suggest edit ---------------------------------------------------------- */
 
@@ -871,10 +1002,9 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
     }
     setEdited(null);
     setComposer(null);
-    setSelected(null);
-    selectRef.current = null;
+    select(null);
     setEditingPath(path);
-  }, [canEdit, grammarReady, path]);
+  }, [canEdit, grammarReady, path, select]);
 
   const cancelEdit = useCallback(() => {
     setEditingPath(null);
@@ -905,7 +1035,7 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
     const target = newTarget(ref);
     if (!target) return;
     seedSuggestion(mrId, target, suggestionBlock(region.replacement, region.endLine - region.startLine));
-    openComposerAt(ref);
+    openComposerAt(ref, 'keys');
   }, [editing, pair, currentEdit, cancelEdit, newTarget, mrId, openComposerAt]);
 
   // ⌘↩ creates the suggestion, Esc cancels. Pierre's editor binds both
@@ -953,6 +1083,7 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
       return !open;
     });
   }, []);
+  const aside = usePresence<HTMLDivElement>(asideOpen, ASIDE_EXIT_MS, { appear: false });
   useEffect(() => {
     // ⌘⌥0 like Xcode's inspector. Matched on the physical key: ⌥ changes e.key.
     const onKey = (e: KeyboardEvent) => {
@@ -1050,8 +1181,13 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
 
   /* Keyboard -------------------------------------------------------------- */
 
-  const scrollBy = (dy: number) => scrollRef.current?.scrollBy({ top: dy });
-  const page = () => (scrollRef.current?.clientHeight ?? 400) - 60;
+  const scrollBy = (dy: number) => scrollRef.current?.scrollBy({ top: dy, behavior: 'instant' });
+  const page = () => (scrollRef.current?.clientHeight ?? 400) - headHeight(scrollRef.current) - 60;
+  // ↑ / ↓ move the line cursor; where there are no lines (an image, the ends
+  // of the file) they scroll, as they used to.
+  const arrow = (dir: 1 | -1, extend: boolean) => {
+    if (!moveCursor(dir, extend) && !extend) scrollBy(dir * 48);
+  };
   const onChrome = (e: KeyboardEvent) =>
     !!(e.target as HTMLElement | null)?.closest?.('button, a, [role="listbox"], [role="option"]');
 
@@ -1071,9 +1207,14 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
       o: () => void (mr && openExternal(mr.webUrl)),
       y: () => void (mr && copyText(mr.webUrl, 'Link copied')),
       'mod+shift+enter': () => setFinishOpen(true),
-      escape: () => (editing ? requestCancelEdit() : composer ? setComposer(null) : leaveReview()),
-      arrowdown: (e) => (onChrome(e) ? false : scrollBy(48)),
-      arrowup: (e) => (onChrome(e) ? false : scrollBy(-48)),
+      // Esc backs out one step at a time: the edit, the comment, the line
+      // cursor or selection, and only then the review itself.
+      escape: () =>
+        editing ? requestCancelEdit() : composer ? setComposer(null) : selected ? select(null) : leaveReview(),
+      arrowdown: (e) => (onChrome(e) ? false : arrow(1, false)),
+      arrowup: (e) => (onChrome(e) ? false : arrow(-1, false)),
+      'shift+arrowdown': (e) => (onChrome(e) ? false : arrow(1, true)),
+      'shift+arrowup': (e) => (onChrome(e) ? false : arrow(-1, true)),
       space: (e) => (onChrome(e) ? false : scrollBy(page())),
       'shift+space': (e) => (onChrome(e) ? false : scrollBy(-page())),
     },
@@ -1207,7 +1348,7 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
         groups={groups}
         selected={selected}
         commentSides={commentSides}
-        onComment={openComposerAt}
+        onComment={onComment}
         onHover={onHover}
         onSelect={onSelect}
         edit={editing}
@@ -1222,6 +1363,32 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
     : !sinceSha
       ? 'No new commits since your last review'
       : `Only what changed since the version you reviewed (${lastReview.sha.slice(0, 7)})`;
+
+  // The one-line hint bar: what the keyboard does in the state you're in.
+  // Everything else lives on the ⌘? sheet.
+  const hints: [string[], string][] = editing
+    ? [
+        [['mod+enter'], 'create suggestion'],
+        [['escape'], 'cancel'],
+      ]
+    : composer
+      ? [
+          [['mod+enter'], composer.kind === 'new' || composer.kind === 'reply' ? 'add to review' : 'save'],
+          [['escape'], 'close'],
+        ]
+      : selected && textDiff
+        ? [
+            [['c'], 'comment'],
+            [['s'], 'suggest'],
+            [['shift+arrowup', 'shift+arrowdown'], 'extend'],
+            [['escape'], 'clear'],
+          ]
+        : textDiff && model
+          ? [
+              [['arrowup', 'arrowdown'], 'move by line'],
+              [['shift+j', 'shift+k'], 'next / previous change'],
+            ]
+          : [];
 
   const pillTone =
     status === 'success' ? 'ok' : status === 'failed' ? 'fail' : status === 'running' || status === 'pending' ? 'run' : 'neutral';
@@ -1310,108 +1477,105 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
           </Pane>
 
           <main className="rv-main">
-            {current && (
-              <div className="rv-filehead">
-                <div className="rv-filehead__info">
-                  <span
-                    className="rv-filehead__path mono selectable"
-                    title={current.oldPath && current.oldPath !== current.newPath ? `Renamed from ${current.oldPath}` : current.newPath}
-                  >
-                    {current.newPath}
-                  </span>
-                  {changeLabel(current) && (
-                    <span className={cx('rv-change', `rv-change--${current.changeType}`)}>
-                      {current.changeType === 'renamed' && current.oldPath
-                        ? `renamed from ${current.oldPath}`
-                        : changeLabel(current)}
-                    </span>
-                  )}
-                  <span className="rv-filehead__stats mono tabular">
-                    <span className="rv-add">+{current.additions}</span> <span className="rv-del">−{current.deletions}</span>
-                  </span>
-                  <span className="rv-filehead__pos">
-                    {currentIsGenerated ? 'Generated file' : `File ${reviewIndex + 1} of ${reviewable.length}`}
-                  </span>
-                  {(pairQ.fetching || sinceQ.fetching) && model && <Spinner size={12} />}
-                </div>
-                <div className="rv-filehead__controls">
-                  {editing ? (
-                    <div className="rv-editbar" role="group" aria-label="Suggest edit">
-                      <span className="rv-editbar__hint">Editing the new version</span>
-                      <Button size="sm" variant="plain" onClick={requestCancelEdit} title="Stop editing (esc)">
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        shortcut="mod+enter"
-                        onClick={confirmEdit}
-                        disabled={!hasEdits}
-                        title={hasEdits ? 'Turn your edit into a suggestion comment' : 'Make an edit first'}
-                      >
-                        Create suggestion
-                      </Button>
-                    </div>
-                  ) : (
-                    canEdit && (
-                      <Button
-                        size="sm"
-                        shortcut="e"
-                        onClick={startEdit}
-                        disabled={!grammarReady}
-                        title={grammarReady ? 'Edit the new version to suggest a change' : 'Preparing the editor…'}
-                      >
-                        Suggest edit
-                      </Button>
-                    )
-                  )}
-                  {textDiff && !editing && (
-                    <>
-                      <Segmented<'unified' | 'split'>
-                        label="Diff layout"
-                        size="sm"
-                        value={viewMode}
-                        onChange={setViewMode}
-                        options={[
-                          { value: 'unified', label: 'Unified' },
-                          { value: 'split', label: 'Split' },
-                        ]}
-                      />
-                      <div className={cx('rv-since', !sinceSha && 'is-disabled')} title={sinceTitle}>
-                        <Segmented<Mode>
-                          label="Commits"
-                          size="sm"
-                          value={effectiveMode}
-                          onChange={(v) => (sinceSha ? setMode(v) : undefined)}
-                          options={[
-                            { value: 'all', label: 'All commits' },
-                            { value: 'since', label: 'Since my last review', title: sinceTitle },
-                          ]}
-                        />
-                      </div>
-                    </>
-                  )}
-                  {!currentIsGenerated && !editing && (
-                    <button
-                      type="button"
-                      className={cx('rv-viewed-btn', isViewed && 'is-on')}
-                      aria-pressed={isViewed}
-                      onClick={markViewed}
-                      title={isViewed ? 'Mark as not viewed (V)' : 'Mark viewed and go to the next unviewed file (V)'}
+            <div
+              ref={scrollRef}
+              className="rv-scroll"
+              onPointerMoveCapture={trackPointer}
+              onScroll={(e) => e.currentTarget.toggleAttribute('data-scrolled', e.currentTarget.scrollTop > 0)}
+            >
+              {current && (
+                <div className="rv-filehead">
+                  <div className="rv-filehead__info">
+                    <span
+                      className="rv-filehead__path mono selectable"
+                      title={current.oldPath && current.oldPath !== current.newPath ? `Renamed from ${current.oldPath}` : current.newPath}
                     >
-                      {isViewed ? '✓ Viewed' : 'Mark viewed'} <span className="rv-viewed-btn__key">V</span>
-                    </button>
-                  )}
+                      {current.newPath}
+                    </span>
+                    {changeLabel(current) && (
+                      <span className={cx('rv-change', `rv-change--${current.changeType}`)}>
+                        {current.changeType === 'renamed' && current.oldPath
+                          ? `renamed from ${current.oldPath}`
+                          : changeLabel(current)}
+                      </span>
+                    )}
+                    <span className="rv-filehead__stats mono tabular">
+                      <span className="rv-add">+{current.additions}</span> <span className="rv-del">−{current.deletions}</span>
+                    </span>
+                    <span className="rv-filehead__pos">
+                      {currentIsGenerated ? 'Generated file' : `File ${reviewIndex + 1} of ${reviewable.length}`}
+                    </span>
+                    {(pairQ.fetching || sinceQ.fetching) && model && <Spinner size={12} />}
+                  </div>
+                  <div className="rv-filehead__controls">
+                    {editing ? (
+                      <div className="rv-editbar" role="group" aria-label="Suggest edit">
+                        <span className="rv-editbar__hint">Editing the new version</span>
+                        <Button size="sm" variant="plain" onClick={requestCancelEdit} title="Stop editing (esc)">
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          shortcut="mod+enter"
+                          onClick={confirmEdit}
+                          disabled={!hasEdits}
+                          title={hasEdits ? 'Turn your edit into a suggestion comment' : 'Make an edit first'}
+                        >
+                          Create suggestion
+                        </Button>
+                      </div>
+                    ) : (
+                      canEdit && (
+                        <Button
+                          size="sm"
+                          shortcut="e"
+                          onClick={startEdit}
+                          disabled={!grammarReady}
+                          title={grammarReady ? 'Edit the new version to suggest a change' : 'Preparing the editor…'}
+                        >
+                          Suggest edit
+                        </Button>
+                      )
+                    )}
+                    {textDiff && !editing && (
+                      <ViewMenu
+                        layout={viewMode}
+                        onLayout={setViewMode}
+                        commits={effectiveMode}
+                        onCommits={setMode}
+                        sinceAvailable={!!sinceSha}
+                        sinceHint={sinceTitle}
+                      />
+                    )}
+                    {!currentIsGenerated && !editing && (
+                      <button
+                        type="button"
+                        className={cx('rv-viewed-btn', isViewed && 'is-on')}
+                        aria-pressed={isViewed}
+                        onClick={markViewed}
+                        title={isViewed ? 'Mark as not viewed (V)' : 'Mark viewed and go to the next unviewed file (V)'}
+                      >
+                        {isViewed ? '✓ Viewed' : 'Mark viewed'} <span className="rv-viewed-btn__key">V</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-            <div ref={scrollRef} className="rv-scroll">
+              )}
               {body}
               {current && model && (
                 <div className="rv-nextfile">
                   {nextFile ? (
                     <>
-                      Next file: <span className="mono">{nextFile.newPath}</span> — press <Kbd>J</Kbd>
+                      Next file:{' '}
+                      <button
+                        type="button"
+                        className="rv-link rv-nextfile__link mono"
+                        onClick={() => selectFile(nextFile.newPath)}
+                        title="Go to the next file (J)"
+                      >
+                        {nextFile.newPath}
+                      </button>
                     </>
                   ) : (
                     <>
@@ -1423,8 +1587,8 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
             </div>
           </main>
 
-          {asideOpen && mr && (
-            <AsidePane>
+          {aside.present && mr && (
+            <AsidePane slotRef={aside.ref} state={aside.state}>
               <Aside
                 mr={mr}
                 me={me}
@@ -1442,36 +1606,24 @@ export function ReviewScreen({ mrId, file }: { mrId: number; file?: string }) {
         </Body>
 
         <footer className="rv-footer" aria-label="Keyboard shortcuts">
-          <span>
-            <Kbd>J</Kbd> <Kbd>K</Kbd> next / previous file
-          </span>
-          <span>
-            <Kbd combo="shift+j" /> <Kbd combo="shift+k" /> next / previous change
-          </span>
-          <span>
-            <Kbd>V</Kbd> mark viewed
-          </span>
-          <span>
-            <Kbd>N</Kbd> next unresolved
-          </span>
-          <span>
-            <Kbd>C</Kbd> comment on lines
-          </span>
-          <span>
-            <Kbd>S</Kbd> suggest change
-          </span>
-          <span>
-            <Kbd>E</Kbd> edit file
-          </span>
-          <span>
-            <Kbd>P</Kbd> pipeline
-          </span>
-          <span>
-            <Kbd combo="mod+shift+enter" /> finish review
-          </span>
-          <span className="rv-footer__end">
+          <div className="rv-footer__hints">
+            {hints.map(([keys, label]) => (
+              <span key={label} className="rv-footer__hint">
+                {keys.map((k) => (
+                  <Kbd key={k} combo={k} />
+                ))}{' '}
+                {label}
+              </span>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="rv-footer__end"
+            onClick={openShortcuts}
+            title="Every keyboard shortcut on one sheet"
+          >
             <Kbd combo="mod+?" /> all shortcuts
-          </span>
+          </button>
         </footer>
 
         <Sheet

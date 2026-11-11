@@ -6,6 +6,7 @@
 import {
   forwardRef,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ButtonHTMLAttributes,
@@ -475,8 +476,52 @@ export function StatusIcon({ status, size = 16 }: { status: PipelineState | null
 /* ------------------------------------------------------------------------ */
 
 /**
- * A sheet: a modal that drops from the toolbar like a macOS sheet.
- * Esc closes; keyboard shortcuts underneath are blocked while it's open.
+ * Keep something mounted while it animates away. Spread `ref` and
+ * `data-state` on the element whose CSS transitions between
+ * `[data-state='closed']` and `[data-state='open']`; render it while
+ * `present`. It mounts closed and opens on the next style pass, and stays
+ * `exitMs` after `open` turns false. Reopening during the exit reverses the
+ * transition from where it is. `appear: false` skips the entrance for
+ * something that is already open when its screen first shows.
+ */
+export function usePresence<T extends HTMLElement>(open: boolean, exitMs: number, { appear = true } = {}) {
+  const ref = useRef<T>(null);
+  const [wasOpen, setWasOpen] = useState(open);
+  const [exiting, setExiting] = useState(false);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    setExiting(!open);
+  }
+  useEffect(() => {
+    if (!exiting) return;
+    const t = setTimeout(() => setExiting(false), exitMs);
+    return () => clearTimeout(t);
+  }, [exiting, exitMs]);
+  const present = open || exiting;
+
+  const mounted = useRef(false);
+  const first = useRef(true);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const entering = open && !mounted.current && (appear || !first.current);
+    mounted.current = present;
+    first.current = false;
+    if (!entering || !el) return;
+    // Commit the closed styles first, so the browser has something to transition from.
+    el.dataset.state = 'closed';
+    void el.offsetHeight;
+    el.dataset.state = 'open';
+  });
+  return { ref, present, state: open ? ('open' as const) : ('closed' as const) };
+}
+
+/** How long a sheet takes to leave; matches --dur-exit. */
+const SHEET_EXIT_MS = 140;
+
+/**
+ * A sheet: a modal that drops from the toolbar like a macOS sheet and goes
+ * back the way it came. Esc closes; keyboard shortcuts underneath are blocked
+ * while it's open, and released the moment it starts closing.
  */
 export function Sheet({
   open,
@@ -494,6 +539,7 @@ export function Sheet({
   width?: number;
 }) {
   const panel = useRef<HTMLDivElement>(null);
+  const { ref, present, state } = usePresence<HTMLDivElement>(open, SHEET_EXIT_MS);
   useKeys({ escape: () => onClose() }, { modal: true, enabled: open });
   useEffect(() => {
     if (!open) return;
@@ -504,10 +550,23 @@ export function Sheet({
     (panel.current?.querySelector<HTMLElement>('[autofocus]') ?? first)?.focus();
     return () => previous?.focus?.();
   }, [open]);
-  if (!open) return null;
+  if (!present) return null;
   return createPortal(
-    <div className="ui-sheet-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={panel} className="ui-sheet" role="dialog" aria-modal="true" style={{ width }}>
+    <div
+      ref={ref}
+      className="ui-sheet-backdrop"
+      data-state={state}
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        ref={panel}
+        className="ui-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-hidden={open ? undefined : true}
+        inert={!open}
+        style={{ width }}
+      >
         {title && <h2 className="ui-sheet__title">{title}</h2>}
         <div className="ui-sheet__body">{children}</div>
         {footer && <div className="ui-sheet__footer">{footer}</div>}

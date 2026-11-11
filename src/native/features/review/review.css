@@ -43,8 +43,13 @@
   white-space: nowrap;
   flex: none;
 }
+/* Hover and press as an overlay: the tokens darken in light mode and lift
+   in dark mode, whatever the pill's own tint. */
 .rv-pill:hover:not(:disabled) {
-  filter: brightness(0.97);
+  box-shadow: inset 0 0 0 100vmax var(--bg-hover);
+}
+.rv-pill:active:not(:disabled) {
+  box-shadow: inset 0 0 0 100vmax var(--bg-pressed);
 }
 .rv-pill--fail {
   background: var(--fail-soft);
@@ -129,6 +134,9 @@ html.vibrant .ui-body > .rv-nav {
 .rv-file:hover:not(.is-selected) {
   background: var(--bg-hover);
 }
+.rv-file:active:not(.is-selected) {
+  background: var(--bg-pressed);
+}
 .rv-file.is-selected {
   background: var(--bg-selected-strong);
 }
@@ -150,6 +158,7 @@ html.vibrant .ui-body > .rv-nav {
 .rv-file__name {
   font-size: 12.5px;
   font-weight: 500;
+  transition: color var(--dur-fast) var(--ease); /* viewed ↔ not viewed */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -246,6 +255,9 @@ html.vibrant .ui-body > .rv-nav {
 .rv-generated__head:hover {
   background: var(--bg-hover);
 }
+.rv-generated__head:active {
+  background: var(--bg-pressed);
+}
 .rv-generated__count {
   margin-left: auto;
   font-weight: 400;
@@ -259,15 +271,35 @@ html.vibrant .ui-body > .rv-nav {
   display: flex;
   flex-direction: column;
   background: var(--bg-window);
+  /* The file header adapts to this column, not the window: the inspector
+     and the file list take their share first. */
+  container: rv-main / inline-size;
 }
+
+/*
+ * File header: one 40px row, whatever the width. It sticks to the top of the
+ * diff's scroller as a translucent bar, so code slides under it; the hairline
+ * appears only once something has (data-scrolled, set on scroll).
+ */
 .rv-filehead {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
-  padding: 9px 16px;
-  border-bottom: 1px solid var(--line);
-  min-height: 46px;
+  flex-wrap: nowrap;
+  height: 40px;
+  padding: 0 12px 0 16px;
+  background: var(--bg-bar);
+  -webkit-backdrop-filter: var(--blur-bar);
+  backdrop-filter: var(--blur-bar);
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.rv-scroll[data-scrolled] > .rv-filehead {
+  border-bottom-color: var(--line);
 }
 .rv-filehead__path {
   font-weight: 600;
@@ -289,8 +321,9 @@ html.vibrant .ui-body > .rv-nav {
   white-space: nowrap;
 }
 .rv-filehead__info {
-  flex: 1 1 260px;
+  flex: 1 1 0;
   min-width: 0;
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -299,6 +332,32 @@ html.vibrant .ui-body > .rv-nav {
   flex: none;
 }
 .rv-filehead__info > .rv-change {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.rv-filehead__controls {
+  flex: none;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* Narrower columns shed what the rest of the screen already says: the
+   position (the file list), the change kind (ditto), then the key hints. */
+@container rv-main (max-width: 640px) {
+  .rv-filehead__pos,
+  .rv-editbar__hint {
+    display: none;
+  }
+}
+@container rv-main (max-width: 520px) {
+  .rv-filehead .rv-change,
+  .rv-filehead .ui-btn__kbd,
+  .rv-viewed-btn__key {
+    display: none;
+  }
+}
+.rv-change {
   flex: 0 1 auto;
   min-width: 0;
 }
@@ -329,8 +388,104 @@ html.vibrant .ui-body > .rv-nav {
   background: var(--fail-soft);
   color: var(--fail-text);
 }
-.rv-since.is-disabled .ui-segmented__item:last-child {
-  opacity: 0.45;
+
+/* "View" pop-up menu ------------------------------------------------------- */
+
+.rv-viewmenu {
+  position: relative;
+  flex: none;
+}
+.rv-viewmenu__button {
+  gap: 4px;
+  padding-right: 7px;
+}
+.rv-viewmenu__button.is-open {
+  background: color-mix(in srgb, var(--bg-control) 88%, var(--text) 12%);
+}
+/* Narrowed to "since my last review": the button says so. */
+.rv-viewmenu__button.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.rv-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  z-index: 20;
+  min-width: 212px;
+  padding: 5px;
+  border-radius: var(--radius-xl);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-popover);
+  /* Grows out of the button it belongs to, and goes back into it. */
+  transform-origin: top right;
+  opacity: 0;
+  transform: scale(0.96);
+  transition:
+    opacity 100ms var(--ease-exit),
+    transform 100ms var(--ease-exit);
+}
+.rv-menu[data-state='open'] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+.rv-menu[data-state='closed'] {
+  pointer-events: none;
+}
+.rv-menu__label {
+  padding: 4px 8px 2px 26px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.rv-menu__item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  padding: 4px 10px 4px 6px;
+  text-align: left;
+  white-space: nowrap;
+  color: var(--text);
+}
+.rv-menu__item:disabled {
+  color: var(--text-ghost);
+}
+/* Like a Mac menu: the item under the pointer or the keys is the accent one. */
+.rv-menu__item:hover:not(:disabled),
+.rv-menu__item:focus-visible {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  box-shadow: none;
+  border-radius: var(--radius-sm);
+}
+.rv-menu__item:active:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 80%, var(--text) 20%);
+}
+.rv-menu__check {
+  flex: none;
+  width: 20px;
+  text-align: center;
+  font-size: var(--text-xs);
+}
+.rv-menu__sep {
+  height: 1px;
+  margin: 5px 8px;
+  background: var(--line);
+}
+.rv-menu__note {
+  padding: 2px 10px 5px 26px;
+  max-width: 250px;
+  font-size: var(--text-xs);
+  line-height: 1.35;
+  color: var(--text-muted);
+  white-space: normal;
 }
 .rv-viewed-btn {
   border: 1px solid var(--line-control);
@@ -343,8 +498,22 @@ html.vibrant .ui-body > .rv-nav {
   white-space: nowrap;
   min-height: 24px;
 }
+.rv-viewed-btn {
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
 .rv-viewed-btn:hover {
   background: color-mix(in srgb, var(--bg-control) 92%, var(--text) 8%);
+}
+/* Pressing is instant; only the viewed ↔ not viewed change eases. */
+.rv-viewed-btn:active {
+  background: color-mix(in srgb, var(--bg-control) 82%, var(--text) 18%);
+  transition: none;
+}
+.rv-viewed-btn.is-on:active {
+  background: color-mix(in srgb, var(--accent-soft) 80%, var(--accent) 20%);
 }
 .rv-viewed-btn.is-on {
   border-color: var(--accent);
@@ -381,6 +550,8 @@ html.vibrant .ui-body > .rv-nav {
   overflow: auto;
   overscroll-behavior: contain;
   position: relative;
+  /* scrollIntoView (a composer opening) stops short of the floating header. */
+  scroll-padding-top: 48px;
 }
 
 .rv-loading {
@@ -417,7 +588,8 @@ html.vibrant .ui-body > .rv-nav {
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
-.rv-nextfile .mono {
+.rv-nextfile__link {
+  font-weight: 400;
   color: var(--text-2);
 }
 
@@ -468,6 +640,33 @@ html.vibrant .ui-body > .rv-nav {
   overflow: hidden;
   text-align: left;
 }
+/* N and the inspector's cards jump straight to a thread and mark it, the
+   same way ⇧J / ⇧K mark a change: no scrolling animation, a ring that fades. */
+.rv-thread[data-ug-flash] {
+  animation: rv-flash 900ms ease-out;
+}
+@keyframes rv-flash {
+  from {
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent),
+      var(--shadow-card);
+    border-color: var(--accent);
+  }
+}
+/* Content arriving because you asked for it (a composer, a new draft, a
+   thread you expanded): fades in and settles from just above. */
+.rv-appear {
+  animation: rv-appear var(--dur-appear) var(--ease);
+}
+.rv-appear .rv-appear {
+  animation: none;
+}
+@keyframes rv-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
 .rv-thread.is-resolved {
   border-color: var(--line-soft);
 }
@@ -484,6 +683,9 @@ html.vibrant .ui-body > .rv-nav {
 }
 .rv-thread--collapsed:hover {
   background: var(--bg-hover);
+}
+.rv-thread--collapsed:active {
+  background: var(--bg-pressed);
 }
 .rv-thread__summary {
   flex: 1;
@@ -578,6 +780,9 @@ html.vibrant .ui-body > .rv-nav {
 }
 .rv-link:hover {
   color: var(--accent-hover);
+}
+.rv-link:active {
+  opacity: 0.55;
 }
 .rv-link--danger {
   color: var(--fail);
@@ -680,24 +885,48 @@ html.vibrant .ui-body > .rv-nav {
 
 /* Inspector ---------------------------------------------------------------- */
 
+/* The slot's width is what animates when the inspector is shown or hidden;
+   the pane inside keeps its width and is uncovered or covered. */
+.rv-aside-slot {
+  flex: none;
+  min-height: 0;
+  display: flex;
+  justify-content: flex-start;
+  overflow: hidden;
+  width: var(--rv-aside-w);
+  transition: width var(--dur-pane) var(--ease);
+}
+.rv-aside-slot[data-state='closed'] {
+  width: 0;
+  transition: width var(--dur-exit) var(--ease-exit);
+}
+body.is-resizing .rv-aside-slot {
+  transition: none;
+}
 .rv-aside {
   position: relative;
   flex: none;
+  width: var(--rv-aside-w);
   min-height: 0;
   display: flex;
   flex-direction: column;
   border-left: 1px solid var(--line);
   background: var(--bg-aside);
+  transition: opacity var(--dur-pane) var(--ease);
 }
-html.vibrant .ui-body > .rv-aside {
+.rv-aside-slot[data-state='closed'] > .rv-aside {
+  opacity: 0;
+  transition: opacity var(--dur-exit) var(--ease-exit);
+}
+html.vibrant .ui-body > .rv-aside-slot {
   background: var(--bg-aside);
 }
 .rv-aside__divider {
   position: absolute;
   top: 0;
-  left: -4px;
+  left: 0;
   bottom: 0;
-  width: 8px;
+  width: 6px;
   cursor: col-resize;
   z-index: 3;
 }
@@ -808,12 +1037,35 @@ html.vibrant .ui-body > .rv-aside {
   border-color: var(--line-control);
   background: color-mix(in srgb, var(--bg-raised) 96%, var(--text) 4%);
 }
+.rv-dcard:active {
+  border-color: var(--line-control);
+  background: color-mix(in srgb, var(--bg-raised) 88%, var(--text) 12%);
+}
 .rv-dcard.is-resolved {
   opacity: 0.7;
 }
+.rv-dcard__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
 .rv-dcard__where {
+  flex: 1;
+  min-width: 0;
   font-size: var(--text-sm);
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rv-dcard__status {
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.rv-dcard__status.is-resolved {
+  color: var(--ok-text);
 }
 .rv-dcard__text {
   font-size: var(--text-sm);
@@ -853,6 +1105,9 @@ html.vibrant .ui-body > .rv-aside {
 .rv-job:hover {
   background: var(--bg-hover);
 }
+.rv-job:active {
+  background: var(--bg-pressed);
+}
 .rv-job.is-failed {
   color: var(--fail-text);
   font-weight: 600;
@@ -879,21 +1134,53 @@ html.vibrant .ui-body > .rv-aside {
 
 /* Footer ------------------------------------------------------------------- */
 
+/* One quiet line: what the keys do right now, and the way to all of them. */
 .rv-footer {
   flex: none;
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 7px 16px;
-  border-top: 1px solid var(--line);
-  background: var(--bg-toolbar);
+  height: 24px;
+  padding: 0 8px 0 16px;
+  border-top: 1px solid var(--line-soft);
+  background: var(--bg-window);
   font-size: var(--text-xs);
-  color: var(--text-3);
+  color: var(--text-muted);
   white-space: nowrap;
+}
+.rv-footer .ui-kbd {
+  line-height: 14px;
+}
+.rv-footer__hints {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
   overflow: hidden;
 }
+.rv-footer__hint {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+/* Pinned: the hints give way, this never clips. */
 .rv-footer__end {
+  flex: none;
   margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+.rv-footer__end:hover {
+  background: var(--bg-hover);
+  color: var(--text-2);
+}
+.rv-footer__end:active {
+  background: var(--bg-pressed);
 }
 
 /* Images ------------------------------------------------------------------- */
@@ -978,8 +1265,22 @@ html.vibrant .ui-body > .rv-aside {
   padding: 8px 10px;
   background: var(--bg-control);
 }
+.rv-verdict {
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
 .rv-verdict:disabled {
   opacity: 0.55;
+}
+/* Pressing is instant; choosing eases. */
+.rv-verdict:active:not(:disabled) {
+  background: color-mix(in srgb, var(--bg-control) 86%, var(--text) 14%);
+  transition: none;
+}
+.rv-verdict.is-on:active:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-soft) 82%, var(--accent) 18%);
 }
 .rv-verdict.is-on {
   border-color: var(--accent);
@@ -1041,6 +1342,9 @@ html.vibrant .ui-body > .rv-aside {
 .rv-pending__remove:hover {
   color: var(--fail);
 }
+.rv-pending__remove:active {
+  opacity: 0.55;
+}
 
 .rv-inline-error {
   padding: 10px 8px;
@@ -1050,4 +1354,42 @@ html.vibrant .ui-body > .rv-aside {
   flex-direction: column;
   gap: 6px;
   align-items: flex-start;
+}
+
+/* Accessibility ------------------------------------------------------------ */
+
+/*
+ * Reduce motion (base.css cuts all movement): fades stay, in place. The
+ * inspector no longer slides (its width snaps) but still fades; the jump
+ * flash is a colour change, so it stays as it is.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .rv-appear {
+    animation-name: ui-fade;
+    animation-duration: var(--dur-appear) !important;
+  }
+  .rv-thread[data-ug-flash] {
+    animation-duration: 900ms !important;
+  }
+  .rv-menu {
+    transform: none !important;
+    transition-duration: 100ms !important;
+  }
+  .rv-aside {
+    transition-duration: var(--dur-exit) !important;
+  }
+  .rv-viewed-btn,
+  .rv-verdict,
+  .rv-file__name,
+  .rv-filehead {
+    transition-duration: var(--dur-fast) !important;
+  }
+}
+@media (prefers-contrast: more) {
+  .rv-filehead {
+    border-bottom-color: var(--line);
+  }
+  .rv-menu {
+    outline: 1px solid var(--line-control);
+  }
 }
