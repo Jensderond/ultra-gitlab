@@ -522,6 +522,7 @@ function PreviewBody({ mr, mineMode, me }: { mr: MergeRequest; mineMode: boolean
   const { data: comments } = useComments(mr.id);
   const avatars = useAvatars(mr.instanceId, [mr.authorUsername, ...mr.reviewers]);
   const open = mr.state === 'opened';
+  const closed = mr.state === 'closed';
   const mine = mineMode || mr.authorUsername === me;
   const canApprove = open && mr.authorUsername !== me;
   const draft = isDraft(mr);
@@ -665,6 +666,7 @@ function PreviewBody({ mr, mineMode, me }: { mr: MergeRequest; mineMode: boolean
             <span aria-hidden="true">›</span>
             <span className="mono selectable">!{mr.iid}</span>
             {draft && <Tag>Draft</Tag>}
+            {closed && <Tag tone="warn">Closed</Tag>}
             {isSnoozed(mr) && mr.snoozedUntil && (
               <>
                 <Tag>Snoozed until {formatSnooze(mr.snoozedUntil)}</Tag>
@@ -678,7 +680,7 @@ function PreviewBody({ mr, mineMode, me }: { mr: MergeRequest; mineMode: boolean
           <div className="inbox-byline">
             <Avatar username={mr.authorUsername} src={avatars?.[mr.authorUsername]} size={22} />
             <span>
-              {mr.authorUsername === me ? 'You' : mr.authorUsername} {open ? (mr.authorUsername === me ? 'want to merge' : 'wants to merge') : 'merged'}
+              {mr.authorUsername === me ? 'You' : mr.authorUsername} {open ? (mr.authorUsername === me ? 'want to merge' : 'wants to merge') : closed ? 'proposed to merge' : 'merged'}
             </span>
             <code className="inbox-branch">{mr.sourceBranch}</code>
             <span aria-hidden="true">→</span>
@@ -709,8 +711,8 @@ function PreviewBody({ mr, mineMode, me }: { mr: MergeRequest; mineMode: boolean
           {mine ? (
             <SummaryCard
               label="Status"
-              title={!open ? 'Merged' : status.title}
-              tone={!open ? 'ok' : status.tone}
+              title={closed ? 'Closed' : !open ? 'Merged' : status.title}
+              tone={closed ? undefined : !open ? 'ok' : status.tone}
               sub={mr.authorUsername === me ? 'You’re the author' : `Assigned to you · by ${mr.authorUsername}`}
             />
           ) : (

@@ -35,7 +35,7 @@ use commands::{
     list_pipeline_projects, merge_mr, play_pipeline_job,
     resolve_mr_by_web_url, fetch_mr_by_web_url,
     rebase_mr, refresh_avatars, refresh_gitattributes, rename_instance,
-    undraft_mr,
+    undraft_mr, close_mr, reopen_mr,
     rename_project,
     remove_pipeline_project, reorder_pinned_pipeline_projects, reply_to_comment, resolve_discussion, resolve_project_by_path, retry_failed_actions,
     retry_pipeline_job, search_projects,
@@ -408,6 +408,8 @@ pub fn run() {
             check_merge_status,
             rebase_mr,
             undraft_mr,
+            close_mr,
+            reopen_mr,
             get_mr_pipelines,
             // Auto-merge
             claim_auto_merge,

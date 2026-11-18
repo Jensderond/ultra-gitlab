@@ -1097,6 +1097,19 @@ pub async fn undraft_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<String, A
     crate::core::mr_actions::undraft(pool.inner(), mr_id).await
 }
 
+/// Close a merge request via the GitLab API (direct, not via the sync queue,
+/// so the user gets immediate feedback). Updates the local DB on success.
+#[tauri::command]
+pub async fn close_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppError> {
+    crate::core::mr_actions::close(pool.inner(), mr_id).await
+}
+
+/// Reopen a closed merge request via the GitLab API (used by Undo after close).
+#[tauri::command]
+pub async fn reopen_mr(pool: State<'_, DbPool>, mr_id: i64) -> Result<(), AppError> {
+    crate::core::mr_actions::reopen(pool.inner(), mr_id).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1298,6 +1298,40 @@ impl GitLabClient {
         }
     }
 
+    /// Close or reopen a merge request. `state_event` is `"close"` or `"reopen"`.
+    pub async fn set_merge_request_state(
+        &self,
+        project_id: i64,
+        mr_iid: i64,
+        state_event: &str,
+    ) -> Result<(), AppError> {
+        let endpoint = format!("/projects/{}/merge_requests/{}", project_id, mr_iid);
+        let url = self.api_url(&endpoint);
+        let response = self
+            .send_with_retry(
+                self.client
+                    .put(&url)
+                    .json(&serde_json::json!({ "state_event": state_event })),
+            )
+            .await?;
+
+        if response.status().is_success() {
+            Ok(())
+        } else {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            let message = serde_json::from_str::<serde_json::Value>(&body)
+                .ok()
+                .and_then(|v| v.get("message")?.as_str().map(String::from))
+                .unwrap_or_else(|| match status.as_u16() {
+                    401 | 403 => format!("Not allowed to {} this merge request", state_event),
+                    _ => format!("Failed to {} merge request ({})", state_event, status),
+                });
+
+            Err(AppError::gitlab_api_full(&message, status.as_u16(), &endpoint))
+        }
+    }
+
     /// Add a general comment to a merge request.
     pub async fn add_comment(
         &self,

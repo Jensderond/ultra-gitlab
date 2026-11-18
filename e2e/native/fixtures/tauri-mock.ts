@@ -170,6 +170,20 @@ export async function mockTauriIPC(
         };
       },
       merge_mr: () => undefined,
+      close_mr: (args) => {
+        const mr = [...data.mergeRequests, ...data.myMergeRequests].find(
+          (m: { id: number }) => m.id === args.mrId,
+        );
+        if (mr) mr.state = 'closed';
+        return undefined;
+      },
+      reopen_mr: (args) => {
+        const mr = [...data.mergeRequests, ...data.myMergeRequests].find(
+          (m: { id: number }) => m.id === args.mrId,
+        );
+        if (mr) mr.state = 'opened';
+        return undefined;
+      },
       check_merge_status: () => 'mergeable',
       rebase_mr: () => undefined,
       undraft_mr: (args) => {
