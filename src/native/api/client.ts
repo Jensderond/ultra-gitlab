@@ -153,6 +153,8 @@ export const api = {
   mergeStatus: (mrId: number) => invoke<string>('check_merge_status', { mrId }),
   rebase: (mrId: number) => invoke<void>('rebase_mr', { mrId }),
   markReady: (mrId: number) => invoke<string>('undraft_mr', { mrId }),
+  close: (mrId: number) => invoke<void>('close_mr', { mrId }),
+  reopen: (mrId: number) => invoke<void>('reopen_mr', { mrId }),
   /** `until` is Unix seconds and must be in the future. */
   snooze: (mrId: number, until: number) => invoke<MrSnooze>('snooze_mr', { mrId, until }),
   unsnooze: (mrId: number) => invoke<void>('unsnooze_mr', { mrId }),

@@ -182,6 +182,36 @@ export async function setApproved(mr: MergeRequest, approved: boolean) {
   refreshMR(mr.id);
 }
 
+/**
+ * Close an MR (GitLab notifies its participants, so the toast offers Undo,
+ * which reopens it). It leaves the list right away; the selection moves on.
+ */
+export async function closeMR(mr: MergeRequest) {
+  patchLists(mr.id, { state: 'closed' });
+  try {
+    await api.close(mr.id);
+    toast(`Closed !${mr.iid}`, {
+      action: { label: 'Undo', run: () => void reopenMR({ ...mr, state: 'closed' }) },
+    });
+  } catch (e) {
+    patchLists(mr.id, { state: mr.state });
+    toast(`Couldn't close !${mr.iid}: ${errMessage(e)}`, { tone: 'error' });
+  }
+  refreshMR(mr.id);
+}
+
+export async function reopenMR(mr: MergeRequest) {
+  patchLists(mr.id, { state: 'opened' });
+  try {
+    await api.reopen(mr.id);
+    toast(`Reopened !${mr.iid}`);
+  } catch (e) {
+    patchLists(mr.id, { state: mr.state });
+    toast(`Couldn't reopen !${mr.iid}: ${errMessage(e)}`, { tone: 'error' });
+  }
+  refreshMR(mr.id);
+}
+
 /** Right-click menu for a row (and the preview's ⋯ button). */
 export function rowMenu(mr: MergeRequest, { canApprove }: { canApprove: boolean }): InboxMenuEntry[] {
   const merged = mr.state !== 'opened';
@@ -192,6 +222,9 @@ export function rowMenu(mr: MergeRequest, { canApprove }: { canApprove: boolean 
     { label: 'Copy Link', action: () => copyLink(mr) },
     { label: 'Copy Branch Name', action: () => copyBranch(mr) },
     { label: 'Copy Checkout Command', action: () => copyCheckout(mr) },
+    ...(mr.state === 'closed'
+      ? ([{ separator: true }, { label: 'Reopen Merge Request', action: () => void reopenMR(mr) }] as InboxMenuEntry[])
+      : []),
     ...(merged
       ? []
       : ([
@@ -204,6 +237,8 @@ export function rowMenu(mr: MergeRequest, { canApprove }: { canApprove: boolean 
                   : { label: 'Approve', action: () => void setApproved(mr, true) },
               ]
             : []),
+          { separator: true },
+          { label: 'Close Merge Request', action: () => void closeMR(mr) },
         ] as InboxMenuEntry[])),
   ];
 }

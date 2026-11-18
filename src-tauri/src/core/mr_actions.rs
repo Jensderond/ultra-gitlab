@@ -47,6 +47,33 @@ pub async fn merge(pool: &DbPool, mr_id: i64) -> Result<(), AppError> {
     Ok(())
 }
 
+/// Close an MR via the GitLab API, then mark it closed locally.
+pub async fn close(pool: &DbPool, mr_id: i64) -> Result<(), AppError> {
+    let (instance_id, project_id, iid) = mr_api_ids(pool, mr_id).await?;
+    let client = create_client(pool, instance_id).await?;
+    client.set_merge_request_state(project_id, iid, "close").await?;
+    // Like merge: stamp state_changed_at so the row is kept for the retention
+    // window instead of being hard-purged on the next sync.
+    sqlx::query("UPDATE merge_requests SET state = 'closed', state_changed_at = ? WHERE id = ?")
+        .bind(chrono::Utc::now().timestamp())
+        .bind(mr_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+/// Reopen a closed MR via the GitLab API, then mark it open locally.
+pub async fn reopen(pool: &DbPool, mr_id: i64) -> Result<(), AppError> {
+    let (instance_id, project_id, iid) = mr_api_ids(pool, mr_id).await?;
+    let client = create_client(pool, instance_id).await?;
+    client.set_merge_request_state(project_id, iid, "reopen").await?;
+    sqlx::query("UPDATE merge_requests SET state = 'opened', state_changed_at = NULL WHERE id = ?")
+        .bind(mr_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 /// Rebase an MR's source branch via the GitLab API (async on GitLab's side).
 pub async fn rebase(pool: &DbPool, mr_id: i64) -> Result<(), AppError> {
     let (instance_id, project_id, iid) = mr_api_ids(pool, mr_id).await?;
