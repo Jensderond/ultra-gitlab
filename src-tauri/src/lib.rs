@@ -9,6 +9,8 @@ pub mod db;
 pub mod error;
 pub mod models;
 pub mod services;
+#[cfg(desktop)]
+mod window_state;
 
 use commands::{
     cli_status, download_and_install_cli,
@@ -222,8 +224,15 @@ pub fn run() {
                 let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                     .title("Ultra Gitlab")
                     .hidden_title(true)
+                    // Shown once window_state has put it back where it was.
+                    .visible(false)
                     .initialization_script(format!("window.__ULTRA_UI__ = {:?};", ui_variant.as_str()));
-                match ui_variant {
+                let native_min_size = tauri::LogicalSize::new(900.0, 560.0);
+                let min_inner_size = match ui_variant {
+                    UiVariant::Classic => None,
+                    UiVariant::Native => Some(native_min_size),
+                };
+                let builder = match ui_variant {
                     // Classic: transparent titlebar over an opaque window.
                     UiVariant::Classic => builder
                         .inner_size(800.0, 600.0)
@@ -231,7 +240,7 @@ pub fn run() {
                     UiVariant::Native => {
                         let builder = builder
                             .inner_size(1280.0, 820.0)
-                            .min_inner_size(900.0, 560.0)
+                            .min_inner_size(native_min_size.width, native_min_size.height)
                             .title_bar_style(TitleBarStyle::Overlay);
                         // Unified toolbar: traffic lights sit centred in the 52px web toolbar
                         // (tao grows the titlebar container by `y`, so y=30 puts their centre
@@ -250,8 +259,10 @@ pub fn run() {
                             });
                         builder
                     }
-                }
-                .build()?
+                };
+                let win = builder.build()?;
+                window_state::restore(app.handle(), &win, min_inner_size);
+                win
             };
             #[cfg(mobile)]
             let win = WebviewWindowBuilder::new(app, "main", WebviewUrl::default()).build()?;
@@ -290,6 +301,9 @@ pub fn run() {
                     }
                 }
             }
+
+            #[cfg(desktop)]
+            win.show()?;
 
             // System tray icon (macOS: hide-on-close, all platforms: quick access)
             #[cfg(desktop)]
@@ -492,6 +506,9 @@ pub fn run() {
                     sync_handle.set_app_focused(*focused);
                 }
             }
+            // Before the hide-on-close below, so the bounds are read while it's on screen.
+            #[cfg(desktop)]
+            window_state::on_window_event(window, event);
             #[cfg(target_os = "macos")]
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {
@@ -517,6 +534,7 @@ pub fn run() {
                 tauri::RunEvent::Exit => {
                     #[cfg(desktop)]
                     {
+                        window_state::save_now(app_handle);
                         let _ = app_handle.track_event("app_exited", None);
                         app_handle.flush_events_blocking();
                     }
